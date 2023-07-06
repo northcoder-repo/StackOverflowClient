@@ -39,7 +39,7 @@ public class ControllerTests {
     private final QuestionsDB qdb = new QuestionsDB(uri, dbName, collectionName);
     RetrieverController retrieverCtl = new RetrieverController(qdb);
 
-    //@Test
+    @Test
     public void testLoadDataList() {
         new LoaderController(qdb).loadDataList(mockCtx);
         Map<String, Object> model = new HashMap<>();
