@@ -56,7 +56,7 @@ public class ControllerTests {
         // expected output:
         String message = Util.ERR_NO_SITE;
         // call method:
-        testWebsocketLoadData(question_site, question_ids, message);
+        websocketLoadData(question_site, question_ids, message);
     }
 
     @Test
@@ -68,7 +68,7 @@ public class ControllerTests {
         // expected output:
         String message = Util.ERR_NO_SITE;
         // call method:
-        testWebsocketLoadData(question_site, question_ids, message);
+        websocketLoadData(question_site, question_ids, message);
     }
 
     @Test
@@ -80,7 +80,7 @@ public class ControllerTests {
         // expected output:
         String message = Util.ERR_INVALID_SITE;
         // call method:
-        testWebsocketLoadData(question_site, question_ids, message);
+        websocketLoadData(question_site, question_ids, message);
     }
 
     @Test
@@ -92,7 +92,7 @@ public class ControllerTests {
         // expected output:
         String message = Util.ERR_NO_IDS;
         // call method:
-        testWebsocketLoadData(question_site, question_ids, message);
+        websocketLoadData(question_site, question_ids, message);
     }
 
     @Test
@@ -105,7 +105,7 @@ public class ControllerTests {
         // expected output:
         String message = Util.ERR_NO_IDS;
         // call method:
-        testWebsocketLoadData(question_site, question_ids, message);
+        websocketLoadData(question_site, question_ids, message);
     }
 
     @Test
@@ -118,7 +118,7 @@ public class ControllerTests {
         // expected output:
         String message = Util.ERR_NO_IDS;
         // call method:
-        testWebsocketLoadData(question_site, question_ids, message);
+        websocketLoadData(question_site, question_ids, message);
     }
 
     private static final int TEST_QU_ID = 1247627;
@@ -139,7 +139,7 @@ public class ControllerTests {
         // expected output:
         String message = Util.OK_FINISHED;
         // call method:
-        testWebsocketLoadData(question_site, question_ids, message);
+        websocketLoadData(question_site, question_ids, message);
         assertTrue(countDocuments() == 1);
     }
 
@@ -153,7 +153,7 @@ public class ControllerTests {
     }
 
     @Test
-    public void validateQuestion() throws JsonProcessingException {
+    public void testValidateQuestion() throws JsonProcessingException {
         // these tests could fail if someone changes the question...
         Question question = retrieverCtl.fetchOneQuestion("stackoverflow", TEST_QU_ID);
         assertEquals(question.title(), TEST_QU_TITLE);
@@ -165,7 +165,7 @@ public class ControllerTests {
 
     private final WsMessageContext mockWsCtx = mock(WsMessageContext.class);
 
-    private void testWebsocketLoadData(String question_site, List<Integer> question_ids,
+    private void websocketLoadData(String question_site, List<Integer> question_ids,
             String message) throws SQLException, URISyntaxException, IOException,
             InterruptedException {
         QuestionLoadList qLL = new QuestionLoadList(question_site, question_ids);
