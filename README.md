@@ -16,4 +16,4 @@ I also use the separate command line tools for collection import/export utilitie
 
 https://www.mongodb.com/try/download/database-tools
 
-Specificially, this is version `100.7.3`.
+Specificially, this is version 100.7.3.
