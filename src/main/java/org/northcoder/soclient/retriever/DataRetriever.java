@@ -32,7 +32,6 @@ class DataRetriever {
                 Projections.include("question_id", "title", "tags", "site"),
                 Projections.excludeId());
 
-        String containerJson = "{ \"data\": [ %s ] }";
         StringBuilder sb = new StringBuilder();
 
         try (MongoCursor<Document> cursor = qdb.collection().find()
@@ -44,7 +43,7 @@ class DataRetriever {
             }
         }
         String innerJson = sb.substring(0, sb.length() - 2); // remove final ", "
-        return mapper.readTree(String.format(containerJson, innerJson));
+        return mapper.readTree(String.format("{ \"data\": [ %s ] }", innerJson));
     }
 
     protected Question getQuestionDetails(String site, int questionId) throws JsonProcessingException {
