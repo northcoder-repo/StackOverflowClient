@@ -13,7 +13,7 @@ function submitList() {
     const el = get_ele("do_load");
     el.removeEventListener("click", submitList, false);
     
-    get_ele("loader_messages").innerHTML = "";
+    get_ele("loader_messages").innerHTML = "Starting...";
 
     let ws = new WebSocket("ws://localhost:8091/websocket/do_load");
 
@@ -28,7 +28,8 @@ function submitList() {
         let div = document.createElement('div');
         div.innerHTML = event.data;
         let container = get_ele("loader_messages");
-        container.insertBefore(div, container.firstChild);
+        container.append(div);
+        container.scrollTop = container.scrollHeight;
     };
 
     ws.onclose = () => {
