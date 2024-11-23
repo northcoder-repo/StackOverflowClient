@@ -62,7 +62,8 @@ public class StaticSiteController {
             try {
                 String imageFileName = getImage(site, questionId, imgur);
                 // replace external URL with local URL:
-                imgur.attr("src", imageFileName);
+                String imageUrl = "/question/" + site + "/" + questionId + "/" + imageFileName;
+                imgur.attr("src", imageUrl);
             } catch (IOException ex) {
                 throw ex;
             }
