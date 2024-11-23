@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to define custom synonyms list in lucene synonymmap</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to define custom synonyms list in lucene synonymmap</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>yogesh</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>30 Nov 2020 at 08:33</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65070226/how-to-define-custom-synonyms-list-in-lucene-synonymmap">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to define synonym words related to a particular domain in Lucene 8*. I have a list of synonyms in CSV format. I didn't see any sample code of example for this. I only saw example for older version which doesn't work now.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">search</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Nov 2020 at 14:23</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a simple example of using synonyms in Lucene 8 (tested using 8.7.0).</p>
+     <p>Here is an example analyzer:</p>
+     <pre class="lang-java prettyprint-override"><code>boolean ignoreSynonymCase = Boolean.TRUE;
+
+Analyzer analyzer = new Analyzer() {
+    @Override
+    protected Analyzer.TokenStreamComponents createComponents(String fieldName) {
+        Tokenizer source = new StandardTokenizer();
+        TokenStream tokenStream = source;
+        tokenStream = new LowerCaseFilter(tokenStream);
+        tokenStream = new ASCIIFoldingFilter(tokenStream);
+        tokenStream = new SynonymGraphFilter(tokenStream, getSynonyms(), ignoreSynonymCase);
+        tokenStream = new FlattenGraphFilter(tokenStream);
+        return new Analyzer.TokenStreamComponents(source, tokenStream);
+    }
+};
+</code></pre>
+     <p>It uses a <a href="https://lucene.apache.org/core/8_7_0/analyzers-common/org/apache/lucene/analysis/synonym/SynonymGraphFilter.html" rel="nofollow noreferrer"><code>SynonymGraphFilter</code></a> to handle your synonyms, which need to be added to a <a href="https://lucene.apache.org/core/8_7_0/analyzers-common/org/apache/lucene/analysis/synonym/SynonymMap.html" rel="nofollow noreferrer"><code>SynonymMap</code></a> (see below for that).</p>
+     <p>Note the use of <code>FlattenGraphFilter</code> in the above example - which is needed during indexing as described in the synonym filter javadoc:</p>
+     <blockquote>
+      <p><em>However, if you use this during indexing, you must follow it with FlattenGraphFilter to squash tokens on top of one another like SynonymFilter, because the indexer can't directly consume a graph.</em></p>
+     </blockquote>
+     <p>My <code>getSynonyms()</code> method is as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>private static SynonymMap getSynonyms() {
+    // de-duplicate rules when loading:
+    boolean dedup = Boolean.TRUE;
+    // include original word in index:
+    boolean includeOrig = Boolean.TRUE;
+
+    SynonymMap.Builder builder = new SynonymMap.Builder(dedup);
+
+    // examples of single synonyms:
+    builder.add(new CharsRef("can't"), new CharsRef("cannot"), includeOrig);
+    builder.add(new CharsRef("what's"), new CharsRef("what is"), includeOrig);
+
+    // example with multiple synonyms:
+    CharsRefBuilder multiWordCharsRef = new CharsRefBuilder();
+    SynonymMap.Builder.join(new String[]{"do not", "does not"}, multiWordCharsRef);
+    builder.add(new CharsRef("don't"), multiWordCharsRef.get(), includeOrig);
+
+    SynonymMap synonymMap = null;
+    try {
+        synonymMap = builder.build();
+    } catch (IOException ex) {
+        System.err.print(ex);
+    }
+    return synonymMap;
+}
+</code></pre>
+     <p>So, for example, it treats <code>cannot</code> as a synonym for <code>can't</code>. And you can therefore search for <code>cannot</code> successfully in a phrase such as <code>This can't be done!</code>.</p>
+     <p>How you load your synonyms from your source CSV file is up to you - for example, you can call <code>builder.add()</code> in a loop.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>It worked thanks but the sequence in which we add CharsRef in builder also matters. So I need to add all combinations in order for it to work.</span> <span> - </span> <span class="display-name">yogesh</span> <span> </span> <span class="date">1 Dec 2020 at 13:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am not sure what you mean. Is something preventing you from adding all combinations, in the required order?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">1 Dec 2020 at 13:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What I mean was if I add builder.add(new CharsRef("can't"), new CharsRef("cannot"), includeOrig); during indexing time and search for "can't" it doesnt search for "cannot". I have to add "builder.add(new CharsRef("cannot"), new CharsRef("can't") , includeOrig);" as well. No, there is nothing stopping me from adding all the combinations. I just wanted to know if my understanding is correct or I am doing something wrong here.</span> <span> - </span> <span class="display-name">yogesh</span> <span> </span> <span class="date">1 Dec 2020 at 14:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

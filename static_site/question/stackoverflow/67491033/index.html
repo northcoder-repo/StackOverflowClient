@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How does lucene store a document?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How does lucene store a document?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Arvind M.</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 May 2021 at 16:43</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67491033/how-does-lucene-store-a-document">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Basically, how are each field inside a document stored in the inverted index? Does Lucene internally create a separate index for each field? Also Suppose a query is on a specific field, how does search works for it internally?</p>
+    <p>I know how inverted indices work. But how do you store multiple fields in a single index and how do you differentiate when to only search on particular fields when requested.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>If you want to see how Lucene stores indexed data, you can use the <code>SimpleTextCodec</code>. See this answer <a href="https://stackoverflow.com/a/63100965/12567365">How to view Lucene Index</a> for more details and some sample code. Basically, this generates human-readable index files (as opposed to the usual binary compressed formats).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">11 May 2021 at 16:54</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 May 2021 at 19:22</span>
+     </div>
+    </div>
+    <div>
+     <p>As I mentioned in my comment, If you want to see how Lucene stores indexed data, you can use the SimpleTextCodec. See this answer <a href="https://stackoverflow.com/questions/63096504/how-to-view-lucene-index/63100965#63100965">How to view Lucene Index</a> for more details and some sample code. Basically, this generates human-readable index files (as opposed to the usual binary compressed formats).</p>
+     <p>Below is a sample of what you can expect to see when you use the <code>SimpleTextCodec</code>.</p>
+     <p><strong><em>How do you store multiple fields in a single index?</em></strong></p>
+     <p>To show a basic example, assume we have a Lucene text field defined as follows:</p>
+     <pre><code>Field textField1 = new TextField("bodytext1", content, Field.Store.NO);
+</code></pre>
+     <p>And assume we have two documents as follows (analyzed using the StandardAnalyzer:</p>
+     <pre><code>Document 0: echo charlie delta echo
+Document 1: bravo alfa charlie
+</code></pre>
+     <p>This will give us a basic hierarchical index structure as follows:</p>
+     <pre><code>field bodytext1
+  term alfa
+    doc 1
+      freq 1
+      pos 1
+  term bravo
+    doc 1
+      freq 1
+      pos 0
+  term charlie
+    doc 0
+      freq 1
+      pos 1
+    doc 1
+      freq 1
+      pos 2
+  term delta
+    doc 0
+      freq 1
+      pos 2
+  term echo
+    doc 0
+      freq 2
+      pos 0
+      pos 3
+</code></pre>
+     <p>The general structure is therefore:</p>
+     <pre><code>field [field 1]
+  term [token value]
+    doc [document ID]
+      frequency
+      position
+field [field 2]
+  term [token value]
+    doc [document ID]
+      frequency
+      position
+</code></pre>
+     <p>And so on, for as many fields as are indexed.</p>
+     <p>This structure supports basic field-based querying.</p>
+     <p>You can summarize it as:</p>
+     <pre><code>field &gt; term &gt; doc &gt; freq/pos
+</code></pre>
+     <p>So, <strong><em>"does Lucene internally create a separate index for each field?"</em></strong> Yes, it does.</p>
+     <hr>
+     <p>Lucene can also store other additional structures in its index files, depending on how you configure your Lucene fields - so, this is not the only way data can be indexed.</p>
+     <p>For example you can request "term vector" data to also be indexed, in which case you will see an additional index structure:</p>
+     <pre><code>doc 0
+  numfields 1
+  field 1
+    name content2
+    positions true
+    offsets   true
+    payloads  false
+    numterms 3
+    term charlie
+      freq 1
+      position 1
+        startoffset 6
+        endoffset 13
+    term delta
+      freq 1
+      position 2
+        startoffset 15
+        endoffset 20
+    term echo
+      freq 2
+      position 0
+        startoffset 0
+        endoffset 4
+      position 3
+        startoffset 23
+        endoffset 27
+doc 1
+  ...
+</code></pre>
+     <p>This structure starts with documents, not fields - and is therefore well suited for processing which already has a document selected (e.g. the "top hit" document). With this, it is easy to locate the position of a matched word in a specific document field.</p>
+     <hr>
+     <p>This is far from a comprehensive list. But by using <code>SimpleTextCodec</code>, together with different field types, documents and analyzers, you can see for yourself exactly how Lucene indexes its data.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for the answer. It really helped me in understanding. I will look into SimpleTextCodec to try this myself. :)</span> <span> - </span> <span class="display-name">Arvind M.</span> <span> </span> <span class="date">11 May 2021 at 19:46</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

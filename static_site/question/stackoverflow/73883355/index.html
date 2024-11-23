@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>OpenCSV WithVerifier Problem validating fields on the same row</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>OpenCSV WithVerifier Problem validating fields on the same row</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Matheus Hoffmann</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Sep 2022 at 14:35</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73883355/opencsv-withverifier-problem-validating-fields-on-the-same-row">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to perform a validation to check if 2 fields informed in the csv exist in the database.</p>
+    <p>Given the CSV:</p>
+    <pre><code>RECORD_TYPE;COD_NATURE;COD_TAXATION
+TEST;100001;12;
+TEST;100002;12;
+TEST;777777;12;
+</code></pre>
+    <p>I need to validate line 1 if 10001 and 12 exist in the data list.</p>
+    <p>However, when validating COD_NATURE = 10001, the tool already discards line 1 and does not validate the COD_TAXATION=12 column.</p>
+    <p>My Code:</p>
+    <pre class="lang-java prettyprint-override"><code>CsvToBean&lt;Layout4010Csv&gt; csvToBean = new CsvToBeanBuilder&lt;Layout4010Csv&gt;(
+    new FileReader(CSV_FILE_PATH))
+        .withSeparator(SEPARATOR)
+        .withType(Layout4010Csv.class)
+        .withVerifier(new CodNatureVerifier()) //if there is an error here, it already discards the entire line
+        .withVerifier(new CodTaxation())
+        .withThrowExceptions(false)
+        .build();
+</code></pre>
+    <hr>
+    <pre class="lang-java prettyprint-override"><code>public class CodNatureVerifier implements BeanVerifier&lt;Layout4010Csv&gt; {
+
+    @Override
+    public boolean verifyBean(Layout4010Csv bean) throws CsvConstraintViolationException {
+    
+        boolean isCodNatureExists = CodNatureRepository.findById(bean.getCodNature()).isPresent();
+    
+        if (!isCodNatureExists) {
+            throw new CsvConstraintViolationException(bean);
+        }
+
+        return true;
+    
+    }
+}
+</code></pre>
+    <hr>
+    <pre class="lang-java prettyprint-override"><code>public class CodTaxationVerifier implements BeanVerifier&lt;Layout4010Csv&gt; {
+
+    @Override
+    public boolean verifyBean(Layout4010Csv bean) throws CsvConstraintViolationException {
+    
+        boolean isCodTaxationExists = codTaxationRepository.findById(bean.getcodTaxation()).isPresent();
+    
+        if (!iscodTaxationExists) {
+            throw new CsvConstraintViolationException(bean);
+        }
+
+        return true;
+    
+    }
+}
+</code></pre>
+    <p>When doing the <code>csvToBean.getCapturedExceptions()</code> I can only catch exceptions thrown in the first column which is <code>CodNatureza</code> and for the second column <code>CodTaxation</code> I can't because the line has already been discarded.</p>
+    <p>EDIT: I performed more tests trying to implement a single class called AllVerifier, but I need that every when I call the csvToBean.getCapturedExceptions() method, it has a CsvConstraintViolationException for each column in error.</p>
+    <p>Attempt 1: if it gives the first error, it doesn't even enter the second condition anymore.</p>
+    <pre><code>    @Override
+    public boolean verifyBean(Layout4010Csv bean) throws CsvConstraintViolationException {
+
+    boolean isCodNatureExists = codNatureRepository.findById(bean.getCodNature()).isPresent();
+
+    if (!isCodNatureExists) {
+        throw new CsvConstraintViolationException(bean);
+    }
+
+    boolean isCodTaxationExists  = codTaxationRepository.findById(bean.getCodTaxation()).isPresent();
+
+    if (!isCodTaxationExists ) {
+        throw new CsvConstraintViolationException(bean);
+    }
+
+    return true;
+}
+</code></pre>
+    <p>Attempt 2: It even returns that the line is invalid, but it doesn't tell me which fields are invalid, so it doesn't answer.</p>
+    <pre><code>    @Override
+
+    public boolean verifyBean(Layout4010Csv bean) throws CsvConstraintViolationException {
+
+    boolean isCodNatureExists = codNatureRepository.findById(bean.getCodNature()).isPresent();
+    boolean isCodTaxationExists = codTaxationRepository.findById(bean.getCodTaxation()).isPresent();
+
+    if (!isCodNatureExists || !isCodTaxationExists) {
+        throw new CsvConstraintViolationException(bean);
+    }
+    
+    return true;
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">csv</span><span class="tag">opencsv</span><span class="tag">read.csv</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>I'm not familiar with this technology but one thing you could possibly try is to validate both fields simultaneously, since that is in any case the requirement of your logic</span> <span> - </span> <span class="display-name">g00se</span> <span> </span> <span class="date">28 Sep 2022 at 14:47</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Combine the logic in <code>CodNatureVerifier</code> and <code>CodTaxationVerifier</code> into one class, returning one overall <code>true</code> or <code>false</code> result based on the two separate checks you need to perform (basically what @g00se says).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Sep 2022 at 15:03</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I did but didn't get the expected result. I need a "throw new CsvConstraintViolationException(bean)" for each error so I can map and save an error log.</span> <span> - </span> <span class="display-name">Matheus Hoffmann</span> <span> </span> <span class="date">28 Sep 2022 at 17:37</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Your comment is new information. You should add these details to the question. Can you also show us your attempt? You can <a href="https://stackoverflow.com/posts/73883355/edit">edit</a> your question. Also, why do you need to throw exceptions in order to write to a log?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Sep 2022 at 17:55</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>I'm reading a csv file and I need to inform the user that the data filled in the column is wrong through the log. I edited the post with the examples I tried to do.</span> <span> - </span> <span class="display-name">Matheus Hoffmann</span> <span> </span> <span class="date">28 Sep 2022 at 18:20</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Sep 2022 at 18:48</span>
+     </div>
+    </div>
+    <div>
+     <p>Instead of using this constructor for the constraint violation...</p>
+     <pre class="lang-java prettyprint-override"><code>CsvConstraintViolationException(Object sourceObject)
+</code></pre>
+     <p>...you can use this one:</p>
+     <pre class="lang-java prettyprint-override"><code>CsvConstraintViolationException(Object sourceObject, String message)
+</code></pre>
+     <p>Or even this:</p>
+     <pre class="lang-java prettyprint-override"><code>CsvConstraintViolationException(String message)
+</code></pre>
+     <p>So, for example, you can use <code>bean.getCodNature()</code> in one of the message strings, and <code>bean.getCodTaxation()</code> in the other one.</p>
+     <hr>
+     <p>See the <a href="https://opencsv.sourceforge.net/apidocs/com/opencsv/exceptions/CsvConstraintViolationException.html#CsvConstraintViolationException-java.lang.Object-java.lang.String-" rel="nofollow noreferrer">JavaDoc</a> for more details.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

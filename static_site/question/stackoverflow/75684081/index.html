@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jQuery DataTable: How to chain rows() methods to apply multiple conditions?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jQuery DataTable: How to chain rows() methods to apply multiple conditions?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Hiro</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Mar 2023 at 11:38</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75684081/jquery-datatable-how-to-chain-rows-methods-to-apply-multiple-conditions">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I wonder why table.rows([selector1]).rows([selector2]) doesn't return the rows which satisfies the both selector1 and selector2.</p>
+    <p>For example, the following code ignores the first condtion {selected:true}.</p>
+    <pre><code>table.rows({selected:true}).rows((index, row, node)=&gt;{return row[3]&lt;30}).deselect()
+</code></pre>
+    <p>table source: <a href="https://datatables.net/extensions/select/examples/api/get.html" rel="nofollow noreferrer">https://datatables.net/extensions/select/examples/api/get.html</a></p>
+    <p>I could solve the problem by combining the two conitions into one rows(), but I still wonder why chaining rows() doesn't work as I intended.</p>
+    <p>Rows() methods returns DataTables.Api and it provides the ability to chain according to the reference. <a href="https://datatables.net/reference/type/DataTables.Api" rel="nofollow noreferrer">https://datatables.net/reference/type/DataTables.Api</a></p>
+    <pre><code>table.rows((index, row, node)=&gt;{return $(node).hasClass("selected") &amp;&amp; row[3]&lt;=30}).deselect()
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Mar 2023 at 16:14</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Short Answer</strong></p>
+     <p>When you use <code>rows({selected:true})</code>, that does return an API instance (as you note) - but that instance still contains all the original data, and just captures the selected row IDs as <em>additional</em> metadata.</p>
+     <hr>
+     <p><strong>Longer Answer</strong></p>
+     <p>Let's assume you have selected one or more rows in a DataTable using the <a href="https://datatables.net/extensions/select/" rel="nofollow noreferrer">select extension</a>.</p>
+     <p>Then, you execute the following:</p>
+     <pre><code>table.rows({selected:true})
+</code></pre>
+     <p>As you state in the question, and as described in the <a href="https://datatables.net/reference/api/rows()" rel="nofollow noreferrer">documentation</a>, this returns a:</p>
+     <blockquote>
+      <p>"DataTables API instance with selected rows"</p>
+     </blockquote>
+     <p>But that does <em>not</em> mean a DataTables API which now contains <em>only</em> those rows.</p>
+     <p>It actually means a DataTables API with some additional metadata which describes the set of selected rows.</p>
+     <p>All of the original data (selected and unselected) is still stored in that API instance - and will still be used when you perform an additional chained <code>rows()</code> call.</p>
+     <p>That is why it appears as if the first <code>rows()</code> call in your example chain is ignored - because it effectively <em>is</em> ignored.</p>
+     <p>(This may appear counter-intuitive if you assume the returned API instance is just a filtered version of the original.)</p>
+     <hr>
+     <p>You can explore this further.</p>
+     <p>I have chosen a demo which does not use the select extension, for simplicity. But the same concepts apply:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>var dataSet = [{
+    "id": "123",
+    "name": "Tiger Nixon",
+    "position": "System Architect",
+    "salary": "$320,800",
+    "start_date": "2011/04/25",
+    "office": "Edinburgh",
+    "extn": "5421"
+  },
+  {
+    "id": "456",
+    "name": "Donna Snider",
+    "position": "Customer Support",
+    "salary": "$112,000",
+    "start_date": "2011/01/25",
+    "office": "New York",
+    "extn": "4226"
+  },
+  {
+    "id": "567",
+    "name": "Cedric Kelly",
+    "position": "Senior Javascript Developer",
+    "salary": "$433,060",
+    "start_date": "2012/03/29",
+    "office": "Edinburgh",
+    "extn": "6224"
+  },
+  {
+    "id": "632",
+    "name": "Airi Satou",
+    "position": "Accountant",
+    "salary": "$162,700",
+    "start_date": "2008/11/28",
+    "office": "Tokyo",
+    "extn": "5407"
+  },
+  {
+    "id": "987",
+    "name": "Brielle Williamson",
+    "position": "Integration Specialist",
+    "salary": "$372,000",
+    "start_date": "2012/12/02",
+    "office": "New York",
+    "extn": "4804"
+  }
+];
+
+$(document).ready(function() {
+
+  var table = $('#example').DataTable({
+    data: dataSet,
+    columns: [{
+        title: "ID",
+        data: "id"
+      },
+      {
+        title: "Name",
+        data: "name"
+      },
+      {
+        title: "Office",
+        data: "office"
+      },
+      {
+        title: "Position",
+        data: "position"
+      },
+      {
+        title: "Start date",
+        data: "start_date"
+      },
+      {
+        title: "Extn.",
+        data: "extn"
+      },
+      {
+        title: "Salary",
+        data: "salary"
+      }
+    ]
+
+  });
+
+  var selected1 = table.rows([1, 2, 3]).data().toArray();
+  console.log(selected1);
+
+  // expect this to find no data, but it finds Tiger Nixon:
+  var selected2 = table.rows([1, 2, 3]).rows([0]).data().toArray();
+  console.log(selected2);
+
+  // the extra metadata for the initially selected row IDs:
+  console.log(table.rows([1, 2, 3])[0]);
+
+});</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+  &lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+    &lt;/table&gt;
+
+  &lt;/div&gt;
+
+
+
+&lt;/body&gt;
+
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>When I execute the following:</p>
+     <pre><code>var selected1 = table.rows( [1,2,3] ).data().toArray();
+console.log( selected1 );
+</code></pre>
+     <p>it returns three records as expected for Donna, Cedric, and Airi, since those are the records with row indexes of 1, 2, and 3.</p>
+     <p>But when I execute the following:</p>
+     <pre><code>var selected2 = table.rows( [1,2,3] ).rows( [0] ).data().toArray();
+console.log( selected2 );
+</code></pre>
+     <p>I would expect it to return no data - because row index zero is not contained in row indexes 1, 2, or 3. Instead I get Tiger Nixon (row index 0 from the <em>original</em> table).</p>
+     <hr>
+     <p>You can see where the extra metadata is stored for <code>table.rows( [1,2,3] )</code>:</p>
+     <pre><code>console.log( table.rows( [1,2,3] )[0] );
+</code></pre>
+     <p>This returns the DataTables index values of the selected rows:</p>
+     <pre><code>[ 1, 2, 3 ]
+</code></pre>
+     <hr>
+     <p>So, yes, you can definitely chain API calls; but how they operate may not be what you expect, if you are chaining calls which appear to filter or narrow down the original data set.</p>
+     <p>I can't speculate on why DataTables is built this way. You can ask in the DataTables <a href="https://datatables.net/forums/" rel="nofollow noreferrer">forum</a> for a better answer than I could give you here.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you very much for your detailed explanation! I have better understanding of datatable now.</span> <span> - </span> <span class="display-name">Hiro</span> <span> </span> <span class="date">10 Mar 2023 at 10:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

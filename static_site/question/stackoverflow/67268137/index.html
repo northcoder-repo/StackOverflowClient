@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf: how to keep count over multipe iterators</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf: how to keep count over multipe iterators</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Paul S</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Apr 2021 at 14:04</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67268137/thymeleaf-how-to-keep-count-over-multipe-iterators">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to keep a global count over multiple iterators in my Thymeleaf template. My model of parents with children looks like this:</p>
+    <pre><code>val people = listOf(
+            Person("p1", listOf(Person("c1"), Person("c2"))),
+            Person("p2", listOf(Person("c3"))),
+            Person("p3", listOf(Person("c4"), Person("c5"))),
+        )
+</code></pre>
+    <p>What I have in my template now is this:</p>
+    <pre><code>&lt;div&gt;
+    &lt;h1&gt;Keep count over multiple iterators&lt;/h1&gt;
+    &lt;div th:each="parent, parentStat : ${model.data.people}"&gt;
+        &lt;h2 th:text="${parent.name}"&gt;&lt;/h2&gt;
+        &lt;div th:each="child, childStat : ${parent.children}"&gt;
+            &lt;span th:text="${child.name}"/&gt; (Global count: &lt;span th:text="${childStat.count}"/&gt;)
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+    <p>The output looks like this:</p>
+    <pre><code>Keep count over multiple iterators
+p1
+c1 (Global count: 1)
+c2 (Global count: 2)
+p2
+c3 (Global count: 1)
+p3
+c4 (Global count: 1)
+c5 (Global count: 2)
+</code></pre>
+    <p>Where the global count does not work, obviously, because it is just the count of children of the current parent. (I am only interested in 1 level of parent-child hierarchy).</p>
+    <p>Is want I want at all possible in Thymeleaf? Or is the only possibility to keep count in the model?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Have you tried: <code>&lt;span th:text="${childStat.count + parentStat.count}"/&gt;</code> ?</span> <span> - </span> <span class="display-name">Wim Deblauwe</span> <span> </span> <span class="date">26 Apr 2021 at 14:48</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Yes I did, the output is: c1=2, c2=3, c3=3, c4=4, c5=5. The problem with this is that I should add the number of children of all the previous parents, which I can not store in a thymeleaf variable</span> <span> - </span> <span class="display-name">Paul S</span> <span> </span> <span class="date">26 Apr 2021 at 15:18</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Apr 2021 at 15:28</span>
+     </div>
+    </div>
+    <div>
+     <p>I do not believe this can be handled using Thymeleaf. If your parents were always guaranteed to have the same number of children, then you could calculate the correct value using something like:</p>
+     <pre><code>((parent_iteration -1) * children_size) + current_child_count
+</code></pre>
+     <p>So, instead, perhaps you can use a <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Lists_and_Counters/Using_CSS_counters" rel="nofollow noreferrer">CSS counter</a>.</p>
+     <p>Add the following styles to your page:</p>
+     <pre class="lang-css prettyprint-override"><code>body {
+    counter-reset: section;                  
+}
+.countme::before {
+    counter-increment: section;
+    content: "Child " counter(section) ": ";
+}
+</code></pre>
+     <p>This includes a <code>countme</code> class definition - which we can then use as follows, whenever we also display a child's name:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;span class="countme"&gt;&lt;/span&gt;&lt;span th:text="${child.name}"&gt;&lt;/span&gt;
+</code></pre>
+     <p>This generates the following output on the web page:</p>
+     <p><a href="https://i.stack.imgur.com/CJThA.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/CJThA.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>That is a really creative solution! And it works fine, thank you very much! :-)</span> <span> - </span> <span class="display-name">Paul S</span> <span> </span> <span class="date">26 Apr 2021 at 15:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

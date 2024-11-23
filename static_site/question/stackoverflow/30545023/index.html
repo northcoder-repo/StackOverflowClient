@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to communicate between Docker containers via "hostname"</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to communicate between Docker containers via "hostname"</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>98</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Patrick Gotthard</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>30 May 2015 at 10:32</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/30545023/how-to-communicate-between-docker-containers-via-hostname">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I plan to split my monolthic server up into many small docker containers but haven't found a good solution for "inter-container communication" yet. This is my target scenario:</p>
+    <p><img src="https://i.stack.imgur.com/USA2n.png" alt="Target scenario"></p>
+    <p>I know how to link containers together and how to expose ports, but none of these solutions are satisfying to me.</p>
+    <p><strong>Is there any solution to communicate via hostnames (container names) between the containers like in a traditional server network?</strong></p>
+   </div>
+   <div class="tags">
+    <span class="tag">networking</span><span class="tag">docker</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>I have written a <a href="http://docs.blowb.org/overview.html" rel="nofollow noreferrer">document</a> recently doing exactly what you are looking for. It basically documents how to install multiple containers (one per process) and make them integrated. "inter-container communication" is <a href="http://docs.blowb.org/setup-host/dnsmasq.html" rel="nofollow noreferrer">part of the game</a>.</span> <span> - </span> <span class="display-name">xuhdev</span> <span> </span> <span class="date">30 May 2015 at 20:16</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I just found the <a href="http://blog.tutum.co" rel="nofollow noreferrer">Tumtum Blog</a> and stumbled upon <a href="https://docs.docker.com/userguide/dockerlinks/#updating-the-etchosts-file" rel="nofollow noreferrer">this paragraph in the official Docker documentation</a>. I don't know whether I had missed this paragraph all the time or whether it was newly added but that should be exactly what I need :)</span> <span> - </span> <span class="display-name">Patrick Gotthard</span> <span> </span> <span class="date">11 Jun 2015 at 17:53</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>docker 1.10 is out, and docker connect is awesome (<a href="https://github.com/docker/docker/blob/98aa1d24a3d7274a8056e57f385945e9829bd612/docs/reference/commandline/network_connect.md" rel="nofollow noreferrer">github.com/docker/docker/blob/…</a>). See <a href="http://stackoverflow.com/a/30546288/6309">my edited answer below</a></span> <span> - </span> <span class="display-name">VonC</span> <span> </span> <span class="date">5 Feb 2016 at 09:04</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>I think you should try <a href="https://docs.docker.com/compose/gettingstarted/" rel="nofollow noreferrer">docker-compose</a>. Works very well.</span> <span> - </span> <span class="display-name">Suhas Chikkanna</span> <span> </span> <span class="date">6 Sep 2017 at 16:34</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>230</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hemerson Varela</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Feb 2016 at 18:21</span>
+     </div>
+    </div>
+    <div>
+     <p>The new networking feature allows you to connect to containers by their name, so if you create a new network, any container connected to that network can reach other containers by their name. Example:</p>
+     <p><strong>1) Create new network</strong></p>
+     <pre><code>$ docker network create &lt;network-name&gt;       
+</code></pre>
+     <p><strong>2) Connect containers to network</strong></p>
+     <pre><code>$ docker run --net=&lt;network-name&gt; ...
+</code></pre>
+     <p>or</p>
+     <pre><code>$ docker network connect &lt;network-name&gt; &lt;container-name&gt;
+</code></pre>
+     <p><strong>3) Ping container by name</strong></p>
+     <pre><code>docker exec -ti &lt;container-name-A&gt; ping &lt;container-name-B&gt; 
+
+64 bytes from c1 (172.18.0.4): icmp_seq=1 ttl=64 time=0.137 ms
+64 bytes from c1 (172.18.0.4): icmp_seq=2 ttl=64 time=0.073 ms
+64 bytes from c1 (172.18.0.4): icmp_seq=3 ttl=64 time=0.074 ms
+64 bytes from c1 (172.18.0.4): icmp_seq=4 ttl=64 time=0.074 ms
+</code></pre>
+     <p>See <a href="https://docs.docker.com/engine/userguide/networking/dockernetworks/">this</a> section of the documentation;</p>
+     <p><strong>Note:</strong> Unlike legacy <code>links</code> the new networking <strong>will not</strong> create environment variables, nor share environment variables with other containers.</p>
+     <p>This feature currently doesn't support aliases</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>8</td>
+        <td><span>Works great. Why the default network does not enable this by default ??</span> <span> - </span> <span class="display-name">Stéphane</span> <span> </span> <span class="date">7 Nov 2017 at 09:09</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>The less obvious part is that, you need to restart an app running in a different container. So how can container A make an app running in container B to restart? Clearly, there seems to a need for some sort of a communication bus. At the top of my mind is to use Redis for signalling and inter-container communication.. So all containers subscribe to the redis chanel and it will be there that they will talk... How about of changes in published ports in docker-compose.yml file requiring a complete <code>docker-compose down,up,restart</code> ?</span> <span> - </span> <span class="display-name">daparic</span> <span> </span> <span class="date">4 Jan 2018 at 11:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>this is exactly what i've been looking for all day! didn't know you can refer to a network node by it's container name/id. thank you!</span> <span> - </span> <span class="display-name">elliotwesoff</span> <span> </span> <span class="date">11 Jan 2018 at 17:14</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@Stéphane It's disabled in the default <code>bridge</code> network because of backwards compatibility but yes, I agree, it <i>should</i> definitely be enabled by default!</span> <span> - </span> <span class="display-name">helmesjo</span> <span> </span> <span class="date">18 Jan 2018 at 17:01</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>27</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>xuhdev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 May 2015 at 20:22</span>
+     </div>
+    </div>
+    <div>
+     <p>Edit: After Docker 1.9, the <code>docker network</code> command (see below <a href="https://stackoverflow.com/a/35184695/977939">https://stackoverflow.com/a/35184695/977939</a>) is the recommended way to achieve this.</p>
+     <hr>
+     <p>My solution is to set up a dnsmasq on the host to have DNS record automatically updated: "A" records have the names of containers and point to the IP addresses of the containers automatically (every 10 sec). The <a href="http://docs.blowb.org/appendices/update-dnsmasq.html" rel="noreferrer">automatic updating script</a> is pasted here:</p>
+     <pre><code>#!/bin/bash
+
+# 10 seconds interval time by default
+INTERVAL=${INTERVAL:-10}
+
+# dnsmasq config directory
+DNSMASQ_CONFIG=${DNSMASQ_CONFIG:-.}
+
+# commands used in this script
+DOCKER=${DOCKER:-docker}
+SLEEP=${SLEEP:-sleep}
+TAIL=${TAIL:-tail}
+
+declare -A service_map
+
+while true
+do
+    changed=false
+    while read line
+    do
+        name=${line##* }
+        ip=$(${DOCKER} inspect --format '{{.NetworkSettings.IPAddress}}' $name)
+        if [ -z ${service_map[$name]} ] || [ ${service_map[$name]} != $ip ] # IP addr changed
+        then
+            service_map[$name]=$ip
+            # write to file
+            echo $name has a new IP Address $ip &gt;&amp;2
+            echo "host-record=$name,$ip"  &gt; "${DNSMASQ_CONFIG}/docker-$name"
+            changed=true
+        fi
+    done &lt; &lt;(${DOCKER} ps | ${TAIL} -n +2)
+
+    # a change of IP address occured, restart dnsmasq
+    if [ $changed = true ]
+    then
+        systemctl restart dnsmasq
+    fi
+
+    ${SLEEP} $INTERVAL
+done
+</code></pre>
+     <p>Make sure your dnsmasq service is available on <code>docker0</code>. Then, start your container with <code>--dns HOST_ADDRESS</code> to use this mini dns service.</p>
+     <p>Reference: <a href="http://docs.blowb.org/setup-host/dnsmasq.html" rel="noreferrer">http://docs.blowb.org/setup-host/dnsmasq.html</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>That looks interesting, much resilient than my --link answer. +1</span> <span> - </span> <span class="display-name">VonC</span> <span> </span> <span class="date">30 May 2015 at 20:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@VonC looks like the new libnetwork may replace this workaround. Let's see though.</span> <span> - </span> <span class="display-name">xuhdev</span> <span> </span> <span class="date">30 May 2015 at 20:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@xuhdev I setup dnsmasq as in <a href="http://docs.blowb.org/setup-host/dnsmasq.html" rel="nofollow noreferrer">docs.blowb.org/setup-host/dnsmasq.html</a>. But i face issues when using dig from docker container, it time out. But ping to the host docker0 interface ip works. Also dig with the same docker0 ip from docker host works. Do you have any sugestions?</span> <span> - </span> <span class="display-name">Satheesh</span> <span> </span> <span class="date">4 Feb 2016 at 21:44</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Satheesh Maybe it's your firewall settings that prevent your container from querying DNS from the host?</span> <span> - </span> <span class="display-name">xuhdev</span> <span> </span> <span class="date">5 Feb 2016 at 01:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@xuhdev thanks it is the firewalld in my host machine, which caused the issue. Once I stooped firewalld, my container communicates with dnsmasq on host</span> <span> - </span> <span class="display-name">Satheesh</span> <span> </span> <span class="date">5 Feb 2016 at 22:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@xuhdev the mentioned script "while read line" returns empty for me when run as service, but when i run manually, im able to get docker container processes. + read line ++ docker ps ++ tail -n +2 Get http://%2Fvar%2Frun%2Fdocker.sock/v1.20/containers/json: EOF. * Are you trying to connect to a TLS-enabled daemon without TLS? * Is your docker daemon up and running? + name=</span> <span> - </span> <span class="display-name">Satheesh</span> <span> </span> <span class="date">7 Feb 2016 at 02:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>17</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>VonC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 May 2015 at 12:40</span>
+     </div>
+    </div>
+    <div>
+     <p>That should be <a href="https://docs.docker.com/userguide/dockerlinks/" rel="noreferrer">what <code>--link</code> is for</a>, at least for the hostname part.<br>
+       With <a href="https://github.com/docker/docker/pull/19242" rel="noreferrer">docker 1.10, and PR 19242</a>, that would be:</p>
+     <pre><code>docker network create --net-alias=[]: Add network-scoped alias for the container
+</code></pre>
+     <p>(see last section below)</p>
+     <p>That is what <a href="https://docs.docker.com/userguide/dockerlinks/#updating-the-etchosts-file" rel="noreferrer">Updating the <code>/etc/hosts</code> file</a> details</p>
+     <blockquote>
+      <p>In addition to the environment variables, Docker adds a host entry for the source container to the <code>/etc/hosts</code> file.</p>
+     </blockquote>
+     <p>For instance, launch an LDAP server:</p>
+     <pre><code>docker run -t  --name openldap -d -p 389:389 larrycai/openldap
+</code></pre>
+     <p>And define an image to test that LDAP server:</p>
+     <pre><code>FROM ubuntu
+RUN apt-get -y install ldap-utils
+RUN touch /root/.bash_aliases
+RUN echo "alias lds='ldapsearch -H ldap://internalopenldap -LL -b
+ou=Users,dc=openstack,dc=org -D cn=admin,dc=openstack,dc=org -w
+password'" &gt; /root/.bash_aliases
+ENTRYPOINT bash
+</code></pre>
+     <p>You can expose the '<code>openldap</code>' container as '<code>internalopenldap</code>' within the test image with --link:</p>
+     <pre><code> docker run -it --rm --name ldp --link openldap:internalopenldap ldaptest
+</code></pre>
+     <p>Then, if you type 'lds', that alias will work:</p>
+     <pre><code>ldapsearch -H ldap://internalopenldap ...
+</code></pre>
+     <p>That would return people. Meaning <code>internalopenldap</code> is correctly reached from the <code>ldaptest</code> image.</p>
+     <hr>
+     <p>Of course, docker 1.7 will add <a href="https://github.com/docker/libnetwork" rel="noreferrer"><strong><code>libnetwork</code></strong></a>, which provides a native Go implementation for connecting containers. See the <a href="http://blog.docker.com/2015/04/docker-networking-takes-a-step-in-the-right-direction-2" rel="noreferrer">blog post</a>.<br>
+       It introduced a more complete architecture, with the Container Network Model (CNM)</p>
+     <p><img src="https://i.stack.imgur.com/aN4kQ.jpg" alt="https://blog.docker.com/media/2015/04/cnm-model.jpg"></p>
+     <p>That will Update the Docker CLI with new “network” commands, and document how the “<code>-net</code>” flag is used to assign containers to networks.</p>
+     <hr>
+     <p>docker 1.10 has a new section <a href="https://github.com/mavenugo/docker/blob/dda513ef651b42fcb9625e651f664554161c0a6a/docs/userguide/networking/work-with-networks.md#network-scoped-alias" rel="noreferrer"><strong>Network-scoped alias</strong></a>, now <a href="https://github.com/docker/docker/blob/98aa1d24a3d7274a8056e57f385945e9829bd612/docs/reference/commandline/network_connect.md" rel="noreferrer">officially documented in <code>network connect</code></a>:</p>
+     <blockquote>
+      <p>While links provide private name resolution that is localized within a container, the network-scoped alias provides a way for a container to be discovered by an alternate name by any other container within the scope of a particular network.<br>
+        Unlike the link alias, which is defined by the consumer of a service, the network-scoped alias is defined by the container that is offering the service to the network.</p>
+      <p>Continuing with the above example, create another container in <code>isolated_nw</code> with a network alias.</p>
+     </blockquote>
+     <pre><code>$ docker run --net=isolated_nw -itd --name=container6 -alias app busybox
+8ebe6767c1e0361f27433090060b33200aac054a68476c3be87ef4005eb1df17
+
+--alias=[]         
+</code></pre>
+     <blockquote>
+      <p>Add network-scoped alias for the container</p>
+      <p>You can use <code>--link</code> option to link another container with a preferred alias</p>
+      <p>You can pause, restart, and stop containers that are connected to a network. Paused containers remain connected and can be revealed by a network inspect. When the container is stopped, it does not appear on the network until you restart it.</p>
+      <p>If specified, the container's IP address(es) is reapplied when a stopped container is restarted. If the IP address is no longer available, the container fails to start.</p>
+      <p>One way to guarantee that the IP address is available is to specify an <code>--ip-range</code> when creating the network, and choose the static IP address(es) from outside that range. This ensures that the IP address is not given to another container while this container is not on the network.</p>
+     </blockquote>
+     <pre><code>$ docker network create --subnet 172.20.0.0/16 --ip-range 172.20.240.0/20 multi-host-network
+
+$ docker network connect --ip 172.20.128.2 multi-host-network container2
+$ docker network connect --link container1:c1 multi-host-network container2
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>The problem of --link is, that you are unable to restart a container without restarting the linked containers too. When you look at my graphic, restarting the MySQL container will result in a cascade of other container restarts.</span> <span> - </span> <span class="display-name">Patrick Gotthard</span> <span> </span> <span class="date">30 May 2015 at 14:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dolanor</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Feb 2016 at 15:43</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>EDIT</strong> : It is not bleeding edge anymore : <a href="http://blog.docker.com/2016/02/docker-1-10/" rel="nofollow">http://blog.docker.com/2016/02/docker-1-10/</a></p>
+     <p><strong>Original Answer</strong><br>
+       I battled with it the whole night. If you're not afraid of bleeding edge, the latest version of <a href="https://github.com/docker/docker/releases/tag/v1.10.0-rc3" rel="nofollow">Docker engine</a> and <a href="https://github.com/docker/compose/releases/tag/1.6.0-rc2" rel="nofollow">Docker compose</a> both implement libnetwork.</p>
+     <p>With the right config file (that need to be put in version 2), you will create services that will all see each other. And, bonus, you can scale them with docker-compose as well (you can scale any service you want that doesn't bind port on the host)</p>
+     <p>Here is an example <a href="https://github.com/dolanor/microservices/blob/master/docker-compose.yml" rel="nofollow">file</a></p>
+     <pre><code>version: "2"
+services:
+  router:
+    build: services/router/
+    ports:
+      - "8080:8080"
+  auth:
+    build: services/auth/
+  todo:
+    build: services/todo/
+  data:
+    build: services/data/
+</code></pre>
+     <p>And the reference for this new version of compose file: <a href="https://github.com/docker/compose/blob/1.6.0-rc1/docs/networking.md" rel="nofollow">https://github.com/docker/compose/blob/1.6.0-rc1/docs/networking.md</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Lauri</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 May 2015 at 12:52</span>
+     </div>
+    </div>
+    <div>
+     <p>As far as I know, by using only Docker this is not possible. You need some DNS to map container ip:s to hostnames.</p>
+     <p>If you want out of the box solution. One solution is to use for example <a href="http://www.kontena.io" rel="nofollow">Kontena</a>. It comes with network overlay technology from Weave and this technology is used to create virtual private LAN networks for each service and every service can be reached by <code>service_name.kontena.local-address</code>.</p>
+     <p>Here is simple example of Wordpress application's YAML file where Wordpress service connects to MySQL server with wordpress-mysql.kontena.local address:</p>
+     <pre><code>wordpress:                                                                         
+  image: wordpress:4.1                                                             
+  stateful: true                                                                   
+  ports:                                                                           
+    - 80:80                                                                      
+  links:                                                                           
+    - mysql:wordpress-mysql                                                        
+  environment:                                                                     
+    - WORDPRESS_DB_HOST=wordpress-mysql.kontena.local                              
+    - WORDPRESS_DB_PASSWORD=secret                                                 
+mysql:                                                                             
+  image: mariadb:5.5                                                               
+  stateful: true                                                                   
+  environment:                                                                     
+    - MYSQL_ROOT_PASSWORD=secret
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

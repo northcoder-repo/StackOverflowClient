@@ -1,0 +1,3215 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How do I read / convert an InputStream into a String in Java?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How do I read / convert an InputStream into a String in Java?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>4656</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Johnny Maelstrom</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Nov 2008 at 16:47</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/309424">source</a>
+    </div>
+   </div>
+   <div>
+    <p>If you have a <code>java.io.InputStream</code> object, how should you process that object and produce a <code>String</code>?</p>
+    <hr>
+    <p>Suppose I have an <code>InputStream</code> that contains text data, and I want to convert it to a <code>String</code>, so for example I can write that to a log file.</p>
+    <p>What is the easiest way to take the <code>InputStream</code> and convert it to a <code>String</code>?</p>
+    <pre><code>public String convertStreamToString(InputStream is) {
+// ???
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">string</span><span class="tag">io</span><span class="tag">stream</span><span class="tag">inputstream</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Does this answer your question? <a href="https://stackoverflow.com/questions/13102045/scanner-is-skipping-nextline-after-using-next-or-nextfoo">Scanner is skipping nextLine() after using next() or nextFoo()?</a></span> <span> - </span> <span class="display-name">Kevin Anderson</span> <span> </span> <span class="date">8 Oct 2020 at 14:02</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Remember that you need to take the encoding of the input stream in consideration. The system default is not necessarily always the one you wan.t</span> <span> - </span> <span class="display-name">Thorbjørn Ravn Andersen</span> <span> </span> <span class="date">30 Oct 2020 at 09:52</span></td>
+      </tr>
+      <tr>
+       <td>18</td>
+       <td><span>Most of these answers were written pre-Java 9, but now you can get a byte array from the InputStream using .readAllBytes. So, simply "new String(inputStream.readAllBytes())" works using String's byte[] constructor.</span> <span> - </span> <span class="display-name">Shmuel Newmark</span> <span> </span> <span class="date">28 May 2021 at 21:19</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3423</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Slava Vedenin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Feb 2016 at 00:58</span>
+     </div>
+    </div>
+    <div>
+     <p>To summarize the other answers, I found 11 main ways to do this (see below). And I wrote some performance tests (see results below):</p>
+     <p><strong>Ways to convert an InputStream to a String:</strong></p>
+     <ol>
+      <li>
+       <p>Using <code>IOUtils.toString</code> (Apache Utils)</p>
+       <pre><code> String result = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+</code></pre></li>
+      <li>
+       <p>Using <code>CharStreams</code> (Guava)</p>
+       <pre><code> String result = CharStreams.toString(new InputStreamReader(
+       inputStream, Charsets.UTF_8));
+</code></pre></li>
+      <li>
+       <p>Using <code>Scanner</code> (JDK)</p>
+       <pre><code> Scanner s = new Scanner(inputStream).useDelimiter("\\A");
+ String result = s.hasNext() ? s.next() : "";
+</code></pre></li>
+      <li>
+       <p>Using <strong>Stream API</strong> (Java 8). <strong>Warning</strong>: This solution converts different line breaks (like <code>\r\n</code>) to <code>\n</code>.</p>
+       <pre><code> String result = new BufferedReader(new InputStreamReader(inputStream))
+   .lines().collect(Collectors.joining("\n"));
+</code></pre></li>
+      <li>
+       <p>Using <strong>parallel Stream API</strong> (Java 8). <strong>Warning</strong>: This solution converts different line breaks (like <code>\r\n</code>) to <code>\n</code>.</p>
+       <pre><code> String result = new BufferedReader(new InputStreamReader(inputStream))
+    .lines().parallel().collect(Collectors.joining("\n"));
+</code></pre></li>
+      <li>
+       <p>Using <code>InputStreamReader</code> and <code>StringBuilder</code> (JDK)</p>
+       <pre><code> int bufferSize = 1024;
+ char[] buffer = new char[bufferSize];
+ StringBuilder out = new StringBuilder();
+ Reader in = new InputStreamReader(stream, StandardCharsets.UTF_8);
+ for (int numRead; (numRead = in.read(buffer, 0, buffer.length)) &gt; 0; ) {
+     out.append(buffer, 0, numRead);
+ }
+ return out.toString();
+</code></pre></li>
+      <li>
+       <p>Using <code>StringWriter</code> and <code>IOUtils.copy</code> (Apache Commons)</p>
+       <pre><code> StringWriter writer = new StringWriter();
+ IOUtils.copy(inputStream, writer, "UTF-8");
+ return writer.toString();
+</code></pre></li>
+      <li>
+       <p>Using <code>ByteArrayOutputStream</code> and <code>inputStream.read</code> (JDK)</p>
+       <pre><code> ByteArrayOutputStream result = new ByteArrayOutputStream();
+ byte[] buffer = new byte[1024];
+ for (int length; (length = inputStream.read(buffer)) != -1; ) {
+     result.write(buffer, 0, length);
+ }
+ // StandardCharsets.UTF_8.name() &gt; JDK 7
+ return result.toString("UTF-8");
+</code></pre></li>
+      <li>
+       <p>Using <code>BufferedReader</code> (JDK). <strong>Warning:</strong> This solution converts different line breaks (like <code>\n\r</code>) to <code>line.separator</code> system property (for example, in Windows to "\r\n").</p>
+       <pre><code> String newLine = System.getProperty("line.separator");
+ BufferedReader reader = new BufferedReader(
+         new InputStreamReader(inputStream));
+ StringBuilder result = new StringBuilder();
+ for (String line; (line = reader.readLine()) != null; ) {
+     if (result.length() &gt; 0) {
+         result.append(newLine);
+     }
+     result.append(line);
+ }
+ return result.toString();
+</code></pre></li>
+      <li>
+       <p>Using <code>BufferedInputStream</code> and <code>ByteArrayOutputStream</code> (JDK)</p>
+       <pre><code>BufferedInputStream bis = new BufferedInputStream(inputStream);
+ByteArrayOutputStream buf = new ByteArrayOutputStream();
+for (int result = bis.read(); result != -1; result = bis.read()) {
+    buf.write((byte) result);
+}
+// StandardCharsets.UTF_8.name() &gt; JDK 7
+return buf.toString("UTF-8");
+</code></pre></li>
+      <li>
+       <p>Using <code>inputStream.read()</code> and <code>StringBuilder</code> (JDK). <strong>Warning</strong>: This solution has problems with Unicode, for example with Russian text (works correctly only with non-Unicode text)</p>
+       <pre><code>StringBuilder sb = new StringBuilder();
+for (int ch; (ch = inputStream.read()) != -1; ) {
+    sb.append((char) ch);
+}
+return sb.toString();
+</code></pre></li>
+     </ol>
+     <p><strong>Warning</strong>:</p>
+     <ol>
+      <li>
+       <p>Solutions 4, 5 and 9 convert different line breaks to one.</p></li>
+      <li>
+       <p>Solution 11 can't work correctly with Unicode text</p></li>
+     </ol>
+     <p><strong>Performance tests</strong></p>
+     <p>Performance tests for small <code>String</code> (length = 175), url in <a href="https://github.com/Vedenin/useful-java-links/blob/master/helloworlds/5.0-other-examples/src/main/java/other_examples/ConvertInputStreamToStringBenchmark.java" rel="noreferrer">github</a> (mode = Average Time, system = Linux, score 1,343 is the best):</p>
+     <pre class="lang-none prettyprint-override"><code>              Benchmark                         Mode  Cnt   Score   Error  Units
+ 8. ByteArrayOutputStream and read (JDK)        avgt   10   1,343 ± 0,028  us/op
+ 6. InputStreamReader and StringBuilder (JDK)   avgt   10   6,980 ± 0,404  us/op
+10. BufferedInputStream, ByteArrayOutputStream  avgt   10   7,437 ± 0,735  us/op
+11. InputStream.read() and StringBuilder (JDK)  avgt   10   8,977 ± 0,328  us/op
+ 7. StringWriter and IOUtils.copy (Apache)      avgt   10  10,613 ± 0,599  us/op
+ 1. IOUtils.toString (Apache Utils)             avgt   10  10,605 ± 0,527  us/op
+ 3. Scanner (JDK)                               avgt   10  12,083 ± 0,293  us/op
+ 2. CharStreams (guava)                         avgt   10  12,999 ± 0,514  us/op
+ 4. Stream Api (Java 8)                         avgt   10  15,811 ± 0,605  us/op
+ 9. BufferedReader (JDK)                        avgt   10  16,038 ± 0,711  us/op
+ 5. parallel Stream Api (Java 8)                avgt   10  21,544 ± 0,583  us/op
+</code></pre>
+     <p>Performance tests for big <code>String</code> (length = 50100), url in <a href="https://github.com/Vedenin/useful-java-links/blob/master/helloworlds/5.0-other-examples/src/main/java/other_examples/ConvertBigStringToInputStreamBenchmark.java" rel="noreferrer">github</a> (mode = Average Time, system = Linux, score 200,715 is the best):</p>
+     <pre class="lang-none prettyprint-override"><code>               Benchmark                        Mode  Cnt   Score        Error  Units
+ 8. ByteArrayOutputStream and read (JDK)        avgt   10   200,715 ±   18,103  us/op
+ 1. IOUtils.toString (Apache Utils)             avgt   10   300,019 ±    8,751  us/op
+ 6. InputStreamReader and StringBuilder (JDK)   avgt   10   347,616 ±  130,348  us/op
+ 7. StringWriter and IOUtils.copy (Apache)      avgt   10   352,791 ±  105,337  us/op
+ 2. CharStreams (guava)                         avgt   10   420,137 ±   59,877  us/op
+ 9. BufferedReader (JDK)                        avgt   10   632,028 ±   17,002  us/op
+ 5. parallel Stream Api (Java 8)                avgt   10   662,999 ±   46,199  us/op
+ 4. Stream Api (Java 8)                         avgt   10   701,269 ±   82,296  us/op
+10. BufferedInputStream, ByteArrayOutputStream  avgt   10   740,837 ±    5,613  us/op
+ 3. Scanner (JDK)                               avgt   10   751,417 ±   62,026  us/op
+11. InputStream.read() and StringBuilder (JDK)  avgt   10  2919,350 ± 1101,942  us/op
+</code></pre>
+     <p>Graphs (performance tests depending on Input Stream length in Windows 7 system)<br><a href="https://i.stack.imgur.com/AYYhz.png" rel="noreferrer"><img src="https://i.stack.imgur.com/AYYhz.png" alt="enter image description here"></a></p>
+     <p>Performance test (Average Time) depending on Input Stream length in Windows 7 system:</p>
+     <pre class="lang-none prettyprint-override"><code> length  182    546     1092    3276    9828    29484   58968
+
+ test8  0.38    0.938   1.868   4.448   13.412  36.459  72.708
+ test4  2.362   3.609   5.573   12.769  40.74   81.415  159.864
+ test5  3.881   5.075   6.904   14.123  50.258  129.937 166.162
+ test9  2.237   3.493   5.422   11.977  45.98   89.336  177.39
+ test6  1.261   2.12    4.38    10.698  31.821  86.106  186.636
+ test7  1.601   2.391   3.646   8.367   38.196  110.221 211.016
+ test1  1.529   2.381   3.527   8.411   40.551  105.16  212.573
+ test3  3.035   3.934   8.606   20.858  61.571  118.744 235.428
+ test2  3.136   6.238   10.508  33.48   43.532  118.044 239.481
+ test10 1.593   4.736   7.527   20.557  59.856  162.907 323.147
+ test11 3.913   11.506  23.26   68.644  207.591 600.444 1211.545
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Nice work. Could be useful to provide a tl;dr summary at the bottom, i.e. throwing out the solutions that have problems with line breaks / unicode and then (out of those that remain) saying which is fastest with or without external libraries.</span> <span> - </span> <span class="display-name">Steve Chambers</span> <span> </span> <span class="date">1 Aug 2020 at 11:16</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>I was curious about the Java 9 <code>InputStream.transferTo</code> and Java 10 <code>Reader.transferTo</code> solutions that were added since this answer was posted, so I checked out the linked code and added benchmarks for them. I only tested the "big string" benchmarks. <code>InputStream.transferTo</code> was the fastest of all the solutions tested, running in 60% of the time as <code>test8</code> did on my machine. <code>Reader.transferTo</code> was slower than <code>test8</code>, but faster than all the other tests. That said, it ran in 95% of the time as <code>test1</code>, so it's not a significant improvement.</span> <span> - </span> <span class="display-name">M. Justin</span> <span> </span> <span class="date">19 Nov 2020 at 08:03</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>I converted all the <code>while</code> loops to <code>for</code> loops in an edit to this post, to avoid polluting the namespace with a variable that isn't used outside the loop. It's a neat trick that works in most Java reader/writer loops.</span> <span> - </span> <span class="display-name">Luke Hutchison</span> <span> </span> <span class="date">28 Feb 2021 at 02:10</span></td>
+       </tr>
+       <tr>
+        <td>20</td>
+        <td><span>With Java 9 you can get a byte array from the InputStream using .readAllBytes. So "new String(inputStream.readAllBytes())" works using String's byte[] constructor.</span> <span> - </span> <span class="display-name">Shmuel Newmark</span> <span> </span> <span class="date">28 May 2021 at 21:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Is 11 buffered? If not, the chunks may be small and what is seen is simply the additional overhead from the extra calls.</span> <span> - </span> <span class="display-name">Thorbjørn Ravn Andersen</span> <span> </span> <span class="date">10 Oct 2022 at 00:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2748</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Harry Lime</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Nov 2008 at 16:54</span>
+     </div>
+    </div>
+    <div>
+     <p>A nice way to do this is using <a href="http://commons.apache.org/" rel="noreferrer">Apache Commons</a> <code><a href="https://commons.apache.org/proper/commons-io/javadocs/api-release/org/apache/commons/io/IOUtils.html" rel="noreferrer">IOUtils</a></code> to copy the <code>InputStream</code> into a <code>StringWriter</code>... Something like</p>
+     <pre><code>StringWriter writer = new StringWriter();
+IOUtils.copy(inputStream, writer, encoding);
+String theString = writer.toString();
+</code></pre>
+     <p>or even</p>
+     <pre><code>// NB: does not close inputStream, you'll have to use try-with-resources for that
+String theString = IOUtils.toString(inputStream, encoding);
+</code></pre>
+     <p>Alternatively, you could use <code>ByteArrayOutputStream</code> if you don't want to mix your Streams and Writers.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Did the toString get deprecated? I see <code>IOUtils.convertStreamToString()</code></span> <span> - </span> <span class="display-name">RCB</span> <span> </span> <span class="date">2 Jul 2020 at 15:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I added an edit to include a searchable link to the actual source code itself as a reference. I believe this augments the answer for those who want to see how the command works.</span> <span> - </span> <span class="display-name">satchel</span> <span> </span> <span class="date">6 Jul 2021 at 00:03</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2356</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pavel Repin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Mar 2011 at 20:40</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's a way using only the standard Java library (note that the stream is not closed, your mileage may vary).</p>
+     <pre><code>static String convertStreamToString(java.io.InputStream is) {
+    java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
+    return s.hasNext() ? s.next() : "";
+}
+</code></pre>
+     <p>I learned this trick from <a href="https://community.oracle.com/blogs/pat/2004/10/23/stupid-scanner-tricks" rel="noreferrer">"Stupid Scanner tricks"</a> article. The reason it works is because <a href="http://download.oracle.com/javase/8/docs/api/java/util/Scanner.html" rel="noreferrer">Scanner</a> iterates over tokens in the stream, and in this case we separate tokens using "beginning of the input boundary" (\A), thus giving us only one token for the entire contents of the stream.</p>
+     <p><strong>Note, if you need to be specific about the input stream's encoding, you can provide the second argument to <code>Scanner</code> constructor that indicates what character set to use (e.g. "UTF-8").</strong></p>
+     <p>Hat tip goes also to <a href="https://stackoverflow.com/users/68127/jacob-gabrielson">Jacob</a>, who once pointed me to the said article.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Shouldn't we close the scanner before returning the value?</span> <span> - </span> <span class="display-name">Oleg Markelov</span> <span> </span> <span class="date">19 Oct 2020 at 06:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>would do the same and close the resource with try with resource try( java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A")){ return s.hasNext() ? s.next() : ""; }</span> <span> - </span> <span class="display-name">CodeMonkey</span> <span> </span> <span class="date">31 Aug 2022 at 22:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>888</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Chinnery</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Dec 2008 at 20:13</span>
+     </div>
+    </div>
+    <div>
+     <p>Apache Commons allows:</p>
+     <pre><code>String myString = IOUtils.toString(myInputStream, "UTF-8");
+</code></pre>
+     <p>Of course, you could choose other character encodings besides UTF-8.</p>
+     <p>Also see: (<a href="http://commons.apache.org/proper/commons-io/javadocs/api-2.4/org/apache/commons/io/IOUtils.html#toString%28java.io.InputStream,%20java.lang.String" rel="noreferrer">documentation</a>)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Trying to get back InputStream, not working <a href="https://stackoverflow.com/q/66349701/3425489">stackoverflow.com/q/66349701/3425489</a></span> <span> - </span> <span class="display-name">Shantaram Tupe</span> <span> </span> <span class="date">24 Feb 2021 at 12:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>321</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Paul de Vrieze</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Nov 2008 at 18:34</span>
+     </div>
+    </div>
+    <div>
+     <p>Taking into account file one should first get a <code>java.io.Reader</code> instance. This can then be read and added to a <code>StringBuilder</code> (we don't need <code>StringBuffer</code> if we are not accessing it in multiple threads, and <code>StringBuilder</code> is faster). The trick here is that we work in blocks, and as such don't need other buffering streams. The block size is parameterized for run-time performance optimization.</p>
+     <pre><code>public static String slurp(final InputStream is, final int bufferSize) {
+    final char[] buffer = new char[bufferSize];
+    final StringBuilder out = new StringBuilder();
+    try (Reader in = new InputStreamReader(is, "UTF-8")) {
+        for (;;) {
+            int rsz = in.read(buffer, 0, buffer.length);
+            if (rsz &lt; 0)
+                break;
+            out.append(buffer, 0, rsz);
+        }
+    }
+    catch (UnsupportedEncodingException ex) {
+        /* ... */
+    }
+    catch (IOException ex) {
+        /* ... */
+    }
+    return out.toString();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>270</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sampathpremarathna</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Aug 2011 at 08:29</span>
+     </div>
+    </div>
+    <div>
+     <p>Use:</p>
+     <pre><code>InputStream in = /* Your InputStream */;
+StringBuilder sb = new StringBuilder();
+BufferedReader br = new BufferedReader(new InputStreamReader(in));
+String read;
+
+while ((read=br.readLine()) != null) {
+    //System.out.println(read);
+    sb.append(read);
+}
+
+br.close();
+return sb.toString();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span><code>readLine()</code> removes the line feed character so the resulting string will contain no line breaks unless you add a line separator between each line you add to the builder.</span> <span> - </span> <span class="display-name">Rangi Keen</span> <span> </span> <span class="date">15 Mar 2021 at 22:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>185</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sakuraba</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Jul 2010 at 15:56</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are using Google-Collections/Guava you could do the following:</p>
+     <pre><code>InputStream stream = ...
+String content = CharStreams.toString(new InputStreamReader(stream, Charsets.UTF_8));
+Closeables.closeQuietly(stream);
+</code></pre>
+     <p>Note that the second parameter (i.e. Charsets.UTF_8) for the <code>InputStreamReader</code> isn't necessary, but it is generally a good idea to specify the encoding if you know it (which you should!)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>177</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tagir Valeev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Sep 2015 at 11:50</span>
+     </div>
+    </div>
+    <div>
+     <p>For completeness here is <strong>Java 9</strong> solution:</p>
+     <pre><code>public static String toString(InputStream input) throws IOException {
+    return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+}
+</code></pre>
+     <p>This uses the <a href="https://docs.oracle.com/javase/9/docs/api/java/io/InputStream.html#readAllBytes--" rel="noreferrer"><code>readAllBytes</code></a> method which was added to Java 9.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>I benchmarked this <a href="https://stackoverflow.com/questions/309424/how-do-i-read-convert-an-inputstream-into-a-string-in-java?page=2&amp;tab=oldest#comment114755893_35446009">here</a>, and found this to be the fastest solution on my machine, running in about 60% the time of the next-fastest solution benchmarked.</span> <span> - </span> <span class="display-name">M. Justin</span> <span> </span> <span class="date">19 Nov 2020 at 08:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>&gt;This method blocks until all remaining bytes have been read and end of stream is detected, or an exception is thrown.</span> <span> - </span> <span class="display-name">Martin Meeser</span> <span> </span> <span class="date">13 Dec 2021 at 19:35</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@MartinMeeser all solutions on this page do, as it is part of the task.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">16 Sep 2022 at 14:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Holger read=br.readLine() WILL NOT block until all bytes are read or end of line is detected, InputStream.read will read one byte or given buffer size, difference to readAllBytes is quite impactfull</span> <span> - </span> <span class="display-name">Martin Meeser</span> <span> </span> <span class="date">20 Sep 2022 at 06:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@MartinMeeser the <b>task</b> is to <i>read the entire <code>InputStream</code> into one string</i>. Of course, you can split it into multiple steps which are not reading the entire stream, but that is pointless when all you are doing with those steps, is to reassemble the partial results into a single result after the entire stream has been read. So, none of the solutions to this specific task will return before the entire stream has been read.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">20 Sep 2022 at 06:37</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>137</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>TacB0sS</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 May 2012 at 20:24</span>
+     </div>
+    </div>
+    <div>
+     <p>This is the best pure Java solution that fits perfectly for Android and any other JVM.</p>
+     <p>This solution works amazingly well... it is simple, fast, and works on small and large streams just the same!! (see benchmark above.. <strong>No. 8</strong>)</p>
+     <pre><code>public String readFullyAsString(InputStream inputStream, String encoding)
+        throws IOException {
+    return readFully(inputStream).toString(encoding);
+}
+
+public byte[] readFullyAsBytes(InputStream inputStream)
+        throws IOException {
+    return readFully(inputStream).toByteArray();
+}
+
+private ByteArrayOutputStream readFully(InputStream inputStream)
+        throws IOException {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    byte[] buffer = new byte[1024];
+    int length = 0;
+    while ((length = inputStream.read(buffer)) != -1) {
+        baos.write(buffer, 0, length);
+    }
+    return baos;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>78</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jon Moore</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Jun 2009 at 21:07</span>
+     </div>
+    </div>
+    <div>
+     <p>Use:</p>
+     <pre><code>import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.IOException;
+
+public static String readInputStreamAsString(InputStream in)
+    throws IOException {
+
+    BufferedInputStream bis = new BufferedInputStream(in);
+    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+    int result = bis.read();
+    while(result != -1) {
+      byte b = (byte)result;
+      buf.write(b);
+      result = bis.read();
+    }
+    return buf.toString();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>68</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Drew Noakes</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jan 2013 at 03:43</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's the most elegant, pure-Java (no library) solution I came up with after some experimentation:</p>
+     <pre><code>public static String fromStream(InputStream in) throws IOException
+{
+    BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+    StringBuilder out = new StringBuilder();
+    String newLine = System.getProperty("line.separator");
+    String line;
+    while ((line = reader.readLine()) != null) {
+        out.append(line);
+        out.append(newLine);
+    }
+    return out.toString();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>65</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ilya Gazman</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Feb 2018 at 21:30</span>
+     </div>
+    </div>
+    <div>
+     <p>I did a benchmark upon 14 distinct answers here (sorry for not providing credits but there are too many duplicates).</p>
+     <p>The result is very surprising. It turns out that Apache <strong>IOUtils</strong> is the slowest and <code>ByteArrayOutputStream</code> is the fastest solutions:</p>
+     <p>So first here is the best method:</p>
+     <pre><code>public String inputStreamToString(InputStream inputStream) throws IOException {
+    try(ByteArrayOutputStream result = new ByteArrayOutputStream()) {
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = inputStream.read(buffer)) != -1) {
+            result.write(buffer, 0, length);
+        }
+
+        return result.toString(UTF_8);
+    }
+}
+</code></pre>
+     <h2>Benchmark results, of 20 MB random bytes in 20 cycles</h2>
+     <p>Time in milliseconds</p>
+     <ul>
+      <li>ByteArrayOutputStreamTest: 194</li>
+      <li>NioStream: 198</li>
+      <li>Java9ISTransferTo: 201</li>
+      <li>Java9ISReadAllBytes: 205</li>
+      <li>BufferedInputStreamVsByteArrayOutputStream: 314</li>
+      <li>ApacheStringWriter2: 574</li>
+      <li>GuavaCharStreams: 589</li>
+      <li>ScannerReaderNoNextTest: 614</li>
+      <li>ScannerReader: 633</li>
+      <li>ApacheStringWriter: 1544</li>
+      <li>StreamApi: Error</li>
+      <li>ParallelStreamApi: Error</li>
+      <li>BufferReaderTest: Error</li>
+      <li>InputStreamAndStringBuilder: Error</li>
+     </ul>
+     <h2>Benchmark source code</h2>
+     <pre><code>import com.google.common.io.CharStreams;
+import org.apache.commons.io.IOUtils;
+
+import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+import java.util.stream.Collectors;
+
+/**
+ * Created by Ilya Gazman on 2/13/18.
+ */
+public class InputStreamToString {
+
+
+    private static final String UTF_8 = "UTF-8";
+
+    public static void main(String... args) {
+        log("App started");
+        byte[] bytes = new byte[1024 * 1024];
+        new Random().nextBytes(bytes);
+        log("Stream is ready\n");
+
+        try {
+            test(bytes);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void test(byte[] bytes) throws IOException {
+        List&lt;Stringify&gt; tests = Arrays.asList(
+                new ApacheStringWriter(),
+                new ApacheStringWriter2(),
+                new NioStream(),
+                new ScannerReader(),
+                new ScannerReaderNoNextTest(),
+                new GuavaCharStreams(),
+                new StreamApi(),
+                new ParallelStreamApi(),
+                new ByteArrayOutputStreamTest(),
+                new BufferReaderTest(),
+                new BufferedInputStreamVsByteArrayOutputStream(),
+                new InputStreamAndStringBuilder(),
+                new Java9ISTransferTo(),
+                new Java9ISReadAllBytes()
+        );
+
+        String solution = new String(bytes, "UTF-8");
+
+        for (Stringify test : tests) {
+            try (ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes)) {
+                String s = test.inputStreamToString(inputStream);
+                if (!s.equals(solution)) {
+                    log(test.name() + ": Error");
+                    continue;
+                }
+            }
+            long startTime = System.currentTimeMillis();
+            for (int i = 0; i &lt; 20; i++) {
+                try (ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes)) {
+                    test.inputStreamToString(inputStream);
+                }
+            }
+            log(test.name() + ": " + (System.currentTimeMillis() - startTime));
+        }
+    }
+
+    private static void log(String message) {
+        System.out.println(message);
+    }
+
+    interface Stringify {
+        String inputStreamToString(InputStream inputStream) throws IOException;
+
+        default String name() {
+            return this.getClass().getSimpleName();
+        }
+    }
+
+    static class ApacheStringWriter implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            StringWriter writer = new StringWriter();
+            IOUtils.copy(inputStream, writer, UTF_8);
+            return writer.toString();
+        }
+    }
+
+    static class ApacheStringWriter2 implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            return IOUtils.toString(inputStream, UTF_8);
+        }
+    }
+
+    static class NioStream implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream in) throws IOException {
+            ReadableByteChannel channel = Channels.newChannel(in);
+            ByteBuffer byteBuffer = ByteBuffer.allocate(1024 * 16);
+            ByteArrayOutputStream bout = new ByteArrayOutputStream();
+            WritableByteChannel outChannel = Channels.newChannel(bout);
+            while (channel.read(byteBuffer) &gt; 0 || byteBuffer.position() &gt; 0) {
+                byteBuffer.flip();  //make buffer ready for write
+                outChannel.write(byteBuffer);
+                byteBuffer.compact(); //make buffer ready for reading
+            }
+            channel.close();
+            outChannel.close();
+            return bout.toString(UTF_8);
+        }
+    }
+
+    static class ScannerReader implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream is) throws IOException {
+            java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
+            return s.hasNext() ? s.next() : "";
+        }
+    }
+
+    static class ScannerReaderNoNextTest implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream is) throws IOException {
+            java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
+            return s.next();
+        }
+    }
+
+    static class GuavaCharStreams implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream is) throws IOException {
+            return CharStreams.toString(new InputStreamReader(
+                    is, UTF_8));
+        }
+    }
+
+    static class StreamApi implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            return new BufferedReader(new InputStreamReader(inputStream))
+                    .lines().collect(Collectors.joining("\n"));
+        }
+    }
+
+    static class ParallelStreamApi implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            return new BufferedReader(new InputStreamReader(inputStream)).lines()
+                    .parallel().collect(Collectors.joining("\n"));
+        }
+    }
+
+    static class ByteArrayOutputStreamTest implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            try(ByteArrayOutputStream result = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = inputStream.read(buffer)) != -1) {
+                    result.write(buffer, 0, length);
+                }
+
+                return result.toString(UTF_8);
+            }
+        }
+    }
+
+    static class BufferReaderTest implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            String newLine = System.getProperty("line.separator");
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            StringBuilder result = new StringBuilder(UTF_8);
+            String line;
+            boolean flag = false;
+            while ((line = reader.readLine()) != null) {
+                result.append(flag ? newLine : "").append(line);
+                flag = true;
+            }
+            return result.toString();
+        }
+    }
+
+    static class BufferedInputStreamVsByteArrayOutputStream implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            BufferedInputStream bis = new BufferedInputStream(inputStream);
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            int result = bis.read();
+            while (result != -1) {
+                buf.write((byte) result);
+                result = bis.read();
+            }
+
+            return buf.toString(UTF_8);
+        }
+    }
+
+    static class InputStreamAndStringBuilder implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            int ch;
+            StringBuilder sb = new StringBuilder(UTF_8);
+            while ((ch = inputStream.read()) != -1)
+                sb.append((char) ch);
+            return sb.toString();
+        }
+    }
+
+    static class Java9ISTransferTo implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            inputStream.transferTo(bos);
+            return bos.toString(UTF_8);
+        }
+    }
+
+    static class Java9ISReadAllBytes implements Stringify {
+
+        @Override
+        public String inputStreamToString(InputStream inputStream) throws IOException {
+            return new String(inputStream.readAllBytes(), UTF_8);
+        }
+    }
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span><a href="http://tutorials.jenkov.com/java-performance/jmh.html#why-are-java-microbenchmarks-hard" rel="nofollow noreferrer">Making benchmarks in Java is not easy</a> (especially because of JIT). After reading Benchmark source code, I'm convinced that those values above are not precise and everyone should be careful by believing them.</span> <span> - </span> <span class="display-name">Dalibor</span> <span> </span> <span class="date">16 May 2019 at 22:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Dalibor you probably should provide more reasoning for your claim rather than just a link.</span> <span> - </span> <span class="display-name">Ilya Gazman</span> <span> </span> <span class="date">28 May 2019 at 14:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I think that it is really known fact that it is not easy to make your own benchmark. For those who do not know that, there is link ;)</span> <span> - </span> <span class="display-name">Dalibor</span> <span> </span> <span class="date">29 May 2019 at 22:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Dalibor I am perhaps not the best, but I have a good understanding of Java benchmarks, so unless you can point out a specific problem, you are just misleading, and I will not continue the conversation with you under those conditions.</span> <span> - </span> <span class="display-name">Ilya Gazman</span> <span> </span> <span class="date">29 May 2019 at 23:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Mostly I agree with Dalibor. You say you have a "good understanding of Java benchmarks", but you seem to have implemented the most naive approach while being apparently ignorant of the well known issues of this approach. For starters, read every post on this question: <a href="https://stackoverflow.com/questions/504103/how-do-i-write-a-correct-micro-benchmark-in-java" title="how do i write a correct micro benchmark in java">stackoverflow.com/questions/504103/…</a></span> <span> - </span> <span class="display-name">DavidS</span> <span> </span> <span class="date">15 Nov 2019 at 18:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DavidS my test complies with the rules in the excepted answer that you linked. Are you able to point out for any problem in my implementation?</span> <span> - </span> <span class="display-name">Ilya Gazman</span> <span> </span> <span class="date">15 Nov 2019 at 20:59</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>From the accepted answer: Rule 0: Read the paper, which essentially warns against attempting a micro-benchmark. Rule 1: You have no warm up phase. Rule 2-3: You've given no indication you used these flags. Rule 8: Use a library like JMH. With 135 votes in the comments: Don't use <code>System.currentTimeMillis()</code>. Moving on to other highly voted answers. Jon Skeet: use <code>System.gc()</code> between iterations, and run your test long enough to measure the results in seconds, not milliseconds. Mixing tests in a single JVM run is bad, as the compiler optimizations done for one test will impact another.</span> <span> - </span> <span class="display-name">DavidS</span> <span> </span> <span class="date">15 Nov 2019 at 21:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have some free time, so here are a few more. Rule 5: You include the first iteration in your timing phase. Rule 6: You have used no special tools to "read the compilers mind". Rule 7: You have given no indication that you used these flags. There, I think that about covers it. I think that's every rule except for rule 4.</span> <span> - </span> <span class="display-name">DavidS</span> <span> </span> <span class="date">19 Nov 2019 at 21:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DavidS Rule 0,8: As I already mentioned, I know what I am doing, so this one does not applies here, there is more than one way to do things. Rule 1: of course I do, read my code more carefully, the test is called before the timer starts to worm up! As for System.gc(), it's just hint for for the system, you cannot trust it to do anything.</span> <span> - </span> <span class="display-name">Ilya Gazman</span> <span> </span> <span class="date">20 Nov 2019 at 03:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DavidS if you disagree with my implementation, run your own banchmark using what ever library you want and bring your results here. I be happy to compare</span> <span> - </span> <span class="display-name">Ilya Gazman</span> <span> </span> <span class="date">20 Nov 2019 at 03:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You asked me to point out the problems. I have done so. I'm almost done trying to convince you, but here we go one more time. Rule 1: A single iteration is not a "warm up": the JIT compiler optimizes after thousands of iterations, not one. <code>System.gc</code> is a just a hint, but it's a very reliable one, and it would improve your tests. Finally, you are ignoring all of the other points: compiler flags, currentTimeMillis, splitting tests across multiple JVM runs. These are the serious problems with your attempt at benchmarking. I did not make them up myself: they are well known practices and tools.</span> <span> - </span> <span class="display-name">DavidS</span> <span> </span> <span class="date">20 Nov 2019 at 18:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DavidS I think you are miss reading this. Check out the input size. It's 1M byte array. Iterating on it once means the underline stream implementation is going todo a lot of loops.</span> <span> - </span> <span class="display-name">Ilya Gazman</span> <span> </span> <span class="date">20 Nov 2019 at 21:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How many loops for warm-up? Will the loop count vary by algorithm used? Will it be enough to ensure the JIT compiler has achieved optimization? How would you know when it is enough? Wouldn't it be better to explicitly declare a warm-up phase with a known-number of iterations instead of relying on the underlying stream implementation? Wouldn't it be better to use a tool like JMH instead of trying to account for all of this?</span> <span> - </span> <span class="display-name">DavidS</span> <span> </span> <span class="date">20 Nov 2019 at 21:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>44</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Simon Kuang</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jul 2014 at 17:58</span>
+     </div>
+    </div>
+    <div>
+     <p>I'd use some Java 8 tricks.</p>
+     <pre><code>public static String streamToString(final InputStream inputStream) throws Exception {
+    // buffering optional
+    try
+    (
+        final BufferedReader br
+           = new BufferedReader(new InputStreamReader(inputStream))
+    ) {
+        // parallel optional
+        return br.lines().parallel().collect(Collectors.joining("\n"));
+    } catch (final IOException e) {
+        throw new RuntimeException(e);
+        // whatever.
+    }
+}
+</code></pre>
+     <p>Essentially the same as some other answers except more succinct.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>40</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Brett H</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Oct 2011 at 17:23</span>
+     </div>
+    </div>
+    <div>
+     <p>I ran some timing tests because time matters, always.<br></p>
+     <p>I attempted to get the response into a String 3 different ways. (shown below)<br>
+       I left out try/catch blocks for the sake readability.<br></p>
+     <p>To give context, this is the preceding code for all 3 approaches:<br></p>
+     <pre><code>   String response;
+   String url = "www.blah.com/path?key=value";
+   GetMethod method = new GetMethod(url);
+   int status = client.executeMethod(method);
+</code></pre>
+     <p>1)<br></p>
+     <pre><code> response = method.getResponseBodyAsString();
+</code></pre>
+     <p>2)<br></p>
+     <pre><code>InputStream resp = method.getResponseBodyAsStream();
+InputStreamReader is=new InputStreamReader(resp);
+BufferedReader br=new BufferedReader(is);
+String read = null;
+StringBuffer sb = new StringBuffer();
+while((read = br.readLine()) != null) {
+    sb.append(read);
+}
+response = sb.toString();
+</code></pre>
+     <p>3)<br></p>
+     <pre><code>InputStream iStream  = method.getResponseBodyAsStream();
+StringWriter writer = new StringWriter();
+IOUtils.copy(iStream, writer, "UTF-8");
+response = writer.toString();
+</code></pre>
+     <p>So, after running 500 tests on each approach with the same request/response data, here are the numbers. Once again, these are my findings and your findings may not be exactly the same, but I wrote this to give some indication to others of the efficiency differences of these approaches.</p>
+     <p>Ranks:<br>
+       Approach #1<br>
+       Approach #3 - 2.6% slower than #1<br>
+       Approach #2 - 4.3% slower than #1<br></p>
+     <p>Any of these approaches is an appropriate solution for grabbing a response and creating a String from it.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>39</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>czerny</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Feb 2015 at 18:39</span>
+     </div>
+    </div>
+    <div>
+     <p>Pure Java solution using <a href="http://docs.oracle.com/javase/8/docs/api/java/util/stream/Stream.html" rel="noreferrer">Stream</a>s, works since Java 8.</p>
+     <pre><code>import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.stream.Collectors;
+
+// ...
+public static String inputStreamToString(InputStream is) throws IOException {
+    try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+        return br.lines().collect(Collectors.joining(System.lineSeparator()));
+    }
+}
+</code></pre>
+     <p>As mentioned by Christoffer Hammarström below <a href="https://stackoverflow.com/a/309448/639687">other answer</a> it is safer to explicitly specify the <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html" rel="noreferrer">Charset</a>. I.e. The InputStreamReader constructor can be changes as follows:</p>
+     <pre><code>new InputStreamReader(is, Charset.forName("UTF-8"))
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>31</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>TKH</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Mar 2012 at 19:52</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's more-or-less <a href="https://stackoverflow.com/questions/309424/how-do-i-read-convert-an-inputstream-into-a-string-in-java/6938341#6938341">sampath's answer</a>, cleaned up a bit and represented as a function:</p>
+     <pre><code>String streamToString(InputStream in) throws IOException {
+  StringBuilder out = new StringBuilder();
+  BufferedReader br = new BufferedReader(new InputStreamReader(in));
+  for(String line = br.readLine(); line != null; line = br.readLine())
+    out.append(line);
+  br.close();
+  return out.toString();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>30</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>DJDaveMark</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 May 2010 at 12:57</span>
+     </div>
+    </div>
+    <div>
+     <p>If you can't use <a href="https://commons.apache.org/proper/commons-io/" rel="nofollow noreferrer">Commons IO</a> (FileUtils, IOUtils, and CopyUtils), here's an example using a BufferedReader to read the file line by line:</p>
+     <pre><code>public class StringFromFile {
+    public static void main(String[] args) /*throws UnsupportedEncodingException*/ {
+        InputStream is = StringFromFile.class.getResourceAsStream("file.txt");
+        BufferedReader br = new BufferedReader(new InputStreamReader(is/*, "UTF-8"*/));
+        final int CHARS_PER_PAGE = 5000; //counting spaces
+        StringBuilder builder = new StringBuilder(CHARS_PER_PAGE);
+        try {
+            for(String line=br.readLine(); line!=null; line=br.readLine()) {
+                builder.append(line);
+                builder.append('\n');
+            }
+        }
+        catch (IOException ignore) { }
+
+        String text = builder.toString();
+        System.out.println(text);
+    }
+}
+</code></pre>
+     <p>Or if you want raw speed, I'd propose a variation on what <a href="https://stackoverflow.com/questions/309424/how-do-i-read-convert-an-inputstream-into-a-string-in-java/309718#309718">Paul de Vrieze suggested</a> (which avoids using a StringWriter (which uses a StringBuffer internally):</p>
+     <pre><code>public class StringFromFileFast {
+    public static void main(String[] args) /*throws UnsupportedEncodingException*/ {
+        InputStream is = StringFromFileFast.class.getResourceAsStream("file.txt");
+        InputStreamReader input = new InputStreamReader(is/*, "UTF-8"*/);
+        final int CHARS_PER_PAGE = 5000; //counting spaces
+        final char[] buffer = new char[CHARS_PER_PAGE];
+        StringBuilder output = new StringBuilder(CHARS_PER_PAGE);
+        try {
+            for(int read = input.read(buffer, 0, buffer.length);
+                    read != -1;
+                    read = input.read(buffer, 0, buffer.length)) {
+                output.append(buffer, 0, read);
+            }
+        } catch (IOException ignore) { }
+
+        String text = output.toString();
+        System.out.println(text);
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>30</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jack</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Mar 2012 at 07:32</span>
+     </div>
+    </div>
+    <div>
+     <p>If you were feeling adventurous, you could mix Scala and Java and end up with this:</p>
+     <pre><code>scala.io.Source.fromInputStream(is).mkString("")
+</code></pre>
+     <p>Mixing Java and Scala code and libraries has it's benefits.</p>
+     <p>See full description here: <a href="https://stackoverflow.com/q/5221524/828757">Idiomatic way to convert an InputStream to a String in Scala</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>25</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>jmehrens</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jan 2016 at 15:55</span>
+     </div>
+    </div>
+    <div>
+     <p>Use the <a href="https://docs.oracle.com/javase/9/docs/api/java/io/InputStream.html#transferTo-java.io.OutputStream-" rel="noreferrer">java.io.InputStream.transferTo(OutputStream)</a> supported in Java 9 and the <a href="https://docs.oracle.com/javase/9/docs/api/java/io/ByteArrayOutputStream.html#toString-java.lang.String-" rel="noreferrer">ByteArrayOutputStream.toString(String)</a> which takes the charset name:</p>
+     <pre><code>public static String gobble(InputStream in, String charsetName) throws IOException {
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    in.transferTo(bos);
+    return bos.toString(charsetName);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hai Zhang</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Aug 2014 at 09:47</span>
+     </div>
+    </div>
+    <div>
+     <p>This is an answer adapted from <code>org.apache.commons.io.IOUtils</code> <a href="http://grepcode.com/file/repo1.maven.org/maven2/commons-io/commons-io/2.4/org/apache/commons/io/IOUtils.java" rel="noreferrer">source code</a>, for those who want to have the apache implementation but do not want the whole library.</p>
+     <pre><code>private static final int BUFFER_SIZE = 4 * 1024;
+
+public static String inputStreamToString(InputStream inputStream, String charsetName)
+        throws IOException {
+    StringBuilder builder = new StringBuilder();
+    InputStreamReader reader = new InputStreamReader(inputStream, charsetName);
+    char[] buffer = new char[BUFFER_SIZE];
+    int length;
+    while ((length = reader.read(buffer)) != -1) {
+        builder.append(buffer, 0, length);
+    }
+    return builder.toString();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span> <span class="arrow"> <a href="#answer_22">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>22</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Thamme Gowda</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Nov 2012 at 12:39</span>
+     </div>
+    </div>
+    <div>
+     <p>Make sure to close the streams at the end if you use Stream Readers</p>
+     <pre><code>private String readStream(InputStream iStream) throws IOException {
+    //build a Stream Reader, it can read char by char
+    InputStreamReader iStreamReader = new InputStreamReader(iStream);
+    //build a buffered Reader, so that i can read whole line at once
+    BufferedReader bReader = new BufferedReader(iStreamReader);
+    String line = null;
+    StringBuilder builder = new StringBuilder();
+    while((line = bReader.readLine()) != null) {  //Read till end
+        builder.append(line);
+        builder.append("\n"); // append new line to preserve lines
+    }
+    bReader.close();         //close all opened stuff
+    iStreamReader.close();
+    //iStream.close(); //EDIT: Let the creator of the stream close it!
+                       // some readers may auto close the inner stream
+    return builder.toString();
+}
+</code></pre>
+     <hr>
+     <p>EDIT: On JDK 7+, you can use try-with-resources construct.</p>
+     <pre><code>/**
+ * Reads the stream into a string
+ * @param iStream the input stream
+ * @return the string read from the stream
+ * @throws IOException when an IO error occurs
+ */
+private String readStream(InputStream iStream) throws IOException {
+
+    //Buffered reader allows us to read line by line
+    try (BufferedReader bReader =
+                 new BufferedReader(new InputStreamReader(iStream))){
+        StringBuilder builder = new StringBuilder();
+        String line;
+        while((line = bReader.readLine()) != null) {  //Read till end
+            builder.append(line);
+            builder.append("\n"); // append new line to preserve lines
+        }
+        return builder.toString();
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_22"><span>Answer 22</span> <span class="arrow"> <a href="#answer_21">↑</a> </span> <span class="arrow"> <a href="#answer_23">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>22</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Daniel De León</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Jun 2014 at 07:46</span>
+     </div>
+    </div>
+    <div>
+     <p>This one is nice because:</p>
+     <ul>
+      <li>It safely handles the Charset.</li>
+      <li>You control the read buffer size.</li>
+      <li>You can provision the length of the builder and it doesn't have to be an exact value.</li>
+      <li>Is free from library dependencies.</li>
+      <li>Is for Java 7 or higher.</li>
+     </ul>
+     <p><em>How to do it?</em></p>
+     <pre><code>public static String convertStreamToString(InputStream is) throws IOException {
+   StringBuilder sb = new StringBuilder(2048); // Define a size if you have an idea of it.
+   char[] read = new char[128]; // Your buffer size.
+   try (InputStreamReader ir = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+     for (int i; -1 != (i = ir.read(read)); sb.append(read, 0, i));
+   }
+   return sb.toString();
+}
+</code></pre>
+     <p>For JDK 9</p>
+     <pre><code>public static String inputStreamString(InputStream inputStream) throws IOException {
+    try (inputStream) {
+        return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_23"><span>Answer 23</span> <span class="arrow"> <a href="#answer_22">↑</a> </span> <span class="arrow"> <a href="#answer_24">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>czerny</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Apr 2020 at 00:03</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>String inputStreamToString(InputStream inputStream, Charset charset) throws IOException {
+    try (
+            final StringWriter writer = new StringWriter();
+            final InputStreamReader reader = new InputStreamReader(inputStream, charset)
+        ) {
+        reader.transferTo(writer);
+        return writer.toString();
+    }
+}
+</code></pre>
+     <ul>
+      <li>pure Java standard library solution - no libs</li>
+      <li>since Java 10 - <a href="https://docs.oracle.com/en/java/javase/14/docs/api/java.base/java/io/Reader.html#transferTo(java.io.Writer)" rel="noreferrer">Reader#transferTo(java.io.Writer)</a></li>
+      <li>loopless solution</li>
+      <li>no new line character handling</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_24"><span>Answer 24</span> <span class="arrow"> <a href="#answer_23">↑</a> </span> <span class="arrow"> <a href="#answer_25">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>17</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>laksys</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Apr 2014 at 10:37</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is the complete method for converting <code>InputStream</code> into <code>String</code> without using any third party library. Use <code>StringBuilder</code> for single threaded environment otherwise use <code>StringBuffer</code>.</p>
+     <pre><code>public static String getString( InputStream is) throws IOException {
+    int ch;
+    StringBuilder sb = new StringBuilder();
+    while((ch = is.read()) != -1)
+        sb.append((char)ch);
+    return sb.toString();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_25"><span>Answer 25</span> <span class="arrow"> <a href="#answer_24">↑</a> </span> <span class="arrow"> <a href="#answer_26">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>17</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>James</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Jul 2016 at 20:58</span>
+     </div>
+    </div>
+    <div>
+     <p>Another one, for all the Spring users:</p>
+     <pre class="lang-java prettyprint-override"><code>import java.nio.charset.StandardCharsets;
+import org.springframework.util.FileCopyUtils;
+
+public String convertStreamToString(InputStream is) throws IOException { 
+    return new String(FileCopyUtils.copyToByteArray(is), StandardCharsets.UTF_8);
+}
+</code></pre>
+     <p>The utility methods in <code>org.springframework.util.StreamUtils</code> are similar to the ones in <code>FileCopyUtils</code>, but they leave the stream open when done.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_26"><span>Answer 26</span> <span class="arrow"> <a href="#answer_25">↑</a> </span> <span class="arrow"> <a href="#answer_27">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alex</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Feb 2015 at 01:12</span>
+     </div>
+    </div>
+    <div>
+     <p>Kotlin users simply do:</p>
+     <pre><code>println(InputStreamReader(is).readText())
+</code></pre>
+     <p>whereas</p>
+     <pre><code>readText()
+</code></pre>
+     <p>is Kotlin standard library’s built-in extension method.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_27"><span>Answer 27</span> <span class="arrow"> <a href="#answer_26">↑</a> </span> <span class="arrow"> <a href="#answer_28">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Matt Shannon</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Nov 2012 at 12:37</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's how to do it using just the JDK using byte array buffers. This is actually how the commons-io <code>IOUtils.copy()</code> methods all work. You can replace <code>byte[]</code> with <code>char[]</code> if you're copying from a <code>Reader</code> instead of an <code>InputStream</code>.</p>
+     <pre><code>import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+
+...
+
+InputStream is = ....
+ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
+byte[] buffer = new byte[8192];
+int count = 0;
+try {
+  while ((count = is.read(buffer)) != -1) {
+    baos.write(buffer, 0, count);
+  }
+}
+finally {
+  try {
+    is.close();
+  }
+  catch (Exception ignore) {
+  }
+}
+
+String charset = "UTF-8";
+String inputStreamAsString = baos.toString(charset);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_28"><span>Answer 28</span> <span class="arrow"> <a href="#answer_27">↑</a> </span> <span class="arrow"> <a href="#answer_29">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Raghu K Nair</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Aug 2016 at 20:18</span>
+     </div>
+    </div>
+    <div>
+     <p>The easiest way in JDK is with the following code snipplets.</p>
+     <pre><code>String convertToString(InputStream in){
+    String resource = new Scanner(in).useDelimiter("\\Z").next();
+    return resource;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_29"><span>Answer 29</span> <span class="arrow"> <a href="#answer_28">↑</a> </span> <span class="arrow"> <a href="#answer_30">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>libnull-dev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jan 2016 at 14:28</span>
+     </div>
+    </div>
+    <div>
+     <p>In terms of <code>reduce</code>, and <code>concat</code> it can be expressed in Java 8 as:</p>
+     <pre><code>String fromFile = new BufferedReader(new   
+InputStreamReader(inputStream)).lines().reduce(String::concat).get();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_30"><span>Answer 30</span> <span class="arrow"> <a href="#answer_29">↑</a> </span> <span class="arrow"> <a href="#answer_31">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Christian Rädel</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Sep 2015 at 11:19</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's my <strong>Java 8</strong> based solution, which uses the <em>new Stream API</em> to collect all lines from an <code>InputStream</code>:</p>
+     <pre><code>public static String toString(InputStream inputStream) {
+    BufferedReader reader = new BufferedReader(
+        new InputStreamReader(inputStream));
+    return reader.lines().collect(Collectors.joining(
+        System.getProperty("line.separator")));
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_31"><span>Answer 31</span> <span class="arrow"> <a href="#answer_30">↑</a> </span> <span class="arrow"> <a href="#answer_32">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>voidmain</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Dec 2013 at 17:53</span>
+     </div>
+    </div>
+    <div>
+     <p>JDK 7/8 answer that closes the stream and still throws an IOException:</p>
+     <pre><code>StringBuilder build = new StringBuilder();
+byte[] buf = new byte[1024];
+int length;
+try (InputStream is = getInputStream()) {
+  while ((length = is.read(buf)) != -1) {
+    build.append(new String(buf, 0, length));
+  }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_32"><span>Answer 32</span> <span class="arrow"> <a href="#answer_31">↑</a> </span> <span class="arrow"> <a href="#answer_33">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Anand N</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jul 2012 at 10:19</span>
+     </div>
+    </div>
+    <div>
+     <p>The below code worked for me.</p>
+     <pre><code>URL url = MyClass.class.getResource("/" + configFileName);
+BufferedInputStream bi = (BufferedInputStream) url.getContent();
+byte[] buffer = new byte[bi.available() ];
+int bytesRead = bi.read(buffer);
+String out = new String(buffer);
+</code></pre>
+     <p>Please note, according to Java docs, the <code>available()</code> method might not work with <code>InputStream</code> but always works with <code>BufferedInputStream</code>. In case you don't want to use <code>available()</code> method we can always use the below code</p>
+     <pre><code>URL url = MyClass.class.getResource("/" + configFileName);
+BufferedInputStream bi = (BufferedInputStream) url.getContent();
+File f = new File(url.getPath());
+byte[] buffer = new byte[ (int) f.length()];
+int bytesRead = bi.read(buffer);
+String out = new String(buffer);
+</code></pre>
+     <p>I am not sure if there will be any encoding issues. Please comment, if there will be any issues with the code.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_33"><span>Answer 33</span> <span class="arrow"> <a href="#answer_32">↑</a> </span> <span class="arrow"> <a href="#answer_34">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Victor</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Mar 2013 at 20:13</span>
+     </div>
+    </div>
+    <div>
+     <p>Well, you can program it for yourself... It's not complicated...</p>
+     <pre><code>String Inputstream2String (InputStream is) throws IOException
+    {
+        final int PKG_SIZE = 1024;
+        byte[] data = new byte [PKG_SIZE];
+        StringBuilder buffer = new StringBuilder(PKG_SIZE * 10);
+        int size;
+
+        size = is.read(data, 0, data.length);
+        while (size &gt; 0)
+        {
+            String str = new String(data, 0, size);
+            buffer.append(str);
+            size = is.read(data, 0, data.length);
+        }
+        return buffer.toString();
+    }
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Since you're using <code>buffer</code> variable locally with no chance of being shared across multiple threads you should consider changing its type to <code>StringBuilder</code>, to avoid the overhead of (useless) synchronization.</span> <span> - </span> <span class="display-name">user246645</span> <span> </span> <span class="date">8 Nov 2013 at 10:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That's a good point alex!. I thing that we both agree that this method isn't thread-safe in many ways. Even the input stream operations aren't thread-safe.</span> <span> - </span> <span class="display-name">Victor</span> <span> </span> <span class="date">8 Nov 2013 at 16:19</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>If the stream contains UTF-8 character that spans across several lines, this algorithm can cut the character in two breaking the string.</span> <span> - </span> <span class="display-name">Vlad Lifliand</span> <span> </span> <span class="date">8 Aug 2014 at 22:47</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@VladLifliand How exactly would a UTF-8 character manage to span across several lines? That's impossible by definition. You probably meant something else.</span> <span> - </span> <span class="display-name">Christian Hujer</span> <span> </span> <span class="date">31 Jan 2016 at 22:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ChristianHujer He probably means <code>buffers</code> instead of <code>lines</code>. UTF-8 codepoints/characters can be multi-byte.</span> <span> - </span> <span class="display-name">ᴠɪɴᴄᴇɴᴛ</span> <span> </span> <span class="date">17 Mar 2019 at 20:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Oh yes, they can, and most of them are, multi-byte in UTF-8. Only US-ASCII-7 is not multi-byte in UTF-8. If it's buffers, as in the code, it makes sense. Just not with lines.</span> <span> - </span> <span class="display-name">Christian Hujer</span> <span> </span> <span class="date">19 Mar 2019 at 08:07</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_34"><span>Answer 34</span> <span class="arrow"> <a href="#answer_33">↑</a> </span> <span class="arrow"> <a href="#answer_35">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ben Barkay</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Feb 2014 at 17:24</span>
+     </div>
+    </div>
+    <div>
+     <p>I have written a class that does just that, so I figured I'd share it with everyone. Sometimes you don't want to add Apache Commons just for one thing, and want something dumber than Scanner that doesn't examine the content.</p>
+     <p>Usage is as follows</p>
+     <pre><code>// Read from InputStream
+String data = new ReaderSink(inputStream, Charset.forName("UTF-8")).drain();
+
+// Read from File
+data = new ReaderSink(file, Charset.forName("UTF-8")).drain();
+
+// Drain input stream to console
+new ReaderSink(inputStream, Charset.forName("UTF-8")).drainTo(System.out);
+</code></pre>
+     <p>Here is the code for ReaderSink:</p>
+     <pre><code>import java.io.*;
+import java.nio.charset.Charset;
+
+/**
+ * A simple sink class that drains a {@link Reader} to a {@link String} or
+ * to a {@link Writer}.
+ *
+ * @author Ben Barkay
+ * @version 2/20/2014
+ */
+public class ReaderSink {
+    /**
+     * The default buffer size to use if no buffer size was specified.
+     */
+    public static final int DEFAULT_BUFFER_SIZE = 1024;
+
+    /**
+     * The {@link Reader} that will be drained.
+     */
+    private final Reader in;
+
+    /**
+     * Constructs a new {@code ReaderSink} for the specified file and charset.
+     * @param file      The file to read from.
+     * @param charset   The charset to use.
+     * @throws FileNotFoundException    If the file was not found on the filesystem.
+     */
+    public ReaderSink(File file, Charset charset) throws FileNotFoundException {
+        this(new FileInputStream(file), charset);
+    }
+
+    /**
+     * Constructs a new {@code ReaderSink} for the specified {@link InputStream}.
+     * @param in        The {@link InputStream} to drain.
+     * @param charset   The charset to use.
+     */
+    public ReaderSink(InputStream in, Charset charset) {
+        this(new InputStreamReader(in, charset));
+    }
+
+    /**
+     * Constructs a new {@code ReaderSink} for the specified {@link Reader}.
+     * @param in    The reader to drain.
+     */
+    public ReaderSink(Reader in) {
+        this.in = in;
+    }
+
+    /**
+     * Drains the data from the underlying {@link Reader}, returning a {@link String} containing
+     * all of the read information. This method will use {@link #DEFAULT_BUFFER_SIZE} for
+     * its buffer size.
+     * @return  A {@link String} containing all of the information that was read.
+     */
+    public String drain() throws IOException {
+        return drain(DEFAULT_BUFFER_SIZE);
+    }
+
+    /**
+     * Drains the data from the underlying {@link Reader}, returning a {@link String} containing
+     * all of the read information.
+     * @param bufferSize    The size of the buffer to use when reading.
+     * @return  A {@link String} containing all of the information that was read.
+     */
+    public String drain(int bufferSize) throws IOException {
+        StringWriter stringWriter = new StringWriter();
+        drainTo(stringWriter, bufferSize);
+        return stringWriter.toString();
+    }
+
+    /**
+     * Drains the data from the underlying {@link Reader}, writing it to the
+     * specified {@link Writer}. This method will use {@link #DEFAULT_BUFFER_SIZE} for
+     * its buffer size.
+     * @param out   The {@link Writer} to write to.
+     */
+    public void drainTo(Writer out) throws IOException {
+        drainTo(out, DEFAULT_BUFFER_SIZE);
+    }
+
+    /**
+     * Drains the data from the underlying {@link Reader}, writing it to the
+     * specified {@link Writer}.
+     * @param out           The {@link Writer} to write to.
+     * @param bufferSize    The size of the buffer to use when reader.
+     */
+    public void drainTo(Writer out, int bufferSize) throws IOException {
+        char[] buffer = new char[bufferSize];
+        int read;
+        while ((read = in.read(buffer)) &gt; -1) {
+            out.write(buffer, 0, read);
+        }
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_35"><span>Answer 35</span> <span class="arrow"> <a href="#answer_34">↑</a> </span> <span class="arrow"> <a href="#answer_36">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Steve Chambers</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Dec 2015 at 11:08</span>
+     </div>
+    </div>
+    <div>
+     <p>Based on the second part of <a href="https://stackoverflow.com/questions/309424/read-convert-an-inputstream-to-a-string?page=1&amp;tab=votes#309448">the accepted Apache Commons answer</a> but with the small gap filled in for always closing the stream:</p>
+     <pre><code>    String theString;
+    try {
+        theString = IOUtils.toString(inputStream, encoding);
+    } finally {
+        IOUtils.closeQuietly(inputStream);
+    }
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Note that this solution is the most inefficient based on my <a href="https://stackoverflow.com/a/48775964/1129332">benchmark results</a></span> <span> - </span> <span class="display-name">Ilya Gazman</span> <span> </span> <span class="date">5 Apr 2018 at 14:57</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_36"><span>Answer 36</span> <span class="arrow"> <a href="#answer_35">↑</a> </span> <span class="arrow"> <a href="#answer_37">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user12402945</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Nov 2019 at 12:49</span>
+     </div>
+    </div>
+    <div>
+     <p>This code is for new Java learners:</p>
+     <pre><code>private String textDataFromFile;
+
+public String getFromFile(InputStream myInputStream) throws FileNotFoundException, IOException {
+
+    BufferedReader bufferReader = new BufferedReader(new InputStreamReader(myInputStream));
+
+    StringBuilder stringBuilder = new StringBuilder();
+
+    String eachStringLine;
+
+    while ((eachStringLine = bufferReader.readLine()) != null) {
+        stringBuilder.append(eachStringLine).append("\n");
+    }
+    textDataFromFile = stringBuilder.toString();
+
+    return textDataFromFile;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>You are converting line separators and in the case where the input doesn't end with a newline, you are adding one. This is useful for some cases, but the it is interpreting the input stream rather than doing a direct conversion to a String.</span> <span> - </span> <span class="display-name">swpalmer</span> <span> </span> <span class="date">30 Dec 2021 at 17:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_37"><span>Answer 37</span> <span class="arrow"> <a href="#answer_36">↑</a> </span> <span class="arrow"> <a href="#answer_38">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rys</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Jan 2014 at 14:03</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use Apache Commons.</p>
+     <p>In the IOUtils you can find the toString method with three helpful implementations.</p>
+     <pre><code>public static String toString(InputStream input) throws IOException {
+        return toString(input, Charset.defaultCharset());
+}
+
+public static String toString(InputStream input) throws IOException {
+        return toString(input, Charset.defaultCharset());
+}
+
+public static String toString(InputStream input, String encoding)
+            throws IOException {
+        return toString(input, Charsets.toCharset(encoding));
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>What is difference between first 2 methods?</span> <span> - </span> <span class="display-name">rkosegi</span> <span> </span> <span class="date">3 Oct 2018 at 19:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_38"><span>Answer 38</span> <span class="arrow"> <a href="#answer_37">↑</a> </span> <span class="arrow"> <a href="#answer_39">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>JavaTechnical</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Feb 2014 at 05:17</span>
+     </div>
+    </div>
+    <div>
+     <p>Try these 4 statements..</p>
+     <p>As per the point recalled by Fred, it is not recommended to append a <code>String</code> with <code>+=</code> operator since every time a new <code>char</code> is appended to the existing <code>String</code> creating a new <code>String</code> object again and assigning its address to <code>st</code> while the old <code>st</code> object becomes garbage.</p>
+     <pre><code>public String convertStreamToString(InputStream is)
+{
+    int k;
+    StringBuffer sb=new StringBuffer();
+    while((k=fin.read()) != -1)
+    {
+        sb.append((char)k);
+    }
+    return sb.toString();
+}
+</code></pre>
+     <hr>
+     <p><strong>Not recommended, but this is also a way</strong></p>
+     <pre><code>public String convertStreamToString(InputStream is) { 
+    int k;
+    String st="";
+    while((k=is.read()) != -1)
+    {
+        st+=(char)k;
+    }
+    return st;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>String concatenation in a loop with the <code>+=</code> operator is not a good idea. It is better to use a <code>StringBuilder</code> or a <code>StringBuffer</code>.</span> <span> - </span> <span class="display-name">Fred</span> <span> </span> <span class="date">20 Feb 2014 at 15:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_39"><span>Answer 39</span> <span class="arrow"> <a href="#answer_38">↑</a> </span> <span class="arrow"> <a href="#answer_40">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vaishali Sutariya</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Aug 2014 at 12:30</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>InputStream is = Context.openFileInput(someFileName); // whatever format you have
+
+ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+byte[] b = new byte[8192];
+for (int bytesRead; (bytesRead = is.read(b)) != -1;) {
+    bos.write(b, 0, bytesRead);
+}
+
+String output = bos.toString(someEncoding);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_40"><span>Answer 40</span> <span class="arrow"> <a href="#answer_39">↑</a> </span> <span class="arrow"> <a href="#answer_41">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vadzim</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jul 2015 at 13:20</span>
+     </div>
+    </div>
+    <div>
+     <p><a href="https://code.google.com/p/guava-libraries/wiki/IOExplained" rel="nofollow">Guava provides</a> much shorter efficient autoclosing solution in case when input stream comes from classpath resource (which seems to be popular task):</p>
+     <pre><code>byte[] bytes = Resources.toByteArray(classLoader.getResource(path));
+</code></pre>
+     <p>or</p>
+     <pre><code>String text = Resources.toString(classLoader.getResource(path), StandardCharsets.UTF_8);
+</code></pre>
+     <p>There is also general concept of <a href="http://docs.guava-libraries.googlecode.com/git-history/release/javadoc/com/google/common/io/ByteSource.html" rel="nofollow">ByteSource</a> and <a href="http://docs.guava-libraries.googlecode.com/git-history/release/javadoc/com/google/common/io/CharSource.html" rel="nofollow">CharSource</a> that gently take care of both opening and closing the stream.</p>
+     <p>So, for example, instead of explicitly opening a small file to read its contents:</p>
+     <pre><code>String content = Files.asCharSource(new File("robots.txt"), StandardCharsets.UTF_8).read();
+byte[] data = Files.asByteSource(new File("favicon.ico")).read();
+</code></pre>
+     <p>or just</p>
+     <pre><code>String content = Files.toString(new File("robots.txt"), StandardCharsets.UTF_8);
+byte[] data = Files.toByteArray(new File("favicon.ico"));
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_41"><span>Answer 41</span> <span class="arrow"> <a href="#answer_40">↑</a> </span> <span class="arrow"> <a href="#answer_42">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Snekse</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jan 2017 at 19:40</span>
+     </div>
+    </div>
+    <div>
+     <p><a href="http://docs.groovy-lang.org/latest/html/groovy-jdk/java/io/InputStream.html#getText()" rel="nofollow noreferrer">In Groovy</a></p>
+     <pre><code>inputStream.getText()
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_42"><span>Answer 42</span> <span class="arrow"> <a href="#answer_41">↑</a> </span> <span class="arrow"> <a href="#answer_43">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Halfacht</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 May 2017 at 11:38</span>
+     </div>
+    </div>
+    <div>
+     <p><em>Raghu K Nair</em> Was the only one using a scanner. The code I use is a little different:</p>
+     <pre><code>String convertToString(InputStream in){
+    Scanner scanner = new Scanner(in)
+    scanner.useDelimiter("\\A");
+
+    boolean hasInput = scanner.hasNext();
+    if (hasInput) {
+        return scanner.next();
+    } else {
+        return null;
+    }
+
+}
+</code></pre>
+     <p>About Delimiters: <a href="https://stackoverflow.com/questions/28766377/how-do-i-use-a-delimiter-in-java-scanner">How do I use a delimiter in Java Scanner?</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_43"><span>Answer 43</span> <span class="arrow"> <a href="#answer_42">↑</a> </span> <span class="arrow"> <a href="#answer_44">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hao Zheng</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jan 2017 at 05:42</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>public String read(InputStream in) throws IOException {
+    try (BufferedReader buffer = new BufferedReader(new InputStreamReader(in))) {
+        return buffer.lines().collect(Collectors.joining("\n"));
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_44"><span>Answer 44</span> <span class="arrow"> <a href="#answer_43">↑</a> </span> <span class="arrow"> <a href="#answer_45">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>drakeet</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Apr 2018 at 12:53</span>
+     </div>
+    </div>
+    <div>
+     <p>With <a href="https://square.github.io/okio/" rel="nofollow noreferrer">Okio</a>:</p>
+     <pre><code>String result = Okio.buffer(Okio.source(inputStream)).readUtf8();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Though the <a href="https://stackoverflow.com/tags/okio/info">tag wiki for Okio</a> has been plagiarised from that page.</span> <span> - </span> <span class="display-name">Peter Mortensen</span> <span> </span> <span class="date">20 Jan 2023 at 18:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_45"><span>Answer 45</span> <span class="arrow"> <a href="#answer_44">↑</a> </span> <span class="arrow"> <a href="#answer_46">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hans Brende</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Nov 2018 at 23:21</span>
+     </div>
+    </div>
+    <div>
+     <h1>ISO-8859-1</h1>
+     <p>Here is a <strong>very</strong> performant way to do this if you know your input stream's encoding is ISO-8859-1 or ASCII. It (1) avoids the unnecessary synchronization present in <code>StringWriter</code>'s internal <code>StringBuffer</code>, (2) avoids the overhead of <code>InputStreamReader</code>, and (3) minimizes the number of times <code>StringBuilder</code>'s internal <code>char</code> array must be copied.</p>
+     <pre><code>public static String iso_8859_1(InputStream is) throws IOException {
+    StringBuilder chars = new StringBuilder(Math.max(is.available(), 4096));
+    byte[] buffer = new byte[4096];
+    int n;
+    while ((n = is.read(buffer)) != -1) {
+        for (int i = 0; i &lt; n; i++) {
+            chars.append((char)(buffer[i] &amp; 0xFF));
+        }
+    }
+    return chars.toString();
+}
+</code></pre>
+     <h1>UTF-8</h1>
+     <p>The same general strategy may be used for a stream encoded with UTF-8:</p>
+     <pre><code>public static String utf8(InputStream is) throws IOException {
+    StringBuilder chars = new StringBuilder(Math.max(is.available(), 4096));
+    byte[] buffer = new byte[4096];
+    int n;
+    int state = 0;
+    while ((n = is.read(buffer)) != -1) {
+        for (int i = 0; i &lt; n; i++) {
+            if ((state = nextStateUtf8(state, buffer[i])) &gt;= 0) {
+                chars.appendCodePoint(state);
+            } else if (state == -1) { //error
+                state = 0;
+                chars.append('\uFFFD'); //replacement char
+            }
+        }
+    }
+    return chars.toString();
+}
+</code></pre>
+     <p>where the <code>nextStateUtf8()</code> function is defined as follows:</p>
+     <pre><code>/**
+ * Returns the next UTF-8 state given the next byte of input and the current state.
+ * If the input byte is the last byte in a valid UTF-8 byte sequence,
+ * the returned state will be the corresponding unicode character (in the range of 0 through 0x10FFFF).
+ * Otherwise, a negative integer is returned. A state of -1 is returned whenever an
+ * invalid UTF-8 byte sequence is detected.
+ */
+static int nextStateUtf8(int currentState, byte nextByte) {
+    switch (currentState &amp; 0xF0000000) {
+        case 0:
+            if ((nextByte &amp; 0x80) == 0) { //0 trailing bytes (ASCII)
+                return nextByte;
+            } else if ((nextByte &amp; 0xE0) == 0xC0) { //1 trailing byte
+                if (nextByte == (byte) 0xC0 || nextByte == (byte) 0xC1) { //0xCO &amp; 0xC1 are overlong
+                    return -1;
+                } else {
+                    return nextByte &amp; 0xC000001F;
+                }
+            } else if ((nextByte &amp; 0xF0) == 0xE0) { //2 trailing bytes
+                if (nextByte == (byte) 0xE0) { //possibly overlong
+                    return nextByte &amp; 0xA000000F;
+                } else if (nextByte == (byte) 0xED) { //possibly surrogate
+                    return nextByte &amp; 0xB000000F;
+                } else {
+                    return nextByte &amp; 0x9000000F;
+                }
+            } else if ((nextByte &amp; 0xFC) == 0xF0) { //3 trailing bytes
+                if (nextByte == (byte) 0xF0) { //possibly overlong
+                    return nextByte &amp; 0x80000007;
+                } else {
+                    return nextByte &amp; 0xE0000007;
+                }
+            } else if (nextByte == (byte) 0xF4) { //3 trailing bytes, possibly undefined
+                return nextByte &amp; 0xD0000007;
+            } else {
+                return -1;
+            }
+        case 0xE0000000: //3rd-to-last continuation byte
+            return (nextByte &amp; 0xC0) == 0x80 ? currentState &lt;&lt; 6 | nextByte &amp; 0x9000003F : -1;
+        case 0x80000000: //3rd-to-last continuation byte, check overlong
+            return (nextByte &amp; 0xE0) == 0xA0 || (nextByte &amp; 0xF0) == 0x90 ? currentState &lt;&lt; 6 | nextByte &amp; 0x9000003F : -1;
+        case 0xD0000000: //3rd-to-last continuation byte, check undefined
+            return (nextByte &amp; 0xF0) == 0x80 ? currentState &lt;&lt; 6 | nextByte &amp; 0x9000003F : -1;
+        case 0x90000000: //2nd-to-last continuation byte
+            return (nextByte &amp; 0xC0) == 0x80 ? currentState &lt;&lt; 6 | nextByte &amp; 0xC000003F : -1;
+        case 0xA0000000: //2nd-to-last continuation byte, check overlong
+            return (nextByte &amp; 0xE0) == 0xA0 ? currentState &lt;&lt; 6 | nextByte &amp; 0xC000003F : -1;
+        case 0xB0000000: //2nd-to-last continuation byte, check surrogate
+            return (nextByte &amp; 0xE0) == 0x80 ? currentState &lt;&lt; 6 | nextByte &amp; 0xC000003F : -1;
+        case 0xC0000000: //last continuation byte
+            return (nextByte &amp; 0xC0) == 0x80 ? currentState &lt;&lt; 6 | nextByte &amp; 0x3F : -1;
+        default:
+            return -1;
+    }
+}
+</code></pre>
+     <h1>Auto-Detect Encoding</h1>
+     <p>If your input stream was encoded using either ASCII or ISO-8859-1 or UTF-8, but you're not sure which, we can use a similar method to the last, but with an additional encoding-detection component to <em>auto-detect</em> the encoding before returning the string.</p>
+     <pre><code>public static String autoDetect(InputStream is) throws IOException {
+    StringBuilder chars = new StringBuilder(Math.max(is.available(), 4096));
+    byte[] buffer = new byte[4096];
+    int n;
+    int state = 0;
+    boolean ascii = true;
+    while ((n = is.read(buffer)) != -1) {
+        for (int i = 0; i &lt; n; i++) {
+            if ((state = nextStateUtf8(state, buffer[i])) &gt; 0x7F)
+                ascii = false;
+            chars.append((char)(buffer[i] &amp; 0xFF));
+        }
+    }
+
+    if (ascii || state &lt; 0) { //probably not UTF-8
+        return chars.toString();
+    }
+    //probably UTF-8
+    int pos = 0;
+    char[] charBuf = new char[2];
+    for (int i = 0, len = chars.length(); i &lt; len; i++) {
+        if ((state = nextStateUtf8(state, (byte)chars.charAt(i))) &gt;= 0) {
+            boolean hi = Character.toChars(state, charBuf, 0) == 2;
+            chars.setCharAt(pos++, charBuf[0]);
+            if (hi) {
+                chars.setCharAt(pos++, charBuf[1]);
+            }
+        }
+    }
+    return chars.substring(0, pos);
+}
+</code></pre>
+     <p>If your input stream has an encoding that is neither ISO-8859-1 nor ASCII nor UTF-8, then I defer to the other answers already present.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_46"><span>Answer 46</span> <span class="arrow"> <a href="#answer_45">↑</a> </span> <span class="arrow"> <a href="#answer_47">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Kaplan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Dec 2020 at 13:50</span>
+     </div>
+    </div>
+    <div>
+     <p>If you need to convert the string to a specific character set <em>without</em> external libraries then:</p>
+     <pre><code>public String convertStreamToString(InputStream is) throws IOException {
+  try (ByteArrayOutputStream baos = new ByteArrayOutputStream();) {
+    is.transferTo(baos);
+    return baos.toString(StandardCharsets.UTF_8);
+  }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_47"><span>Answer 47</span> <span class="arrow"> <a href="#answer_46">↑</a> </span> <span class="arrow"> <a href="#answer_48">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Omkar Khot</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 May 2013 at 14:52</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>InputStreamReader i = new InputStreamReader(s);
+BufferedReader str = new BufferedReader(i);
+String msg = str.readLine();
+System.out.println(msg);
+</code></pre>
+     <p>Here s is your <code>InputStream</code> object which will get convert into <code>String</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>will it work if last 2 lines are inserted in <code>do-while</code> loop?</span> <span> - </span> <span class="display-name">KNU</span> <span> </span> <span class="date">7 Apr 2014 at 11:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>There is nothing in the question about lines.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">24 Feb 2017 at 00:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_48"><span>Answer 48</span> <span class="arrow"> <a href="#answer_47">↑</a> </span> <span class="arrow"> <a href="#answer_49">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>yegor256</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Aug 2017 at 18:08</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use <a href="http://www.cactoos.org" rel="nofollow noreferrer">Cactoos</a>:</p>
+     <pre><code>String text = new TextOf(inputStream).asString();
+</code></pre>
+     <p>UTF-8 encoding is the default one. If you need another one:</p>
+     <pre><code>String text = new TextOf(inputStream, "UTF-16").asString();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_49"><span>Answer 49</span> <span class="arrow"> <a href="#answer_48">↑</a> </span> <span class="arrow"> <a href="#answer_50">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>13hola</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jun 2018 at 12:45</span>
+     </div>
+    </div>
+    <div>
+     <p>I have created this code, and it works. There are no required external plug-ins.</p>
+     <p>There is a converter <code>String</code> to <code>Stream</code> and <code>Stream</code> to <code>String</code>:</p>
+     <pre><code>import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+
+public class STRINGTOSTREAM {
+
+    public static void main(String[] args)
+    {
+        String text = "Hello Bhola..!\nMy Name Is Kishan ";
+
+        InputStream strm = new ByteArrayInputStream(text.getBytes());    // Convert String to Stream
+
+        String data = streamTostring(strm);
+
+        System.out.println(data);
+    }
+
+    static String streamTostring(InputStream stream)
+    {
+        String data = "";
+
+        try
+        {
+            StringBuilder stringbuld = new StringBuilder();
+            int i;
+            while ((i=stream.read())!=-1)
+            {
+                stringbuld.append((char)i);
+            }
+            data = stringbuld.toString();
+        }
+        catch(Exception e)
+        {
+            data = "No data Streamed.";
+        }
+        return data;
+    }
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_50"><span>Answer 50</span> <span class="arrow"> <a href="#answer_49">↑</a> </span> <span class="arrow"> <a href="#answer_51">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Luke Hutchison</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Sep 2014 at 08:22</span>
+     </div>
+    </div>
+    <div>
+     <p>The following doesn't address the original question, but rather some of the responses.</p>
+     <p>Several responses suggest loops of the form</p>
+     <pre><code>String line = null;
+while((line = reader.readLine()) != null) {
+  // ...
+}
+</code></pre>
+     <p>or</p>
+     <pre><code>for(String line = reader.readLine(); line != null; line = reader.readLine()) {
+    // ...
+}
+</code></pre>
+     <p>The first form pollutes the namespace of the enclosing scope by declaring a variable "read" in the enclosing scope that will not be used for anything outside the for loop. The second form duplicates the readline() call.</p>
+     <p>Here is a much cleaner way of writing this sort of loop in Java. It turns out that the first clause in a for-loop doesn't require an actual initializer value. This keeps the scope of the variable "line" to within the body of the for loop. Much more elegant! I haven't seen anybody using this form anywhere (I randomly discovered it one day years ago), but I use it all the time.</p>
+     <pre><code>for (String line; (line = reader.readLine()) != null; ) {
+    //...
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_51"><span>Answer 51</span> <span class="arrow"> <a href="#answer_50">↑</a> </span> <span class="arrow"> <a href="#answer_52">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jitender Chahar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Feb 2016 at 17:18</span>
+     </div>
+    </div>
+    <div>
+     <p>Method to convert inputStream to String</p>
+     <pre><code>public static String getStringFromInputStream(InputStream inputStream) {
+
+    BufferedReader bufferedReader = null;
+    StringBuilder stringBuilder = new StringBuilder();
+    String line;
+
+    try {
+        bufferedReader = new BufferedReader(new InputStreamReader(
+                inputStream));
+        while ((line = bufferedReader.readLine()) != null) {
+            stringBuilder.append(line);
+        }
+    } catch (IOException e) {
+        logger.error(e.getMessage());
+    } finally {
+        if (bufferedReader != null) {
+            try {
+                bufferedReader.close();
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+        }
+    }
+    return stringBuilder.toString();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_52"><span>Answer 52</span> <span class="arrow"> <a href="#answer_51">↑</a> </span> <span class="arrow"> <a href="#answer_53">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Harsh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Mar 2016 at 06:01</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>InputStream  inputStream = null;
+BufferedReader bufferedReader = null;
+try {
+    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+    String stringBuilder = new StringBuilder();
+    String content;
+    while((content = bufferedReader.readLine()) != null){
+        stringBuilder.append(content);
+    }
+    System.out.println("content of file::" + stringBuilder.toString());
+}
+catch (IOException e) {
+            e.printStackTrace();
+        }finally{           
+            if(bufferedReader != null){
+                try{
+                    bufferedReader.close();
+                }catch(IoException ex){
+                   ex.printStackTrace();
+            }
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_53"><span>Answer 53</span> <span class="arrow"> <a href="#answer_52">↑</a> </span> <span class="arrow"> <a href="#answer_54">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>gil.fernandes</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Oct 2017 at 09:46</span>
+     </div>
+    </div>
+    <div>
+     <p>This solution to this question is not the simplest, but since NIO streams and channels have not been mentioned, here goes a version which uses NIO channels and a ByteBuffer to convert a stream into a string.</p>
+     <pre><code>public static String streamToStringChannel(InputStream in, String encoding, int bufSize) throws IOException {
+    ReadableByteChannel channel = Channels.newChannel(in);
+    ByteBuffer byteBuffer = ByteBuffer.allocate(bufSize);
+    ByteArrayOutputStream bout = new ByteArrayOutputStream();
+    WritableByteChannel outChannel = Channels.newChannel(bout);
+    while (channel.read(byteBuffer) &gt; 0 || byteBuffer.position() &gt; 0) {
+        byteBuffer.flip();  //make buffer ready for write
+        outChannel.write(byteBuffer);
+        byteBuffer.compact(); //make buffer ready for reading
+    }
+    channel.close();
+    outChannel.close();
+    return bout.toString(encoding);
+}
+</code></pre>
+     <p>Here is an example how to use it:</p>
+     <pre><code>try (InputStream in = new FileInputStream("/tmp/large_file.xml")) {
+    String x = streamToStringChannel(in, "UTF-8", 1);
+    System.out.println(x);
+}
+</code></pre>
+     <p>The performance of this method should be good for large files.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_54"><span>Answer 54</span> <span class="arrow"> <a href="#answer_53">↑</a> </span> <span class="arrow"> <a href="#answer_55">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>hertzsprung</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Apr 2022 at 15:56</span>
+     </div>
+    </div>
+    <div>
+     <p>If you're using AWS SDK v2, call <a href="https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/utils/IoUtils.html#toUtf8String-java.io.InputStream-" rel="nofollow noreferrer">IoUtils.toUtf8String()</a>:</p>
+     <pre><code>public String convertStreamToString(InputStream is) {
+    return IoUtils.toUtf8String(is);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_55"><span>Answer 55</span> <span class="arrow"> <a href="#answer_54">↑</a> </span> <span class="arrow"> <a href="#answer_56">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Zufar Sunagatov</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Apr 2023 at 20:12</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>How do I read / convert an InputStream into a String in Java?</p>
+     </blockquote>
+     <p>You would provide one more possible solution where performance is the main concern, you can improve speed by using a BufferedReader to read the InputStream line by line, instead of reading the InputStream byte by byte. Here it is a code:</p>
+     <pre><code>public String convertStreamToString(InputStream inputStream) throws IOException {
+    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+    StringBuilder stringBuilder = new StringBuilder();
+    String line;
+    while ((line = reader.readLine()) != null) {
+        stringBuilder.append(line).append("\n");
+    }
+    return stringBuilder.toString();
+}
+
+</code></pre>
+     <p>When compared to reading the input byte by byte, this method buffers the information and reads it in chunks, which can greatly improve performance.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_56"><span>Answer 56</span> <span class="arrow"> <a href="#answer_55">↑</a> </span> <span class="arrow"> <a href="#answer_57">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Fred</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Feb 2014 at 15:28</span>
+     </div>
+    </div>
+    <div>
+     <p>This snippet was found in \sdk\samples\android-19\connectivity\NetworkConnect\NetworkConnectSample\src\main\java\com\example\android\networkconnect\MainActivity.java which is licensed under Apache License, Version 2.0 and written by Google.</p>
+     <pre><code>/** Reads an InputStream and converts it to a String.
+ * @param stream InputStream containing HTML from targeted site.
+ * @param len Length of string that this method returns.
+ * @return String concatenated according to len parameter.
+ * @throws java.io.IOException
+ * @throws java.io.UnsupportedEncodingException
+ */
+private String readIt(InputStream stream, int len) throws IOException, UnsupportedEncodingException {
+    Reader reader = null;
+    reader = new InputStreamReader(stream, "UTF-8");
+    char[] buffer = new char[len];
+    reader.read(buffer);
+    return new String(buffer);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_57"><span>Answer 57</span> <span class="arrow"> <a href="#answer_56">↑</a> </span> <span class="arrow"> <a href="#answer_58">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ravi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 May 2016 at 05:07</span>
+     </div>
+    </div>
+    <div>
+     <p>Also you can get InputStream from a specified resource path:</p>
+     <pre><code>public static InputStream getResourceAsStream(String path)
+{
+    InputStream myiInputStream = ClassName.class.getResourceAsStream(path);
+    if (null == myiInputStream)
+    {
+        mylogger.info("Can't find path = ", path);
+    }
+
+    return myiInputStream;
+}
+</code></pre>
+     <p>To get InputStream from a specific path:</p>
+     <pre><code>public static URL getResource(String path)
+{
+    URL myURL = ClassName.class.getResource(path);
+    if (null == myURL)
+    {
+        mylogger.info("Can't find resource path = ", path);
+    }
+    return myURL;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This does not answer the Question.</span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">16 Jan 2019 at 13:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_58"><span>Answer 58</span> <span class="arrow"> <a href="#answer_57">↑</a> </span> <span class="arrow"> <a href="#answer_59">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hasee Amarathunga</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Mar 2019 at 08:49</span>
+     </div>
+    </div>
+    <div>
+     <p>I suggest the <strong>StringWriter</strong> class for that problem.</p>
+     <pre><code>StringWriter wt= new StringWriter();
+IOUtils.copy(inputStream, wt, encoding);
+String st= wt.toString();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>IOUtils has a simpler function for that.</span> <span> - </span> <span class="display-name">toolforger</span> <span> </span> <span class="date">22 Jan 2020 at 08:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_59"><span>Answer 59</span> <span class="arrow"> <a href="#answer_58">↑</a> </span> <span class="arrow"> <a href="#answer_60">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>chubbsondubs</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Mar 2023 at 19:15</span>
+     </div>
+    </div>
+    <div>
+     <p>I see a lot of just snippets but zero explanations as to WHY this the snippet is a good way. I'm going to limit myself to just plain Java. What's key to understand about Java:</p>
+     <ul>
+      <li><code>java.io.InputStream</code> is for reading bytes.</li>
+      <li><code>java.io.Reader</code> is for reading character data.</li>
+     </ul>
+     <p>You should NOT be reading InputStream and converting that to Strings yourself because the world we are in isn't single byte focused anymore. And this is where <code>java.nio.charset.Charset</code> objects come into play. <code>Charset</code> classes convert bytes -&gt; char. They bridge <code>java.io.InputStream</code> and <code>java.io.Reader</code>. You have to have <code>java.nio.charset.Charset</code> to convert InputStream into a Reader.</p>
+     <p>I'm going to do this the low memory usage way (Well until you read the thing into a single string which will eat up the full memory, but dems the requirements ;-)</p>
+     <p>Here's the code:</p>
+     <pre><code>public String readString(InputStream inStream) {
+   char[] buffer = new char[2**16];
+   try( Reader reader = new InputStreamReader( inStream, "UTF-8") ) {
+      int length = -1;
+      StringBuilder builder = new StringBuilder();
+      while( (length = reader.read( buffer, 0, buffer.length )) &gt;= 0 ) {
+          builder.append( buffer, 0, length );
+      }
+   }
+   return builder.toString();
+}
+</code></pre>
+     <p>The key here is to use <code>InputStreamReader</code> to bridge between <code>InputStream</code> -&gt; <code>Reader</code> where you can read character data. From there it's simple to build the string using a <code>StringBuilder</code>. Another important part of <code>InputStreamReader</code> is specifying the character encoding. In this case I used "UTF-8", but it could be "ISO-8859-1" or "UTF-16", etc.</p>
+     <p>Word to the wise. I didn't use BufferedInputStream or BufferedReader to wrap these. Those classes are overused. If you are calling <code>Reader.read( char[], int start, int len)</code> or other array read methods then you are providing a buffer. Your usage is <em>mostly</em> optimized (the size of the buffer is what is in question) There is no need to have BufferedInputStream create yet another buffer for you. You've allocated your buffer so there is zero advantage added by wrapping your InputStream in a BufferedInputStream. Now if you are calling <code>InputStream.read()</code> or <code>Reader.read()</code> then yes those classes are providing a speed boost by converting single byte/char reads into buffered reads. But most of the time people don't read byte by byte.</p>
+     <p>The only exception to that advice is if you want to use readLine in which case BufferedReader is your friend, and go right ahead and use it. A word of caution is in order. If you are reading a 1GB one line file it's going to take over 1GB of memory to read your file which is probably NOT what you want.</p>
+     <p>That's the tightest loop with minimal memory usage for reading the actual data. And that's why reading the full data into a String might not always be the best approach, but this code can be adapted to other situations. If you were write it out to a <code>java.io.Writer</code> that streamed it out to an external storage it'd be very tight.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Re <i>"I see a lot of just snippets but zero explanations as to WHY this the snippet is a good way."</i>: The reason is probably that the posters don't understand it (blind <a href="https://meta.stackoverflow.com/questions/424261/where-do-the-duplication-start-when-an-answer-seems-similar-but-not-fully">plagiarism</a>). But it is very hard to prove (or disprove).</span> <span> - </span> <span class="display-name">Peter Mortensen</span> <span> </span> <span class="date">19 Apr 2023 at 14:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Well I wasn't going to go that far, but I appreciate the sentiment. I just thought everyone was being too succinct. :-)</span> <span> - </span> <span class="display-name">chubbsondubs</span> <span> </span> <span class="date">20 Apr 2023 at 01:42</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_60"><span>Answer 60</span> <span class="arrow"> <a href="#answer_59">↑</a> </span> <span class="arrow"> <a href="#answer_61">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dinis Cruz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 May 2014 at 18:04</span>
+     </div>
+    </div>
+    <div>
+     <p>I had log4j available, so I was able to use the org.apache.log4j.lf5.util.StreamUtils.getBytes to get the bytes, which I was able to convert into a string using the String ctor</p>
+     <pre><code>String result = new String(StreamUtils.getBytes(inputStream));
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>-1. Just because something is available doesn't mean it should be used. When you switch the logging provider, you're going to have to replace this. Also, it looks like it is internal and shouldn't really be used outside of log4j.</span> <span> - </span> <span class="display-name">robinst</span> <span> </span> <span class="date">14 Aug 2014 at 05:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_61"><span>Answer 61</span> <span class="arrow"> <a href="#answer_60">↑</a> </span> <span class="arrow"> <a href="#answer_62">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>FK386</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 May 2013 at 17:25</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>  InputStream IS=new URL("http://www.petrol.si/api/gas_prices.json").openStream();   
+
+  ByteArrayOutputStream BAOS=new ByteArrayOutputStream();
+  IOUtils.copy(IS, BAOS);
+  String d= new String(BAOS.toByteArray(),"UTF-8");           
+
+System.out.println(d);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>See the commet by ChristofferHammarström in the answer by HarryLime.</span> <span> - </span> <span class="display-name">Martin Schröder</span> <span> </span> <span class="date">15 May 2013 at 15:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>There is nothing in the question that would remotely suggest to which charset to convert to or that the solution should be immune to any charset.</span> <span> - </span> <span class="display-name">FK386</span> <span> </span> <span class="date">27 Jan 2017 at 16:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>An explanation would be in order.</span> <span> - </span> <span class="display-name">Peter Mortensen</span> <span> </span> <span class="date">5 Jan 2019 at 10:38</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_62"><span>Answer 62</span> <span class="arrow"> <a href="#answer_61">↑</a> </span> <span class="arrow"> <a href="#answer_63">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>somayaj</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Nov 2021 at 16:34</span>
+     </div>
+    </div>
+    <div>
+     <p>The easiest way, a one-liner:</p>
+     <pre><code>public static void main(String... args) throws IOException {
+    System.out.println(new String(Files.readAllBytes(Paths.get("csv.txt"))));
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_63"><span>Answer 63</span> <span class="arrow"> <a href="#answer_62">↑</a> </span> <span class="arrow"> <a href="#answer_64">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>hyper-neutrino</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Nov 2015 at 03:23</span>
+     </div>
+    </div>
+    <div>
+     <p>Note: This probably isn't a good idea. This method uses recursion and thus will hit a <code>StackOverflowError</code> very quickly:</p>
+     <pre><code>public String read (InputStream is) {
+    byte next = is.read();
+    return next == -1 ? "" : next + read(is); // Recursive part: reads next byte recursively
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>It is not just a bad choice. It will fail with a <code>StackOverflowError</code> if the input stream contains more than a few hundred characters.</span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">16 Jan 2019 at 13:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@StephenC That constitutes a bad choice in my opinion</span> <span> - </span> <span class="display-name">hyper-neutrino</span> <span> </span> <span class="date">16 Jan 2019 at 16:30</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>I agree. It is a "bad choice" to use a method that doesn't work (except in trivial cases). But not <b>just</b> a "bad choice". Anyhow, I am down voting because this is wrong ... not because it is a "bad choice". And also because you don't explain <i>why</i> this approach should not be used.</span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">16 Jan 2019 at 22:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@StephenC I don't fundamentally agree with you, but thank you for at least leaving a comment instead of just fly-by downvoting. Recursion overflow issues are system limitations, and this method is not wrong, it just causes memory issues faster (albeit MUCH faster) than other methods.</span> <span> - </span> <span class="display-name">hyper-neutrino</span> <span> </span> <span class="date">17 Jan 2019 at 15:47</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>For the Java language and implementations, the absence of tail-call optimization is a deliberate design choice; see <a href="https://softwareengineering.stackexchange.com/questions/272061/why-doesnt-java-have-optimization-for-tail-recursion-at-all" title="why doesnt java have optimization for tail recursion at all">softwareengineering.stackexchange.com/questions/272061/…</a>. It should be viewed as inherent to Java. Certainly it is common to all extant mainstream Java implementations ... including Android.</span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">17 Jan 2019 at 22:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I liked your method, it's highly unusual. However, I don't get why it would "cause memory issues much faster"?</span> <span> - </span> <span class="display-name">parsecer</span> <span> </span> <span class="date">13 May 2019 at 23:28</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@parsecer because instead of running out when the RAM can't handle the memory being used, it dies when the stack can't handle more stack calls, which is a lot smaller of a number on any reasonable system.</span> <span> - </span> <span class="display-name">hyper-neutrino</span> <span> </span> <span class="date">14 May 2019 at 18:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Why not use a loop and a StringBuilder?</span> <span> - </span> <span class="display-name">user</span> <span> </span> <span class="date">28 Dec 2022 at 18:22</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_64"><span>Answer 64</span> <span class="arrow"> <a href="#answer_63">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>soBinary</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jul 2012 at 17:33</span>
+     </div>
+    </div>
+    <div>
+     <p>Quick and easy:</p>
+     <pre><code>String result = (String)new ObjectInputStream( inputStream ).readObject();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>I get <code>java.io.StreamCorruptedException: invalid stream header</code></span> <span> - </span> <span class="display-name">XXL</span> <span> </span> <span class="date">20 Jul 2012 at 11:13</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span><code>ObjectInputStream</code> is about deserialization, and the stream have to respect the serialization protocol to work, which may not always true in the context of this question.</span> <span> - </span> <span class="display-name">bric3</span> <span> </span> <span class="date">3 Apr 2013 at 14:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>An explanation would be in order.</span> <span> - </span> <span class="display-name">Peter Mortensen</span> <span> </span> <span class="date">5 Jan 2019 at 10:37</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

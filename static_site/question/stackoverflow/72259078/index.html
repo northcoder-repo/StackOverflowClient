@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Invariant Generics don't seem working correctly</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Invariant Generics don't seem working correctly</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>6</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>willdel</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 May 2022 at 12:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/72259078/invariant-generics-dont-seem-working-correctly">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I've read some articles about <em>Covariance</em>, <em>Contravariance</em>, and <em>Invariance</em> in Java, but I'm confused about them.</p>
+    <p>I'm using Java 11, and I have a class hierarchy <code>A =&gt; B =&gt; C</code> (means that <code>C</code> is a subtype of <code>B</code> and <code>A</code>, and <code>B</code> is a subtype of <code>A</code>) and a class <code>Container</code>:</p>
+    <pre><code>class Container&lt;T&gt; {
+    public final T t;
+    public Container(T t) {
+        this.t = t;
+    }
+}
+</code></pre>
+    <p>for example, if I define a function:</p>
+    <pre><code>public Container&lt;B&gt; method(Container&lt;B&gt; param){
+  ...
+}
+</code></pre>
+    <p>here is my confusion, why does the third line compile?</p>
+    <pre><code>method(new Container&lt;&gt;(new A())); // ERROR
+method(new Container&lt;&gt;(new B())); // OK
+method(new Container&lt;&gt;(new C())); // OK Why ?, I make a correction, this compiles OK
+</code></pre>
+    <p>if in Java Generics are <em>invariant</em>.</p>
+    <p>When I define something like this:</p>
+    <pre><code>Container&lt;B&gt; conta =  new Container&lt;&gt;(new A()); // ERROR, Its OK!
+Container&lt;B&gt; contb =  new Container&lt;&gt;(new B()); // OK, Its OK!
+Container&lt;B&gt; contc =  new Container&lt;&gt;(new C()); // Ok, why ? It's not valid, because they are invariant
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">generics</span><span class="tag">type-inference</span><span class="tag">diamond-operator</span><span class="tag">invariance</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 May 2022 at 12:22</span>
+     </div>
+    </div>
+    <div>
+     <p>Covariance is the ability to pass or specify a subtype when a supertype is expetced. If your C class extends B, then C is a child class of B. This relationship between C and B is also called <code>is-a</code> relationship, where an instance of C is also an instance of B. Therefore when your variable <code>contc</code> is expecting a B instance and you're passing <code>new C()</code>, since <code>new C()</code> is an instance of C and C instance <code>is (also)-an</code> instance of B, then the compiler allows the following writing:</p>
+     <p><code>Container&lt;B&gt; contc = new Container&lt;&gt;(new C());</code></p>
+     <p>Conversely, when you're writing</p>
+     <p><code>Container&lt;B&gt; conta = new Container&lt;&gt;(new A());</code></p>
+     <p>you're receiving an error because A is a <b>supertype</b> of B, there is no <code>is-a</code> relationship from A to B, but rather from B to A. This is because every instance of B is also an instance of A, but not every instance of A is an instance of B (To make a silly example, every thumb is a finger but not every finger is a thumb). A is a generalization of B; therefore it cannot appear where a B instance is expected.</p>
+     <p>Here there's a good article expanding the concept of covariance in java.</p>
+     <p><a href="https://www.baeldung.com/java-covariant-return-type" rel="nofollow noreferrer">https://www.baeldung.com/java-covariant-return-type</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 May 2022 at 14:39</span>
+     </div>
+    </div>
+    <div>
+     <p>The question's examples don't demonstrate the invariance of generics.</p>
+     <p>An example which does demonstrate this would be:</p>
+     <pre><code>ArrayList&lt;Object&gt; ao = new ArrayList&lt;String&gt;(); // does not compile
+</code></pre>
+     <p>(You might incorrectly expect the above to compile, because <code>String</code> is a subclass of <code>Object</code>.)</p>
+     <p>The question shows us different ways to construct <code>Container&lt;B&gt;</code> objects - some of which compile and others which do not, because of the inheritance hierarchy of <code>A</code>, <code>B</code> and <code>C</code>.</p>
+     <p>That diamond operator <code>&lt;&gt;</code> means that the created container is of type <code>B</code> in every case.</p>
+     <p>If you take the following example:</p>
+     <pre><code>Container&lt;B&gt; contc =  new Container&lt;&gt;(new C()); // compiles
+</code></pre>
+     <p>And re-write it by populating the diamond with <code>C</code>, the you will see that the following does not compile:</p>
+     <pre><code>Container&lt;B&gt; contc =  new Container&lt;C&gt;(new C()); // does not compile
+</code></pre>
+     <p>That will give you the same "incompatible types" compilation error as my <code>ArrayList</code> example.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Ok, I didn't know how the diamond operator worked, it was a conceptual error on my part. Now I understand why the code compiled, I appreciate your response andrewJames. Thank you so much</span> <span> - </span> <span class="display-name">willdel</span> <span> </span> <span class="date">17 May 2022 at 10:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alexander Ivanchenko</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 May 2022 at 14:16</span>
+     </div>
+    </div>
+    <div>
+     <p>One of the boons introduced with Java 7 is the so-called <a href="https://docs.oracle.com/javase/tutorial/java/generics/types.html#diamond" rel="nofollow noreferrer"><em>diamond operator</em></a> <code>&lt;&gt;</code>.</p>
+     <p>And it has been with us for so long, that it's easy to forget that every time when diamond is being used while instantiating a generic class the compiler should <strong>infer</strong> the generic type from the context.</p>
+     <p>If we define a variable which will hold a reference to a list of <code>Person</code> objects like this:</p>
+     <pre><code>List&lt;Person&gt; people = new ArrayList&lt;&gt;(); // effectively - ArrayList&lt;Person&gt;()
+</code></pre>
+     <p>the compiler will <em>infer</em> the type of the <code>ArrayList</code> instance from the type of the variable <code>people</code> on the left.</p>
+     <p>In the <em>Java language specification</em>, the expression <code>new ArrayList&lt;&gt;()</code> is being described as a <a href="https://docs.oracle.com/javase/specs/jls/se17/html/jls-15.html#jls-15.9" rel="nofollow noreferrer"><em>class instance creation expression</em></a> and because it doesn't specify the generic type parameter and is used within a <em>context</em>, it should be classified as being a <em><strong>poly expression</strong></em>. A quote from the specification:</p>
+     <blockquote>
+      <p>A <em>class instance creation expression</em> is a <strong>poly expression</strong> (§15.2) if it uses the <strong>diamond</strong> form for type arguments to the class, and it appears in an <strong>assignment context</strong> or an <strong>invocation context</strong> (§5.2, §5.3).</p>
+     </blockquote>
+     <p>I.e. when <em>diamond</em> <code>&lt;&gt;</code> is used with a generic class instantiation, the actual type will depend on the <strong>context</strong> in which it appears.</p>
+     <p>The three statements below represent the case of so-called <em>assignment context</em>. And all three instances <code>Container</code> will be inferred as being of type <code>B</code>.</p>
+     <pre><code>Container&lt;B&gt; conta = new Container&lt;&gt;(new A()); // 1 - ERROR   because `B t = new A()` is incorrect
+Container&lt;B&gt; contb = new Container&lt;&gt;(new B()); // 2 - fine    because `B t = new B()` is correct
+Container&lt;B&gt; contc = new Container&lt;&gt;(new C()); // 3 - fine    because `B t = new C()` is also correct
+</code></pre>
+     <p>Since all instances of container are of type <code>B</code> and of parameter type expected by the contractor also will be <code>B</code>. I.e. can provide an instance of <code>B</code> or any of its subtypes. Therefore, in the case <code>1</code> we are getting a compilation error, meanwhile <code>2</code> and <code>3</code> (<code>B</code> and subtype of <code>B</code>) will compile correctly.</p>
+     <p>And it in't a violation of <em>invariant behavior</em>. Think about it this way: we can store in a <code>List&lt;Number&gt;</code> instances of <code>Integer</code>, <code>Byte</code>, <code>Double</code>, etc., that would not lead to any problem since they all can represent their super type <code>Number</code>. But the compiler will not allow assigning this list to any list that is not of type <code>List&lt;Number&gt;</code> because otherwise it would be impossible to ensure that this assignment is safe. And that is what the invariance means - we can assign only <code>List&lt;Number&gt;</code> to a variable of type <code>List&lt;Number&gt;</code> (but we are free to store any subtype of <code>Number</code> in it, it's safe).</p>
+     <p>As an example, let's consider that there's a setter method in the <code>Container</code> class:</p>
+     <pre><code>public class Container&lt;T&gt; {
+    public T t;
+    public Container(T t) {
+        this.t = t;
+    }
+        
+    public void setT(T t) {
+        this.t = t;
+    }
+}
+</code></pre>
+     <p>Now let's use it:</p>
+     <pre><code>Container&lt;B&gt; contb =  new Container&lt;&gt;(null); // to avoid any confusion initialy `t` will be assigned to `null`
+
+contb.setT(new A()); // compilation error - because expected type is `B` or it's subtype
+contb.setT(new B()); // fine
+contb.setT(new C()); // fine because C is a subtype of B
+</code></pre>
+     <p>When we deal with a class instance creation expression using diamond <code>&lt;&gt;</code>, which is passed to a method as an argument, the type will be inferred from the <em>invocation context</em> as the quote from the specification provided above states.</p>
+     <p>Because <code>method()</code> expects <code>Container&lt;B&gt;</code>, all instances above will be inferred as being of type <code>B</code>.</p>
+     <pre><code>method(new Container&lt;&gt;(new A())); // Error
+method(new Container&lt;&gt;(new B())); // OK - because `B t = new B()` is correct
+method(new Container&lt;&gt;(new C())); // OK - because `B t = new C()` is also correct
+</code></pre>
+     <p><em><strong>Note</strong></em></p>
+     <p>The important thing to mention that prior to Java 8 (<em>i.e. with Java 7, because we are using diamond</em>) the expression <code>new Container&lt;&gt;(new C())</code> will be interpreted by the compiler as a <em>standalone expression</em> (i.e. the context will be ignored) creating an instance of <code>Container&lt;C&gt;</code>. It means your initial guess was somewhat correct: with <strong>Java 7</strong> the below statement would not compile.</p>
+     <pre><code>Container&lt;B&gt; contc = new Container&lt;&gt;(new C()); // Container&lt;B&gt; = Container&lt;C&gt; - is an illegal assignment
+</code></pre>
+     <p>But Java 8 has introduced a feature called <a href="https://docs.oracle.com/javase/tutorial/java/generics/genTypeInference.html#target_types" rel="nofollow noreferrer"><em>target types</em></a> and <em>poly expressions</em> (i.e. expressions that appear within a <em>context</em>) that insures that <em>context</em> will always be taken into account by the type inference mechanism.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Hi , Thanks for your comment, your explanation is more than clear, I appreciate the time you dedicated to my question.</span> <span> - </span> <span class="display-name">willdel</span> <span> </span> <span class="date">19 May 2022 at 09:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

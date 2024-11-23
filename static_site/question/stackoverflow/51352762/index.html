@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Importing PEM certificate into Java KeyStore programmatically</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Importing PEM certificate into Java KeyStore programmatically</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>FailedShack</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Jul 2018 at 22:47</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/51352762/importing-pem-certificate-into-java-keystore-programmatically">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a client certificate composed of two files (.crt and .key) which I wish to import to a java KeyStore to then use in a SSLContext to sent HTTP requests with Apache's HTTPClient. However, I can't seem to find a way to do this programmatically, most other questions I've found either point to external tools or aren't fit for my case.</p>
+    <p>My certificate is encoded with the typical 'BEGIN CERTIFICATE' followed by a Base64 encoded string, and the key with 'BEGIN RSA PRIVATE KEY' and then another Base64 encoded string.</p>
+    <p>This is what I got so far:</p>
+    <pre><code>private static SSLContext createSSLContext(File certFile, File keyFile) throws IOException {
+    try {
+        PEMParser pemParser = new PEMParser(new FileReader(keyFile));
+        JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider(new BouncyCastleProvider());
+        Object object = pemParser.readObject();
+        KeyPair kp = converter.getKeyPair((PEMKeyPair) object);
+        PrivateKey privateKey = kp.getPrivate();
+
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+        FileInputStream stream = new FileInputStream(certFile);
+        X509Certificate cert = (X509Certificate) certFactory.generateCertificate(stream);
+
+        KeyStore store = KeyStore.getInstance("JKS");
+        store.load(null);
+        store.setCertificateEntry("certificate", cert);
+        store.setKeyEntry("private-key", privateKey, "changeit".toCharArray(), new Certificate[] { cert });
+
+        SSLContext sslContext = SSLContexts.custom()
+                .loadKeyMaterial(store, "changeit".toCharArray())
+                .build();
+        return sslContext;
+    } catch (IOException | NoSuchAlgorithmException | CertificateException | KeyStoreException | KeyManagementException | UnrecoverableKeyException e) {
+        throw new IOException(e);
+    }
+}
+</code></pre>
+    <p>Stacktrace:</p>
+    <blockquote>
+     <p>java.io.IOException: java.security.spec.InvalidKeySpecException: java.security.InvalidKeyException: invalid key format at me.failedshack.ssltest.SSLTest.createSSLContext(SSLTest.java:80) at me.failedshack.ssltest.SSLTest.main(SSLTest.java:31)</p>
+     <p>Caused by: java.security.spec.InvalidKeySpecException: java.security.InvalidKeyException: invalid key format at java.base/sun.security.rsa.RSAKeyFactory.engineGeneratePrivate(RSAKeyFactory.java:216) at java.base/java.security.KeyFactory.generatePrivate(KeyFactory.java:390) at me.failedshack.ssltest.SSLTest.createSSLContext(SSLTest.java:62) ... 1 more</p>
+     <p>Caused by: java.security.InvalidKeyException: invalid key format at java.base/sun.security.pkcs.PKCS8Key.decode(PKCS8Key.java:330) at java.base/sun.security.pkcs.PKCS8Key.decode(PKCS8Key.java:355) at java.base/sun.security.rsa.RSAPrivateCrtKeyImpl.(RSAPrivateCrtKeyImpl.java:91) at java.base/sun.security.rsa.RSAPrivateCrtKeyImpl.newKey(RSAPrivateCrtKeyImpl.java:75) at java.base/sun.security.rsa.RSAKeyFactory.generatePrivate(RSAKeyFactory.java:315) at java.base/sun.security.rsa.RSAKeyFactory.engineGeneratePrivate(RSAKeyFactory.java:212) ... 3 more</p>
+    </blockquote>
+    <p>Sadly I keep getting an InvalidKeyException when generating the private key from the file.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">ssl</span><span class="tag">https</span><span class="tag">apache-httpclient-4.x</span><span class="tag">client-certificates</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Stack trace please. NB You should not call <code>setCertificateEntry()</code>, only <code>setKeyEntry()</code>.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">15 Jul 2018 at 22:51</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>And you also need to initialize the <code>SSLContext</code> with a <code>KeyManager</code>, not a <code>TrustManager</code>. Otherwise your private key will never be found.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">15 Jul 2018 at 22:57</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>And you <i>also</i> can't cast a private key to a public key. Not much of this makes sense.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">15 Jul 2018 at 22:59</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@EJP Sorry about the PublicKey cast, it was something I was playing around with and accidentally copied over to the question. You're right about the KeyManager thing. I've modified the question.</span> <span> - </span> <span class="display-name">FailedShack</span> <span> </span> <span class="date">15 Jul 2018 at 23:14</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Well this exception can only mean what it says: there is something wrong with the key file. Can you read it with OpenSSL?</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">16 Jul 2018 at 00:02</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@EJP Just tried it and it didn't complain or anything.</span> <span> - </span> <span class="display-name">FailedShack</span> <span> </span> <span class="date">16 Jul 2018 at 00:46</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@EJP: OpenSSL can transparently read several PEM formats for privatekey depending on type (4 for RSA), but Java unless you add BC can't read PEM at all and only one of the DER formats (PKCS8-unencrypted).</span> <span> - </span> <span class="display-name">dave_thompson_085</span> <span> </span> <span class="date">16 Jul 2018 at 02:15</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>dave_thompson_085</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Jul 2018 at 02:13</span>
+     </div>
+    </div>
+    <div>
+     <p>A PEM file of type <code>RSA PRIVATE KEY</code> is base64 not binary and more importantly is in PKCS1 format NOT PKCS8 and thus cannot be processed as a <code>PKCS8EncodedKeySpec</code>.</p>
+     <p>Your choices are:</p>
+     <ul>
+      <li>
+       <p>convert the PKCS1 PEM format to PKCS8 (unencrypted) PEM format; read that and drop the header and trailer lines and decode the base64 to binary and put that in <code>PKCS8EncodedKeySpec</code> -- but you say you don't want external tools, plus it's just as easy to convert the privatekey PLUS cert (or chain) into a PKCS12 (DER) which is <em>already</em> a Java keystore and avoid the issue</p></li>
+      <li>
+       <p>convert the PKCS1 PEM format to PKCS8 (unencrypted) DER format, which you can just read as binary and put in <code>PKCS8EncodedKeySpec</code> -- ditto</p></li>
+      <li>
+       <p>if the PKCS1 PEM is unencrypted, read and decode it as above to PKCS1 DER then manually construct the PKCS8 (unencrypted) encoding, and use that</p></li>
+      <li>
+       <p>if the PKCS1 PEM is encrypted, which you can detect because its body contains two 822-style header lines in addition to the base64, you have to replicate OpenSSL's 'legacy' key file decryption, PLUS construct the PKCS8 (unencrypted) encoding</p></li>
+      <li>
+       <p>if you can use BouncyCastle specifically <code>bcpkix</code>, it can directly read and parse <em>all</em> the PEM variants used by OpenSSL for privatekeys, including decrypting the encrypted ones; however, if you're not already using it, that's an additional jar to install and/or deploy</p></li>
+     </ul>
+     <p>See one or more of these dupes:<br><a href="https://stackoverflow.com/questions/50514553/load-certificate-to-keystore-java">Load certificate to KeyStore (JAVA)</a> (Q constructs PKCS8 using BouncyCastle)<br><a href="https://stackoverflow.com/questions/23709898/java-convert-dkim-private-key-from-rsa-to-der-for-javamail">Java: Convert DKIM private key from RSA to DER for JavaMail</a> (my answer constructs PKCS8 'by hand')<br><a href="https://stackoverflow.com/questions/3243018/how-to-load-rsa-private-key-from-file">How to Load RSA Private Key From File</a> (reads using BouncyCastle)<br><a href="https://stackoverflow.com/questions/41934846/read-rsa-private-key-of-format-pkcs1-in-java">Read RSA private key of format PKCS1 in JAVA</a> (reads using BouncyCastle)<br><a href="https://stackoverflow.com/questions/44681737/get-a-privatekey-from-a-rsa-pem-file">Get a PrivateKey from a RSA .pem file</a> (decrypt using BC)<br><a href="https://stackoverflow.com/questions/35276820/decrypting-an-openssl-pem-encoded-rsa-private-key-with-java">Decrypting an OpenSSL PEM Encoded RSA private key with Java?</a> (decrypt manually)<br>
+       maybe <a href="https://stackoverflow.com/questions/48958304/pkcs1-and-pkcs8-format-for-rsa-private-key">PKCS#1 and PKCS#8 format for RSA private key</a> (background)<br>
+       and <a href="https://stackoverflow.com/questions/20065304/differences-between-begin-rsa-private-key-and-begin-private-key">Differences between "BEGIN RSA PRIVATE KEY" and "BEGIN PRIVATE KEY"</a> (background)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you so much for this clarification, I've opted for using BouncyCastle for reading the private key and seems to be doing its job. However, I can't get the requests to go through, I get the following exception: "PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target". I've read that this means that the certificate is not trusted. The code I'm using is the same as in the question except for the few lines of code which I've changed to load the private key with BouncyCastle.</span> <span> - </span> <span class="display-name">FailedShack</span> <span> </span> <span class="date">17 Jul 2018 at 00:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That's a different question; the privatekey+cert you load in a KeyManager to authenticate yourself is completely separate from and has nothing at all to do with TrustManager validating any other party (and vice versa). But your posted code appears to use a TMF without init'ing it, and that would not work at all and throw a quite different exception than you say. Please check your code, and (if you still have a problem) add to your Q what truststore you are using for what attempted connection.</span> <span> - </span> <span class="display-name">dave_thompson_085</span> <span> </span> <span class="date">17 Jul 2018 at 11:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I thought I had updated the code in the question, but apparently not. I'm trying to accomplish the same as here: <a href="https://github.com/Plailect/PlaiCDN/blob/master/PlaiCDN.py#L123" rel="nofollow noreferrer">github.com/Plailect/PlaiCDN/blob/master/PlaiCDN.py#L123</a></span> <span> - </span> <span class="display-name">FailedShack</span> <span> </span> <span class="date">18 Jul 2018 at 12:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Now I've tried manually importing the certificate and key to a PKCS12 key store with OpenSSL and loading it as explained here: <a href="https://stackoverflow.com/questions/21223084/how-do-i-use-an-ssl-client-certificate-with-apache-httpclient" title="how do i use an ssl client certificate with apache httpclient">stackoverflow.com/questions/21223084/…</a> But keep getting the same message when connecting, I feel like I should open a new question at this point.</span> <span> - </span> <span class="display-name">FailedShack</span> <span> </span> <span class="date">18 Jul 2018 at 13:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>(1) OK, your code now validly uses (or rather lets JSSE use) the default truststore (2) the two hosts referenced in that python serve a leaf cert issued by 'Nintendo CA - G3'. That CA certainly isn't in the Java default CA-list, and although I don't know what store (your?) python uses I'd be quite surprised if that CA is in any standard distributed CA-list without modification. Are you sure you didn't (follow some instructions or setup procedure to) add that cert to the store on your system?</span> <span> - </span> <span class="display-name">dave_thompson_085</span> <span> </span> <span class="date">18 Jul 2018 at 20:25</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

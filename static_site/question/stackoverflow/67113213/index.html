@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Convert flattened CSV to nested JSON</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Convert flattened CSV to nested JSON</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>HyperioN</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Apr 2021 at 17:25</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67113213/convert-flattened-csv-to-nested-json">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to create a nested JSON from a flattened CSV:</p>
+    <p>CSV:</p>
+    <pre><code>name address_city address_state
+John Mumbai MH
+John Bangalore KA
+Bill Chennai TN
+</code></pre>
+    <p>JSON:</p>
+    <pre><code>[
+ {
+  "name": "John",
+  "address": [
+              {
+               "city": "Mumbai",
+               "state": "MH"
+              },
+              {
+               "city": "Bangalore",
+               "state": "KA"
+             }
+            ]
+ },
+ {
+  "name": "Bill",
+  "address": [
+              {
+               "city": "Chennai",
+               "state": "TN"
+              }
+            ]
+ }
+]
+</code></pre>
+    <p>I'm using univocity parser with @Nested annotation like this:</p>
+    <pre><code>@Nested(headerTransformer = AddressTypeTransformer.class, args = "address")
+private Address address;
+</code></pre>
+    <p>and I'm getting JSON output as below, which has the address object and not array which is perfectly fine:</p>
+    <pre><code>[
+ {
+  "name": "John",
+  "address": {
+               "city": "Mumbai",
+               "state": "MH"
+              }
+ },
+ {
+  "name": "John",
+  "address": {
+               "city": "Mumbai",
+               "state": "MH"
+             }
+ },
+ {
+  "name": "Bill",
+  "address": {
+               "city": "Chennai",
+               "state": "TN"
+              }
+ }
+]
+</code></pre>
+    <p>But when i change the code to make the address as array:</p>
+    <pre><code>@Nested(headerTransformer = AddressTypeTransformer.class, args = "address")
+private Address[] address;
+</code></pre>
+    <p>I get following error:</p>
+    <pre><code>Exception in thread "main" com.univocity.parsers.common.DataProcessingException: Unable to instantiate class '[Lcom.ss.beans.Address;'
+Internal state when error was thrown: line=2, column=0, record=1, charIndex=58, headers=[id, name, address_city, address_state],
+</code></pre>
+    <p>Why the @Nested annotation is not working with arrays/lists? How can I solve this problem? Is there any other way to solve this problem without using univocity?</p>
+    <p>PS: I'm asking this question after following the reply from @Jeronimo Backes in this post: <a href="https://stackoverflow.com/questions/51890998/convert-csv-data-into-nested-json-objects-using-java-library">Convert CSV data into nested json objects using java library</a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">univocity</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Try a <code>List&lt;Address&gt;</code> instead</span> <span> - </span> <span class="display-name">Raniz</span> <span> </span> <span class="date">15 Apr 2021 at 17:34</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>i tried that as well, but got same error</span> <span> - </span> <span class="display-name">HyperioN</span> <span> </span> <span class="date">15 Apr 2021 at 17:37</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>The <code>@Nested</code> annotation only operates on each row separately (like the working example you refer to in your question). It cannot combine data across rows. See the <a href="https://www.univocity.com/pages/java_beans.html#reading-data-into-java-beans" rel="nofollow noreferrer">Nested Classes documentation on this page</a>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Apr 2021 at 14:17</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I would read your data into a collection of interim Java objects, each containing <code>String name</code> and <code>Address address</code> and then I would process that collection through a Java collector. This is where the multiple addresses can be gathered into a list . Finally you can generate the JSON output from that resulting new collection.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Apr 2021 at 14:17</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewjames thanks for the suggestion. I'm not much aware of Collectors, but I tried using Collectors.groupingBy() but that didn't work. Can you please provide a snippet I can follow?</span> <span> - </span> <span class="display-name">HyperioN</span> <span> </span> <span class="date">19 Apr 2021 at 08:06</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Understood about the "collector" approach. Sometimes I think it can be easier to just process the collections in the traditional way. I have provided some notes on that in my answer.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Apr 2021 at 14:53</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Apr 2021 at 14:54</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is my approach:</p>
+     <p>The test data (in my case, the fields are tab-separated):</p>
+     <pre><code>name    address_city    address_state
+John    Mumbai  MH
+John    Bangalore   KA
+Bill    Chennai TN
+</code></pre>
+     <p>The imports I used:</p>
+     <pre class="lang-java prettyprint-override"><code>import com.google.gson.Gson;
+import com.univocity.parsers.common.processor.BeanListProcessor;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+</code></pre>
+     <p>The processing code:</p>
+     <pre class="lang-java prettyprint-override"><code>//
+// parse the source file into a list of SourceRecord beans:
+//
+Reader reader = new FileReader(new File("C:/tmp/univocity_demo.csv"), StandardCharsets.UTF_8);
+BeanListProcessor&lt;SourceRecord&gt; processor = new BeanListProcessor&lt;&gt;(SourceRecord.class);
+CsvParserSettings parserSettings = new CsvParserSettings();
+parserSettings.getFormat().setDelimiter("\t"); // tab separated data
+parserSettings.getFormat().setLineSeparator("\n");
+parserSettings.setProcessor(processor);
+CsvParser parser = new CsvParser(parserSettings);
+parser.parse(reader);
+List&lt;SourceRecord&gt; sourceRecords = processor.getBeans();
+
+//
+// process those SourceRecord objects into consolidated Name beans:
+//
+Map&lt;String, Name&gt; namesMap = new HashMap&lt;&gt;();
+sourceRecords.forEach(sourceRecord -&gt; {
+    String sourceName = sourceRecord.getName();
+    if (namesMap.containsKey(sourceName)) {
+        namesMap.get(sourceName).getAddresses().add(sourceRecord.getAddress());
+    } else {
+        Name name = new Name();
+        name.setName(sourceName);
+        name.getAddresses().add(sourceRecord.getAddress());
+        namesMap.put(sourceName, name);
+    }
+});
+
+//
+// convert to JSON:
+///
+Gson gson = new Gson();
+String json = gson.toJson(namesMap.values());
+</code></pre>
+     <p>The <code>SourceRecord</code> bean is as follows. Note that we do not need anything other than the basic <code>@Nested</code> annotation, here:</p>
+     <pre class="lang-java prettyprint-override"><code>public class SourceRecord {
+    
+    @Parsed(field = "name")
+    private String name;
+    
+    @Nested
+    private Address address;
+
+    // getters/setters not shown
+
+}
+</code></pre>
+     <p>Here are the output <code>Name</code> and <code>Address</code> beans. Note I am using the field name <code>addresses</code> (not <code>address</code>) in the <code>Name</code> bean:</p>
+     <pre class="lang-java prettyprint-override"><code>public class Name {
+    
+    private String name;
+    
+    private final List&lt;Address&gt; addresses = new ArrayList&lt;&gt;();
+
+    // getters/setters not shown
+}
+</code></pre>
+     <p>And the <code>Address</code> bean - this is used both for the final output and also when reading the source file (hence the annotations are needed):</p>
+     <pre class="lang-java prettyprint-override"><code>public class Address {
+    
+    @Parsed(field = "address_city")
+    private String city;
+    
+    @Parsed(field = "address_state")
+    private String state;
+
+    // getters/setters not shown
+    
+}
+</code></pre>
+     <p>The final JSON is:</p>
+     <pre class="lang-json prettyprint-override"><code>[{
+    "name": "John",
+    "addresses": [{
+        "city": "Mumbai",
+        "state": "MH"
+    }, {
+        "city": "Bangalore",
+        "state": "KA"
+    }]
+}, {
+    "name": "Bill",
+    "addresses": [{
+        "city": "Chennai",
+        "state": "TN"
+    }]
+}]
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

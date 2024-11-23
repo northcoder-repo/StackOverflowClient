@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to map foreign key attribute to record in Java with JDBI</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to map foreign key attribute to record in Java with JDBI</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>EzyHoo</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Feb 2023 at 17:53</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75377182/how-to-map-foreign-key-attribute-to-record-in-java-with-jdbi">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Say my DB looks like this, presenting using POJO:</p>
+    <pre><code>class A {
+   long id; // auto-increment primary key
+   String aAttribute;
+}
+</code></pre>
+    <pre><code>class B {
+   long id; // auto-increment primary key
+   long aId; // foreign key of class A
+   String bAttribute;     
+}
+</code></pre>
+    <p>How could I naturally map the DB records to class B using JDBI so the class B could contain the actual object of A instead of a foreign key to A:</p>
+    <pre><code>class B {
+   long id; // auto-increment primary key
+   A a; // actual object of class A
+   String bAttribute;    
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">mysql</span><span class="tag">jdbc</span><span class="tag">jdbi</span><span class="tag">jdbi3</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Feb 2023 at 21:02</span>
+     </div>
+    </div>
+    <div>
+     <p>One approach (there are others, also) is to use the JDBI <code>@Nested</code> annotation with a <a href="https://jdbi.org/#_beanmapper" rel="nofollow noreferrer">bean mapper</a>. The annotation:</p>
+     <blockquote>
+      <p>"...creates a mapper for the nested bean."</p>
+     </blockquote>
+     <p>Place the annotation on the relevant setter (or getter). So, in your case that would be like this:</p>
+     <pre class="lang-java prettyprint-override"><code>import org.jdbi.v3.core.mapper.Nested;
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
+
+public class B {
+
+    private long id; // auto-increment primary key
+    private A a; // actual object of class A
+    private String bAttribute;
+
+    @ColumnName("b_id")
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public A getA() {
+        return a;
+    }
+
+    @Nested
+    public void setA(A a) {
+        this.a = a;
+    }
+
+    @ColumnName("b_attribute")
+    public String getBAttribute() {
+        return bAttribute;
+    }
+
+    public void setBAttribute(String bAttribute) {
+        this.bAttribute = bAttribute;
+    }
+
+}
+</code></pre>
+     <p>I have also added <code>@ColumnName</code> annotations to disambiguate the otherwise identical column names between the two objects (and, presumably, the tables).</p>
+     <p>Here is class A:</p>
+     <pre class="lang-java prettyprint-override"><code>package com.northcoder.jdbidemo;
+
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
+
+public class A {
+
+    private long id; // auto-increment primary key
+    private String aAttribute;
+
+    @ColumnName("a_id")
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    @ColumnName("a_attribute")
+    public String getAAttribute() {
+        return aAttribute;
+    }
+
+    public void setAAttribute(String aAttribute) {
+        this.aAttribute = aAttribute;
+    }
+
+}
+</code></pre>
+     <p>A query therefore needs to use column aliases to match these annotations:</p>
+     <pre class="lang-java prettyprint-override"><code>String sql = """
+             select b.id as b_id, b.bAttribute as b_attribute, a.id as a_id, a.aAttribute as a_attribute
+             from your_db.a as a
+             inner join your_db.b as b
+             on a.id = b.a_id;
+             """;
+
+jdbi.useHandle(handle -&gt; {
+    List&lt;B&gt; bees = handle
+            .select(sql)
+            .mapToBean(B.class)
+            .list();
+});
+</code></pre>
+     <p>Each instance of class B in the resulting list will contain an instance of A (assuming the data exists in the database).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Awesome! Per doc, "There is a limitation that only one type of mapper can be nested at a time". Say beside entry A,the class B has another foreign key called c_id, and I would like to get the actual entry of table C using the c_id. What would be a good option here? A separate sql command to get C entry and explicitly call B's setC()?</span> <span> - </span> <span class="display-name">EzyHoo</span> <span> </span> <span class="date">7 Feb 2023 at 21:36</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Yes, the docs do say that - but I am not sure what the context of that sentence is. I think it refers to the mapper created by JDBI behind the scenes <i>for that field</i>. You can certainly add a new class <code>C</code> - and then in class <code>B</code> add a field <code>private C c;</code> - and then add a second usage of <code>@Nested</code> in <code>B</code> for that new field. I have an example of that, and it works as expected. You should not need a second SQL query to populate <code>C</code> into <code>B</code>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Feb 2023 at 21:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Any suggestion for writing the class B into the database then? Since the actual object is stored instead of foreign key, which is different with db schema. I cannot do BindBean(). What would be the best way to do store the POJO into DB?</span> <span> - </span> <span class="display-name">EzyHoo</span> <span> </span> <span class="date">8 Feb 2023 at 17:16</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>That is worth asking as a brand new question, I think. You will get more viewers/eyeballs and better answers that way!</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">8 Feb 2023 at 17:23</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

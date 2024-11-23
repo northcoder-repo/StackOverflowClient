@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Bootstrap DataTable Sparkline not working if Table set to Responsive</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Bootstrap DataTable Sparkline not working if Table set to Responsive</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Michael R.</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Aug 2022 at 18:13</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73492040/bootstrap-datatable-sparkline-not-working-if-table-set-to-responsive">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a Bootstrap DataTable with a sparkline in the last column, here is the full js:</p>
+    <pre><code>$(document).ready(function() {
+  var groupColumn = 0;
+
+  let table = $('#example').DataTable({
+    //responsive: true,
+    autoWidth: true,
+    processing: true,
+    ordering: true,
+    scrollY: '50vh',
+    scrollCollapse: true,
+    paging: false,
+    searching: true,
+
+    ajax: {
+      url: "api/ApartmentsAvailables",
+      type: "GET",
+      contentType: "application/json; charset=utf-8",
+      dataType: "json",
+    },
+    columnDefs: [{
+        visible: false,
+        targets: groupColumn
+      },
+      {
+        targets: 7,
+        render: DataTable.render.datetime('YYYY-MM-DDT00:00:00', 'MMMM D, YYYY', 'en'),
+      },
+      {
+        responsivePriority: 1,
+        targets: 0
+      },
+    ],
+    order: [
+      [groupColumn, 'asc']
+    ],
+
+    drawCallback: function(settings) {
+      $('.sparkline')
+        .map(function() {
+          return $('canvas', this).length ? null : this;
+        })
+        .sparkline('html', {
+          type: 'line',
+          width: '250px'
+        })
+
+      var api = this.api();
+      var rows = api.rows({
+        page: 'current'
+      }).nodes();
+      var last = null;
+
+      api
+        .column(groupColumn, {
+          page: 'current'
+        })
+        .data()
+        .each(function(group, i) {
+          if (last !== group) {
+            $(rows)
+              .eq(i)
+              .before('&lt;tr class="group" style="background-color:DarkGray; text-align:center;font-weight: bold; color:white;"&gt;&lt;td  colspan="8"&gt;' + group + '&lt;/td&gt;&lt;/tr&gt;');
+
+            last = group;
+          }
+        })
+    },
+    columns: [
+
+      {
+        data: "building"
+      },
+      {
+        data: "floor_Plan"
+      },
+      {
+        data: "apt_Number"
+      },
+      {
+        data: "rent"
+      },
+      {
+        data: "bedrooms"
+      },
+      {
+        data: "bathrooms"
+      },
+      {
+        data: "sqft"
+      },
+      {
+        data: "available_Date"
+      },
+      {
+        data: 'prices',
+        render: function(data, type, row, meta) {
+
+          return type === 'display' ?
+            '&lt;span class="sparkline"&gt;' + data.toString() + '&lt;/span&gt;' :
+            data;
+        }
+      },
+    ]
+  });
+  new $.fn.dataTable.FixedHeader(table);
+  // Order by the grouping
+  $('#example tbody').on('click', 'tr.group', function() {
+    var currentOrder = table.order()[0];
+    if (currentOrder[0] === groupColumn &amp;&amp; currentOrder[1] === 'asc') {
+      table.order([groupColumn, 'desc']).draw();
+    } else {
+      table.order([groupColumn, 'asc']).draw();
+    }
+  });
+});
+</code></pre>
+    <p>The problem occurs when I enable <code>responsive: true</code>, the sparkline column becomes hidden and when I click to expand the row to show the hidden columns it shows the whole array of Value and not the sparkline.</p>
+    <p>I guess that the</p>
+    <pre><code>drawCallback: function (settings) {
+            $('.sparkline')
+                .map(function () {
+                    return $('canvas', this).length ? null : this;
+                })
+                .sparkline('html', {
+                    type: 'line',
+                    width: '250px'
+                })
+</code></pre>
+    <p>is not able to be applied to a column that is hidden.</p>
+    <p>Without the responsive option the HTML generated for the td is:</p>
+    <pre><code>&lt;td&gt;
+    &lt;span class="sparkline"&gt;
+        &lt;canvas style="display: inline-block; width: 250px; height: 21px; vertical-align: top;"
+                width="250"
+                height="21"/&gt;
+    &lt;/span&gt;
+&lt;/td&gt;
+</code></pre>
+    <p>With the responsive set to true:</p>
+    <pre><code>&lt;td style="display: none;"
+    class="dtr-hidden"&gt;
+    &lt;span class="sparkline"&gt;3446,3446,3416,3416,3416,3546,3546,3546,3546,3546,3546,3561,3556,3551,3396,3396,3396,3346,3306,3306,3306&lt;/span&gt;
+&lt;/td&gt;
+</code></pre>
+    <p>I presume that I should somehow capture the mouse click on the expand icon and then re-inject the canvas but I don't know how to do that.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">datatables</span><span class="tag">asp.net-core-mvc</span><span class="tag">bootstrap-5</span><span class="tag">sparklines</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>There is no need to quote attributes unless they have special characters in them. Including them in content other than JSON is distracting.</span> <span> - </span> <span class="display-name">Heretic Monkey</span> <span> </span> <span class="date">25 Aug 2022 at 18:24</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I would try capturing the expand event and call the <code>drawCallback</code> code when it occurs.</span> <span> - </span> <span class="display-name">Heretic Monkey</span> <span> </span> <span class="date">25 Aug 2022 at 18:26</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Hello @HereticMonkey. Thanks for the answer. What quoted attributes are you referring to? About the expand event can you give me some more detail? Thanks</span> <span> - </span> <span class="display-name">Michael R.</span> <span> </span> <span class="date">25 Aug 2022 at 18:40</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I edited them out of your question. They were around <code>ajax</code> and all of its properties.</span> <span> - </span> <span class="display-name">Heretic Monkey</span> <span> </span> <span class="date">25 Aug 2022 at 18:41</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Ohhh! Yes sorry for that and thanks for editing it.</span> <span> - </span> <span class="display-name">Michael R.</span> <span> </span> <span class="date">25 Aug 2022 at 18:43</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Aug 2022 at 19:45</span>
+     </div>
+    </div>
+    <div>
+     <p>There is an event you can use for that, provided as part of the DataTables Responsive extension:</p>
+     <p><a href="https://datatables.net/reference/event/responsive-display" rel="nofollow noreferrer"><code>responsive-display</code></a></p>
+     <p>This event fires whenever...</p>
+     <blockquote>
+      <p>The details for a row have been displayed, updated or hidden.</p>
+     </blockquote>
+     <p>So, for example, you can add the following to your script, and then place your standard sparklines logic in the event's function:</p>
+     <pre class="lang-js prettyprint-override"><code>table.on( 'responsive-display', function ( e, datatable, row, showHide, update )  {
+    $('.sparkline')
+      .map(function() {
+        return $('canvas', this).length ? null : this;
+      })
+      .sparkline('html', {
+        type: 'line',
+        width: '250px'
+      });
+  } );
+</code></pre>
+     <p>This will re-build your sparkline from the raw data.</p>
+     <hr>
+     <p>You can see the <a href="https://datatables.net/extensions/responsive/" rel="nofollow noreferrer">official documentation</a> for a list of all the events, API functions, and options available in the Responsive extension.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>"<em>not able to make it work...</em>"</p>
+     <p>Here is my runnable demo in case it helps:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>$(document).ready(function() {
+    var stock_data = [
+        {
+            "name": "ACME Gadgets",
+            "symbol": "AGDTS",
+            "last": "2.57, 2.54, 2.54, 2.56, 2.57, 2.58, 2.59"
+        },
+        {
+            "name": "Spry Media Productions",
+            "symbol": "SPMP",
+            "last": "1.12, 1.11, 1.08, 1.08, 1.09, 1.11, 1.08"
+        },
+        {
+            "name": "Widget Emporium",
+            "symbol": "WDEMP",
+            "last": "3.40, 3.39, 3.46, 3.51, 3.50, 3.48, 3.49"
+        },
+        {
+            "name": "Sole Goodman",
+            "symbol": "SGMAN",
+            "last": "16.20, 16.40, 16.36, 16.35, 16.61, 16.46, 16.19"
+        },
+        {
+            "name": "Stanler Bits and Bobs",
+            "symbol": "SBIBO",
+            "last": "82.51, 83.47, 83.40, 83.68, 83.81, 83.29, 83.72"
+        }
+    ];
+ 
+    let table = $('#example').DataTable({
+        
+        responsive: true,
+    
+        ajax: function(dataSent, callback, settings) {
+            let data = this.api().ajax.json();
+            if(data == undefined) {
+                data = stock_data;
+                for(i = 0; i &lt; data.length; i++) {
+                    data[i].last = data[i].last.split(",").map(element =&gt; {
+                        return Number(element);
+                    });
+                }
+            } else {
+                data = data.data;
+                for(i = 0; i &lt; data.length; i++) {
+                    data[i].last.push(data[i].last.shift())
+                }
+            }
+            callback({data: data});
+        },
+        paging: false,
+        initComplete: function() {
+            let api = this.api();
+            //setInterval(function() {
+            //    api.ajax.reload();
+            //}, 5000);
+        },
+        drawCallback: function() {
+            $('.sparkline')
+                .map(function() {
+                    return $('canvas', this).length ? null : this;
+                })
+                .sparkline('html', {
+                    type: 'line',
+                    width: '250px'
+                })
+        },
+        columns: [
+            {
+                data: 'name'
+            },
+            {
+                data: 'symbol'
+            },
+            {
+                data: null,
+                render: function(data, type, row, meta) {
+                    return row.last[row.last.length - 1].toFixed(2);
+                }
+            },
+            {
+                data: null,
+                render: function(data, type, row, meta) {
+                    var val = (row.last[row.last.length - 1] - row.last[row.last.length - 2]).toFixed(2);
+                    var colour = val &lt; 0 ? 'red' : 'green'
+                    return type === 'display' ?
+                        '&lt;span style="color:' + colour + '"&gt;' + val + '&lt;/span&gt;' :
+                        val;
+                }
+            },
+            {
+                data: 'last',
+                render: function(data, type, row, meta) {
+                    return type === 'display' ?
+                        '&lt;span class="sparkline"&gt;' + data.toString() + '&lt;/span&gt;' :
+                        data;
+                }
+            }
+        ]
+    });
+    
+    
+    table.on( 'responsive-display', function ( e, datatable, row, showHide, update ) {
+      $('.sparkline')
+        .map(function() {
+          return $('canvas', this).length ? null : this;
+        })
+        .sparkline('html', {
+          type: 'line',
+          width: '250px'
+        });
+    } );
+    
+    
+});</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;  
+  
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-sparklines/2.1.2/jquery.sparkline.min.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+  
+    &lt;!-- responsive plug-in --&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.2.6/css/responsive.dataTables.css"/&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/responsive/2.2.6/js/dataTables.responsive.js"&gt;&lt;/script&gt;
+
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display nowrap" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Symbol&lt;/th&gt;
+                &lt;th&gt;Price&lt;/th&gt;
+                &lt;th&gt;Difference&lt;/th&gt;
+                &lt;th&gt;Last&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tfoot&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Symbol&lt;/th&gt;
+                &lt;th&gt;Price&lt;/th&gt;
+                &lt;th&gt;Difference&lt;/th&gt;
+                &lt;th&gt;Last&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/tfoot&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>I don't have the + and - icons, so you just have to click on the cell instead, to show/hide data.</p>
+     <p>I also commented out the <code>setInterval</code> function, as that causes the display to be reset every 5 seconds.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you @andrewJames , I was actlayy able to achive the same result using this: <code>$('#example').on('click', 'tr td.dtr-control', function (event) { // Expand row details $('.sparkline') .map(function () { return $('canvas', this).length ? null : this; }) .sparkline('html', { type: 'line', width: '250px' }) });</code> But I would try now also the official solution!</span> <span> - </span> <span class="display-name">Michael R.</span> <span> </span> <span class="date">25 Aug 2022 at 19:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That's great! - but make sure that works in all possible scenarios: (a) when someone clicks on the "show/hide" button and also (b) when someone makes the browser window wider and narrower, by dragging it; and also (c) doing combinations of (a) and (b). If it works for all situations, then you can add your approach as another official answer.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Aug 2022 at 19:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>actually I was just doing that and changing the size of the window will not re-apply the canvas to the numbers list come back up and you need to click again on a row to let the magic happen, so my solution is not that strong.</span> <span> - </span> <span class="display-name">Michael R.</span> <span> </span> <span class="date">25 Aug 2022 at 19:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>On the other hand I was trying the official event function but I'm not able to make it work</span> <span> - </span> <span class="display-name">Michael R.</span> <span> </span> <span class="date">25 Aug 2022 at 19:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I added my full demo, in case that helps.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Aug 2022 at 20:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yeah... I don't know what I did wrong earlier... probably copied/pasted over something else.. but now it's working. Just a small issue... when I put the mouse over the sparkline the small label that should appear with the value in that position is like half size of what it should be so I can rad only the bottom part of the number... your demo is not doing that... not sure what can affect it...</span> <span> - </span> <span class="display-name">Michael R.</span> <span> </span> <span class="date">25 Aug 2022 at 20:36</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Found it. <code>element { } * { box-sizing: border-box; } *, ::after, ::before { box-sizing: border-box; }</code> that box-sizing is doing it</span> <span> - </span> <span class="display-name">Michael R.</span> <span> </span> <span class="date">25 Aug 2022 at 20:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

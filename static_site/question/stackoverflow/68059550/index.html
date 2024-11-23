@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>taking input from Thymeleaf via radio buttons, returning a List in a wrapper object to the controller</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>taking input from Thymeleaf via radio buttons, returning a List in a wrapper object to the controller</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>gdogra</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Jun 2021 at 19:52</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68059550/taking-input-from-thymeleaf-via-radio-buttons-returning-a-list-in-a-wrapper-obj">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to take input from user via radio buttons in Thymeleaf. And I am updating a List via a wrapper from that input. But I am stuck and do not know how to proceed.</p>
+    <pre><code>public class ShiftDto {
+
+    private String fullName;
+    private int shiftCode;
+
+    public ShiftDto(String fullName, int shiftCode) {
+        this.fullName = fullName;
+        this.shiftCode = shiftCode;
+    }
+}
+
+
+public class DtoWrapper {
+    private List&lt;ShiftDto&gt; shifts;
+}
+
+@PostMapping("/upload")
+    public String upload(Model model, @RequestParam("file") MultipartFile file) {
+
+        if (ReadXlsxService.hasExcelFormat(file)) {
+            try {
+                model.addAttribute("msg", "Successfully Uploaded: " + file.getOriginalFilename());
+
+                allSwipes = ReadXlsxService.readAllRows(file.getInputStream());
+                Set&lt;Officer&gt; officers = ExtractOfficers.from(allSwipes);
+                List&lt;ShiftDto&gt; shiftDtos = new ArrayList&lt;&gt;();
+                for (Officer officer : officers) {
+                    shiftDtos.add(new ShiftDto(officer.toString(), 0));
+                }
+                DtoWrapper dtoWrapper = new DtoWrapper();
+                dtoWrapper.setShifts(shiftDtos);
+                model.addAttribute("dtoWrapper", dtoWrapper);
+                return "shift-info";
+            } catch (Exception e) {
+                model.addAttribute("msg", "Uploaded file is not in expected format");
+            }
+        } else {
+            model.addAttribute("msg", "The uploaded file is not a xlsx file");
+        }
+        return "failedUploadView";
+    }
+
+@GetMapping("/download")
+public ResponseEntity&lt;ByteArrayResource&gt; download(Model model) {
+    System.out.println("Controller.download");
+    try {
+        String filename = createFileName();
+        HttpHeaders header = new HttpHeaders();
+        header.setContentType(new MediaType("application", "force-download"));
+        header.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename);
+        List&lt;Shift&gt; shifts = getShifts(model);
+        List&lt;OutputRow&gt; outputData = SwipeProcessor.getOutputDataFrom(allSwipes, shifts);
+        ByteArrayResource resource = new ByteArrayResource(WriteOutputToXlsx.write(outputData));
+        return new ResponseEntity&lt;&gt;(resource, header, HttpStatus.CREATED);
+    } catch (Exception e) {
+        return new ResponseEntity&lt;&gt;(HttpStatus.EXPECTATION_FAILED);
+    }
+}
+&lt;!DOCTYPE html&gt;
+&lt;html xmlns:th="http://www.thymeleaf.org" lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;Excel Parsing Web App&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div&gt;
+    &lt;span th:text="${msg}"&gt;&lt;/span&gt;
+    &lt;h2&gt;Enter shift information&lt;/h2&gt;
+    &lt;form action="#" th:action="@{/download}" th:object="${dtoWrapper}" method="get"&gt;
+        &lt;fieldset&gt;
+            &lt;legend&gt;Select Shift information for each officer&lt;/legend&gt;
+            &lt;ul&gt;
+                &lt;li th:each="shiftDto : ${dtoWrapper.getShifts()}"&gt;
+                    &lt;span th:text="${shiftDto.getFullName()}"&gt;&lt;/span&gt;
+                    &lt;input type="radio" id="ignore" name="${shiftDto.getFullName()}" value="0" checked&gt;
+                    &lt;label for="ignore"&gt;Ignore&lt;/label&gt;
+                    &lt;input type="radio" id="mgDay" name="${shiftDto.getFullName()}" value="1"&gt;
+                    &lt;label for="mgDay"&gt;MG Day&lt;/label&gt;
+                    &lt;input type="radio" id="mgNight" name="${shiftDto.getFullName()}" value="2"&gt;
+                    &lt;label for="mgNight"&gt;MG Night&lt;/label&gt;
+                    &lt;input type="radio" id="epWbDay" name="${shiftDto.getFullName()}" value="3"&gt;
+                    &lt;label for="epWbDay"&gt;EP WB Day&lt;/label&gt;
+                    &lt;input type="radio" id="epWbNight" name="${shiftDto.getFullName()}" value="4"&gt;
+                    &lt;label for="epWbNight"&gt;EP WB Night&lt;/label&gt;&lt;br&gt;
+
+                    &lt;input type="radio" id="visRecep" name="${shiftDto.getFullName()}" value="5"&gt;
+                    &lt;label for="visRecep"&gt;Visitors Recep&lt;/label&gt;
+                    &lt;input type="radio" id="plDay" name="${shiftDto.getFullName()}" value="6"&gt;
+                    &lt;label for="plDay"&gt;Plaistow Day&lt;/label&gt;
+                    &lt;input type="radio" id="plNight" name="${shiftDto.getFullName()}" value="7"&gt;
+                    &lt;label for="plNight"&gt;Plaistow Night&lt;/label&gt;
+                    &lt;br&gt;&lt;br&gt;
+                    &lt;!--                    &lt;span th:text="${officer}"&gt;&lt;/span&gt;--&gt;
+                &lt;/li&gt;
+                &lt;input type="submit" value="Submit" /&gt; &lt;input type="reset" value="Reset" /&gt;
+            &lt;/ul&gt;
+        &lt;/fieldset&gt;
+    &lt;/form&gt;
+&lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+    <p><a href="https://i.stack.imgur.com/KNyAN.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/KNyAN.png" alt="My output screen"></a></p>
+    <ol>
+     <li>Currently all the radio buttons are behaving as one group. How can I group them separately for each name.</li>
+     <li>How to get the radio button value into dtoWrapper object.</li>
+     <li>How to access wrapper from /download controller model argument</li>
+    </ol>
+    <p>Any help is appreciated.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring-boot</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Jun 2021 at 23:24</span>
+     </div>
+    </div>
+    <div>
+     <p>Currently you are missing a couple of Thymeleaf-related items in your template.</p>
+     <p>First of all, the <code>name</code> attribute:</p>
+     <pre><code>name="${shiftDto.getFullName()}"
+</code></pre>
+     <p>This should be:</p>
+     <pre><code>th:name="${shiftDto.fullName}"
+</code></pre>
+     <p>I added <code>th:</code> to the <code>name</code> attribute to cause it to be processed by Thymeleaf (otherwise it is ignored by Thymeleaf). If Thymeleaf ignores the attribute, all your names are the same - they are all <em>exactly</em> the following string: <code>${shiftDto.getFullName()}</code> - and this is why there is no grouping of radio buttons by name.</p>
+     <p>Note also that I changed <code>getFullName()</code> to simply <code>fullName</code>. As long as your Java class has a suitable getter (<code>getFullName()</code>), which matches the related field (<code>fullName</code>), then the Thymeleaf expression can use the field name. This simplifies your templates: you can use the Java field names, instead of the Java method names.</p>
+     <p>Next change:</p>
+     <p>I changed the <code>id</code> attribute so that every ID will be unique (a page should never contain duplicate ID attributes).</p>
+     <pre><code>th:id="'ignore_' + ${iterStat.count}"
+</code></pre>
+     <p>The <code>iterStat</code> value is just a way to provide an iteration counter in Thymeleaf. See <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#keeping-iteration-status" rel="nofollow noreferrer">here</a> for details.</p>
+     <p>You can choose to use any value you wish, as long as the end result that every id is unique in the page.</p>
+     <p>The full code is as follows:</p>
+     <pre><code>&lt;form ... &gt;
+    &lt;ul&gt;
+        &lt;li th:each="shiftDto,iterStat : ${dtoWrapper.getShifts()}"&gt;
+            &lt;span th:text="${shiftDto.fullName}"&gt;&lt;/span&gt;
+            &lt;input type="radio" th:id="'ignore_' + ${iterStat.count}" th:name="${shiftDto.fullName}" value="0" checked&gt;
+            &lt;label for="ignore"&gt;Ignore&lt;/label&gt;
+            &lt;input type="radio" th:id="'mgDay' + ${iterStat.count}" th:name="${shiftDto.fullName}" value="0" checked&gt;
+            &lt;label for="ignore"&gt;MG Day&lt;/label&gt;
+            &lt;input type="radio" th:id="'mgNight' + ${iterStat.count}" th:name="${shiftDto.fullName}" value="0" checked&gt;
+            &lt;label for="ignore"&gt;MG Night&lt;/label&gt;
+        &lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;input type="submit" value="Submit" /&gt;
+&lt;/form&gt;
+</code></pre>
+     <p>(I have not shown all your fields or names here, for brevity.)</p>
+     <p>When you select some values, you will now see that the radio buttons are in independent groups.</p>
+     <hr>
+     <p>Form submission:</p>
+     <p>When you submit the form data, you will see a response payload similar to this:</p>
+     <pre><code>Alan+Smith=0&amp;Brian+Jones=1&amp;Charles+Worth=2
+</code></pre>
+     <p>This corresponds to the following selections in the form:</p>
+     <p><a href="https://i.stack.imgur.com/Pc8wd.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/Pc8wd.png" alt="enter image description here"></a></p>
+     <hr>
+     <p>It can also be helpful to see how the Thymeleaf template is converted to HTML. Here is my HTML for the above code:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;ul&gt;
+    &lt;li&gt;
+        &lt;span&gt;Alan Smith&lt;/span&gt;
+        &lt;input type="radio" id="ignore_1" name="Alan Smith" value="0" checked&gt;
+        &lt;label for="ignore"&gt;Ignore&lt;/label&gt;
+        &lt;input type="radio" id="mgDay1" name="Alan Smith" value="1" checked&gt;
+        &lt;label for="ignore"&gt;MG Day&lt;/label&gt;
+        &lt;input type="radio" id="mgNight1" name="Alan Smith" value="2" checked&gt;
+        &lt;label for="ignore"&gt;MG Night&lt;/label&gt;
+    &lt;/li&gt;
+    &lt;li&gt;
+        &lt;span&gt;Brian Jones&lt;/span&gt;
+        &lt;input type="radio" id="ignore_2" name="Brian Jones" value="0" checked&gt;
+        &lt;label for="ignore"&gt;Ignore&lt;/label&gt;
+        &lt;input type="radio" id="mgDay2" name="Brian Jones" value="1" checked&gt;
+        &lt;label for="ignore"&gt;MG Day&lt;/label&gt;
+        &lt;input type="radio" id="mgNight2" name="Brian Jones" value="2" checked&gt;
+        &lt;label for="ignore"&gt;MG Night&lt;/label&gt;
+    &lt;/li&gt;
+    &lt;li&gt;
+        &lt;span&gt;Charles Worth&lt;/span&gt;
+        &lt;input type="radio" id="ignore_3" name="Charles Worth" value="0" checked&gt;
+        &lt;label for="ignore"&gt;Ignore&lt;/label&gt;
+        &lt;input type="radio" id="mgDay3" name="Charles Worth" value="1" checked&gt;
+        &lt;label for="ignore"&gt;MG Day&lt;/label&gt;
+        &lt;input type="radio" id="mgNight3" name="Charles Worth" value="2" checked&gt;
+        &lt;label for="ignore"&gt;MG Night&lt;/label&gt;
+    &lt;/li&gt;
+&lt;/ul&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

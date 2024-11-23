@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to parse date from string with year and week using java.time</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to parse date from string with year and week using java.time</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>9</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>michaldo</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 Jan 2015 at 18:13</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/27928720/how-to-parse-date-from-string-with-year-and-week-using-java-time">source</a>
+    </div>
+   </div>
+   <div>
+    <p>In old java I can do it in that way:</p>
+    <pre><code>System.out.println(new SimpleDateFormat("yyyy w", Locale.UK).parse("2015 1"));
+// shows Mon Dec 29 00:00:00 CET 2014
+
+System.out.println(new SimpleDateFormat("yyyy w", Locale.US).parse("2015 1"));
+// shows Mon Dec 28 00:00:00 CET 2014
+</code></pre>
+    <p>I would like to use java.time in Java 8.</p>
+    <pre><code>System.out.println( LocalDate.parse("2015 1", DateTimeFormatter.ofPattern("yyyy w", Locale.US)));
+</code></pre>
+    <p>Result:</p>
+    <p>java.time.format.DateTimeParseException: Text '2015 1' could not be parsed: Unable to obtain LocalDate from TemporalAccessor: {WeekOfWeekBasedYear[WeekFields[SUNDAY,1]]=1, Year=2015},ISO of type java.time.format.Parsed</p>
+    <p>How to do it in java.time?</p>
+    <p>Moreover, I'm not satisfied that I have to pass Locale to determine first day of week: Monday vs Sunday. It is not country feature but calendar feature. I would like to use something like java.time.temporal.WeekFields.ISO to show the world that week start with Monday</p>
+    <p>I found similar case : <a href="https://stackoverflow.com/questions/3941700/how-to-get-dates-of-a-week-i-know-week-number">https://stackoverflow.com/questions/3941700/how-to-get-dates-of-a-week-i-know-week-number </a></p>
+    <p>but not for java.time in Java 8. Moreover, solution that first create a date object and later set correct week is not elegant. I want to create final date in one shot.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">java-time</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Meno Hochschild</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Jan 2015 at 21:57</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Direct answer and solution:</strong></p>
+     <pre><code>System.out.println( 
+  LocalDate.parse("2015 1", 
+    new DateTimeFormatterBuilder().appendPattern("YYYY w")
+    .parseDefaulting(WeekFields.ISO.dayOfWeek(), 1)
+    .toFormatter()));
+// output: 2014-12-29
+</code></pre>
+     <p><strong>Explanations:</strong></p>
+     <p>a) You should use Y instead of y because you are interested in ISO-8601-week-date, not in year-of-era.</p>
+     <p>b) A calendar date cannot be formed by just giving a (week-based) year and a week-number. The day of week matters to determine the day within the specified calendar week. The predefined <a href="http://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#ISO_WEEK_DATE" rel="noreferrer">formatter for week-dates</a> requires the missing day-of-week. So you need to construct a specialized parser using the builder-pattern. Then it is necessary to tell the parser what day of week is wanted - via the method <code>parseDefaulting()</code>.</p>
+     <p>c) I insist (and defend JSR-310 here) on saying that the question when a week starts is not a calendar issue but a country-dependent issue. US and France (as example) use the same calendar but have different views how to define a week. ISO-8601-standard can be applied using the explicitly ISO-referring field <code>WeekFields.ISO.dayOfWeek()</code>. <strong>Attention:</strong> Testing has revealed that using <code>ChronoField.DAY_OF_WEEK</code> together with <code>Locale.ROOT</code> does not always seem to guarantee ISO-week-behaviour as indicated in my first version of this answer (the reasons are not yet clear for me - a close view of the sources seems to be necessary to enlighten the unintuitive behaviour).</p>
+     <p>d) The java-time-package does it well - with the exception that Monday is just specified as number 1. I would have preferred the enum. Or use the enum and its method <code>getValue()</code>.</p>
+     <p>e) Side notice: <code>SimpleDateFormat</code> behaves leniently by default. The java-time-package is stricter and rejects to invent a missing day-of-week out of thin air - even in lenient mode (which is in my opinion rather a good thing). Software should not guess so much, instead the programmer should think more about what day-of-week is the right one. Again here: The application requirements will probably differ in US and France about the right default setting.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Ad c) I was not precise.I meant that when I want to use custom Monday/Sunday settings then I should not use Locale where week day is defined as I want but explicite define what is first day of week. Proposed answer (with Locale.ROOT) is 100% what I asked</span> <span> - </span> <span class="display-name">michaldo</span> <span> </span> <span class="date">14 Jan 2015 at 07:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I applied the solution to year 2016: System.out.println( LocalDate.parse("2016 1", new DateTimeFormatterBuilder().appendPattern("YYYY w") .parseDefaulting(ChronoField.DAY_OF_WEEK, 1) .toFormatter().withLocale(Locale.ROOT))); // output: 2015-12-28 Why I got 2015-12-28? I expect to get 2016-01-04, because first week of 2016 is 4-10 January</span> <span> - </span> <span class="display-name">michaldo</span> <span> </span> <span class="date">19 Jan 2015 at 10:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@michaldo Thank you very much for your feedback. I have changed my answer preferring the second solution. which still work for <code>2016-1</code> yielding the result <code>2016-01-04</code>. It seems we have hit some oddity in the JSR-310-API.</span> <span> - </span> <span class="display-name">Meno Hochschild</span> <span> </span> <span class="date">19 Jan 2015 at 17:41</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I tried using this code with: "2015 52" and "2015 53" and got incorrect results. It returned the same date for both cases: 2015-12-21.</span> <span> - </span> <span class="display-name">Dave Ford</span> <span> </span> <span class="date">23 Feb 2017 at 03:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DaveFord For me, the code above produces for week 52 the date 2015-12-21 and for week 53 the date 2015-12-28, which is correct. So I cannot reproduce what you observed.</span> <span> - </span> <span class="display-name">Meno Hochschild</span> <span> </span> <span class="date">23 Feb 2017 at 05:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DaveFord : this code is locale sensitive. See <a href="https://stackoverflow.com/questions/39584350/java-times-week-of-week-based-year-pattern-parsing-with-datetimeformatter" title="java times week of week based year pattern parsing with datetimeformatter">stackoverflow.com/questions/39584350/…</a>.</span> <span> - </span> <span class="display-name">Étienne Miret</span> <span> </span> <span class="date">23 Oct 2018 at 11:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Basil Bourque</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Feb 2017 at 23:09</span>
+     </div>
+    </div>
+    <div>
+     <p>The <a href="https://stackoverflow.com/a/27932239/642706">accepted Answer by Meno Hochschild</a> is correct. Here is an alternate route.</p>
+     <h1><code>YearWeek</code></h1>
+     <p>Use the <a href="http://www.threeten.org/threeten-extra/apidocs/org/threeten/extra/YearWeek.html" rel="nofollow noreferrer"><code>YearWeek</code></a> class in <a href="http://www.threeten.org/threeten-extra/" rel="nofollow noreferrer">ThreeTen-Extra</a> library. This library extends java.time with additional functionality. This particular class represents a year-week in the <a href="https://en.wikipedia.org/wiki/ISO_week_date" rel="nofollow noreferrer">ISO 8601 week date system</a>.</p>
+     <p>The factory method <code>YearWeek.of</code> takes a pair of integer arguments, the week-based-year and the week number.</p>
+     <pre><code>YearWeek yw = YearWeek.of( 2015 , 1 );  
+</code></pre>
+     <h1>ISO 8601</h1>
+     <p>Ideally you would be using standard <a href="https://en.wikipedia.org/wiki/ISO_8601" rel="nofollow noreferrer">ISO 8601</a> formats for strings representing date-time values. For <a href="https://en.wikipedia.org/wiki/ISO_week_date" rel="nofollow noreferrer">year-week that would be <code>yyyy-Www</code></a> the week-based-year number, a hyphen, a <code>W</code>, and two digits for week number with padding zero as needed.</p>
+     <blockquote>
+      <p>2015-W01</p>
+     </blockquote>
+     <p>The java.time classes, and ThreeTen-Extra classes, use the standard ISO 8601 formats by default when parsing and generating strings. So life is <em>much</em> easier if you stick to the standard.</p>
+     <pre><code>YearWeek yw = YearWeek.parse( "2015-W01" );
+String output = yw.toString(); // 2015-W01
+</code></pre>
+     <h1>Parsing integers.</h1>
+     <p>You have a non-standard format for numbers. So let's parse your string as two pieces, one number each, to be interpreted as <code>int</code> integers.</p>
+     <pre><code>String string = "2015 1";
+String[] parts = string.split(" "); // SPACE character.
+String part1 = parts[0]; // 2015
+String part2 = parts[1]; // 1
+</code></pre>
+     <p>The <code>Integer</code> class converts such strings to <code>int</code> primitive values.</p>
+     <pre><code>int weekBasedYearNumber = Integer.parseInt( part1 ) ;
+int weekNumber = Integer.parseInt( part2 ) ;
+</code></pre>
+     <p>Now call that factory method.</p>
+     <pre><code>YearWeek yw = YearWeek.of( weekBasedYearNumber , weekNumber );
+</code></pre>
+     <h1><code>LocalDate</code></h1>
+     <p>As for first day of week, here we have been discussing the standard ISO 8601 definition of week. In that definition, Monday is always the first day, a week running from Monday-Sunday. Week # 1 contains the first Thursday of the calendar-year. In the case of 2015-W01 that Thursday would be January 1, 2015.</p>
+     <p>So, no <code>Locale</code> needed.</p>
+     <p>I am not quite sure of your goal, but it seems to be extracting particular dates for days within your week. That is quite easy with the <code>YearWeek</code> class and the <a href="http://docs.oracle.com/javase/8/docs/api/java/time/DayOfWeek.html?is-external=true" rel="nofollow noreferrer"><code>DayOfWeek</code></a> enum.</p>
+     <pre><code>LocalDate monday = yw.atDay( DayOfWeek.MONDAY );  // 2014-12-29 start-of-week.
+LocalDate friday = yw.atDay( DayOfWeek.FRIDAY );  // 2015-01-02
+LocalDate sunday = yw.atDay( DayOfWeek.SUNDAY );  // 2015-01-04 end-of-week.
+</code></pre>
+     <p><a href="https://i.stack.imgur.com/xKIEB.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/xKIEB.png" alt="screen shot of calendar month January 2015 with ISO 8601 week number 1 running from 2014-12-29 Monday to 2015-01-04 Sunday"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>KayV</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jul 2017 at 09:47</span>
+     </div>
+    </div>
+    <div>
+     <p>This can also be achieved by putting default parse value for Day of week using "ChronoField.Day_Of_Week" and setting the value as "1" as follows:</p>
+     <pre><code>System.out.println( "Date From Year and Week : "+
+              LocalDate.parse("2015 1", 
+                new DateTimeFormatterBuilder().appendPattern("YYYY w")
+                .parseDefaulting(ChronoField.DAY_OF_WEEK, 1)
+                .toFormatter()));
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

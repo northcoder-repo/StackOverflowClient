@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Cannot use index variable in thymeleaf template after 100th use on an array</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Cannot use index variable in thymeleaf template after 100th use on an array</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>gillup</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Jul 2020 at 11:36</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62793926/cannot-use-index-variable-in-thymeleaf-template-after-100th-use-on-an-array">source</a>
+    </div>
+   </div>
+   <div>
+    <p>When I try to use the same variable as an array's index 101th times (even over multiple renderings of my view), I have an exception on evaluating the expression. I have to restart my server to evaluate the expression again (until the 101th evaluation).</p>
+    <pre><code>&lt;th:block th:with="array=${new String[]{'item1'}}, index=0"&gt;
+    &lt;th:block th:each="i : ${#numbers.sequence( 1, 101, 1)}"&gt;
+        [[${i}]]:[[${array[index]}]]
+    &lt;/th:block&gt;
+&lt;/th:block&gt;
+</code></pre>
+    <p>Result is :</p>
+    <blockquote>
+     <p>1:item1 2:item1 [...] 100:item1 101:</p>
+    </blockquote>
+    <p>Exception is :</p>
+    <pre><code>Caused by: org.thymeleaf.exceptions.TemplateProcessingException: Exception evaluating SpringEL expression: "array[index]" (template: "test.html" - line 10, col 13)
+    at org.thymeleaf.spring5.expression.SPELVariableExpressionEvaluator.evaluate(SPELVariableExpressionEvaluator.java:290)
+
+Caused by: java.lang.IllegalStateException: Failed to instantiate CompiledExpression
+    at org.springframework.expression.spel.standard.SpelCompiler.compile(SpelCompiler.java:111)
+
+Caused by: java.lang.VerifyError: (class: spel/Ex3, method: getValue signature: (Ljava/lang/Object;Lorg/springframework/expression/EvaluationContext;)Ljava/lang/Object;) Expecting to find integer on stack
+    at java.lang.Class.getDeclaredConstructors0(Native Method)
+</code></pre>
+    <p>Environment is :</p>
+    <ul>
+     <li>thymeleaf version:'3.0.11.RELEASE'</li>
+     <li>thymeleaf-spring5 version:'3.0.11.RELEASE'</li>
+     <li>Tomcat 9.0.36</li>
+     <li>JDK 1.8.0_74</li>
+    </ul>
+    <p>What's going on ?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Jul 2020 at 16:39</span>
+     </div>
+    </div>
+    <div>
+     <p>The error snippet here mentions that Spring is attempting to compile the expression:</p>
+     <pre><code>SpelCompiler.compile()
+</code></pre>
+     <p>And, as you note, the problem is very specifically when the code attempts more than 100 array index accesses - even if the index variable never changes:</p>
+     <pre><code>array[index]
+</code></pre>
+     <p>It's interesting to note that I did not get this error when I hard-coded the index value - for example:</p>
+     <pre><code>array[0]
+</code></pre>
+     <p>I know of 2 ways around the problem:</p>
+     <p><strong>Option 1</strong></p>
+     <p>Configure SpEL to not use expression compilation. How you do this depends on your specific config set-up, but the setting is:</p>
+     <pre><code>spring.expression.compiler.mode=off
+</code></pre>
+     <p>I tried using mode <code>immediate</code> and also mode <code>mixed</code> - but neither worked. Only mode <code>off</code>.</p>
+     <p><strong>Option 2</strong></p>
+     <p>Avoid using an array with an index variable - for example there is no problem iterating over a list (or an array) like this, where the list contains more than 100 objects:</p>
+     <pre><code>&lt;th:block th:each="i,iterStat : ${myList}"&gt;
+    [[${iterStat.index}]]:[[${i}]]
+&lt;/th:block&gt;
+</code></pre>
+     <p>Whether this option works for you probably depends on the wider context of what your code is doing. So this may not be an option.</p>
+     <p>Either way, I was surprised that the <code>mixed</code> compilation mode did not work. The documentation does note, however, that <a href="https://docs.spring.io/spring/docs/current/spring-framework-reference/core.html#expressions-compiler-limitations" rel="nofollow noreferrer">there are limitations</a> to what the compiler can handle.</p>
+     <p><em>Just as an observation</em>: I am assuming that you want to use the <code>[[...]]</code> syntax in your template, as opposed to something more like this:</p>
+     <pre><code>&lt;th:block th:each="i,iterStat : ${myList}"&gt;
+    &lt;span th:text="${iterStat.index} + ':' + ${i}"&gt;&lt;/span&gt;
+&lt;/th:block&gt;
+</code></pre>
+     <p>(Doing things this way does not avoid the compilation problem, though.)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

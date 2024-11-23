@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Using default and custom stop words with Apache's Lucene (weird output)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Using default and custom stop words with Apache's Lucene (weird output)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Neph</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Oct 2020 at 16:41</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64321901/using-default-and-custom-stop-words-with-apaches-lucene-weird-output">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm removing stop words from a String, using Apache's <a href="https://lucene.apache.org/" rel="nofollow noreferrer">Lucene</a> (8.6.3) and the following Java 8 code:</p>
+    <pre><code>private static final String CONTENTS = "contents";
+final String text = "This is a short test! Bla!";
+final List&lt;String&gt; stopWords = Arrays.asList("short","test");
+final CharArraySet stopSet = new CharArraySet(stopWords, true);
+
+try {
+    Analyzer analyzer = new StandardAnalyzer(stopSet);
+    TokenStream tokenStream = analyzer.tokenStream(CONTENTS, new StringReader(text));
+    CharTermAttribute term = tokenStream.addAttribute(CharTermAttribute.class);
+    tokenStream.reset();
+
+    while(tokenStream.incrementToken()) {
+        System.out.print("[" + term.toString() + "] ");
+    }
+
+    tokenStream.close();
+    analyzer.close();
+} catch (IOException e) {
+    System.out.println("Exception:\n");
+    e.printStackTrace();
+}
+</code></pre>
+    <p>This outputs the desired result:</p>
+    <blockquote>
+     <p>[this] [is] [a] [bla]</p>
+    </blockquote>
+    <p>Now I want to use both the default English stop set, which should also remove "this", "is" and "a" (according to <a href="https://github.com/apache/lucene-solr/blob/master/lucene/analysis/common/src/java/org/apache/lucene/analysis/en/EnglishAnalyzer.java#L46" rel="nofollow noreferrer">github</a>) AND the custom stop set above (the actual one I'm going to use is a lot longer), so I tried this:</p>
+    <pre><code>Analyzer analyzer = new EnglishAnalyzer(stopSet);
+</code></pre>
+    <p>The output is:</p>
+    <blockquote>
+     <p>[thi] [is] [a] [bla]</p>
+    </blockquote>
+    <p>Yes, the "s" in "this" is missing. What's causing this? It also didn't use the default stop set.</p>
+    <p>The following changes remove both the default and the custom stop words:</p>
+    <pre><code>Analyzer analyzer = new EnglishAnalyzer();
+TokenStream tokenStream = analyzer.tokenStream(CONTENTS, new StringReader(text));
+tokenStream = new StopFilter(tokenStream, stopSet);
+</code></pre>
+    <p><strong>Question</strong>: What is the "right" way to do this? Is using the <code>tokenStream</code> within itself (see code above) going to cause problems?</p>
+    <p><strong>Bonus question</strong>: How do I output the remaining words with the right upper/lower case, hence what they use in the original text?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span><span class="tag">stop-words</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Oct 2020 at 18:16</span>
+     </div>
+    </div>
+    <div>
+     <p>I will tackle this in two parts:</p>
+     <ul>
+      <li>stop-words</li>
+      <li>preserving original case</li>
+     </ul>
+     <p><strong>Handling the Combined Stop Words</strong></p>
+     <p>To handle the combination of Lucene's English stop word list, plus your own custom list, you can create a merged list as follows:</p>
+     <pre><code>import org.apache.lucene.analysis.en.EnglishAnalyzer;
+
+...
+
+final List&lt;String&gt; stopWords = Arrays.asList("short", "test");
+final CharArraySet stopSet = new CharArraySet(stopWords, true);
+
+CharArraySet enStopSet = EnglishAnalyzer.ENGLISH_STOP_WORDS_SET;
+stopSet.addAll(enStopSet);
+</code></pre>
+     <p>The above code simply takes the English stopwords bundled with Lucene and merges then with your list.</p>
+     <p>That gives the following output:</p>
+     <pre><code>[bla]
+</code></pre>
+     <p><strong>Handling Word Case</strong></p>
+     <p>This is a bit more involved. As you have noticed, the <code>StandardAnalyzer</code> includes a step in which all words are converted to lower case - so we can't use that.</p>
+     <p>Also, if you want to maintain your own custom list of stop words, and if that list is of any size, I would recommend storing it in its own text file, rather than embedding the list into your code.</p>
+     <p>So, let's assume you have a file called <code>stopwords.txt</code>. In this file, there will be one word per line - and the file will already contain the merged list of your custom stop words and the official list of English stop words.</p>
+     <p>You will need to prepare this file manually yourself (i.e. ignore the notes in part 1 of this answer).</p>
+     <p>My test file is just this:</p>
+     <pre><code>short
+this
+is
+a
+test
+the
+him
+it
+</code></pre>
+     <p>I also prefer to use the <code>CustomAnalyzer</code> for something like this, as it lets me build an analyzer very simply.</p>
+     <pre><code>import org.apache.lucene.analysis.custom.CustomAnalyzer;
+
+...
+
+Analyzer analyzer = CustomAnalyzer.builder()
+        .withTokenizer("icu")
+        .addTokenFilter("stop",
+                "ignoreCase", "true",
+                "words", "stopwords.txt",
+                "format", "wordset")
+        .build();
+</code></pre>
+     <p>This does the following:</p>
+     <ol>
+      <li>
+       <p>It uses the "icu" tokenizer <code>org.apache.lucene.analysis.icu.segmentation.ICUTokenizer</code>, which takes care of tokenizing on Unicode whitespace, and handling punctuation.</p></li>
+      <li>
+       <p>It applies the stopword list. Note the use of <code>true</code> for the <code>ignoreCase</code> attribute, and the reference to the stop-word file. The format of <code>wordset</code> means "one word per line" (there are other formats, also).</p></li>
+     </ol>
+     <p>The key here is that there is nothing in the above chain which changes word case.</p>
+     <p>So, now, using this new analyzer, the output is as follows:</p>
+     <pre><code>[Bla]
+</code></pre>
+     <p><strong>Final Notes</strong></p>
+     <p>Where do you put the stop list file? By default, Lucene expects to find it on the classpath of your application. So, for example, you can put it in the default package.</p>
+     <p>But remember that the file needs to be handled by your build process, so that it ends up alongside the application's class files (not left behind with the source code).</p>
+     <p>I mostly use Maven - and therefore I have this in my POM to ensure the ".txt" file gets deployed as needed:</p>
+     <pre><code>    &lt;build&gt;  
+        &lt;resources&gt;  
+            &lt;resource&gt;  
+                &lt;directory&gt;src/main/java&lt;/directory&gt;  
+                &lt;excludes&gt;  
+                    &lt;exclude&gt;**/*.java&lt;/exclude&gt;  
+                &lt;/excludes&gt;  
+            &lt;/resource&gt;  
+        &lt;/resources&gt;  
+    &lt;/build&gt; 
+</code></pre>
+     <p>This tells Maven to copy files (except Java source files) to the build target - thus ensuring the text file gets copied.</p>
+     <p>Final note - I did not investigate why you were getting that truncated <code>[thi]</code> token. If I get a chance I will take a closer look.</p>
+     <hr>
+     <p><strong>Follow-Up Questions</strong></p>
+     <blockquote>
+      <p><em>After combining I have to use the StandardAnalyzer, right?</em></p>
+     </blockquote>
+     <p>Yes, that is correct. the notes I provided in part 1 of the answer relate directly to the code in your question, and to the StandardAnalyzer you use.</p>
+     <blockquote>
+      <p><em>I want to keep the stop word file on a specific non-imported path - how to do that?</em></p>
+     </blockquote>
+     <p>You can tell the CustomAnalyzer to look in a "resources" directory for the stop-words file. That directory can be anywhere on the file system (for easy maintenance, as you noted):</p>
+     <pre><code>import java.nio.file.Path;
+import java.nio.file.Paths;
+
+...
+
+Path resources = Paths.get("/path/to/resources/directory");
+
+Analyzer analyzer = CustomAnalyzer.builder(resources)
+        .withTokenizer("icu")
+        .addTokenFilter("stop",
+                "ignoreCase", "true",
+                "words", "stopwords.txt",
+                "format", "wordset")
+        .build();
+</code></pre>
+     <p>Instead of using <code>.builder()</code> we now use <code>.builder(resources)</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>First of all: Thanks for your long post! I have 2 questions: 1. After combining I have to use the <code>StandardAnalyzer</code>, right? 2. About the <code>CustomAnalyzer</code>: I am indeed going to put all the stop words for a language in a txt file but I want to keep it on a specific non-imported path, so I can easily change the words later (if necessary). Do I have to a) handle reading the file into a <code>CharArraySet</code> myself or can I b) just give the analyzer the full path to the file, similar to what you did in the answer? If it's a), how do I tell the <code>CutstomAnalyzer</code> to use those words?</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">13 Oct 2020 at 08:35</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I've updated the answer to provide some more notes. Hope that helps.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">13 Oct 2020 at 12:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks again! I tested the latest <code>CustomAnalyzer</code> code and it gave me an exception because the "icu" resource was missing, so I added the <code>lucene-analyzers-icu-8.6.3.jar</code> file to the classpath. <code>.withTokenizer("icu")</code> still throws an exception though: <code>Exception in thread "main" java.lang.NoClassDefFoundError: com/ibm/icu/text/BreakIterator</code>. What library do I need for <code>"icu"</code>?</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">13 Oct 2020 at 14:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The first exception was: <code>Exception in thread "main" java.lang.IllegalArgumentException: A SPI class of type org.apache.lucene.analysis.util.TokenizerFactory with name 'icu' does not exist.</code> - and some more text after that.</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">13 Oct 2020 at 14:14</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>You need ICU4J - you can grab the file from <a href="https://mvnrepository.com/artifact/com.ibm.icu/icu4j/62.1" rel="nofollow noreferrer">here</a>, either using Maven or by downloading the <a href="https://repo1.maven.org/maven2/com/ibm/icu/icu4j/62.1/" rel="nofollow noreferrer">jar file</a>. Lucene 8.6.3 uses version 62.1 of that library. I strongly recommend using Maven (or Gradle, or similar) - which would automatically take care of downloading all such transitive dependencies for you.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">13 Oct 2020 at 14:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks! Tbh, I'm not a huge fan of Maven/Gradle/... as I never got them to work properly, at least adding them from scratch. I added version ICU4J to the build path but still got the same exception, so I re-added <code>lucene-analyzers-icu</code> and now it works. Looks like you need both. I'm going to test the rest tomorrow before I vote/accept.</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">13 Oct 2020 at 14:31</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Side note: Regarding the unexpected transformation of <code>this</code> to <code>thi</code>. When you use the EnglishAnalyzer, the token stream you create automatically uses a Porter stemmer (see the JavaDoc for <a href="https://lucene.apache.org/core/8_6_3/analyzers-common/org/apache/lucene/analysis/en/EnglishAnalyzer.html#createComponents-java.lang.String-" rel="nofollow noreferrer">createComponents()</a>). One of the stemming rules involves removing a trailing "s" from some words (and more, if the word is a plural: <code>horses</code> becomes <code>hors</code>, for example).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">13 Oct 2020 at 16:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Ah, I see, thanks. Unfortunately a new problem came up while testing the code with different languages. English works fine but when I use my german stop words list, I get a <code>java.nio.charset.MalformedInputException: Input length = 1</code> exception at <code>.addTokenFilter("stop",</code>. Apparently that's caused by the encoding of the file (because German uses umlauts) but how do I tell the <code>CustomAnalyzer</code> to use e.g. UTF-8 while reading the file?</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">14 Oct 2020 at 09:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>OK, understood - a couple of notes about that: (1) I am not able to recreate your problem. I used <a href="https://notepad-plus-plus.org/" rel="nofollow noreferrer">Notepad++</a> and set the file encoding to UTF-8 for my stop-words file - including words like <code>gebäude</code> with umlauts. So, it's probably not a question of telling Lucene to use UTF-8, it's probably a problem with the file itself not being UTF-8.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">14 Oct 2020 at 12:19</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Note (2): Adding extra languages can complicate things (regardless of point 1). For example, you may need to include an ascii folding filter to your analyzer: <code>.addTokenFilter("asciiFolding")</code>. But these are different questions from your original question. You may be better off actually creating a brand new question to focus on these specific items (more people will see your questions that way). Hope this helped in the meantime.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">14 Oct 2020 at 12:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>(1) Thanks for testing and the tip! I downloaded the stop word files <a href="http://members.unine.ch/jacques.savoy/clef/index.html" rel="nofollow noreferrer">here</a>: Both the english (which one worked fine though) and the german one were encoded with Windows-1252, while the italian was already UTF-8. I used TextPad to save both files in UTF-8 and now it's working. (2) Going to look at the extra filter tomorrow, thanks.</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">14 Oct 2020 at 13:57</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Excellent. Glad you made progress. English words encoded with Windows-1252 will work the same as UTF-8 because all the code points for "a-z" and "A-Z" are the same in both encodings. But as soon as you have characters outside that range (such as anything with an accent), then yes, the encoding schemes become much more important, as you have seen.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">14 Oct 2020 at 14:41</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I see, thanks for the explanation. I created a <a href="https://stackoverflow.com/q/64386015/2016165">new question</a> for the multi-language thing.</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">19 Oct 2020 at 11:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Regarding the ascii folding filter - I was thinking you needed to match accented versions of words with unaccented versions. But after reading your other question, I think that is wrong, and my suggestion about using that filter is irrelevant - sorry about that. It's very helpful if you want to match across all of these: <code>eglise</code>, <code>Eglise</code>, <code>église</code>, <code>Église</code>, for example.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Oct 2020 at 14:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Ah. No, words schon only be matched with the exact same version. The only exemption is upper case and lower case, so I can get the right case for the end result. So there's nothing else I should do to make it work "better"?</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">20 Oct 2020 at 08:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I noticed that if a word is used multiple times in the input text, then it's also output multiple times. It pretty easy to check for that myself but I'm still wondering: Is there anything already in place in Lucene to only get each word once (and maybe also include the amount of times it's used in the text)?</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">20 Oct 2020 at 13:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I don't know - but I am sure Lucene can do that. That sounds like another great question you can ask. You can certainly investigate <code>.addTokenFilter("removeDuplicates")</code> - see the docs <a href="https://lucene.apache.org/core/8_6_3/analyzers-common/org/apache/lucene/analysis/miscellaneous/RemoveDuplicatesTokenFilter.html" rel="nofollow noreferrer">here</a>. I have never used it, so I don't know if it does what you need.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Oct 2020 at 13:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks for the tip, going to check the docs and otherwise just do it myself.</span> <span> - </span> <span class="display-name">Neph</span> <span> </span> <span class="date">20 Oct 2020 at 15:02</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

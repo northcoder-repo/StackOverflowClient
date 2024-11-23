@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>SpanNot Lucene Query being either too strict or too permissive</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>SpanNot Lucene Query being either too strict or too permissive</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>mbake</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>10 May 2023 at 16:31</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76220733/spannot-lucene-query-being-either-too-strict-or-too-permissive">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Given two documents with two fields each:</p>
+    <pre><code>1. title: United Kingdom requested meeting of United Nations
+   content: The United Nations will hear statements from the United Kingdom (...)
+
+2. title: Airlines face scrutiny across nation
+   content: United States airline United Airlines has faced increasing (...)
+</code></pre>
+    <p>I'm after a Lucene query which will A) Match instances of the word "united", but NOT when followed by either "States" or "Kingdom", in either the title OR the content field B) Importantly, match both documents even though they contain both a desired and an undesired phrase.</p>
+    <p>My first port of call has been <code>spanNot()</code>, which is meant to take two <code>spanTerm</code> queries in an include, exclude order, followed by a <code>dist</code> integer, and a boolean indicating whether the terms should be in order. Eg:</p>
+    <pre><code>spanNot(title:united, title:states, 1, true)
+</code></pre>
+    <p>Given this, I've chained the necessary queries using a <code>BooleanQuery</code> so that the query is this:</p>
+    <pre><code>(+spanNot(title:united, title:states, 1, true) +spanNot(title:united, title:kingdom, 1, true))
+(+spanNot(content:united, content:states, 1, true) +spanNot(content:united, content:kingdom, 1, true))
+
+</code></pre>
+    <p>As you can see, there are two groupings of queries above, which should read logically like this: "(Title must contain united BUT NOT united states, AND title must contain united BUT NOT united kingdom) OR (Content must contain united BUT NOT united states, AND content must contain united BUT NOT united kingdom)"</p>
+    <p>Conceptually this makes perfect sense to me, however, I'm finding that the results of my query - either the initial <code>spanNot</code> or the longer chained <code>BooleanQuery</code> version - are incorrect. Either the entire document is not matched, or each mention of the word "united" is matched - having immense trouble working out the reason why.</p>
+    <p>For some additional detail: I'm implementing the query builder using the lucene java library in Clojure, but testing out the queries using Kibana's Lucene querying feature, over documents that absolutely should match. Using Lucene v 7.7 - an upgrade is probably on the cards, but I do not believe this would solve my problem.</p>
+    <p>Any insight would be tremendously appreciated.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">elasticsearch</span><span class="tag">text</span><span class="tag">clojure</span><span class="tag">lucene</span><span class="tag">kibana</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>mbake</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 May 2023 at 11:11</span>
+     </div>
+    </div>
+    <div>
+     <p>This was fixed after much trawling through Lucene documents and source code debugging. Here is the right way to write this query in Lucene:</p>
+     <pre><code>spanNot(title:united, spanOr([spanNear([title:united, title:states], 0, true), spanNear([title:united, title:kingdom], 0, true)]), 0, 0) spanNot(content:united, spanOr([spanNear([content:united, content:states], 0, true), spanNear([content:united, content:kingdom], 0, true)]), 0, 0) spanNot(summary:united, spanOr([spanNear([summary:united, summary:states], 0, true), spanNear([summary:united, summary:kingdom], 0, true)]), 0, 0)
+</code></pre>
+     <p>In case that's difficult to read, it's 3 separate queries (one for each field) made up of a <code>spanNot</code> with a term query include, and a <code>spanOr</code> exclude, which itself is comprised of two <code>spanNear</code> queries - one for each exlcusion term.</p>
+     <p>The issue before was that there were too many combinations of exclusion terms and fields for any distribution of SHOULD and MUST. The right way to execute this search was one thorough query per field.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vakhtang</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 May 2023 at 07:35</span>
+     </div>
+    </div>
+    <div>
+     <p>I think, that you are supposed to use Boolean + Phrase query. I don't know the Lucene Syntax from the library (I think that you need PhraseQuery), but with the regular request, you can use the following query:</p>
+     <pre><code>{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "bool": {
+            "filter": [
+              {
+                "match": {
+                  "title": "united"
+                }
+              }
+            ],
+            "must_not": [
+              {
+                "match_phrase": {
+                  "title": "United Kingdom"
+                }
+              },
+              {
+                "match_phrase": {
+                  "title": "United States"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "bool": {
+            "filter": [
+              {
+                "match": {
+                  "content": "united"
+                }
+              }
+            ],
+            "must_not": [
+              {
+                "match_phrase": {
+                  "content": "United Kingdom"
+                }
+              },
+              {
+                "match_phrase": {
+                  "content": "United States"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for this - unfortunately this falls into the "too strict" bucket, as both documents are excluded because they have the disallowed phrases in them.</span> <span> - </span> <span class="display-name">mbake</span> <span> </span> <span class="date">11 May 2023 at 08:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sorry, I not clearly understood your request. If you need a query like. If you need a query like: (Title must contain united BUT NOT united states, AND title must contain united BUT NOT united kingdom) OR (Content must contain united BUT NOT united states, AND content must contain united BUT NOT united kingdom), you suppose to use should part of the Boolean query. I fixed the query in the answer.</span> <span> - </span> <span class="display-name">Vakhtang</span> <span> </span> <span class="date">11 May 2023 at 08:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The issue here is that this would exclude a document which included both "United Airlines" (a legitimate mention) AND "United States" (illegitimate mention). This edge case is causing the pain really</span> <span> - </span> <span class="display-name">mbake</span> <span> </span> <span class="date">12 May 2023 at 18:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Do you have two words combination ("United States" and "United Kingdom") or the words will be changed in time? If there are constant words, or the changes will not be very frequent, you can set a custom analyzer in the settings with "United States" and "United Kingdom" in the token filter.</span> <span> - </span> <span class="display-name">Vakhtang</span> <span> </span> <span class="date">13 May 2023 at 19:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

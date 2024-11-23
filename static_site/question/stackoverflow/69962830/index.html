@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>DataTables export to csv with format Syntax error</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>DataTables export to csv with format Syntax error</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>awariat</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Nov 2021 at 12:09</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/69962830/datatables-export-to-csv-with-format-syntax-error">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have datatables and I try to export it to CSV. The column 7 is a date.</p>
+    <pre><code>text: 'Csv',
+      extend: 'csvHtml5',
+      filename: "customers",
+      exportOptions: {
+        columns: [1, 2, 7,8],
+       format: {
+          body: function (data, row, column, node) {
+            //check if type is input using jquery
+            console.log(data)
+            return $(data).is("input") ? $(data).val() : data;
+          }
+        }
+      }
+</code></pre>
+    <p>It works all OK if I don't use "format" but with format I have error:</p>
+    <blockquote>
+     <p>Uncaught Error: Syntax error, unrecognized expression: 13/11/2021</p>
+    </blockquote>
+    <p>When I log "data" without format, it is all OK. It looks like the slashes in date make problems in "format". Any help:)</p>
+    <p>edit: the date I take from firestore</p>
+    <pre><code>let options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: 'numeric',
+        //hour: 'numeric',
+        // minute: 'numeric'
+        // second: 'numeric'
+      };
+dataSet.push([
+...
+oc.data().created ? doc.data().created.toDate().toLocaleDateString("en-GB", options) : "",
+...
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Can you add the sample data which you are working with?</span> <span> - </span> <span class="display-name">Shabbir</span> <span> </span> <span class="date">14 Nov 2021 at 12:27</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Nov 2021 at 01:13</span>
+     </div>
+    </div>
+    <div>
+     <p>This is caused by your jQuery <code>$(data)</code> selector when the <code>data</code> variable contains one or more forward slashes. See:</p>
+     <ul>
+      <li><a href="https://stackoverflow.com/q/49642458/12567365">Selector with string space and /; $(" /") throws uncaught error in jquery</a></li>
+      <li><a href="https://stackoverflow.com/q/45199557/12567365">Why is the slash character causing my selector to fail?</a></li>
+     </ul>
+     <p>And probably others.</p>
+     <p>A simple (but potentially error-prone) approach would be to write some logic like this:</p>
+     <pre class="lang-js prettyprint-override"><code>// possible, but not recommended:
+data.startsWith('&lt;input') ? $(data).val() : data
+</code></pre>
+     <p>Instead of this type of approach, you can use DataTables' support for <a href="https://datatables.net/manual/data/orthogonal-data" rel="nofollow noreferrer">orthogonal data</a>.</p>
+     <p>In this new approach we will target the column which contains <code>&lt;input&gt;</code> fields, and specify two different versions of these data values for that column:</p>
+     <ol>
+      <li>
+       <p>The version we want to display in the table (i.e. the actual input HTML).</p></li>
+      <li>
+       <p>The version we want to export (i.e. the value contained in the input field).</p></li>
+     </ol>
+     <p>To do this we have to specify this for the relevant column (or columns). In my test example, this is the second column - so col index 1:</p>
+     <pre><code>columnDefs: [
+  { 
+    targets: [1], 
+    render: function (data, type, row) {
+      return type === 'export' ? $(data).val() : data;
+    }
+  }
+]
+</code></pre>
+     <p>Here, I have specified that there will be a custom data type called <code>export</code> for the 2nd column - and its value will be the result of <code>$(data).val()</code> - and all other <a href="https://datatables.net/manual/data/orthogonal-data" rel="nofollow noreferrer">built-in orthogonal data types</a> (<code>display</code>, <code>sort</code>, <code>filter</code>) will just use the raw <code>data</code> value.</p>
+     <p>Now I can use this new orthogonal data type in my export section of the DataTable:</p>
+     <pre><code>exportOptions: {
+  columns: [0, 1, 4, 5],
+  orthogonal: 'export'
+} 
+</code></pre>
+     <hr>
+     <p>The overall solution using my test data is as follows:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+
+  &lt;script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.23/css/jquery.dataTables.min.css"/&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/1.6.5/css/buttons.dataTables.min.css"/&gt; 
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/dataTables.buttons.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.colVis.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.html5.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.print.min.js"&gt;&lt;/script&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office&lt;/th&gt;
+                &lt;th&gt;Age&lt;/th&gt;
+                &lt;th&gt;Start date&lt;/th&gt;
+                &lt;th&gt;Salary&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Tiger Nixon&lt;/td&gt;
+                &lt;td&gt;&lt;input type="text" value="System Architect"&gt;&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;13/11/2021&lt;/td&gt;
+                &lt;td&gt;$320,800&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Garrett Winters&lt;/td&gt;
+                &lt;td&gt;&lt;input type="text" value="Accountant"&gt;&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;63&lt;/td&gt;
+                &lt;td&gt;14/12/2021&lt;/td&gt;
+                &lt;td&gt;$170,750&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Donna Snider&lt;/td&gt;
+                &lt;td&gt;&lt;input type="text" value="Dev/Ops"&gt;&lt;/td&gt;
+                &lt;td&gt;New York&lt;/td&gt;
+                &lt;td&gt;27&lt;/td&gt;
+                &lt;td&gt;15/01/2022&lt;/td&gt;
+                &lt;td&gt;$112,000&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;script&gt;
+
+$(document).ready(function() {
+
+  var table = $('#example').DataTable( {
+    columnDefs: [
+      { 
+        targets: [1], 
+        render: function (data, type, row) {
+          return type === 'export' ? $(data).val() : data;
+        }
+      }
+    ],
+    dom: 'Brftip',
+    buttons: [ { 
+      text: 'Csv',
+      extend: 'csvHtml5',
+      name: 'testExport',
+      exportOptions: {
+        columns: [0, 1, 4, 5],
+        orthogonal: 'export'
+      } 
+    } ]
+  } );
+
+} );
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+     <p>The table looks like this:</p>
+     <p><a href="https://i.stack.imgur.com/KbhHX.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/KbhHX.png" alt="enter image description here"></a></p>
+     <p>And the exported CSV data is:</p>
+     <pre><code>"Name","Position","Start date","Salary"
+"Donna Snider","Dev/Ops","15/01/2022","$112,000"
+"Garrett Winters","Accountant","14/12/2021","$170,750"
+"Tiger Nixon","System Architect","13/11/2021","$320,800"
+</code></pre>
+     <p>The benefit: I do not need any potentially error-prone logic to detect whether my strings contain <code>/</code> characters, or begin with <code>&lt;input...</code> and so on.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

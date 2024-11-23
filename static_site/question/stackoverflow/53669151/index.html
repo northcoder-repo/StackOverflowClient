@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java 11 application as lightweight docker image</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java 11 application as lightweight docker image</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>90</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>radistao</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Dec 2018 at 12:01</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/53669151/java-11-application-as-lightweight-docker-image">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Inspired by question <a href="https://stackoverflow.com/questions/53375613/">Why is the Java 11 base Docker image so large? (openjdk:11-jre-slim)</a> I found that this topic in Java world is still not settled.</p>
+    <p>As for <code>07 Dec 2018</code> there are common issues/pitfalls (discussed in the ticket above):</p>
+    <ul>
+     <li>
+      <p>JRE is not distributed as a separate "package". Modules from JDK should be used instead</p></li>
+     <li>
+      <p><a href="https://jdk.java.net/11/" rel="noreferrer">Oracle OpenJDK 11</a> doesn't support <a href="https://openjdk.java.net/projects/portola/" rel="noreferrer">Linux Alpine</a>, so <em>lightweight</em> images can't be easily created</p>
+      <ul>
+       <li>In the same time current stable Debian versions still doesn't have <a href="https://packages.debian.org/stable/java/" rel="noreferrer">Java 11 packages</a> (<a href="https://packages.ubuntu.com/bionic/java/" rel="noreferrer">Ubuntu has Java 10 installed</a> under openjdk-11 packages), that's why unstable sid versions are used for base docker images</li>
+      </ul></li>
+     <li>
+      <p>currently available Oracle openjdk-11 images build unstripped <code>libjvm.so</code> module, which has hundreds megabyte and must be stripped separately:</p>
+      <ul>
+       <li><a href="https://github.com/docker-library/openjdk/issues/217" rel="noreferrer">jlink runtime image size (specifically libjvm.so) created from openjdk is huge. Expected it to be much smaller.</a></li>
+       <li>Solution: <a href="https://github.com/docker-library/openjdk/issues/217#issuecomment-436079779" rel="noreferrer">https://github.com/docker-library/openjdk/issues/217#issuecomment-436079779</a></li>
+      </ul></li>
+    </ul>
+    <p>As a result of these issues even <em>slim</em> Oracle Java 11 base images are quite heavy and considered to be unstable: <a href="https://hub.docker.com/_/openjdk/" rel="noreferrer">https://hub.docker.com/_/openjdk/</a></p>
+    <p>So the question is:</p>
+    <p><strong>what are <em>optimized</em> or <em>recommended</em> ways to build and deliver Java 11 applications as docker images</strong>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">docker</span><span class="tag">alpine-linux</span><span class="tag">java-11</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Note: the Alpine port is supported now by AdoptOpenJDK project: <a href="https://stackoverflow.com/a/57145029/907576">stackoverflow.com/a/57145029/907576</a></span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Jul 2019 at 11:19</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>102</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>radistao</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Dec 2018 at 12:01</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>UPD from 07.2019</strong>: <a href="https://stackoverflow.com/a/57145029/907576">https://stackoverflow.com/a/57145029/907576</a></p>
+     <p>Taking as an example of simple spring boot application (with only one REST endpoint) so far i was able to figure out the following solutions (considering application jar is located at <code>build/libs/spring-boot-demo.jar</code> before Docker build:</p>
+     <ol>
+      <li>
+       <p><em>Jedi path</em> if we want to use <strong>official Oracle OpenJDK distribution on stable slim Linux version</strong> (<code>Debian 9 "Stretch"</code> for now):</p>
+       <ul>
+        <li>use <code>debian:stretch-slim</code> (latest stable) base image</li>
+        <li>
+         <p>use <a href="https://docs.docker.com/develop/develop-images/multistage-build/" rel="noreferrer">Docker multi-stage build</a></p>
+         <ol>
+          <li>
+           <p>First Docker build stage:</p>
+           <ul>
+            <li>download and install <code>Oracle OpenJDK</code> archive on the first Docker build stage</li>
+            <li>compile Java minimal distribution for your project (aka JRE) using <code>jlink</code> tool</li>
+           </ul></li>
+          <li>
+           <p>Second Docker build stage:</p>
+           <ul>
+            <li>copy compiled minimal Java distribution from stage 1 to the new image</li>
+            <li>configure path to access Java</li>
+            <li>copy application jar to the image</li>
+           </ul></li>
+         </ol></li>
+       </ul>
+       <p>So, final <code>Dockerfile</code> looks smth like this</p>
+       <p>(<strong>actualize JDK <code>VERSION</code>, <code>URL</code> and <code>HASH</code> value</strong>):</p>
+       <pre><code># First stage: JDK 11 with modules required for Spring Boot
+FROM debian:stretch-slim as packager
+
+# source JDK distribution names
+# update from https://jdk.java.net/java-se-ri/11
+ENV JDK_VERSION="11.0.1"
+ENV JDK_URL="https://download.java.net/java/GA/jdk11/13/GPL/openjdk-${JDK_VERSION}_linux-x64_bin.tar.gz"
+ENV JDK_HASH="7a6bb980b9c91c478421f865087ad2d69086a0583aeeb9e69204785e8e97dcfd"
+ENV JDK_HASH_FILE="${JDK_ARJ_FILE}.sha2"
+ENV JDK_ARJ_FILE="openjdk-${JDK_VERSION}.tar.gz"
+# target JDK installation names
+ENV OPT="/opt"
+ENV JKD_DIR_NAME="jdk-${JDK_VERSION}"
+ENV JAVA_HOME="${OPT}/${JKD_DIR_NAME}"
+ENV JAVA_MINIMAL="${OPT}/java-minimal"
+
+# downlodad JDK to the local file
+ADD "$JDK_URL" "$JDK_ARJ_FILE"
+
+# verify downloaded file hashsum
+RUN { \
+        echo "Verify downloaded JDK file $JDK_ARJ_FILE:" &amp;&amp; \
+        echo "$JDK_HASH $JDK_ARJ_FILE" &gt; "$JDK_HASH_FILE" &amp;&amp; \
+        sha256sum -c "$JDK_HASH_FILE" ; \
+    }
+
+# extract JDK and add to PATH
+RUN { \
+        echo "Unpack downloaded JDK to ${JAVA_HOME}/:" &amp;&amp; \
+        mkdir -p "$OPT" &amp;&amp; \
+        tar xf "$JDK_ARJ_FILE" -C "$OPT" ; \
+    }
+ENV PATH="$PATH:$JAVA_HOME/bin"
+
+RUN { \
+        java --version ; \
+        echo "jlink version:" &amp;&amp; \
+        jlink --version ; \
+    }
+
+# build modules distribution
+RUN jlink \
+    --verbose \
+    --add-modules \
+        java.base,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument \
+        # java.naming - javax/naming/NamingException
+        # java.desktop - java/beans/PropertyEditorSupport
+        # java.management - javax/management/MBeanServer
+        # java.security.jgss - org/ietf/jgss/GSSException
+        # java.instrument - java/lang/instrument/IllegalClassFormatException
+    --compress 2 \
+    --strip-debug \
+    --no-header-files \
+    --no-man-pages \
+    --output "$JAVA_MINIMAL"
+
+# Second stage, add only our minimal "JRE" distr and our app
+FROM debian:stretch-slim
+
+ENV JAVA_HOME=/opt/java-minimal
+ENV PATH="$PATH:$JAVA_HOME/bin"
+
+COPY --from=packager "$JAVA_HOME" "$JAVA_HOME"
+COPY "build/libs/spring-boot-demo.jar" "/app.jar"
+
+EXPOSE 8080
+CMD [ "-jar", "/app.jar" ]
+ENTRYPOINT [ "java" ]
+</code></pre>
+       <p><strong>Note</strong>:</p>
+       <ul>
+        <li>there are 5 java modules included to the minimal JRE example (<code>java.base,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument</code>). I found them "manually" running the application and fixing <code>ClassNotFoundException</code>. Waiting for some further Spring Boot developers recommendations/guides which Java modules to include and when, as same as removing some redundant dependencies, like <code>java.desktop</code>, which seems to be used only for <code>PropertyEditorSupport</code></li>
+        <li>
+         <p>if you are afraid to miss some modules - they are quite lightweight and all of them together give about 2 MB size increasing. Get a full list of <code>java.*</code> and <code>jdk.*</code> 11 modules:</p>
+         <p><code>java --list-modules | grep -E "^java\.[^@]*" | cut -d @ -f 1</code><br><code>java --list-modules | grep -E "^jdk\.[^@]*" | cut -d @ -f 1</code></p></li>
+       </ul>
+       <p>The resulting image size in my case was <strong>123 MB</strong> with minimal 7 Spring Boot modules and <strong>125 MB</strong> with all <code>java.*</code> modules</p>
+       <p><strong>As an optional improvement of this build workflow</strong>:</p>
+       <ul>
+        <li>Pre-build an image with downloaded and extracted JDK and use it as a base image for first stage</li>
+        <li>if you know which modules to include every time - pre-build a base image with compiled minimal JRE and included modules</li>
+       </ul></li>
+      <li>
+       <p>Easy way with <strong>vendor's Open JDK distributions</strong>:</p>
+       <p>Opposite to Oracle <a href="https://www.azul.com/zulu/" rel="noreferrer">Azul's Zulu JDK 11</a> supports <a href="https://www.azul.com/downloads/zulu/zulu-download-alpine/" rel="noreferrer">Alpine port</a> and has respective base <a href="https://hub.docker.com/r/azul/zulu-openjdk-alpine/" rel="noreferrer">Docker image</a>.</p></li>
+     </ol>
+     <p>Thus, if Zulu JVM/JDK is respected, Docker build is much simpler:</p>
+     <pre><code>FROM azul/zulu-openjdk-alpine:11 as packager
+
+RUN { \
+        java --version ; \
+        echo "jlink version:" &amp;&amp; \
+        jlink --version ; \
+    }
+
+ENV JAVA_MINIMAL=/opt/jre
+
+# build modules distribution
+RUN jlink \
+    --verbose \
+    --add-modules \
+        java.base,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument \
+        # java.naming - javax/naming/NamingException
+        # java.desktop - java/beans/PropertyEditorSupport
+        # java.management - javax/management/MBeanServer
+        # java.security.jgss - org/ietf/jgss/GSSException
+        # java.instrument - java/lang/instrument/IllegalClassFormatException
+    --compress 2 \
+    --strip-debug \
+    --no-header-files \
+    --no-man-pages \
+    --output "$JAVA_MINIMAL"
+
+# Second stage, add only our minimal "JRE" distr and our app
+FROM alpine
+
+ENV JAVA_MINIMAL=/opt/jre
+ENV PATH="$PATH:$JAVA_MINIMAL/bin"
+
+COPY --from=packager "$JAVA_MINIMAL" "$JAVA_MINIMAL"
+COPY "build/libs/spring-boot-demo.jar" "/app.jar"
+
+EXPOSE 8080
+CMD [ "-jar", "/app.jar" ]
+ENTRYPOINT [ "java" ]
+</code></pre>
+     <p>The resulting image is <strong>73 MB</strong>, as expected with stripped Alpine distributions.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>11</td>
+        <td><span>Nice analysis, and great question/answer</span> <span> - </span> <span class="display-name">Software Engineer</span> <span> </span> <span class="date">3 Jan 2019 at 15:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>any updates for 11.0.3? Where can I find JDK_HASH? Tried with <a href="https://www.oracle.com/webfolder/s/digest/11-0-3-checksum.html" rel="nofollow noreferrer">oracle.com/webfolder/s/digest/11-0-3-checksum.html</a> but using "d50908ea53c2ad154a797aa0930eafb7813247dae13d9d891116df88981‌​4ebf3" failed with: "sha256sum: WARNING: 1 computed checksum did NOT match"</span> <span> - </span> <span class="display-name">Ewoks</span> <span> </span> <span class="date">10 Jun 2019 at 11:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks @radistao Any way to add CAs when creating docker image on the build server?</span> <span> - </span> <span class="display-name">Ewoks</span> <span> </span> <span class="date">10 Jun 2019 at 20:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I'm basically "asking for a friend" because of <a href="https://stackoverflow.com/questions/56523042/sslhandshakeexception-when-trying-to-access-es-instance-from-docker" title="sslhandshakeexception when trying to access es instance from docker">stackoverflow.com/questions/56523042/…</a></span> <span> - </span> <span class="display-name">Ewoks</span> <span> </span> <span class="date">11 Jun 2019 at 10:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>that's another topic, so please don't clog this thread. Could you remove the messages starting from "Any way to add CAs..."? Thank you.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">11 Jun 2019 at 11:21</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>27</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>radistao</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jul 2019 at 11:23</span>
+     </div>
+    </div>
+    <div>
+     <p>As of 07.2019</p>
+     <p>(<strong>Note</strong>: first stage image could be as <em>fat</em> as you wish: one can use debian/ubuntu/whatever and include git/gradle/whatever - this won't influence the final resulting image size, which is completely based on the last (second) stage)</p>
+     <h1>Using <a href="https://pkgs.alpinelinux.org/package/edge/community/x86_64/openjdk11" rel="noreferrer">Alpine community repository</a></h1>
+     <pre><code>FROM alpine:latest as packager
+
+RUN apk --no-cache add openjdk11-jdk openjdk11-jmods
+
+ENV JAVA_MINIMAL="/opt/java-minimal"
+
+# build minimal JRE
+RUN /usr/lib/jvm/java-11-openjdk/bin/jlink \
+    --verbose \
+    --add-modules \
+        java.base,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument \
+    --compress 2 --strip-debug --no-header-files --no-man-pages \
+    --release-info="add:IMPLEMENTOR=radistao:IMPLEMENTOR_VERSION=radistao_JRE" \
+    --output "$JAVA_MINIMAL"
+
+FROM alpine:latest
+
+ENV JAVA_HOME=/opt/java-minimal
+ENV PATH="$PATH:$JAVA_HOME/bin"
+
+COPY --from=packager "$JAVA_HOME" "$JAVA_HOME"
+COPY build/libs/application.jar app.jar
+
+ENTRYPOINT ["java","-jar","/app.jar"]
+</code></pre>
+     <h1>Using <a href="https://adoptopenjdk.net/" rel="noreferrer">AdoptOpenJDK</a></h1>
+     <pre><code>FROM adoptopenjdk/openjdk11:x86_64-alpine-jdk-11.0.4_11 as packager
+
+ENV JAVA_MINIMAL="/opt/java-minimal"
+
+# build minimal JRE
+RUN jlink \
+    --verbose \
+    --add-modules \
+        java.base,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument \
+    --compress 2 --strip-debug --no-header-files --no-man-pages \
+    --output "$JAVA_MINIMAL"
+
+FROM alpine:latest
+
+# magic to make Java binaries work in Alpine
+# https://github.com/AdoptOpenJDK/openjdk-docker/blob/master/11/jdk/alpine/Dockerfile.hotspot.releases.slim#L24-L54
+RUN apk add --no-cache --virtual .build-deps curl binutils \
+    &amp;&amp; GLIBC_VER="2.29-r0" \
+    &amp;&amp; ALPINE_GLIBC_REPO="https://github.com/sgerrand/alpine-pkg-glibc/releases/download" \
+    &amp;&amp; GCC_LIBS_URL="https://archive.archlinux.org/packages/g/gcc-libs/gcc-libs-9.1.0-2-x86_64.pkg.tar.xz" \
+    &amp;&amp; GCC_LIBS_SHA256="91dba90f3c20d32fcf7f1dbe91523653018aa0b8d2230b00f822f6722804cf08" \
+    &amp;&amp; ZLIB_URL="https://archive.archlinux.org/packages/z/zlib/zlib-1%3A1.2.11-3-x86_64.pkg.tar.xz" \
+    &amp;&amp; ZLIB_SHA256=17aede0b9f8baa789c5aa3f358fbf8c68a5f1228c5e6cba1a5dd34102ef4d4e5 \
+    &amp;&amp; curl -LfsS https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub -o /etc/apk/keys/sgerrand.rsa.pub \
+    &amp;&amp; SGERRAND_RSA_SHA256="823b54589c93b02497f1ba4dc622eaef9c813e6b0f0ebbb2f771e32adf9f4ef2" \
+    &amp;&amp; echo "${SGERRAND_RSA_SHA256} */etc/apk/keys/sgerrand.rsa.pub" | sha256sum -c - \
+    &amp;&amp; curl -LfsS ${ALPINE_GLIBC_REPO}/${GLIBC_VER}/glibc-${GLIBC_VER}.apk &gt; /tmp/glibc-${GLIBC_VER}.apk \
+    &amp;&amp; apk add /tmp/glibc-${GLIBC_VER}.apk \
+    &amp;&amp; curl -LfsS ${ALPINE_GLIBC_REPO}/${GLIBC_VER}/glibc-bin-${GLIBC_VER}.apk &gt; /tmp/glibc-bin-${GLIBC_VER}.apk \
+    &amp;&amp; apk add /tmp/glibc-bin-${GLIBC_VER}.apk \
+    &amp;&amp; curl -Ls ${ALPINE_GLIBC_REPO}/${GLIBC_VER}/glibc-i18n-${GLIBC_VER}.apk &gt; /tmp/glibc-i18n-${GLIBC_VER}.apk \
+    &amp;&amp; apk add /tmp/glibc-i18n-${GLIBC_VER}.apk \
+    &amp;&amp; /usr/glibc-compat/bin/localedef --force --inputfile POSIX --charmap UTF-8 "$LANG" || true \
+    &amp;&amp; echo "export LANG=$LANG" &gt; /etc/profile.d/locale.sh \
+    &amp;&amp; curl -LfsS ${GCC_LIBS_URL} -o /tmp/gcc-libs.tar.xz \
+    &amp;&amp; echo "${GCC_LIBS_SHA256} */tmp/gcc-libs.tar.xz" | sha256sum -c - \
+    &amp;&amp; mkdir /tmp/gcc \
+    &amp;&amp; tar -xf /tmp/gcc-libs.tar.xz -C /tmp/gcc \
+    &amp;&amp; mv /tmp/gcc/usr/lib/libgcc* /tmp/gcc/usr/lib/libstdc++* /usr/glibc-compat/lib \
+    &amp;&amp; strip /usr/glibc-compat/lib/libgcc_s.so.* /usr/glibc-compat/lib/libstdc++.so* \
+    &amp;&amp; curl -LfsS ${ZLIB_URL} -o /tmp/libz.tar.xz \
+    &amp;&amp; echo "${ZLIB_SHA256} */tmp/libz.tar.xz" | sha256sum -c - \
+    &amp;&amp; mkdir /tmp/libz \
+    &amp;&amp; tar -xf /tmp/libz.tar.xz -C /tmp/libz \
+    &amp;&amp; mv /tmp/libz/usr/lib/libz.so* /usr/glibc-compat/lib \
+    &amp;&amp; apk del --purge .build-deps glibc-i18n \
+    &amp;&amp; rm -rf /tmp/*.apk /tmp/gcc /tmp/gcc-libs.tar.xz /tmp/libz /tmp/libz.tar.xz /var/cache/apk/*
+
+ENV JAVA_HOME=/opt/java-minimal
+ENV PATH="$PATH:$JAVA_HOME/bin"
+
+COPY --from=packager "$JAVA_HOME" "$JAVA_HOME"
+COPY build/libs/application.jar app.jar
+
+ENTRYPOINT ["java","-jar","/app.jar"]
+</code></pre>
+     <p>Also read <a href="https://blog.gilliard.lol/2018/11/05/alpine-jdk11-images.html" rel="noreferrer">https://blog.gilliard.lol/2018/11/05/alpine-jdk11-images.html</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is the tiniest solution I have found yet ~55Mb. Keep in touch with updates, please.</span> <span> - </span> <span class="display-name">Zon</span> <span> </span> <span class="date">4 Sep 2019 at 17:37</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This is basically installing and using <code>glibc</code> in a distribution specifically based on <code>musl</code>. Seems like a hack.</span> <span> - </span> <span class="display-name">Imaskar</span> <span> </span> <span class="date">9 Sep 2019 at 19:20</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>It may be a hack, but I think I may be OK with that. Although I would recommend adding the jvm arg <code>-XX:+UseContainerSupport</code> in the CMD line. That's a signal to java to correct how it calculates memory and CPU while inside a container.</span> <span> - </span> <span class="display-name">Berin Loritsch</span> <span> </span> <span class="date">24 Apr 2020 at 20:39</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Dude your container srsly kick asses! Added <code>-Xmx128m -Xms128m -XX:+UseContainerSupport</code> as suggested, limited container memory usage to 192MB and voila, even greedy spring-boot container now eats around 155MB total. Down from 705MB.</span> <span> - </span> <span class="display-name">teejay</span> <span> </span> <span class="date">16 Nov 2020 at 20:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Wonderful, thank you. Can't figure out why it's so easy with Java 8 and 13 but such a pain with Java 11.</span> <span> - </span> <span class="display-name">adammtlx</span> <span> </span> <span class="date">14 Jun 2021 at 21:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you, this is great. I had to add jdk.crypto.ec to the modules to fix SSLHandshake related exceptions</span> <span> - </span> <span class="display-name">rob2universe</span> <span> </span> <span class="date">23 Feb 2022 at 07:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Anyone have this working on java-17-openjdk-amd64 ? Keep getting jlink not found errors.</span> <span> - </span> <span class="display-name">A. Smith</span> <span> </span> <span class="date">17 May 2023 at 22:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>17</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alisson Gomes</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Sep 2020 at 20:17</span>
+     </div>
+    </div>
+    <div>
+     <p>a list of <a href="https://technology.amis.nl/2020/03/31/the-size-of-docker-images-containing-openjdk-11-0-6/" rel="noreferrer">jdk 11 images by size</a></p>
+     <pre><code>openjdk:11.0.6-jre-buster
+openjdk:11.0.6-jre
+openjdk:11.0.6-jre-slim-buster
+openjdk:11.0.6-jre-slim
+openjdk:11.0.6-jre-stretch
+adoptopenjdk:11.0.6_10-jre-openj9-0.18.1
+adoptopenjdk:11.0.6_10-jre-hotspot
+adoptopenjdk:11.0.6_10-jre-openj9-0.18.1-bionic
+adoptopenjdk:11.0.6_10-jre-hotspot-bionic
+adoptopenjdk/openjdk11:jre-11.0.6_10-ubuntu
+adoptopenjdk/openjdk11:jre-11.0.6_10
+adoptopenjdk/openjdk11:jre-11.0.6_10-ubi-minimal
+adoptopenjdk/openjdk11:jre-11.0.6_10-ubi
+adoptopenjdk/openjdk11:jre-11.0.6_10-debianslim
+adoptopenjdk/openjdk11:jre-11.0.6_10-debian
+adoptopenjdk/openjdk11:jre-11.0.6_10-centos
+adoptopenjdk/openjdk11:jre-11.0.6_10-alpine
+adoptopenjdk/openjdk11:x86_64-alpine-jre-11.0.6_10
+adoptopenjdk/openjdk11:x86_64-debian-jre-11.0.6_10
+adoptopenjdk/openjdk11:x86_64-debianslim-jre-11.0.6_10
+adoptopenjdk/openjdk11:x86_64-ubi-jre-11.0.6_10
+adoptopenjdk/openjdk11:x86_64-ubi-minimal-jre-11.0.6_10
+adoptopenjdk/openjdk11:x86_64-centos-jre-11.0.6_10
+adoptopenjdk/openjdk11:x86_64-ubuntu-jre-11.0.6_10
+mcr.microsoft.com/java/jre:11u6-zulu-alpine
+mcr.microsoft.com/java/jre:11u6-zulu-centos
+mcr.microsoft.com/java/jre:11u6-zulu-debian8
+mcr.microsoft.com/java/jre:11u6-zulu-debian9
+mcr.microsoft.com/java/jre:11u6-zulu-debian10
+mcr.microsoft.com/java/jre:11u6-zulu-ubuntu
+azul/zulu-openjdk-alpine:11.0.6-jre
+</code></pre>
+     <p><a href="https://i.stack.imgur.com/1VPMx.png" rel="noreferrer"><img src="https://i.stack.imgur.com/1VPMx.png" alt="images"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This was amazing!</span> <span> - </span> <span class="display-name">saumilsdk</span> <span> </span> <span class="date">19 Oct 2021 at 16:01</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>maslick</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Jul 2019 at 10:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Based on the answer by <strong>radistao</strong> (cool stuff!) I created an <a href="https://github.com/maslick/minimalka" rel="nofollow noreferrer">Amazon Corretto JDK11 based image</a>. It's also available on <a href="https://hub.docker.com/r/maslick/minimalka" rel="nofollow noreferrer">DockerHub</a>.</p>
+     <p>The minimal <strong>maslick/minimalka:jdk11</strong> Corretto image is ~<strong>108MB</strong> (55MB compressed on Dockerhub).</p>
+     <p>If you add a simple Springboot jar to it, the resulting image would be ~<strong>125MB</strong> (71MB compressed on Dockerhub):</p>
+     <pre><code>FROM maslick/minimalka:jdk11
+WORKDIR /app
+EXPOSE 8080
+COPY my-cool-app.jar ./app.jar
+CMD java $JAVA_OPTIONS -jar app.jar
+</code></pre>
+     <pre><code>docker build -t my-cool-app:latest .
+docker run -d my-cool-app
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dmitry Khamitov</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Oct 2019 at 11:34</span>
+     </div>
+    </div>
+    <div>
+     <p>You can also look at <a href="https://bell-sw.com/pages/java-11.0.4/" rel="nofollow noreferrer">liberica openjdk11</a> by bellsoft. Sorry for lots of quotations but anyway, here it is</p>
+     <blockquote>
+      <p>Liberica is a 100% open-source Java 11 implementation. It is built from OpenJDK which BellSoft contributes to, is thoroughly tested and passed the JCK provided under the license from OpenJDK...</p>
+     </blockquote>
+     <p>Their out of the box <strong>lite</strong> version takes as much as ~100MB. It does not have javafx modules and its modules are compressed (<code>jlink --compress=2</code> at <a href="https://github.com/bell-sw/Liberica/blob/72393dfe923acc4b1aeef7f5fd3ddb15625ea633/docker/repos/liberica-openjdk-alpine-musl/11/Dockerfile#L34" rel="nofollow noreferrer">their Dockerfile</a>). Apart from that, there are various repos at bellsoft <a href="https://hub.docker.com/u/bellsoft" rel="nofollow noreferrer">Docker Hub account</a> with different options of OS/glibc/arch. E.g. at <a href="https://hub.docker.com/r/bellsoft/liberica-openjdk-alpine-musl" rel="nofollow noreferrer">liberica-openjdk-alpine-musl</a> they say:</p>
+     <blockquote>
+      <p>Dockerfile for Alpine Linux (musl variant) supports three target images out of the box:</p>
+      <p>base: minimal runtime image with compressed java.base module, Server VM and optional files stripped, ~37 MB with Alpine base</p>
+      <p>lite: Liberica JDK lite image with minimal footprint and Server VM, ~ 100 MB (default)</p>
+      <p>full: Liberica JDK full image with Server VM and jmods, can be used to create arbitrary module set, ~180 MB</p>
+      <p>To save space, users are encouraged to create their own runtimes using jmod command sufficient to run the target application</p>
+     </blockquote>
+     <p>And you can go even further at the expense of performance:</p>
+     <blockquote>
+      <p>If you are ready to sacrifice performance for static footprint, please consider using Minimal VM instead of Server VM or Client VM. With that, it's possible to create a runtime as small as &lt; 20 Mb</p>
+     </blockquote>
+     <p>Some examples from my machine:</p>
+     <pre><code>docker images 'bellsoft/liberica-openjdk-*' --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+REPOSITORY                              TAG                 SIZE
+bellsoft/liberica-openjdk-alpine-musl   11.0.4-x86_64       102MB
+bellsoft/liberica-openjdk-alpine        11.0.4              127MB
+bellsoft/liberica-openjdk-centos        latest              307MB
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

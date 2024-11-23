@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>problems with column ordering in JQuery DataTable</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>problems with column ordering in JQuery DataTable</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>José Eduardo</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 May 2023 at 16:14</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76325536/problems-with-column-ordering-in-jquery-datatable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm new to JQuery so please be patient.</p>
+    <p>I'm making a select that includes 5 options, including one to return all records.</p>
+    <pre><code>&lt;select id="sBusqueda" class="form-control fondo" name="sBusqueda" onchange="ModicaCampoTexto($(this));"&gt;
+           &lt;option value="all"&gt;Todos&lt;/option&gt;
+           &lt;option value="nomProv"&gt;Nombre Proveedor&lt;/option&gt;
+           &lt;option value="nSolicitud"&gt;Nº Solicitud&lt;/option&gt;
+&lt;/select&gt;
+</code></pre>
+    <p>At the moment everything works fine and if I select the "all" option within my view, it reloads the records correctly, but... in ascending order and what I need is that it returns the data from highest to lowest.</p>
+    <p>Do you know what I'm doing wrong?</p>
+    <p>Here is my code:</p>
+    <pre><code>
+$(document).ready(function () {
+        var tablaSolicitud = $('#TablaSolicitudes').DataTable({
+            "order": [[0, 'desc']],
+            "processing": true, // for show progress bar
+            "serverSide": true, // for process server side
+            "searching": false,
+            //"ordering": false,
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.16/i18n/Spanish.json"
+            },
+            "ajax": {
+                "url": '@Url.Action("CargaSolicitudes", "DPSolicitudes")',
+                "type": "POST",
+                "datatype": "json"
+            },
+            "columnDefs": [{
+                "targets": [0],
+                "visible": false,
+                "searchable": false
+            }],
+            "columns": [
+                { "data": "DPSolicitudId", "name": "DPSolicitudId", "autoWidth": true },
+                { "data": "NumeroSolicitud", "name": "NumeroSolicitud", "autoWidth": true },
+                { "data": "CentroCosto", "name": "CentroCosto", "autoWidth": true },             
+            ],
+            "lengthMenu": [[5 ,10, 15, 20, 25, 50, 100, 99999], [5, 10, 15, 20, 25, 50, 100, 'TODOS']],
+        });
+
+
+$('#sBusqueda').change(function () {
+            var opcionSeleccionada = $(this).val();
+
+            // Verificar si la opción seleccionada es "Todos"
+            if (opcionSeleccionada === 'all') {
+
+                // Esto funciona 
+                // Here I need your help
+                var tablaReload = $('#TablaSolicitudes').DataTable();
+                tablaReload.order([[0, 'desc']]).draw();
+            }
+        });
+
+</code></pre>
+    <p>I did not put the complete code because it would be very long, but the only thing I need is to know why it doesn't order the records from highest to lowest, thank you very much!</p>
+   </div>
+   <div class="tags">
+    <span class="tag">c#</span><span class="tag">jquery</span><span class="tag">asp.net</span><span class="tag">datatable</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 May 2023 at 16:54</span>
+     </div>
+    </div>
+    <div>
+     <p>Your DataTable is using <code>"serverSide": true</code>. This means that all paging, filtering, and sorting is delegated to your server. DataTables does not perform any of that logic for you.</p>
+     <p>Specifically, when you choose your <code>Todos</code> option, that causes the following line of code to be executed:</p>
+     <pre><code>tablaReload.order([[0, 'desc']]).draw();
+</code></pre>
+     <p>But that does not mean DataTables performs any sorting.</p>
+     <p>Instead...</p>
+     <ol>
+      <li>
+       <p>The <code>order([[0, 'desc']])</code> sets the new sort order for the table.</p></li>
+      <li>
+       <p>The <code>draw()</code> automatically triggers a request to be sent to your server, using the DataTable's <code>ajax</code> option.</p></li>
+      <li>
+       <p>That request contains the new sort order. It's in the <code>POST</code> request body.</p></li>
+     </ol>
+     <p>A fragment of that request body may look like this:</p>
+     <pre><code>{
+  "order": [
+    {
+      "column": 0,
+      "dir": "desc"
+    }
+  ]
+}
+</code></pre>
+     <p>You can see the <code>order([[0, 'desc']])</code> has been added to the Ajax request's JSON.</p>
+     <p>It's up to your C# code to parse the request body, and then use this sorting instruction (along with the <a href="https://datatables.net/manual/server-side#Sent-parameters" rel="nofollow noreferrer">other request fields</a>) to provide the new page of results - in the requested sort order.</p>
+     <p>You haven't shown us any of your C# code. But that is where you need to look.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you very much, I will check the code in the controller</span> <span> - </span> <span class="display-name">José Eduardo</span> <span> </span> <span class="date">24 May 2023 at 18:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

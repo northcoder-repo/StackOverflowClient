@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>JAX-RS / jersey: client proxy: how to inject path parameter from context instead of method argument?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>JAX-RS / jersey: client proxy: how to inject path parameter from context instead of method argument?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Wheezil</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 May 2021 at 18:29</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67663137/jax-rs-jersey-client-proxy-how-to-inject-path-parameter-from-context-instead">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am use the proxy pattern to call web services using JAX-RS and Jersey. I would like to conceptually do something like... add @Context annotation to the interface like:</p>
+    <pre><code>@Path("foo/{instance}")
+public interface Foo 
+{
+    @Context private UriInfo uriInfo;
+
+    @POST
+    @Path("doit")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Thing1 doit(Thing2 arg);
+}
+</code></pre>
+    <p>But of course one cannot do that, it is an interface not a class. But an interface is what is needed for using the proxy pattern. I create a client using the proxy pattern:</p>
+    <pre><code>ClientBuilder builder = ClientBuilder.newBuilder().register(JacksonJsonProvider.class);
+MyRequestFilter filter = new MyRequestFilter();
+builder = builder.register(filter);
+WebTarget target = builder.build().target(url);
+Foo serviceClient = WebResourceFactory.newResource(Foo.class, target);
+</code></pre>
+    <p>However, calling <code>serviceClient.doit(...)</code> results in <code>IllegalStateException: The template variable 'instance' has no value</code>. I tried using a ClientRequestFilter to inject the instance variable, but my filter method is not even called before this exception is thrown. Is there any way to inject a path parameter from the client without adding it as a <code>@PathParam</code> argument to every method? The reason is, I already have an interface defined which I want my proxy client to implement, and adding a parameter changes the signatures.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jersey</span><span class="tag">jax-rs</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Anything you can register with the Client you can also register with the WebTarget. You can try to see if that works. Not sure if it will or not, if it doesn't work with the Client.</span> <span> - </span> <span class="display-name">Paul Samsotha</span> <span> </span> <span class="date">23 May 2021 at 21:39</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Side note: Doesn't <code>@Context private UriInfo uriInfo;</code> throw a compile error?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">23 May 2021 at 22:33</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewjames it is just fine. Annotations do not need a line break.</span> <span> - </span> <span class="display-name">Wheezil</span> <span> </span> <span class="date">24 May 2021 at 00:00</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@andrewjames: Ah, you are correct! This would need to be a class not an interface. This post was sort of patched together from multiple attempts. Thanks! I'll clarify.</span> <span> - </span> <span class="display-name">Wheezil</span> <span> </span> <span class="date">24 May 2021 at 13:45</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 May 2021 at 13:56</span>
+     </div>
+    </div>
+    <div>
+     <p>In your JAX-WS client's <code>Foo</code> interface, add a <code>@PathParam</code> for the missing template value:</p>
+     <pre class="lang-java prettyprint-override"><code>@Path("foo/{instance}")
+public interface Foo 
+{
+    @POST
+    @Path("doit")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Thing1 doit(@PathParam("instance") String instance, Thing2 arg);
+}
+</code></pre>
+     <p>You will obviously also need to change how your client calls <code>doit()</code>, to accommodate this.</p>
+     <pre><code>Thing1 thing1 = serviceClient.doit("anything", arg);
+</code></pre>
+     <p>Your server resource (on which the client interface is based) does not need to change.</p>
+     <hr>
+     <p><strong>Caveat</strong></p>
+     <p>This feels like a hack/workaround. It may not be the best solution, and I am a bit surprised it works at all. But it's the only way I know of cajoling the proxy into having a non-empty template value.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>That is a good idea, and is kind of what we ended up doing. But I was hoping to have all of my clients and servers stick to a clean interface that was uncluttered by the implementation details of JAX-RS, hence the desire to have the instance parameter retrieved from some kind of context in the implementation or the ClientRequestFilter.</span> <span> - </span> <span class="display-name">Wheezil</span> <span> </span> <span class="date">26 May 2021 at 17:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I ended up getting there by wrapping this kind of interface in a class that implements my clean interface and delegate all methods after fetching the instance from context.</span> <span> - </span> <span class="display-name">Wheezil</span> <span> </span> <span class="date">26 May 2021 at 17:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sounds good to me - maybe you should add that as an answer? @Wheezil</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 May 2021 at 17:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Wheezil</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 May 2021 at 23:59</span>
+     </div>
+    </div>
+    <div>
+     <p>Ultimately, there seems no way to do this directly. I've not found any way to inject the "instance" from a context in a Jersey client proxy. Even when Foo is class, and a ClientRequestFilter is installed, the filter is not called before the error is issued. As a workable solution, I basically took what @andrewjames suggested and created an interface with the extra instance argument. This satisfied the requirement to be able to create a proxy with a WebTarget. Then I created a class that implements the base interface (the one without the instance parameter in the methods), wraps the proxy instance, and delegates all method calls to the proxy. This isn't pretty, but since all of this is coming from a code-generation tool, neither is it especially tedious or error-prone.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

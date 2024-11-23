@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Ignore tf/idf at query time in Solr</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Ignore tf/idf at query time in Solr</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>6</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>C0deAttack</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Dec 2012 at 17:15</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/13825170/ignore-tf-idf-at-query-time-in-solr">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to boost particular documents based on a field value. It is generally working ok but some documents return a higher score even though they have a smaller boost value.</p>
+    <p>After debugging the query with the <code>debugQuery=on</code> request parameter I have noticed that the <code>idf</code> function is returning a higher score for a particular document, which is affecting the overall score.</p>
+    <p>Is there a way to ignore tf/idf scoring at query time?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">solr</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>femtoRgon</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Dec 2012 at 18:51</span>
+     </div>
+    </div>
+    <div>
+     <p>You'll want to create a custom <a href="http://lucene.apache.org/core/3_6_0/api/all/org/apache/lucene/search/Similarity.html" rel="noreferrer">Similarity</a> which overrides the tf and idf methods, and use it in place of the DefaultSimilarity.</p>
+     <p>Something like:</p>
+     <pre><code>class CustomSimilarity extends DefaultSimilarity {
+
+    @Override
+    public float tf(float freq) {
+        return 1.0;
+    }
+
+    @Override
+    public float tf(int freq) {
+        return 1.0;
+    }
+
+    @Override
+    // Note the signature of this method may now take longs:
+    //   public float idf(long docFreq, long numDocs)
+    public float idf(int docFreq, int numDocs) {
+        return 1.0;
+    }
+}
+</code></pre>
+     <p>The set it to use that similarity in your schema.xml:</p>
+     <pre><code>&lt;similarity class="myorg.mypackage.CustomSimilarity"/&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>Thanks for the reply, I was hoping for something simpler like a flag I could switch to at query time. I'm wondering if a function query might be a solution?</span> <span> - </span> <span class="display-name">C0deAttack</span> <span> </span> <span class="date">12 Dec 2012 at 09:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I think (don't quote me) that you can effectively disable 'tf' scoring on a field by calling <a href="http://lucene.apache.org/core/3_6_0/api/all/org/apache/lucene/document/AbstractField.html#setIndexOptions(org.apache.lucene.index.FieldInfo.IndexOptions)" rel="nofollow noreferrer">Field.setIndexOptions</a>(<a href="http://lucene.apache.org/core/4_0_0/core/org/apache/lucene/index/FieldInfo.IndexOptions.html" rel="nofollow noreferrer">FieldInfo.IndexOptions</a>.DOCS_ONLY). That should prevent storing the TermFreqVectors that lucene needs to calculate a tf value. I don't think any such option exists to disable idf.</span> <span> - </span> <span class="display-name">femtoRgon</span> <span> </span> <span class="date">12 Dec 2012 at 17:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Even if it does though, this is what the Similarity class is for. To define scoring rules. Disabling storing TermFreqVectors just to prevent tf scoring seems very hacky to me.</span> <span> - </span> <span class="display-name">femtoRgon</span> <span> </span> <span class="date">12 Dec 2012 at 17:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Indeed - unfortunately I'm stuck with Solr and for my use case it really isn't the right tool so I think I'm going to have to find another way. I'll mark your reply as the answer though since it would effectively be the best way to override the IDF, TF functions.</span> <span> - </span> <span class="display-name">C0deAttack</span> <span> </span> <span class="date">13 Dec 2012 at 10:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Chris We already know tf is non-zero, since the calculation is made within the context of a hit. If tf = 0, there is no hit. If you take a look at the Lucene API, you'll see this equation <code>coord(q,d) · queryNorm(q) · ∑ ( tf(t in d) · idf(t)2 · t.getBoost() · norm(t,d) )</code>, you can see that if we simply want to disable tf and idf, setting them to a constant (1), reduces this to: <code>coord(q,d) · queryNorm(q) · ∑ ( t.getBoost() · norm(t,d) )</code>, which is what we want here, I think. If you did want to add this check for some reason, freq is passed in, so check it. No need for a call to a base class.</span> <span> - </span> <span class="display-name">femtoRgon</span> <span> </span> <span class="date">12 Feb 2013 at 16:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>As of Lucene/Solr 8.x, DefaultSimilarity no longer exists. It seems ClassicSimilarity should be extended instead. The new default Similarity class is BM25Similarity but that has totally new set of methods to override.</span> <span> - </span> <span class="display-name">Kuro</span> <span> </span> <span class="date">10 Jun 2021 at 19:09</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

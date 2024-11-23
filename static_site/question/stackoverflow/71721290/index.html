@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Replace the usual for loop with a stream</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Replace the usual for loop with a stream</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>WantBecomeJavaCoder</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>2 Apr 2022 at 21:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/71721290/replace-the-usual-for-loop-with-a-stream">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have simple class <code>CountBarrier</code> with method <code>count()</code> and I want to replace something like that:</p>
+    <pre><code>for (int i = 0; i &lt; 5; i++) {
+    countBarrier.count()
+}
+</code></pre>
+    <p>with:</p>
+    <pre><code> IntStream.range(0, 5).forEach(countBarrier::count);
+</code></pre>
+    <p>but to work properly I can write only this :</p>
+    <pre><code>IntStream.range(0, 5).forEach((i) -&gt; countBarrier.count());
+</code></pre>
+    <p>How to manage this issue (don't want to see var i)?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">for-loop</span><span class="tag">foreach</span><span class="tag">java-stream</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>rzwitserloot</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Apr 2022 at 22:46</span>
+     </div>
+    </div>
+    <div>
+     <p>"Doctor, it hurts when I press here!" "Well, stop pressing there then".</p>
+     <p>It sounds like you wish to write the notion of 'call this method 5 times', as succintly as possible.</p>
+     <p>Java can do that - and has been capable of doing that for 30 years:</p>
+     <pre><code>for (int i = 0; i &lt; 5; i++) countBarrier.count();
+</code></pre>
+     <p>Exactly like that. No braces. No newline.</p>
+     <p>Imagine your attempt to use foreach actually worked (it doesn't, and cannot be made to, but let's travel to hypothetical-land and find this code nestled between the unicorns and the rainbows):</p>
+     <pre><code>IntStream.range(0, 5).forEach(countBarrier::count);
+</code></pre>
+     <p>It's <strong>longer</strong>. Clearly the first is superior then, if we go by golfing standards.</p>
+     <p>But, that last snippet (already inferior) doesn't even work - as you found it. The problem is, <code>forEach</code>'s purpose is to execute a given consumer (which is a code block that takes 1 parameter and returns nothing) once for each thing in the stream, and <em>the stream element is passed to each invocation</em>. You have a stream of integers here (from 0 to 4, inclusive), so <code>.forEach</code>'s purpose is to run some code for 0, for 1, for 2, for 3, and finally for 4, and that index <strong>is handed to the code</strong>. Your <code>count</code> method must therefore take as parameter an <code>int</code>. It doesn't, hence java refuses to compile this. There is no language feature to tell java: Yeah, whatever, I don't care about the <code>i</code> just run it - because java is a stickler like that. There is no (easy) fix for this.</p>
+     <p>Which gets us back to to:</p>
+     <pre><code>for (int i = 0; i &lt; 5; i++) countBarrier.count();
+</code></pre>
+     <p>is the superior way to do this job. So, write that.</p>
+     <h2>But braces are mandatory!</h2>
+     <p>No, they aren't. It's somewhat common in style guides to demand you use them, but there's a very very simple solution to that problem: Don't use such needlessly restrictive style guides, and always ask <em>why</em>. Style guides don't come from the mountain; the rules they convey have an underlying intent. The intent of style guide rules in the vein of 'braces for ALL THE THINGS' is primarily that you can easily add extra statements (maybe you want to also emit a log message in addition to invoking <code>count()</code>, every loop), and partly to avoid really long lines.</p>
+     <p>Chaining lambdas / stream API has the exact same problem if you just pile it all on. Given your preferred (non-working) syntax, if you want to also emit a log message in addition to calling count, you need to turn this:</p>
+     <pre><code>IntStream.range(0, 5).forEach(countBarrier::count);
+</code></pre>
+     <p>into this:</p>
+     <pre><code>IntStream.range(0, 5).forEach(() -&gt; {
+  log.info("Counting!");
+  countBarrier.count();
+});
+</code></pre>
+     <p>That is <em>way more</em> rewriting compared to turning this:</p>
+     <pre><code>for (int i = 0; i &lt; 5; i++) countBarrier.count();
+</code></pre>
+     <p>into this:</p>
+     <pre><code>for (int i = 0; i &lt; 5; i++) {
+  log.info("Counting!");
+  countBarrier.count();
+}
+</code></pre>
+     <p>There are only three options:</p>
+     <ul>
+      <li>You are a hopeless slave to a style guide. That's weird.</li>
+      <li>You believe that some slight extra rewriting effort required to expand on a single-statement loop body is acceptable (in which case one-linering that traditional for loop is fine).</li>
+      <li>You believe that some slight extra rewriting will lead to bugs or is just too much effort, so instead one should always write loops to be capable of receiving extra statements merely by injecting them in the middle. In which case your intended new-style <code>.forEach</code> is a style violation.</li>
+     </ul>
+     <p>Long lines? Well, it's obvious that piling on with stream API leads to incredulously long lines so that's clearly a non-starter: You can't use 'but lambdas let me put stuff on one line!' whilst also supporting the notion that all traditional for loops <em>must</em> use braces because otherwise lines get too long.</p>
+     <h2>Lambdas are just better.. just.. because!</h2>
+     <p>They definitely aren't. Lambdas in java have no idea if they run 'in context' or 'out of context'. For example, <code>.forEach()</code> runs 'in context': The call <code>foo.forEach(x -&gt; codeGoesHere)</code> will finish <strong>all loops</strong> before that entire statement, lambda and all, 'resolves' and completes. However, that doesn't have to be the case with lambdas. For example, this:</p>
+     <pre><code>new TreeSet&lt;&gt;(Comparator.comparing(Student::getName))
+</code></pre>
+     <p>Never invokes any student object's <code>.getName()</code> method. That 'code' instead is saved in a field in TreeSet and will be invoked anytime you interact with that treeset. Which could be 5 days from now, in a different thread.</p>
+     <p>And java doesn't know.</p>
+     <p>Because of that, java <em>intentionally</em> makes these things <strong>non-transparent</strong> in lambdas of any stripe:</p>
+     <ul>
+      <li>You cannot throw checked exceptions from a lambda, even if the containing code catches them. i.e. this:</li>
+     </ul>
+     <pre><code>try {
+  listOfPaths.forEach(path -&gt; books.append(Files.readString(path)));
+} catch (IOException e) { .. }
+</code></pre>
+     <p>Is a compiler error, because <code>Files.readString</code> is declared to <code>throws IOException</code> - and even though we catch it, javac has no idea if that lambda is run 'in context' or not, and therefore doesn't compile the above. Replace it with a plain jane for loop and that works fine.</p>
+     <p>Hence, lambdas aren't a replacement for loops / control flow statements like <code>do</code>, <code>while</code>, or <code>try</code>. They are different tools and are good at different things. Use the right tool for the job. Which, for this job, is <strong>not</strong> lambdas.</p>
+     <ul>
+      <li>Non-final local variables</li>
+     </ul>
+     <p>You cannot interact with them or even read them from within a lambda. After all, if that code ends up running 5 days from now in a different thread, well, that context is long gone. Yes, <em>we</em> know that it'll run in context, but javac doesn't, and therefore won't let you. No such problem with traditional for loops.</p>
+     <ul>
+      <li>Control flow</li>
+     </ul>
+     <p>You can <code>break</code>, <code>continue</code>, or <code>return</code> from inside a normal for loop to outside of it. But lambdas cannot do that. Again, same reason. It'd make absolutely no sense at all if the lambda runs out of its context. The thing you are attempting to break/continue/return to is looong gone.</p>
+     <p>Hence, whilst any and all benefits to using <code>.forEach</code> style looping are purely based on 'style' (and beauty is in the eye of the beholder. You cannot make rational arguments in favour of finding one thing more beautiful than another) – the benefits of using traditional for loops are objective. They can do more.</p>
+     <h2>But <code>forEach</code> allows the list construct to control the looping behaviour</h2>
+     <p>It's specced specifically to go in list order, sequentially. There is no difference in how it runs now and never will be, as that would be backwards incompatible.</p>
+     <h2>But <code>.forEach</code> lets me omit the variable type, so, it is shorter</h2>
+     <p>Not so, as <code>var</code> exists. This is legal java:</p>
+     <pre><code>for (var map : listOfMapsOfStringsToLists) { .... }
+</code></pre>
+     <h2>But, hey, if you <em>really</em> want it...</h2>
+     <p><code>IntStream</code> is 'abuse' - the purpose of IntStream is to generate a consecutive sequence of <code>int</code> values. You have no interest in them (you are merely 'abusing' it to make something be called 5 times, you have no interest specifically in the sequence '0, 1, 2, 3, 4' - you merely have an interest in any sequence of length precisely 5), but because you have them, you can only use <code>::</code> syntax to invoke a method that consumes an int. Your <code>count()</code> method doesn't (and you don't want it to), so you shouldn't be using IntStream. What you'd want instead is something like:</p>
+     <pre><code>Loops.forEach(5, countBarrier::count);
+</code></pre>
+     <p>Unfortunately, java doesn't have this method. But, you can write it yourself, of course! It's easy:</p>
+     <pre><code>class Loops {
+  public static void forEach(int count, Runnable r) {
+    if (i &lt; 0) throw new IllegalArgumentException("i is negative");
+    for (int i = 0; i &lt; count; i++) r.run();
+  }
+}
+</code></pre>
+     <p>A trivial 2 liner.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Lambdas can definitively throw checked exceptions: <code>java.util.concurent.Callable&lt;Void&gt; c = () -&gt; {throw new IOException();}</code></span> <span> - </span> <span class="display-name">Johannes Kuhn</span> <span> </span> <span class="date">2 Apr 2022 at 23:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks a lot! there is a lot of useful information here to think about!</span> <span> - </span> <span class="display-name">WantBecomeJavaCoder</span> <span> </span> <span class="date">3 Apr 2022 at 09:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JohannesKuhn They certainly can - but the entire stream API and the very <code>forEach</code> that this question wants to use won't let you. There is nothing wrong with what I Said: checked exceptions in lambdas <b>are non-transparent</b>. The braces of the lambda are an uncrossable boundary. There IS the ability to write lambdas with e.g. <code>public &lt;E extends Throwable&gt; void foo throws E {}</code> but few <code>@FunctionalInterface</code> types are written like that. They also don't compose well, which perhaps explains why few are written like that. <code>for ()</code>, <code>while()</code>, etc - <b>are</b> checked ex transparent.</span> <span> - </span> <span class="display-name">rzwitserloot</span> <span> </span> <span class="date">3 Apr 2022 at 12:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yeah, the Callable lambda does not need to be inside a try-catch.</span> <span> - </span> <span class="display-name">Johannes Kuhn</span> <span> </span> <span class="date">3 Apr 2022 at 13:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alexander Ivanchenko</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Apr 2022 at 21:32</span>
+     </div>
+    </div>
+    <div>
+     <p>The method reference that you are passing into the <code>forEach()</code> is classified as a <a href="https://docs.oracle.com/javase/tutorial/java/javaOO/methodreferences.html" rel="nofollow noreferrer">reference to an instance method of a particular object</a>.</p>
+     <pre><code>containingObject::instanceMethodName    
+</code></pre>
+     <p>The compiler by default will assume an integer element of the stream needs to be used as a method parameter.</p>
+     <p>Because your method <code>count()</code> takes no parameters, you are getting a compilation error. If you had an overloaded version like <code>count(int)</code> then <code>forEach(countBarrier::count)</code> will compile.</p>
+     <p>The important thing to note is that you are misusing the Stream API here by changing the state of the object outside the stream.</p>
+     <p>Method <code>forEach()</code> is able to operate only via side effects. According to the <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/stream/package-summary.html#SideEffects" rel="nofollow noreferrer">documentation</a>, it must be used only in situations there's no other way to implement it.</p>
+     <p>Like for instance when you are dialing with a method that <em>return a stream</em>, and you need to process its elements somehow and then need to invoke a method on each of the stream elements. In this case, the usage of <code>forEach()</code> will be justifiable because there's no other way around. Loops are not an option, if you create an intermediate collection, it'll increase the memory consumption and could damage the performance.</p>
+     <p>But for your simple example, <code>forEahc()</code> ins't indispensable. You don't need a stream for this operation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>thanks, but i haven't overload version of count it hasn't any parameters and i just want to call method count() five times and do not write classical long loop "for"</span> <span> - </span> <span class="display-name">WantBecomeJavaCoder</span> <span> </span> <span class="date">2 Apr 2022 at 21:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@WantBecomeJavaCoder I've just explained you are getting a compilation error with a method reference. I <b>wasn't</b> advising you to create a <code>count(int)</code>. I've updated the answer to make it more clear.</span> <span> - </span> <span class="display-name">Alexander Ivanchenko</span> <span> </span> <span class="date">2 Apr 2022 at 22:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><i>just want to call method count() five times and do not write classical long loop "for"</i> - You are exaggerating a bit when calling this particular loop long (no nested conditions, everything is very straightforward). But the more important thing is that the way you're <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/stream/package-summary.html#SideEffects" rel="nofollow noreferrer">using for each here in not encouraged by the documentation</a>.</span> <span> - </span> <span class="display-name">Alexander Ivanchenko</span> <span> </span> <span class="date">2 Apr 2022 at 22:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>ok, thanks a lot, it became clear in general</span> <span> - </span> <span class="display-name">WantBecomeJavaCoder</span> <span> </span> <span class="date">2 Apr 2022 at 22:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Louis Wasserman</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Apr 2022 at 21:32</span>
+     </div>
+    </div>
+    <div>
+     <p>There is no better alternative. You could write your own method converting <code>countBarrier::count</code> into a <code>Consumer&lt;Integer&gt;</code>, but there is not, generally, a way to do what you're trying to do better than what you have.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

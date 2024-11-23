@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to correctly compute the length of a String in Java?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to correctly compute the length of a String in Java?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>22</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>soc</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Jul 2011 at 09:39</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/6828076/how-to-correctly-compute-the-length-of-a-string-in-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I know there is <code>String#length</code> and the various methods in <code>Character</code> which more or less work on code units/code points.</p>
+    <p>What is the suggested way in Java to actually return the result as specified by Unicode standards (<a href="http://www.unicode.org/reports/tr29/">UAX#29</a>), taking things like language/locale, normalization and grapheme clusters into account?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">string</span><span class="tag">unicode</span><span class="tag">character-encoding</span><span class="tag">standards</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>33</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Stephen C</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jul 2011 at 09:47</span>
+     </div>
+    </div>
+    <div>
+     <h2>The normal model of Java string length</h2>
+     <p><code>String.length()</code> is <em>specified</em> as returning the number of <code>char</code> values ("code units") in the String. That is the <em>most generally useful</em> definition of the length of a Java String; see below.</p>
+     <p>Your description<sup>1</sup> of the semantics of <code>length</code> based on the size of the backing array/array slice is incorrect. The fact that the value returned by <code>length()</code> is <em>also</em> the size of the backing array or array slice is <em>merely</em> an implementation detail of typical Java class libraries. <code>String</code> does not need to be implemented that way. Indeed, I think I've seen Java String implementations where it WASN'T implemented that way.</p>
+     <hr>
+     <h2>Alternative models of string length.</h2>
+     <p>To get the number of Unicode codepoints in a String use <code>str.codePointCount(0, str.length())</code> -- see <a href="http://download.oracle.com/javase/6/docs/api/java/lang/String.html#codePointCount%28int,%20int%29" rel="noreferrer">the javadoc</a>.</p>
+     <p>To get the size (in bytes) of a String in a specific encoding (i.e. charset) use <code>str.getBytes(charset).length</code><sup>2</sup>.</p>
+     <p>To deal with locale-specific issues, you can use <a href="http://download.oracle.com/javase/6/docs/api/java/text/Normalizer.html" rel="noreferrer"><code>Normalizer</code></a> to normalize the String to whatever form is most appropriate to your use-case, and then use <code>codePointCount</code> as above. But in some cases, even this won't work; e.g. the Hungarian letter counting rules which the Unicode standard apparently doesn't cater for.</p>
+     <hr>
+     <h2>Using String.length() is generally OK</h2>
+     <p>The reason that most applications use <code>String.length()</code> is that most applications are not concerned with counting the number of characters in words, texts, etcetera in a human-centric way. For instance, if I do this:</p>
+     <pre><code>String s = "hi mum how are you";
+int pos = s.indexOf("mum");
+String textAfterMum = s.substring(pos + "mum".length());
+</code></pre>
+     <p>it really doesn't matter that <code>"mum".length()</code> is not returning code points or that it is not a linguistically correct character count. It is measuring the length of the string using the model that is appropriate to the task at hand. And it works.</p>
+     <p>Obviously, things get a bit more complicated when you do multilingual text analysis; e.g. searching for words. But even then, if you normalize your text and parameters before you start, you can safely code in terms of "code units" rather than "code points" most of the time; i.e. <code>length()</code> still works.</p>
+     <hr>
+     <p><sup>1 - This description was on some versions of the question. See the edit history ... if you have sufficient rep points.<br>
+        2 - Using <code>str.getBytes(charset).length</code> entails doing the encoding and throwing it away. There is possibly a <em>general</em> way to do this without that copy. It would entail wrapping the <code>String</code> as a <code>CharBuffer</code>, creating a custom <code>ByteBuffer</code> with no backing to act as a byte counter, and then using <code>Encoder.encode(...)</code> to count the bytes. Note: I have not tried this, and I would not recommend trying <em>unless</em> you have clear evidence that <code>getBytes(charset)</code> is a significant performance bottleneck.</sup></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>17</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>soc</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Jul 2011 at 14:33</span>
+     </div>
+    </div>
+    <div>
+     <p><a href="http://download.oracle.com/javase/6/docs/api/java/text/BreakIterator.html"><code>java.text.BreakIterator</code></a> is able to iterate over text and can report on "character", word, sentence and line boundaries.</p>
+     <p>Consider this code:</p>
+     <pre><code>def length(text: String, locale: java.util.Locale = java.util.Locale.ENGLISH) = {
+  val charIterator = java.text.BreakIterator.getCharacterInstance(locale)
+  charIterator.setText(text)
+
+  var result = 0
+  while(charIterator.next() != BreakIterator.DONE) result += 1
+  result
+}
+</code></pre>
+     <p>Running it:</p>
+     <pre><code>scala&gt; val text = "Thîs lóo̰ks we̐ird!"
+text: java.lang.String = Thîs lóo̰ks we̐ird!
+
+scala&gt; val length = length(text)
+length: Int = 17
+
+scala&gt; val codepoints = text.codePointCount(0, text.length)
+codepoints: Int = 21 
+</code></pre>
+     <p>With surrogate pairs:</p>
+     <pre><code>scala&gt; val parens = "\uDBFF\uDFFCsurpi\u0301se!\uDBFF\uDFFD"
+parens: java.lang.String = 􏿼surpíse!􏿽
+
+scala&gt; val length = length(parens)
+length: Int = 10
+
+scala&gt; val codepoints = parens.codePointCount(0, parens.length)
+codepoints: Int = 11
+
+scala&gt; val codeunits = parens.length
+codeunits: Int = 13
+</code></pre>
+     <p>This should do the job in most cases.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Emily Mabrey</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Dec 2016 at 00:46</span>
+     </div>
+    </div>
+    <div>
+     <p>It depends on exactly what you mean by "length of [the] String":</p>
+     <ul>
+      <li><a href="http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#length--" rel="noreferrer"><code>String.length()</code></a> returns the number of <a href="http://docs.oracle.com/javase/8/docs/api/java/lang/Character.html" rel="noreferrer"><code>chars</code></a> in the <a href="http://docs.oracle.com/javase/8/docs/api/java/lang/String.html" rel="noreferrer"><code>String</code></a>. This is normally only useful for programming related tasks like allocating buffers because multi-byte encoding can cause problems which means one <a href="http://docs.oracle.com/javase/8/docs/api/java/lang/Character.html" rel="noreferrer"><code>char</code></a> doesn't mean one <a href="https://en.wikipedia.org/wiki/Code_point" rel="noreferrer">Unicode code point</a>.</li>
+      <li><a href="http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#codePointCount-int-int-" rel="noreferrer"><code>String.codePointCount(int, int)</code></a> and <a href="http://docs.oracle.com/javase/8/docs/api/java/lang/Character.html#codePointCount-java.lang.CharSequence-int-int-" rel="noreferrer"><code>Character.codePointCount(CharSequence,int,int)</code></a> both return the number of Unicode code points in the <code>String</code>. This is normally only useful for programming related tasks that require looking at a <code>String</code> as a series of Unicode code points without needing to worry about multi-byte encoding interfering.</li>
+      <li><a href="https://docs.oracle.com/javase/8/docs/api/java/text/BreakIterator.html#getCharacterInstance-java.util.Locale-" rel="noreferrer"><code>BreakIterator.getCharacterInstance(Locale)</code></a> can be used to get the next <a href="https://en.wikipedia.org/wiki/Grapheme" rel="noreferrer">grapheme</a> in a <code>String</code> for the given <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Locale.html" rel="noreferrer"><code>Locale</code></a>. Using this multiple times can allow you to count the number of graphemes in a <code>String</code>. Since graphemes are <em>basically</em> letters (in most circumstances) this method is useful for getting the number of writable characters the <code>String</code> contains. Essentially this method returns approximately the same number you would get if you manually counted the number of letters in the <code>String</code>, making it useful for things like sizing user interfaces and splitting <code>Strings</code> without corrupting the data.</li>
+     </ul>
+     <p>To give you an idea of how each of the different methods can return different lengths for the exact same data, I created <a href="http://pastebin.com/cC9Xeifd" rel="noreferrer">this class</a> to quickly generate the lengths of the Unicode text contained within <a href="http://www.cl.cam.ac.uk/~mgk25/ucs/examples/quickbrown.txt" rel="noreferrer">this page</a>, which is designed to offer a comprehensive test of many different languages with non-English characters. Here is the results of executing that code after normalizing the input file in three different ways (no normalizing, <a href="http://www.unicode.org/reports/tr15/tr15-23.html#Specification" rel="noreferrer">NFC</a>, <a href="http://www.unicode.org/reports/tr15/tr15-23.html#Decomposition" rel="noreferrer">NFD</a>):</p>
+     <pre><code>Input UTF-8 String
+&gt;&gt;  String.length() = 3431
+&gt;&gt;  String.codePointCount(int,int) = 3431
+&gt;&gt;  BreakIterator.getCharacterInstance(Locale) = 3386
+NFC Normalized UTF-8 String
+&gt;&gt;  String.length() = 3431
+&gt;&gt;  String.codePointCount(int,int) = 3431
+&gt;&gt;  BreakIterator.getCharacterInstance(Locale) = 3386
+NFD Normalized UTF-8 String
+&gt;&gt;  String.length() = 3554
+&gt;&gt;  String.codePointCount(int,int) = 3554
+&gt;&gt;  BreakIterator.getCharacterInstance(Locale) = 3386
+</code></pre>
+     <p>As you can see, even the "same-looking" <code>String</code> could give different results for the length if you use either <code>String.length()</code> or <code>String.codePointCount(int,int)</code>.</p>
+     <p>For more information on this topic and other similar topics you should read <a href="http://illegalargumentexception.blogspot.com/2009/05/java-rough-guide-to-character-encoding.html" rel="noreferrer">this blog post</a> that covers a variety of basics on using Java to properly handle Unicode.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>A neat approach which still works fine (on JDK 20), though the counts for the linked page have changed a bit. Any reason you excluded NFKC and NFKD from your tests? I tweaked your code to include them as well. Interestingly, they both had <code>BreakIterator</code> counts one greater than your three approaches for normalization, though I haven't worked out why yet.</span> <span> - </span> <span class="display-name">skomisa</span> <span> </span> <span class="date">28 Apr 2023 at 06:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>biziclop</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jul 2011 at 09:47</span>
+     </div>
+    </div>
+    <div>
+     <p>If you mean, counting the length of a string according to the grammatical rules of a language, then the answer is no, there's no such algorithm in Java, nor anywhere else.</p>
+     <p>Not unless the algorithm also does a full semantic analysis of the text.</p>
+     <p>In Hungarian for example <code>sz</code> and <code>zs</code> can count as one letter or two, which depends on the composition of the word they appear in. (E.g.: <code>ország</code> is 5 letters, whereas <code>torzság</code> is 7.)</p>
+     <p><strong>Uodate</strong>: If all you want is the Unicode standard character count (which, as I pointed out, isn't accurate), transforming your string to the <code>NFKC</code> form with <a href="http://download.oracle.com/javase/6/docs/api/java/text/Normalizer.html" rel="nofollow"><code>java.text.Normalizer</code></a> could be a solution.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Lluís Turró Cutiller</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Nov 2021 at 14:35</span>
+     </div>
+    </div>
+    <div>
+     <p>.indexOf() method gives a hint:</p>
+     <pre><code>int length = (yourString + "whatever").indexOf("whatever");
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

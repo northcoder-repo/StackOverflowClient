@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>how to create custom JDBCrealm?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>how to create custom JDBCrealm?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Marco</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>30 Oct 2016 at 11:36</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/40328630/how-to-create-custom-jdbcrealm">source</a>
+    </div>
+   </div>
+   <div>
+    <p>i'm trying to secure my enterprise web-app! i have to constraint resources.</p>
+    <p>Since i have all stored in my db (users and roles), i won't create a fileRealm or store any user's credential in (Glassfish) server. Moreover, i'm using jBCrypt to encrypt users' passwords, so i can't use standard jdbcRealm.</p>
+    <p>How can i secure my resources?</p>
+    <p>i'm thinking about custom jdbcRealm, it's the right way? How can i create and use it?</p>
+    <p>Some existing framework can help me?</p>
+    <p>Thank you in advance.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">security</span><span class="tag">encryption</span><span class="tag">glassfish</span><span class="tag">jdbcrealm</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Kiran Kumar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Dec 2016 at 16:16</span>
+     </div>
+    </div>
+    <div>
+     <p>I would suggest you to use a framework <a href="https://shiro.apache.org/" rel="nofollow noreferrer">Apache Shiro</a>. The configuration file is below</p>
+     <pre><code>[main]
+
+sha256Matcher = org.apache.shiro.authc.credential.HashedCredentialsMatcher
+sha256Matcher.hashAlgorithmName = SHA-256
+sha256Matcher.hashIterations=1
+# base64 encoding
+sha256Matcher.storedCredentialsHexEncoded = false
+
+#datasource type
+ds = org.apache.shiro.jndi.JndiObjectFactory
+
+#datasourcename
+ds.resourceName = cfresource
+
+#datasourcetype
+ds.requiredType = javax.sql.DataSource
+
+
+
+
+#configuring jdbc realm
+jdbcRealm = com.connectifier.authc.realm.CustomJDBCRealm
+jdbcRealm.credentialsMatcher = $sha256Matcher
+jdbcRealm.dataSource=$ds
+jdbcRealm.userRolesQuery=select name from role where email = ? and isactive=1
+jdbcRealm.authenticationQuery=select hash, salt from user where email = ?
+jdbcRealm.permissionsLookupEnabled=false
+securityManager.realms = $jdbcRealm
+#login url
+authc.loginUrl = /
+
+#page to redirected to after logout
+logout.redirectUrl = /
+
+#page to where to land after login
+authc.successUrl = /
+
+#username parameter name in the loginform
+authc.usernameParam = username
+
+#password parameter name in the loginform
+authc.passwordParam = password
+
+#rememberme parameter name in the loginform
+authc.rememberMeParam=rememberme
+
+#cacheManager = org.apache.shiro.cache.ehcache.EhCacheManager
+#securityManager.cacheManager = $cacheManager
+#jdbcRealm.authenticationCachingEnabled = true
+
+[urls]
+# The /login.jsp is not restricted to authenticated users (otherwise no one could log in!), but
+# the 'authc' filter must still be specified for it so it can process that url's
+# login submissions. It is 'smart' enough to allow those requests through as specified by the
+# shiro.loginUrl above.
+
+/* = anon
+</code></pre>
+     <p>The <code>CustomJDBCRealm</code> overriding <code>JDBCRealm</code> is below</p>
+     <pre><code>package com.connectifier.authc.realm;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.apache.shiro.authc.AccountException;
+import org.apache.shiro.authc.AuthenticationException;
+import org.apache.shiro.authc.AuthenticationInfo;
+import org.apache.shiro.authc.AuthenticationToken;
+import org.apache.shiro.authc.SimpleAuthenticationInfo;
+import org.apache.shiro.authc.UnknownAccountException;
+import org.apache.shiro.authc.UsernamePasswordToken;
+import org.apache.shiro.codec.Base64;
+import org.apache.shiro.realm.jdbc.JdbcRealm;
+import org.apache.shiro.util.ByteSource;
+import org.apache.shiro.util.JdbcUtils;
+import org.apache.shiro.util.SimpleByteSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * @author kiranchowdhary
+ * 
+ *         Application specific JDBC realm. If required override methods of {@link JdbcRealm} to load users, roles and
+ *         permissions from database.
+ * 
+ *         Do not override configuration in code if it can be done via shiro.ini file.
+ */
+public class CustomJDBCRealm extends JdbcRealm {
+
+    private static final Logger log = LoggerFactory.getLogger(JdbcRealm.class);
+
+    public CustomJDBCRealm() {
+        super();
+        setSaltStyle(SaltStyle.COLUMN);
+    }
+
+    /**
+     * overriding the method which is in JdbcRealm. If SaltStyle is COLUMN, then gets String salt value from database
+     * and forms salt byte array of type {@link ByteSource} with decoded string salt value and sets it to salt value of
+     * AuthenticationInfo.
+     */
+    protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
+
+        UsernamePasswordToken upToken = (UsernamePasswordToken) token;
+        String username = upToken.getUsername();
+
+        // Null username is invalid
+        if (username == null) {
+            throw new AccountException("Null usernames are not allowed by this realm.");
+        }
+
+        Connection conn = null;
+        SimpleAuthenticationInfo info = null;
+        try {
+            conn = dataSource.getConnection();
+
+            String password = null;
+            String salt = null;
+            switch (saltStyle) {
+            case NO_SALT:
+            case CRYPT:
+            case EXTERNAL:
+                return super.doGetAuthenticationInfo(token);
+            case COLUMN:
+                String[] queryResults = getPasswordForUser(conn, username);
+                password = queryResults[0];
+                salt = queryResults[1];
+                break;
+            }
+
+            if (password == null) {
+                throw new UnknownAccountException("No account found for user [" + username + "]");
+            }
+
+            info = new SimpleAuthenticationInfo(username, password.toCharArray(), getName());
+
+            if (salt != null) {
+                info.setCredentialsSalt(new SimpleByteSource(Base64.decode(salt)));
+            }
+
+        } catch (SQLException e) {
+            final String message = "There was a SQL error while authenticating user [" + username + "]";
+            if (log.isErrorEnabled()) {
+                log.error(message, e);
+            }
+
+            // Rethrow any SQL errors as an authentication exception
+            throw new AuthenticationException(message, e);
+        } finally {
+            JdbcUtils.closeConnection(conn);
+        }
+
+        return info;
+    }
+
+    private String[] getPasswordForUser(Connection conn, String username) throws SQLException {
+
+        String[] result;
+        boolean returningSeparatedSalt = false;
+        switch (saltStyle) {
+        case NO_SALT:
+        case CRYPT:
+        case EXTERNAL:
+            result = new String[1];
+            break;
+        default:
+            result = new String[2];
+            returningSeparatedSalt = true;
+        }
+
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            ps = conn.prepareStatement(authenticationQuery);
+            ps.setString(1, username);
+
+            // Execute query
+            rs = ps.executeQuery();
+
+            // Loop over results - although we are only expecting one result,
+            // since usernames should be unique
+            boolean foundResult = false;
+            while (rs.next()) {
+
+                // Check to ensure only one row is processed
+                if (foundResult) {
+                    throw new AuthenticationException("More than one user row found for user [" + username
+                            + "]. Usernames must be unique.");
+                }
+
+                result[0] = rs.getString(1);
+                if (returningSeparatedSalt) {
+                    result[1] = rs.getString(2);
+                }
+
+                foundResult = true;
+            }
+        } finally {
+            JdbcUtils.closeResultSet(rs);
+            JdbcUtils.closeStatement(ps);
+        }
+
+        return result;
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>thx a lot, i just started using shiro after i posted the question... now i have too much questions with 0 votes and i can't post others :(</span> <span> - </span> <span class="display-name">Marco</span> <span> </span> <span class="date">15 Jun 2017 at 11:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

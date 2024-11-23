@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Get the text of a specific column from the previous row of a datatable</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Get the text of a specific column from the previous row of a datatable</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Frankthetank</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Feb 2021 at 18:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66051807/get-the-text-of-a-specific-column-from-the-previous-row-of-a-datatable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I display a datatable and I want to know the value (which is also the text) of the previous row of the 1st column. If it is the same I want to make a return ''; and not display it instead of displaying the text.</p>
+    <pre><code>     var table = $('&lt;table class="display" id="ecolePubArchTable" width="100%"/&gt;');
+
+"ajax": {
+                    "url": "/Publicite/ChargerListePubArchEcole?EcoleCode=" + rowData.ecoleCode + "",
+                    "type": "GET",
+                    "datatype": "json"
+                },
+                "columns": [
+                    {
+                        data: null,
+                        title: "Titre de la formation",
+                        class: "progNomClass",
+                        data: null,
+                    title: "Titre de la formation",
+                    class: "progNomClass",
+                    render: function (data, type, row, meta) {
+                        //var selector_modifier = { order: 'current', page: 'current', search: 'applied' }
+                        var textRow = "";
+                        var tbl = $("#ecolePubArchTable").DataTable();
+                        var previous = '';
+                        var schoolNodes = tbl.column(0).nodes();
+                        var schoolData = tbl.column(0).data();
+                        for (var i = 0; i &lt; schoolData.length; i++) {
+                            var current = schoolData[i];
+                            console.log(i + ' ' + current);
+                            if (current === previous) {
+                                textRow = '';
+                            } else {
+                                textRow = current + ' (' + row.prog_code + ')';
+                            }
+                            return '' + textRow + '';
+                            //previous = current;
+                        }
+
+                    }
+                       
+                    }
+                }
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">ajax</span><span class="tag">datatable</span><span class="tag">row</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Feb 2021 at 20:10</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is one approach, which iterates over the following items:</p>
+     <ul>
+      <li>the HTML table nodes in a specific column</li>
+      <li>the equivalent DataTable cell values for the same column</li>
+     </ul>
+     <p>The code uses the cell values from the underlying DataTable object to see when a value changes. It then uses that information to change the related HTML table node value (what you see displayed in the HTML).</p>
+     <p>So, whereas the underlying DataTable values are never changed, the HTML values are adjusted.</p>
+     <p>Also, we use a <a href="https://datatables.net/reference/type/selector-modifier" rel="nofollow noreferrer"><code>selector modifier</code></a>, which instructs the <code>tbl.column()</code> function how to handle sorted and filtered data. Basically, we only operate on the data which is visible to the user.</p>
+     <pre class="lang-js prettyprint-override"><code>function processColumnNodes(tbl) {
+  // see https://datatables.net/reference/type/selector-modifier
+  var selector_modifier = { order: 'current', page: 'current', search: 'applied' }
+
+  var previous = '';
+  var officeNodes = tbl.column(1, selector_modifier).nodes();
+  var officeData = tbl.column(1, selector_modifier).data();
+    for (var i = 0; i &lt; officeData.length; i++) {
+    var current = officeData[i];
+    if (current === previous) {
+      officeNodes[i].textContent = '';
+    } else {
+      officeNodes[i].textContent = current;
+    }
+    previous = current;
+  }
+}
+</code></pre>
+     <p>In the above example, I am accessing column index 1 (the 2nd column in the table - so, slightly different from your question).</p>
+     <p>This function can be used as follows, with two DataTables events:</p>
+     <ul>
+      <li><code>initComplete</code> - for the initial drawing of the table</li>
+      <li>subsequent <code>draw</code> events</li>
+     </ul>
+     <pre class="lang-js prettyprint-override"><code>var table = $('#example').DataTable( {
+  data: dataSet.data,
+  "order": [[ 1, 'asc' ]], // just as a test for the initial draw
+  columns: [
+    { title: "Name", data: "name" },
+    { title: "Office", data: "office" }, // values will be hidden
+    { title: "Office2", data: "office" }, // values will not be hidden, for verification
+    { title: "Position", data: "position" },
+    { title: "Start date", data: "start_date" },
+    { title: "Salary", data: "salary" }
+  ],
+  "initComplete": function(settings, json) {
+    // in case the initial sort order leads to 
+    // cells needing to be altered:
+    processColumnNodes( $('#example').DataTable() );
+  }
+} ); 
+    
+table.on( 'draw', function () {
+  processColumnNodes( $('#example').DataTable() );
+} );
+
+function processColumnNodes(tbl) {
+  // see https://datatables.net/reference/type/selector-modifier
+  var selector_modifier = { order: 'current', page: 'current', search: 'applied' }
+
+  var previous = '';
+  var officeNodes = tbl.column(1, selector_modifier).nodes();
+  var officeData = tbl.column(1, selector_modifier).data();
+    for (var i = 0; i &lt; officeData.length; i++) {
+    var current = officeData[i];
+    console.log( i + ' ' + current );
+    if (current === previous) {
+      officeNodes[i].textContent = '';
+    } else {
+      officeNodes[i].textContent = current;
+    }
+    previous = current;
+  }
+}
+</code></pre>
+     <p>An example of the result, where I have also included "Office 2", showing the original unchanged node data, for comparison:</p>
+     <p><a href="https://i.stack.imgur.com/G6hh0.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/G6hh0.png" alt="enter image description here"></a></p>
+     <p>Because we are hiding values in the HTML table nodes, functions such as sorting and filtering are not affected (the original values are still stored in DataTables, as originally loaded).</p>
+     <hr>
+     <p>Clarification: For testing purposes I provided my data in a JavaScript variable:</p>
+     <pre class="lang-js prettyprint-override"><code>var dataSet = {
+  "data": [
+    {
+      "id": "1",
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "salary": "$320,800",
+      "start_date": "2011/04/25",
+      "office": "Edinburgh",
+      "extn": "5421"
+    },
+
+    ...
+
+    {
+      "id": "12",
+      "name": "Quinn Flynn",
+      "position": "Support Lead",
+      "salary": "$342,000",
+      "start_date": "2013/03/03",
+      "office": "Edinburgh",
+      "extn": "9497"
+    }
+  ]
+};
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I don't understand where your dataSet.data comes from</span> <span> - </span> <span class="display-name">Frankthetank</span> <span> </span> <span class="date">5 Feb 2021 at 14:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I added a clarification. This emulates how JSON data might be provided by an ajax call, without needing the actual ajax option.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Feb 2021 at 14:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I think there is a problem with this answer, regarding how sorting on other columns affects the display. I need to take a closer look. I will update it if I can find a solution, or delete it otherwise.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Feb 2021 at 14:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Ok thank you, I'm curious to see the rest of your answer</span> <span> - </span> <span class="display-name">Frankthetank</span> <span> </span> <span class="date">5 Feb 2021 at 15:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Updated. As an aside, what this does is somewhat similar to the <a href="https://datatables.net/blog/2017-04-07" rel="nofollow noreferrer">row group</a> extension. Just wanted to mention that in case it may be of interest.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Feb 2021 at 16:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I took part of your function and brought it to my render. Here is the display it gives me:[object Object] (5197) In the case the 5197 is my ('+ row.prog_code +') and I put the modification in my question</span> <span> - </span> <span class="display-name">Frankthetank</span> <span> </span> <span class="date">5 Feb 2021 at 16:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>My approach uses the <code>initComplete</code> event and the <code>draw</code> event. You can't relocate the code into a column render function. Do you need that render function for any other purpose? If not, then you should remove it completely. Otherwise, maybe you can clarify what changes to the data you want the render function to perform.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Feb 2021 at 17:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I forgot to specify that it was a chilrow details table, so I managed to get it to work, but it only works on the 1st child row table, when I click on the plus icon of the 2nd row, my table is displayed as if I did not have the function</span> <span> - </span> <span class="display-name">Frankthetank</span> <span> </span> <span class="date">5 Feb 2021 at 18:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This appears to be more complicated. So, overall, you have a parent DataTable containing multiple child DataTables (one in each <a href="https://datatables.net/examples/api/row_details.html" rel="nofollow noreferrer">child row</a>)? Is that the overall structure? If so, how do you assign a unique ID to each child table? Or are they all <code>id="ecolePubArchTable"</code>?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Feb 2021 at 19:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>the all id="ecolePubArchTable"</span> <span> - </span> <span class="display-name">Frankthetank</span> <span> </span> <span class="date">5 Feb 2021 at 19:35</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

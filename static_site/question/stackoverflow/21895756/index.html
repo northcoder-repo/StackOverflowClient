@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why are floating point numbers inaccurate?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why are floating point numbers inaccurate?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>255</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>mhlester</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Feb 2014 at 00:39</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/21895756/why-are-floating-point-numbers-inaccurate">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Why do some numbers lose accuracy when stored as floating point numbers?</p>
+    <p>For example, the decimal number <code>9.2</code> can be expressed exactly as a ratio of two decimal integers (<code>92/10</code>), both of which can be expressed exactly in binary (<code>0b1011100/0b1010</code>). However, the same ratio stored as a floating point number is never exactly equal to <code>9.2</code>:</p>
+    <pre><code>32-bit "single precision" float: 9.19999980926513671875
+64-bit "double precision" float: 9.199999999999999289457264239899814128875732421875
+</code></pre>
+    <p>How can such an apparently simple number be "too big" to express in <strong>64 bits</strong> of memory?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">floating-point</span><span class="tag">language-agnostic</span><span class="tag">precision</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>7</td>
+       <td><span><a href="http://meta.stackoverflow.com/questions/260130/canonical-duplicate-for-floating-point-is-inaccurate">Discussion of this post on Meta</a></span> <span> - </span> <span class="display-name">Shog9</span> <span> </span> <span class="date">12 Jun 2014 at 18:36</span></td>
+      </tr>
+      <tr>
+       <td>5</td>
+       <td><span>Refer to <a href="https://stackoverflow.com/q/588004/6521116">is floating math broken</a></span> <span> - </span> <span class="display-name">LF00</span> <span> </span> <span class="date">23 May 2017 at 09:12</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span><code>9.2</code> is not "too big" to express in 64 bits of memory, it's just simply not exactly equal to any of the 1022*2^52 = 4602678819172646912 predefined values that a binary64 value is allowed to be, so it gets rounded to the nearest one.</span> <span> - </span> <span class="display-name">RBF06</span> <span> </span> <span class="date">14 Sep 2022 at 02:17</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>313</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>mhlester</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Feb 2014 at 00:39</span>
+     </div>
+    </div>
+    <div>
+     <p>In most programming languages, floating point numbers are represented a lot like <a href="http://en.wikipedia.org/wiki/Scientific_notation" rel="nofollow noreferrer">scientific notation</a>: with an exponent and a mantissa (also called the significand). A very simple number, say <code>9.2</code>, is actually this fraction:</p>
+     <blockquote>
+      <p>5179139571476070 * 2<sup> -49</sup></p>
+     </blockquote>
+     <p>Where the exponent is <code>-49</code> and the mantissa is <code>5179139571476070</code>. The reason it is impossible to represent <em>some</em> decimal numbers this way is that both the exponent and the mantissa must be integers. In other words, all floats must be an <em>integer</em> multiplied by an <em>integer power of 2</em>.</p>
+     <p><code>9.2</code> may be simply <code>92/10</code>, but <strong>10</strong> cannot be expressed as <strong>2<sup>n</sup></strong> if <strong>n</strong> is limited to integer values.</p>
+     <hr>
+     <h1>Seeing the Data</h1>
+     <p>First, a few functions to <em>see</em> the components that make a 32- and 64-bit <code>float</code>. Gloss over these if you only care about the output (example in Python):</p>
+     <pre class="lang-python prettyprint-override"><code>def float_to_bin_parts(number, bits=64):
+    if bits == 32:          # single precision
+        int_pack      = 'I'
+        float_pack    = 'f'
+        exponent_bits = 8
+        mantissa_bits = 23
+        exponent_bias = 127
+    elif bits == 64:        # double precision. all python floats are this
+        int_pack      = 'Q'
+        float_pack    = 'd'
+        exponent_bits = 11
+        mantissa_bits = 52
+        exponent_bias = 1023
+    else:
+        raise ValueError, 'bits argument must be 32 or 64'
+    bin_iter = iter(bin(struct.unpack(int_pack, struct.pack(float_pack, number))[0])[2:].rjust(bits, '0'))
+    return [''.join(islice(bin_iter, x)) for x in (1, exponent_bits, mantissa_bits)]
+</code></pre>
+     <p>There's a lot of complexity behind that function, and it'd be quite the tangent to explain, but if you're interested, the important resource for our purposes is the <a href="http://docs.python.org/2/library/struct.html" rel="nofollow noreferrer">struct</a> module.</p>
+     <p>Python's <code>float</code> is a 64-bit, double-precision number. In other languages such as C, C++, Java and C#, double-precision has a separate type <code>double</code>, which is often implemented as 64 bits.</p>
+     <p>When we call that function with our example, <code>9.2</code>, here's what we get:</p>
+     <pre><code>&gt;&gt;&gt; float_to_bin_parts(9.2)
+['0', '10000000010', '0010011001100110011001100110011001100110011001100110']
+</code></pre>
+     <hr>
+     <h1>Interpreting the Data</h1>
+     <p>You'll see I've split the return value into three components. These components are:</p>
+     <ul>
+      <li>Sign</li>
+      <li>Exponent</li>
+      <li>Mantissa (also called Significand, or Fraction)</li>
+     </ul>
+     <h2>Sign</h2>
+     <p>The sign is stored in the first component as a single bit. It's easy to explain: <code>0</code> means the float is a positive number; <code>1</code> means it's negative. Because <code>9.2</code> is positive, our sign value is <code>0</code>.</p>
+     <h2>Exponent</h2>
+     <p>The exponent is stored in the middle component as 11 bits. In our case, <code>0b10000000010</code>. In decimal, that represents the value <code>1026</code>. A quirk of this component is that you must subtract a number equal to <strong>2<sup>(# of bits) - 1</sup> - 1</strong> to get the true exponent; in our case, that means subtracting <code>0b1111111111</code> (decimal number <code>1023</code>) to get the true exponent, <code>0b00000000011</code> (decimal number 3).</p>
+     <h2>Mantissa</h2>
+     <p>The mantissa is stored in the third component as 52 bits. However, there's a quirk to this component as well. To understand this quirk, consider a number in scientific notation, like this:</p>
+     <blockquote>
+      <p>6.0221413x10<sup>23</sup></p>
+     </blockquote>
+     <p>The mantissa would be the <code>6.0221413</code>. Recall that the mantissa in scientific notation always begins with a single non-zero digit. The same holds true for binary, except that binary only has two digits: <code>0</code> and <code>1</code>. So the binary mantissa <em>always</em> starts with <code>1</code>! When a float is stored, the <code>1</code> at the front of the binary mantissa is omitted to save space; we have to place it back at the front of our third element to get the <em>true</em> mantissa:</p>
+     <blockquote>
+      <p>1.0010011001100110011001100110011001100110011001100110</p>
+     </blockquote>
+     <p>This involves more than just a simple addition, because the bits stored in our third component actually represent the <em>fractional</em> part of the mantissa, to the right of the <a href="http://en.wiktionary.org/wiki/radix_point" rel="nofollow noreferrer">radix point</a>.</p>
+     <p>When dealing with decimal numbers, we "move the decimal point" by multiplying or dividing by powers of 10. In binary, we can do the same thing by multiplying or dividing by powers of 2. Since our third element has 52 bits, we divide it by <strong>2<sup>52</sup></strong> to move it 52 places to the right:</p>
+     <blockquote>
+      <p>0.0010011001100110011001100110011001100110011001100110</p>
+     </blockquote>
+     <p>In decimal notation, that's the same as dividing <code>675539944105574</code> by <code>4503599627370496</code> to get <code>0.1499999999999999</code>. (This is one example of a ratio that can be expressed exactly in decimal, but only approximately in binary; for more detail, see: <a href="http://www.wolframalpha.com/input/?i=675539944105574+%2F+4503599627370496" rel="nofollow noreferrer">675539944105574 / 4503599627370496</a>.)</p>
+     <p>Now that we've transformed the third component into a fractional number, adding <code>1</code> gives the true mantissa.</p>
+     <h2>Recapping the Components</h2>
+     <ul>
+      <li>Sign (first component): <code>0</code> for positive, <code>1</code> for negative</li>
+      <li>Exponent (middle component): Subtract <strong>2<sup>(# of bits) - 1</sup> - 1</strong> to get the true exponent</li>
+      <li>Mantissa (last component): Divide by <strong>2<sup>(# of bits)</sup></strong> and add <code>1</code> to get the true mantissa</li>
+     </ul>
+     <hr>
+     <h1>Calculating the Number</h1>
+     <p>Putting all three parts together, we're given this binary number:</p>
+     <blockquote>
+      <p>1.0010011001100110011001100110011001100110011001100110 x 10<sup>11</sup></p>
+     </blockquote>
+     <p>Which we can then convert from binary to decimal:</p>
+     <blockquote>
+      <p>1.1499999999999999 x 2<sup>3</sup> (inexact!)</p>
+     </blockquote>
+     <p>And multiply to reveal the final representation of the number we started with (<code>9.2</code>) after being stored as a floating point value:</p>
+     <blockquote>
+      <p>9.1999999999999993</p>
+     </blockquote>
+     <hr>
+     <h1>Representing as a Fraction</h1>
+     <h2>9.2</h2>
+     <p>Now that we've built the number, it's possible to reconstruct it into a simple fraction:</p>
+     <blockquote>
+      <p>1.0010011001100110011001100110011001100110011001100110 x 10<sup>11</sup></p>
+     </blockquote>
+     <p>Shift mantissa to a whole number:</p>
+     <blockquote>
+      <p>10010011001100110011001100110011001100110011001100110 x 10<sup>11-110100</sup></p>
+     </blockquote>
+     <p>Convert to decimal:</p>
+     <blockquote>
+      <p>5179139571476070 x 2<sup>3-52</sup></p>
+     </blockquote>
+     <p>Subtract the exponent:</p>
+     <blockquote>
+      <p>5179139571476070 x 2<sup>-49</sup></p>
+     </blockquote>
+     <p>Turn negative exponent into division:</p>
+     <blockquote>
+      <p>5179139571476070 / 2<sup>49</sup></p>
+     </blockquote>
+     <p>Multiply exponent:</p>
+     <blockquote>
+      <p>5179139571476070 / 562949953421312</p>
+     </blockquote>
+     <p>Which equals:</p>
+     <blockquote>
+      <p>9.1999999999999993</p>
+     </blockquote>
+     <h2>9.5</h2>
+     <pre><code>&gt;&gt;&gt; float_to_bin_parts(9.5)
+['0', '10000000010', '0011000000000000000000000000000000000000000000000000']
+</code></pre>
+     <p>Already you can see the mantissa is only 4 digits followed by a whole lot of zeroes. But let's go through the paces.</p>
+     <p>Assemble the binary scientific notation:</p>
+     <blockquote>
+      <p>1.0011 x 10<sup>11</sup></p>
+     </blockquote>
+     <p>Shift the decimal point:</p>
+     <blockquote>
+      <p>10011 x 10<sup>11-100</sup></p>
+     </blockquote>
+     <p>Subtract the exponent:</p>
+     <blockquote>
+      <p>10011 x 10<sup>-1</sup></p>
+     </blockquote>
+     <p>Binary to decimal:</p>
+     <blockquote>
+      <p>19 x 2<sup>-1</sup></p>
+     </blockquote>
+     <p>Negative exponent to division:</p>
+     <blockquote>
+      <p>19 / 2<sup>1</sup></p>
+     </blockquote>
+     <p>Multiply exponent:</p>
+     <blockquote>
+      <p>19 / 2</p>
+     </blockquote>
+     <p>Equals:</p>
+     <blockquote>
+      <p>9.5</p>
+     </blockquote>
+     <hr>
+     <hr>
+     <h1>Further reading</h1>
+     <ul>
+      <li><a href="http://floating-point-gui.de/" rel="nofollow noreferrer">The Floating-Point Guide: What Every Programmer Should Know About Floating-Point Arithmetic, or, Why don’t my numbers add up?</a> (floating-point-gui.de)</li>
+      <li><a href="http://download.oracle.com/docs/cd/E19957-01/806-3568/ncg_goldberg.html" rel="nofollow noreferrer">What Every Computer Scientist Should Know About Floating-Point Arithmetic</a> (Goldberg 1991)</li>
+      <li><a href="http://en.wikipedia.org/wiki/Double-precision_floating-point_format" rel="nofollow noreferrer">IEEE Double-precision floating-point format</a> (Wikipedia)</li>
+      <li><a href="http://docs.python.org/3.4/tutorial/floatingpoint.html" rel="nofollow noreferrer">Floating Point Arithmetic: Issues and Limitations</a> (docs.python.org)</li>
+      <li><a href="http://kipirvine.com/asm/workbook/floating_tut.htm" rel="nofollow noreferrer">Floating Point Binary</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>There is also a <a href="http://kipirvine.com/asm/workbook/floating_tut.htm" rel="nofollow noreferrer">nice tutorial</a> that shows how to go the other way - given a decimal representation of a number, how do you construct the floating point equivalent. The "long division" approach shows very clearly how you end up with a "remainder" after trying to represent the number. Should be added if you want to be truly "canonical" with your answer.</span> <span> - </span> <span class="display-name">Floris</span> <span> </span> <span class="date">20 Feb 2014 at 00:53</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>If you're talking about Python and floating-point, I'd suggest at least including the Python tutorial in your links: <a href="http://docs.python.org/3.4/tutorial/floatingpoint.html" rel="nofollow noreferrer">docs.python.org/3.4/tutorial/floatingpoint.html</a> That's supposed to be the one-stop go-to resource for floating-point issues for Python programmers. If it's lacking in some way (and it almost surely is), please do open an issue on the Python bug tracker for updates or changes.</span> <span> - </span> <span class="display-name">Mark Dickinson</span> <span> </span> <span class="date">20 Feb 2014 at 08:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@mhlester If this gets turned into community wiki, feel free to incorporate my answer into yours.</span> <span> - </span> <span class="display-name">Nicu Stiurca</span> <span> </span> <span class="date">20 Feb 2014 at 19:08</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>This answer should definitely also link to <a href="http://floating-point-gui.de/" rel="nofollow noreferrer">floating-point-gui.de</a>, as it's probably the best introduction for beginners. IMO, it should even go above "What every computer scientist should know..." -- these days, people who can reasonably comprehend Goldberg's paper usually are already well aware of it.</span> <span> - </span> <span class="display-name">Daniel Pryden</span> <span> </span> <span class="date">13 Jun 2014 at 18:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>One more further reading: <a href="https://stackoverflow.com/questions/588004/is-floating-point-math-broken?lq=1" title="is floating point math broken">stackoverflow.com/questions/588004/…</a></span> <span> - </span> <span class="display-name">phuclv</span> <span> </span> <span class="date">14 Mar 2015 at 12:28</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>"This is one example of a ratio that can be expressed exactly in binary, but only approximately in decimal". This is not true. All of these 'number over a power of two' ratios are exact in decimal. Any approximation is only to shorten the decimal number -- for convenience.</span> <span> - </span> <span class="display-name">Rick Regan</span> <span> </span> <span class="date">22 Dec 2015 at 14:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Every number you can represent in binary using a finite amount of digits can also be represented in decimal using a finite number of digits. (comment limits too short for me to make a proof). "This is one example of a ratio that can be expressed exactly in binary, but only approximately in decimal" this has to be false. Maybe you mean the other way around?</span> <span> - </span> <span class="display-name">12431234123412341234123</span> <span> </span> <span class="date">26 Jun 2023 at 13:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>44</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nicu Stiurca</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Feb 2014 at 01:16</span>
+     </div>
+    </div>
+    <div>
+     <p>This isn't a full answer (<a href="https://stackoverflow.com/a/21895757/1072468">mhlester</a> already covered a lot of good ground I won't duplicate), but I would like to stress how much the representation of a number depends on the base you are working in.</p>
+     <h2>Consider the fraction 2/3</h2>
+     <p>In good-ol' base 10, we typically write it out as something like</p>
+     <ul>
+      <li>0.666...</li>
+      <li>0.666</li>
+      <li>0.667</li>
+     </ul>
+     <p>When we look at those representations, we tend to associate each of them with the fraction 2/3, even though only the first representation is mathematically equal to the fraction. The second and third representations/approximations have an error on the order of 0.001, which is actually much worse than the error between 9.2 and 9.1999999999999993. In fact, the second representation isn't even rounded correctly! <em>Nevertheless, we don't have a problem with 0.666 as an approximation of the number 2/3, <strong>so we shouldn't really have a problem with how 9.2 is approximated in most programs</strong>.</em> (Yes, in some programs it matters.)</p>
+     <h2>Number bases</h2>
+     <p>So here's where number bases are crucial. If we were trying to represent 2/3 in base 3, then</p>
+     <blockquote>
+      <p>(2/3)<sub>10</sub> = 0.2<sub>3</sub></p>
+     </blockquote>
+     <p>In other words, we have an exact, finite representation for the same number by switching bases! The take-away is that even though you can convert any number to any base, <em>all rational numbers have exact finite representations in some bases but not in others</em>.</p>
+     <p>To drive this point home, let's look at 1/2. It might surprise you that even though this perfectly simple number has an exact representation in base 10 and 2, it requires a repeating representation in base 3.</p>
+     <blockquote>
+      <p>(1/2)<sub>10</sub> = 0.5<sub>10</sub> = 0.1<sub>2</sub> = 0.1111...<sub>3</sub></p>
+     </blockquote>
+     <h2>Why are floating point numbers inaccurate?</h2>
+     <p>Because often-times, they are approximating rationals that cannot be represented finitely in base 2 (the digits repeat), and in general they are approximating real (possibly irrational) numbers which may not be representable in finitely many digits in <em>any</em> base.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>9</td>
+        <td><span>So in other words, <b>base-3</b> would be perfect for <code>1/3</code> just as <b>base-10</b> is perfect for <code>1/10</code>. Neither fraction works in <b>base-2</b></span> <span> - </span> <span class="display-name">mhlester</span> <span> </span> <span class="date">20 Feb 2014 at 01:19</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@mhlester Yes. And in general, <b>base-N</b> is perfect for any fraction whose denominator is <code>N</code> or a multiple thereof.</span> <span> - </span> <span class="display-name">Nicu Stiurca</span> <span> </span> <span class="date">20 Feb 2014 at 01:20</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>And this is one reason why some numerical tool boxes keep track of "what was divided by what", and in the process can keep "infinite accuracy" for all rational numbers. Just like physicists like to keep their equations symbolic until the last possible moment, in case factors of <code>π</code> etc cancel out.</span> <span> - </span> <span class="display-name">Floris</span> <span> </span> <span class="date">20 Feb 2014 at 01:39</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@Floris I've also seen cases where an algorithm that only performs basic arithmetic (ie, preserves rationality of input), determine if the input was (likely) rational, perform the math using normal floating point arithmetic, then re-estimate a rational approximation at the end to fix any rounding errors. In particular Matlab's <a href="http://www.mathworks.com/help/matlab/ref/rref.html" rel="nofollow noreferrer">reduced row echelon form</a> algorithm does this, and it help numerical stability tremendously.</span> <span> - </span> <span class="display-name">Nicu Stiurca</span> <span> </span> <span class="date">20 Feb 2014 at 01:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@SchighSchagh - interesting, I didn't know that. I do know that numerical stability is something that is not taught sufficiently in these days of double double precision. Which means that many miss learning about the elegance of many beautiful algorithms. I really like algorithms that compute and correct their own errors.</span> <span> - </span> <span class="display-name">Floris</span> <span> </span> <span class="date">20 Feb 2014 at 02:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Nitpick: integers are rational (with denominator 1) and can be represented exactly in any base. But yes, interesting point about non-integer rational numbers.</span> <span> - </span> <span class="display-name">Peter Cordes</span> <span> </span> <span class="date">19 Mar 2020 at 00:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Note: <b>base N</b> is perfect not just for any fraction whose denominator is <code>N</code> or a multiple thereof, but for any fraction whose denominator's prime factors are all prime factors of <code>N</code>.</span> <span> - </span> <span class="display-name">celticminstrel</span> <span> </span> <span class="date">13 Apr 2021 at 21:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jonas Bötel</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Feb 2014 at 19:13</span>
+     </div>
+    </div>
+    <div>
+     <p>While all of the other answers are good there is still one thing missing:</p>
+     <p><strong>It is impossible to represent irrational numbers (e.g. π, <code>sqrt(2)</code>, <code>log(3)</code>, etc.) precisely!</strong></p>
+     <p>And that actually is why they are called irrational. No amount of bit storage in the world would be enough to hold even one of them. Only <em>symbolic</em> arithmetic is able to preserve their precision.</p>
+     <p>Although if you would limit your math needs to rational numbers only the problem of precision becomes manageable. You would need to store a pair of (possibly very big) integers <code>a</code> and <code>b</code> to hold the number represented by the fraction <code>a/b</code>. All your arithmetic would have to be done on fractions just like in highschool math (e.g. <code>a/b * c/d = ac/bd</code>).</p>
+     <p>But of course you would still run into the same kind of trouble when <code>pi</code>, <code>sqrt</code>, <code>log</code>, <code>sin</code>, etc. are involved.</p>
+     <p><strong>TL;DR</strong></p>
+     <p>For hardware accelerated arithmetic only a limited amount of rational numbers can be represented. Every not-representable number is approximated. Some numbers (i.e. irrational) can never be represented no matter the system.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>Interestingly, irrational bases do exist. <a href="http://en.wikipedia.org/wiki/Golden_ratio_base" rel="nofollow noreferrer">Phinary</a>, for example.</span> <span> - </span> <span class="display-name">Veedrac</span> <span> </span> <span class="date">12 Jun 2014 at 16:18</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>irrational numbers can be (only) represented in their base. For example pi is 10 in base pi</span> <span> - </span> <span class="display-name">phuclv</span> <span> </span> <span class="date">24 Jun 2014 at 14:21</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>Point remains valid: <i>Some numbers can never be represented no matter the system.</i> You don't gain anything by changing your base because then some other numbers can not be represented anymore.</span> <span> - </span> <span class="display-name">Jonas Bötel</span> <span> </span> <span class="date">27 Jun 2014 at 04:10</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>All constructible real numbers* can be represented exactly given an appropriate base; the choice of base is in fact infinite for any particular number. Eg, pi is 10 in base-pi, and it is 100 in base-sqrt(pi). In general, x is 10 in base-x, and it is 100 in base-x^(1/2), 1000 in base-x^(1/3), etc. *Non-constructible reals, if you allow for them via your choice of axioms, uhhh yeah shit gets real weird and nobody cares about digits anymore anyway. <b>Regardless of all this</b>, these esoteric bases are not really useful; and there are always irrational numbers regardless of your choice of base.</span> <span> - </span> <span class="display-name">Nicu Stiurca</span> <span> </span> <span class="date">5 Aug 2021 at 21:08</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user1196549</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Apr 2019 at 13:43</span>
+     </div>
+    </div>
+    <div>
+     <p>There are infinitely many real numbers (so many that you can't enumerate them), and there are infinitely many rational numbers (it is possible to enumerate them).</p>
+     <p>The floating-point representation is a finite one (like anything in a computer) so unavoidably many many many numbers are impossible to represent. In particular, 64 bits only allow you to distinguish among only 18,446,744,073,709,551,616 different values (which is nothing compared to infinity). With the standard convention, 9.2 is not one of them. Those that can are of the form m.2^e for some integers m and e.</p>
+     <hr>
+     <p>You might come up with a different numeration system, 10 based for instance, where 9.2 would have an exact representation. But other numbers, say 1/3, would still be impossible to represent.</p>
+     <hr>
+     <p>Also note that double-precision floating-points numbers are <em>extremely</em> accurate. They can represent any number in a very wide range with as much as 15 exact digits. For daily life computations, 4 or 5 digits are more than enough. You will never really need those 15, unless you want to count every millisecond of your lifetime.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>plugwash</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Jun 2018 at 16:15</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>Why can we not represent 9.2 in binary floating point?</p>
+     </blockquote>
+     <p>Floating point numbers are (simplifying slightly) a positional numbering system with a restricted number of digits and a movable radix point.</p>
+     <p>A fraction can only be expressed exactly using a finite number of digits in a positional numbering system if the prime factors of the denominator (when the fraction is expressed in it's lowest terms) are factors of the base.</p>
+     <p>The prime factors of 10 are 5 and 2, so in base 10 we can represent any fraction of the form a/(2<sup>b</sup>5<sup>c</sup>).</p>
+     <p>On the other hand the only prime factor of 2 is 2, so in base 2 we can only represent fractions of the form a/(2<sup>b</sup>)</p>
+     <blockquote>
+      <p>Why do computers use this representation?</p>
+     </blockquote>
+     <p>Because it's a simple format to work with and it is sufficiently accurate for most purposes. Basically the same reason scientists use "scientific notation" and round their results to a reasonable number of digits at each step.</p>
+     <p>It would certainly be possible to define a fraction format, with (for example) a 32-bit numerator and a 32-bit denominator. It would be able to represent numbers that IEEE double precision floating point could not, but equally there would be many numbers that can be represented in double precision floating point that could not be represented in such a fixed-size fraction format.</p>
+     <p>However the big problem is that such a format is a pain to do calculations on. For two reasons.</p>
+     <ol>
+      <li>If you want to have exactly one representation of each number then after each calculation you need to reduce the fraction to it's lowest terms. That means that for every operation you basically need to do a greatest common divisor calculation.</li>
+      <li>If after your calculation you end up with an unrepresentable result because the numerator or denominator you need to find the closest representable result. This is non-trivil.</li>
+     </ol>
+     <p>Some Languages do offer fraction types, but usually they do it in combination with arbitary precision, this avoids needing to worry about approximating fractions but it creates it's own problem, when a number passes through a large number of calculation steps the size of the denominator and hence the storage needed for the fraction can explode.</p>
+     <p>Some languages also offer decimal floating point types, these are mainly used in scenarios where it is imporant that the results the computer gets match pre-existing rounding rules that were written with humans in mind (chiefly financial calculations). These are slightly more difficult to work with than binary floating point, but the biggest problem is that most computers don't offer hardware support for them.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

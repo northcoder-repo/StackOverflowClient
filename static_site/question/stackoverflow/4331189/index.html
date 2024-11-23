@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>DateTime vs DateTimeOffset</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>DateTime vs DateTimeOffset</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1056</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>David Reis</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>2 Dec 2010 at 02:39</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/4331189/datetime-vs-datetimeoffset">source</a>
+    </div>
+   </div>
+   <div>
+    <p>What is the difference between a <code>DateTime</code> and a <code>DateTimeOffset</code> and when should one be used?</p>
+    <hr>
+    <p>Currently, we have a standard way of dealing with .NET <code>DateTime</code>s in a TimeZone-aware way: Whenever we produce a <code>DateTime</code> we do it in UTC (e.g. using <code>DateTime.UtcNow</code>), and whenever we display one, we convert back from UTC to the user's local time.</p>
+    <p>That works fine, but I've been reading about <code>DateTimeOffset</code> and how it captures the local and UTC time in the object itself.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">c#</span><span class="tag">.net</span><span class="tag">datetime</span><span class="tag">timezone</span><span class="tag">datetimeoffset</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>When it comes to storage, <a href="http://stackoverflow.com/questions/4715620/storing-datetime-utc-vs-storing-datetimeoffset" title="storing datetime utc vs storing datetimeoffset">stackoverflow.com/questions/4715620/…</a> is interesting too.</span> <span> - </span> <span class="display-name">Dejan</span> <span> </span> <span class="date">21 Jul 2016 at 18:22</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Curious people might also want to read <a href="https://codeblog.jonskeet.uk/2019/03/27/storing-utc-is-not-a-silver-bullet/" rel="nofollow noreferrer">storing utc is not a silver bullet</a></span> <span> - </span> <span class="display-name">Jim Aho</span> <span> </span> <span class="date">23 Feb 2021 at 08:20</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1638</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Matt Johnson-Pint</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Jan 2013 at 22:09</span>
+     </div>
+    </div>
+    <div>
+     <p><code>DateTimeOffset</code> is a representation of <em>instantaneous time</em> (also known as <em>absolute time</em>). By that, I mean a moment in time that is universal for everyone (not accounting for <a href="https://en.wikipedia.org/wiki/Leap_second" rel="noreferrer">leap seconds</a>, or the relativistic effects of <a href="https://en.wikipedia.org/wiki/Time_dilation" rel="noreferrer">time dilation</a>). Another way to represent instantaneous time is with a <code>DateTime</code> where <code>.Kind</code> is <code>DateTimeKind.Utc</code>.</p>
+     <p>This is distinct from <em>calendar time</em> (also known as <em>civil time</em>), which is a position on someone's calendar, and there are many different calendars all over the globe. We call these calendars <em>time zones</em>. Calendar time is represented by a <code>DateTime</code> where <code>.Kind</code> is <code>DateTimeKind.Unspecified</code>, or <code>DateTimeKind.Local</code>. And <code>.Local</code> is only meaningful in scenarios where you have an implied understanding of where the computer that is using the result is positioned. (For example, a user's workstation)</p>
+     <p>So then, why <code>DateTimeOffset</code> instead of a UTC <code>DateTime</code>? <strong>It's all about perspective.</strong> Let's use an analogy - we'll pretend to be photographers.</p>
+     <p>Imagine you are standing on a calendar timeline, pointing a camera at a person on the instantaneous timeline laid out in front of you. You line up your camera according to the rules of your timezone - which change periodically due to daylight saving time, or due to other changes to the legal definition of your time zone. (You don't have a steady hand, so your camera is shaky.)</p>
+     <p>The person standing in the photo would see the angle at which your camera came from. If others were taking pictures, they could be from different angles. This is what the <code>Offset</code> part of the <code>DateTimeOffset</code> represents.</p>
+     <p>So if you label your camera "Eastern Time", sometimes you are pointing from -5, and sometimes you are pointing from -4. There are cameras all over the world, all labeled different things, and all pointing at the same instantaneous timeline from different angles. Some of them are right next to (or on top of) each other, so just knowing the offset isn't enough to determine which timezone the time is related to.</p>
+     <p>And what about UTC? Well, it's the one camera out there that is guaranteed to have a steady hand. It's on a tripod, firmly anchored into the ground. It's not going anywhere. We call its angle of perspective the zero offset.</p>
+     <p><img src="https://i.stack.imgur.com/QE5xq.png" alt="Instantaneous Time vs Calendar Time Visualization"></p>
+     <p>So - what does this analogy tell us? It provides some intuitive guidelines-</p>
+     <ul>
+      <li>
+       <p>If you are representing time relative to some place in particular, represent it in calendar time with a <code>DateTime</code>. Just be sure you don't ever confuse one calendar with another. <code>Unspecified</code> should be your assumption. <code>Local</code> is only useful coming from <code>DateTime.Now</code>. For example, I might get <code>DateTime.Now</code> and save it in a database - but when I retrieve it, I have to assume that it is <code>Unspecified</code>. I can't rely that my local calendar is the same calendar that it was originally taken from.</p></li>
+      <li>
+       <p>If you must always be certain of the moment, make sure you are representing instantaneous time. Use <code>DateTimeOffset</code> to enforce it, or use UTC <code>DateTime</code> by convention.</p></li>
+      <li>
+       <p>If you need to track a moment of instantaneous time, but you want to also know "What time did the user think it was on their local calendar?" - then you <em>must</em> use a <code>DateTimeOffset</code>. This is very important for timekeeping systems, for example - both for technical and legal concerns.</p></li>
+      <li>
+       <p>If you ever need to modify a previously recorded <code>DateTimeOffset</code> - you don't have enough information in the offset alone to ensure that the new offset is still relevant for the user. You must <em>also</em> store a timezone identifier (think - I need the name of that camera so I can take a new picture even if the position has changed).</p>
+       <p>It should also be pointed out that <a href="http://nodatime.org" rel="noreferrer">Noda Time</a> has a representation called <code>ZonedDateTime</code> for this, while the .Net base class library does not have anything similar. You would need to store both a <code>DateTimeOffset</code> and a <code>TimeZoneInfo.Id</code> value.</p></li>
+      <li>
+       <p>Occasionally, you will want to represent a calendar time that is local to "whomever is looking at it". For example, when defining what <em>today</em> means. Today is always midnight to midnight, but these represent a near-infinite number of overlapping ranges on the instantaneous timeline. (In practice we have a finite number of timezones, but you can express offsets down to the tick) So in these situations, make sure you understand how to either limit the "who's asking?" question down to a single time zone, or deal with translating them back to instantaneous time as appropriate.</p></li>
+     </ul>
+     <p>Here are a few other little bits about <code>DateTimeOffset</code> that back up this analogy, and some tips for keeping it straight:</p>
+     <ul>
+      <li>
+       <p>If you compare two <code>DateTimeOffset</code> values, they are first normalized to zero offset before comparing. In other words, <code>2012-01-01T00:00:00+00:00</code> and <code>2012-01-01T02:00:00+02:00</code> refer to the same instantaneous moment, and are therefore equivalent.</p></li>
+      <li>
+       <p>If you are doing any unit testing and need to be certain of the offset, test <em>both</em> the <code>DateTimeOffset</code> value, and the <code>.Offset</code> property separately.</p></li>
+      <li>
+       <p>There is a one-way implicit conversion built in to the .Net framework that lets you pass a <code>DateTime</code> into any <code>DateTimeOffset</code> parameter or variable. When doing so, <strong>the <code>.Kind</code> matters</strong>. If you pass a UTC kind, it will carry in with a zero offset, but if you pass either <code>.Local</code> or <code>.Unspecified</code>, it will assume to be <strong>local</strong>. The framework is basically saying, "Well, you asked me to convert calendar time to instantaneous time, but I have no idea where this came from, so I'm just going to use the local calendar." This is a huge gotcha if you load up an unspecified <code>DateTime</code> on a computer with a different timezone. (IMHO - that should throw an exception - but it doesn't.)</p></li>
+     </ul>
+     <p><strong>Shameless Plug:</strong></p>
+     <p>Many people have shared with me that they find this analogy extremely valuable, so I included it in my Pluralsight course, <a href="http://www.pluralsight.com/courses/date-time-fundamentals" rel="noreferrer">Date and Time Fundamentals</a>. You'll find a step-by-step walkthrough of the camera analogy in the second module, "Context Matters", in the clip titled "Calendar Time vs. Instantaneous Time".</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>8</td>
+        <td><span>@ZackJannsen If you have a <code>DateTimeOffset</code> in C#, then you should persist that to a <code>DATETIMEOFFSET</code> in SQL Server. <code>DATETIME2</code> or just <code>DATETIME</code> (depending on the range required) are fine for regular <code>DateTime</code> values. Yes - you can resolve a local time from any pairing of timezone + dto or utc. The difference is - do you always want to be computing the rules with each resolve, or do you want to precalculate them? In many cases (sometimes for legal concerns) a DTO is a better choice.</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">29 Mar 2013 at 04:15</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@ZackJannsen For the second part of your question, I would recommend doing as much as possible server-side. Javascript is not that great for timezone calculation. If you must do it, use one of <a href="http://stackoverflow.com/a/15171030/634824">these libraries</a>. But server side is best. If you have other more detailed questions, please start a new S.O. question for them and I will answer if I can. Thanks.</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">29 Mar 2013 at 04:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Matt Johnson: Here is my more detailed question - <a href="http://stackoverflow.com/questions/15671675/where-to-set-a-utc-datetime-value-in-n-tier-application-presentation-layer-dom" title="where to set a utc datetime value in n tier application presentation layer dom">stackoverflow.com/questions/15671675/…</a></span> <span> - </span> <span class="display-name">Zack Jannsen</span> <span> </span> <span class="date">29 Mar 2013 at 11:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Matt Johnson: Thank you. Just to clarify - you are recomending either a calculation, or pre-calculated delta for the timezone that handles UTCtime + TimeZoneOffset + DateTimeOffset = LocalTime. If one uses "pre-calculated" I suppose they could keep this in a database of records based on Time Zone Id / Name. Or would it be simpler to just use the features in the application (TimeZoneInfo or TimeZone classes in ASP.NET 3.5+)?</span> <span> - </span> <span class="display-name">Zack Jannsen</span> <span> </span> <span class="date">29 Mar 2013 at 11:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ZackJannsen - If you are just talking about timestamps (such as a CreatedDate or UpdatedDate on a database row), then you probably just want to store UTC. You can convert that to the user's time zone on display on the way out. Pass the UTC DateTime up to the controller or web form, and convert it to the users local time just before it leaves your web server. If you are rendering HTML, then you should decide right there how to format it for your users culture. If you are passing it as data (XML, JSON, etc) then you might want to pass as ISO8601 and format it later using MomentJS.</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">29 Mar 2013 at 14:03</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>let us <a href="http://chat.stackoverflow.com/rooms/27185/discussion-between-matt-johnson-and-zack-jannsen">continue this discussion in chat</a></span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">29 Mar 2013 at 14:03</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>By your answer "What time did the user think it was on their local calendar? - then you must use a DateTimeOffset" it seems that c# DateTimeOffset saves the LOCAL Offset, BUT ti doesn't, instead, it will always save the SERVER Offset, so you WON'T KNOW "What time did the user think it was on their local calendar?"</span> <span> - </span> <span class="display-name">Joao Leme</span> <span> </span> <span class="date">9 Aug 2013 at 19:15</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@JoaoLeme - That depends on where you obtained it from. You are correct that if you say <code>DateTimeOffset.Now</code> on the server, you will indeed get the server's offset. The point is that the <code>DateTimeOffset</code> type can retain that offset. You could just as easily do that on the client, send it to the server, and then your server would know the client's offset.</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">9 Aug 2013 at 19:21</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>So what I'm failing to understand is that if <code>DateTimeOffset</code> provides additional functionality over <code>DateTime</code> with Kind of UTC or if it's just more convenient to use.</span> <span> - </span> <span class="display-name">The Muffin Man</span> <span> </span> <span class="date">27 Feb 2014 at 16:32</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@TheMuffinMan - With either, you get an exact moment in time. But only with <code>DateTimeOffset</code> do you <i>also</i> know what time the observer thought it was by their local clock.</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">27 Feb 2014 at 16:49</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@MattJohnson What do you mean by thought it was? I have a date that's in UTC, client tells me what their offset is to UTC, I give them adjusted date. So confused on why anything else is relevant to that operation.</span> <span> - </span> <span class="display-name">The Muffin Man</span> <span> </span> <span class="date">27 Feb 2014 at 17:52</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@TheMuffinMan - The client knows what their current offset to UTC is. They don't necessarily know what it was at that that time, unless they are also providing a full time zone. Also, different clients might be looking at the same data, and they might be in different time zones. Also consider the client might not be a real person, but an algorithm. For example, you could have a business rule that employees that start work before 6:00 AM get paid overtime. Now imagine you have employees in time zones all over the country or all over the world.</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">27 Feb 2014 at 18:18</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>If you only recorded the UTC time, you would have to use the time zone of the employee to determine the local time, and that lookup might be costly. Now imagine that a single employee can work in multiple time zones. That compounds the problem in that you'd have to keep a history table of the employee's movements. If we had stored <code>DateTimeOffset</code> originally, then none of that is required because we recorded <i>both</i> the local time, and the value necessary to convert to UTC, in one data value. This is just one example, I'm sure you can think of others.</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">27 Feb 2014 at 18:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@MattJohnson So it sounds like using <code>DateTimeOffset</code> allows you to use the datetime in different ways. If I clock in at 6am local time which for me is UTC 2pm offset -8 then depending on the use case I can convert that UTC time to -8 offset so that everyone can see that I clocked in at 6am, but if I want to use it another way then I still have UTC and can give clients their local time based on the offset that they provided me (ignoring the -8 in those cases). Right?</span> <span> - </span> <span class="display-name">The Muffin Man</span> <span> </span> <span class="date">27 Feb 2014 at 19:50</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>Yes, that's correct. Except that DTO is stored as the (local time, offset) pair, not the (utc time, offset) pair. In other words, the offset from UTC is already reflected in the local time. To convert back to utc, invert the sign of the offset and apply it to the local time.</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">27 Feb 2014 at 20:15</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>I think timezone and utc have very little to do with Cameras and the angle of a photographer. Take your kids travelling across timezones and even a 7 year old can understand it.</span> <span> - </span> <span class="display-name">hamish</span> <span> </span> <span class="date">24 Aug 2014 at 21:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What's the current status of <code>24:00</code> for "midnight"? <a href="https://en.wikipedia.org/wiki/ISO_8601" rel="nofollow noreferrer">en.wikipedia.org/wiki/ISO_8601</a></span> <span> - </span> <span class="display-name">Tim</span> <span> </span> <span class="date">29 Apr 2018 at 11:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>So if I use DateTimeOffSet I dont have to choose a culture for persist and read in database?</span> <span> - </span> <span class="display-name">gandalf</span> <span> </span> <span class="date">27 Jan 2020 at 16:34</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@gandalf - Generally not, but it's unclear what you're asking. Perhaps you should <a href="https://stackoverflow.com/questions/ask">ask a question</a> with details so we can respond appropriately. Thanks.</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">27 Jan 2020 at 18:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I did not get it 😐</span> <span> - </span> <span class="display-name">JobaDiniz</span> <span> </span> <span class="date">1 Oct 2022 at 20:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>478</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Clay</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jan 2013 at 19:42</span>
+     </div>
+    </div>
+    <div>
+     <p>From Microsoft:</p>
+     <blockquote>
+      <p>These uses for DateTimeOffset values are much more common than those for DateTime values. As a result, DateTimeOffset should be considered the default date and time type for application development.</p>
+     </blockquote>
+     <p><sub>source: <a href="https://learn.microsoft.com/en-us/dotnet/standard/datetime/choosing-between-datetime" rel="noreferrer">"Choosing Between DateTime, DateTimeOffset, TimeSpan, and TimeZoneInfo"</a>, <em>MSDN</em></sub></p>
+     <p>We use <code>DateTimeOffset</code> for nearly everything as our application deals with particular points in time (e.g. when a record was created/updated). As a side note, we use <code>DATETIMEOFFSET</code> in SQL Server 2008 as well.</p>
+     <p>I see <code>DateTime</code> as being useful when you want to deal with dates only, times only, or deal with either in a generic sense. For example, if you have an alarm that you want to go off every day at 7 am, you could store that in a <code>DateTime</code> utilizing a <code>DateTimeKind</code> of <code>Unspecified</code> because you want it to go off at 7am regardless of DST. But if you want to represent the history of alarm occurrences, you would use <code>DateTimeOffset</code>.</p>
+     <p>Use caution when using a mix of <code>DateTimeOffset</code> and <code>DateTime</code> especially when assigning and comparing between the types. Also, only compare <code>DateTime</code> instances that are the same <code>DateTimeKind</code> because <code>DateTime</code> ignores timezone offset when comparing.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>14</td>
+        <td><span>I'll just say that I like this answer too, and upvoted. Though in the last part - even ensuring <code>Kind</code> are the same, comparison could be in error. If both sides have <code>DateTimeKind.Unspecified</code> you don't really know that they came from the same time zone. If both sides are <code>DateTimeKind.Local</code>, <i>most</i> comparisons are going to be fine, but you could still have errors is one side is ambiguous in the local time zone. Really only <code>DateTimeKind.Utc</code> comparisons are foolproof, and yes, <code>DateTimeOffset</code> is usually preferred. (Cheers!)</span> <span> - </span> <span class="display-name">Matt Johnson-Pint</span> <span> </span> <span class="date">22 Apr 2016 at 20:25</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>+1 I'd add to this: The DataType you choose should reflect your intent. Do not use DateTimeOffset everywhere, just cause. If the Offset matters for your Calculations and Reading-From/Persisting-To the DataBase, then use DateTimeOffset. If it doesn't matter, then use DateTime, so you understand (just by looking at the DataType) that the Offset should have no bearing and Times should remain relative to the Locality of the Server/Machine your C# Code is running on.</span> <span> - </span> <span class="display-name">MikeTeeVee</span> <span> </span> <span class="date">22 Jul 2019 at 18:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>120</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hans Passant</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Dec 2010 at 17:47</span>
+     </div>
+    </div>
+    <div>
+     <p>DateTime is capable of storing only two distinct times, the local time and UTC. The <em>Kind</em> property indicates which.</p>
+     <p>DateTimeOffset expands on this by being able to store local times from anywhere in the world. It also stores the <em>offset</em> between that local time and UTC. Note how DateTime cannot do this unless you'd add an extra member to your class to store that UTC offset. Or only ever work with UTC. Which in itself is a fine idea btw.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>by far the easiest ans simpliest answer of this post.</span> <span> - </span> <span class="display-name">Yann</span> <span> </span> <span class="date">31 Mar 2023 at 11:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>44</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mojtaba</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Oct 2018 at 09:32</span>
+     </div>
+    </div>
+    <div>
+     <p>This piece of code from <a href="https://learn.microsoft.com/en-us/dotnet/api/system.datetimeoffset?view=netframework-4.7.2" rel="noreferrer">Microsoft</a> explains everything:</p>
+     <pre><code>// Find difference between Date.Now and Date.UtcNow
+  date1 = DateTime.Now;
+  date2 = DateTime.UtcNow;
+  difference = date1 - date2;
+  Console.WriteLine("{0} - {1} = {2}", date1, date2, difference);
+
+  // Find difference between Now and UtcNow using DateTimeOffset
+  dateOffset1 = DateTimeOffset.Now;
+  dateOffset2 = DateTimeOffset.UtcNow;
+  difference = dateOffset1 - dateOffset2;
+  Console.WriteLine("{0} - {1} = {2}", 
+                    dateOffset1, dateOffset2, difference);
+  // If run in the Pacific Standard time zone on 4/2/2007, the example
+  // displays the following output to the console:
+  //    4/2/2007 7:23:57 PM - 4/3/2007 2:23:57 AM = -07:00:00
+  //    4/2/2007 7:23:57 PM -07:00 - 4/3/2007 2:23:57 AM +00:00 = 00:00:00
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>So lets say I need to store a CreatedDate property when the user created something. Do I pass DatetimeOffset.Now or UtcNow to the server?</span> <span> - </span> <span class="display-name">Morten_564834</span> <span> </span> <span class="date">29 Mar 2021 at 21:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Morten_564834 I would say <code>DateTimeOffset.Now</code> because you can then compare <code>CreatedDate</code> irrespective of their timezone.</span> <span> - </span> <span class="display-name">Mojtaba</span> <span> </span> <span class="date">30 Mar 2021 at 07:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Morten_564834 @Mojtaba using <code>DateTimeOffset.Now</code> tells you also in which timezone it was created. But personally I would use DateTime.UtcNow for these technical fields. (But yes that requires people to use utc) which you could check for in a property accesor.</span> <span> - </span> <span class="display-name">Wouter</span> <span> </span> <span class="date">27 Sep 2022 at 15:23</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Wouter just to be more accurate, <code>DateTimeOffset.Now</code> doesn't tell you which timezone it was, just what offset it was from. A timezone can have multiple offsets and same offset can be shared among many timezones. But I get what you are saying.</span> <span> - </span> <span class="display-name">nawfal</span> <span> </span> <span class="date">17 Feb 2023 at 11:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@nawfal Yes... I guess although if you want to know where (a timezone) you looked at a clock (datetimeoffset) It is not the clock that will be telling you even if it is displaying the correct datetimeoffset for it's timezone. As it might just as well be the same time in different timezone? (So is there an example of this "collision"?)</span> <span> - </span> <span class="display-name">Wouter</span> <span> </span> <span class="date">17 Feb 2023 at 11:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Wouter MS official docs has an example: <a href="https://learn.microsoft.com/en-us/dotnet/standard/datetime/choosing-between-datetime#the-datetimeoffset-structure" rel="nofollow noreferrer">learn.microsoft.com/en-us/dotnet/standard/datetime/…</a>. An example of a time that can be from 3 different timezones.</span> <span> - </span> <span class="display-name">nawfal</span> <span> </span> <span class="date">17 Feb 2023 at 12:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Did you get the right link as I don’t see any examples in there.</span> <span> - </span> <span class="display-name">Wouter</span> <span> </span> <span class="date">19 Feb 2023 at 09:10</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Wouter FYI I can see the examples in the link from nawfal, e.g.: <code>+01:00 could belong to the following time zones: (GMT+01:00) Amsterdam (GMT+01:00) Belgrade (GMT+01:00) Brussels (GMT+01:00) Sarajevo (GMT+01:00) West Central Africa</code></span> <span> - </span> <span class="display-name">Stajs</span> <span> </span> <span class="date">9 Mar 2023 at 20:20</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>37</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Triynko</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Aug 2015 at 23:00</span>
+     </div>
+    </div>
+    <div>
+     <p>The most important distinction is that DateTime does not store time zone information, while DateTimeOffset does.</p>
+     <p>Although DateTime distinguishes between UTC and Local, there is absolutely no explicit time zone offset associated with it. If you do any kind of serialization or conversion, the server's time zone is going to be used. Even if you manually create a local time by adding minutes to offset a UTC time, you can still get bit in the serialization step, because (due to lack of any explicit offset in DateTime) it will use the server's time zone offset.</p>
+     <p>For example, if you serialize a DateTime value with Kind=Local using Json.Net and an ISO date format, you'll get a string like <code>2015-08-05T07:00:00-04</code>. Notice that last part (-04) had nothing to do with your DateTime or any offset you used to calculate it... it's just purely the server's time zone offset.</p>
+     <p>Meanwhile, DateTimeOffset explicitly includes the offset. It may not include the name of the time zone, but at least it includes the offset, and if you serialize it, you're going to get the explicitly included offset in your value instead of whatever the server's local time happens to be.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>27</td>
+        <td><span>with all the above answers, I wonder why no one bothered to write your single sentence that sums it all up <code>The most important distinction is that DateTime does not store time zone information, while DateTimeOffset does.</code></span> <span> - </span> <span class="display-name">Korayem</span> <span> </span> <span class="date">15 May 2016 at 22:38</span></td>
+       </tr>
+       <tr>
+        <td>15</td>
+        <td><span>DateTimeOffset does NOT store time zone info. MS doc titled "Choosing between DateTime, DateTimeOffset, TimeSpan, and TimeZoneInfo" specifies this stating: "A DateTimeOffset value is not tied to a particular time zone, but can originate from any of a variety of time zones". That said, DateTimeOffset IS time zone AWARE, containing the offset from UTC, which makes all the difference and is why it's MS recommended default class when dealing with app development that deals with date info. If you truly care about which specific timezone the data came from, you must preserve that separately</span> <span> - </span> <span class="display-name">stonedauwg</span> <span> </span> <span class="date">14 Jun 2017 at 20:35</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Yes, but as has been shown in many places, + or - hours says nothing about what timezone you were in and is ultimately useless. Depending on what you need to do, you can just as well store a datetime as Kind.Unspecified and then store the id of its timezone and I think you are actually better off.</span> <span> - </span> <span class="display-name">Arwin</span> <span> </span> <span class="date">6 Apr 2018 at 13:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It's true that an offset isn't the same thing as time zone, but it's far simpler to understand and is usually what is important, far from useless. It is true that a timestamp with an offset of -5 could have happened in Eastern Standard Time <i>or</i> in Central Daylight Time. But if I don't care what time zone it was in, if I just want to know when the event happened (which is what a timestamp is usually for), the offset is more useful, because I don't need to consult a historical, time zone database in order to convert it to UTC.</span> <span> - </span> <span class="display-name">Corrodias</span> <span> </span> <span class="date">16 May 2023 at 17:07</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>36</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dean Harding</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Dec 2010 at 02:59</span>
+     </div>
+    </div>
+    <div>
+     <p>There's a few places where <code>DateTimeOffset</code> makes sense. One is when you're dealing with recurring events and daylight savings time. Let's say I want to set an alarm to go off at 9am every day. If I use the "store as UTC, display as local time" rule, then the alarm will be going off at a <em>different</em> time when daylight savings time is in effect.</p>
+     <p>There are probably others, but the above example is actually one that I've run into in the past (this was before the addition of <code>DateTimeOffset</code> to the BCL - my solution at the time was to explicitly store the time in the local timezone, and save the timezone information along side it: basically what <code>DateTimeOffset</code> does internally).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>18</td>
+        <td><span>DateTimeOffset doesn't fix the DST problem</span> <span> - </span> <span class="display-name">JarrettV</span> <span> </span> <span class="date">15 Jan 2013 at 18:47</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>Using TimeZoneInfo class does carry rules for DST. if you are on .net 3.5 or later then use either TimeZone or TimeZoneInfo classes to deal with dates that must handle Daylight Savings Time in conjunciton with the timezone offset.</span> <span> - </span> <span class="display-name">Zack Jannsen</span> <span> </span> <span class="date">29 Mar 2013 at 11:41</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Yes good example of an exception (the alarm app) but when the time is more important than the date you should really store that separate in your schedule data structure for the application, i.e. occurrence type = Daily and time = 09:00. The point here is the developer needs to be aware of what type of date they are recording, calculating or presenting to users. Especially apps tend to be more global now we have the internet as standard and big app stores to write software for. As a side node I'd also like to see Microsoft add a separate Date and Time structure.</span> <span> - </span> <span class="display-name">Tony Wall</span> <span> </span> <span class="date">9 Apr 2014 at 09:12</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>Summarizing Jarrett's and Zack's comments: It sounds like DateTimeOffset <i>alone</i> will not handle the DST problem but using DateTimeOffset in conjunction with TimeZoneInfo will handle it. This is no different from DateTime where kind is Utc. In both cases I must know the time zone (not just the offset) of the calendar I am projecting the moment to. (I might store that in a user's profile or get it from the client (e.g. Windows) if possible). Sound right?</span> <span> - </span> <span class="display-name">Jeremy Cook</span> <span> </span> <span class="date">8 Nov 2014 at 05:31</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>"There's a few places where DateTimeOffset makes sense." --- Arguably, it more often makes sense than not.</span> <span> - </span> <span class="display-name">Ronnie Overby</span> <span> </span> <span class="date">5 Dec 2018 at 20:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>34</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Blundell</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Aug 2020 at 13:28</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>TLDR</strong> if you don't want to read all these great answers :-)</p>
+     <p><strong>Explicit</strong>:</p>
+     <p>Using <code>DateTimeOffset</code> because the timezone is forced to UTC+0.</p>
+     <p><strong>Implicit</strong>:</p>
+     <p>Using <code>DateTime</code> where you <em>hope</em> everyone sticks to the unwritten rule of the timezone always being UTC+0.</p>
+     <hr>
+     <p>(Side note for devs: <strong>explicit is always better than implicit</strong>!)</p>
+     <p>(Side side note for Java devs, C# <code>DateTimeOffset</code> == Java <code>OffsetDateTime</code>, read this: <a href="https://www.baeldung.com/java-zoneddatetime-offsetdatetime" rel="noreferrer">https://www.baeldung.com/java-zoneddatetime-offsetdatetime</a>)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>If you're running in Azure you don't have to worry that everyone sticks to the unwritten rule. DateTime.Now, DateTimeOffset.Now, DateTime.UtcNow and DateTimeOffset.UtcNow all return the exact same point in time in UTC.</span> <span> - </span> <span class="display-name">Craig W.</span> <span> </span> <span class="date">29 Sep 2020 at 16:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tessaract</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Dec 2021 at 17:41</span>
+     </div>
+    </div>
+    <div>
+     <p><code>DateTime.Now</code> <br>
+      Fri 03 Dec 21 18:40:11</p>
+     <p><code>DateTimeOffset.Now</code> <br>
+       Fri 03 Dec 21 18:40:11 +02:00</p>
+     <p>So, <code>DateTimeOffset</code> stores information about how the time relates to UTC, basically the time zone.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>Underrated answer, this should be on top</span> <span> - </span> <span class="display-name">DexterHaxxor</span> <span> </span> <span class="date">8 Aug 2022 at 14:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Joe</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Dec 2010 at 13:03</span>
+     </div>
+    </div>
+    <div>
+     <p>A major difference is that <code>DateTimeOffset</code> can be used in conjunction with <code>TimeZoneInfo</code> to convert to local times in timezones other than the current one.</p>
+     <p>This is useful on a server application (e.g. ASP.NET) that is accessed by users in different timezones.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>@Bugeo Bugeo is true, but there is a risk. You can compare two DateTimes by first calling "ToUniversalTime" on each. If you have exactly one value in the comparison that is DateTimeKind = Unspecified your strategy will fail. This potential for a failure is a reason to consider DateTimeOffset over DateTime when conversions to local time are required.</span> <span> - </span> <span class="display-name">Zack Jannsen</span> <span> </span> <span class="date">29 Mar 2013 at 11:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>As above, I think in this scenario you are better off iwth storing the TimeZoneId than using DateTimeOffset, which ultimately means nothing.</span> <span> - </span> <span class="display-name">Arwin</span> <span> </span> <span class="date">6 Apr 2018 at 13:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Or you could store a DateTimeOffset plus the TimeZoneId. Then you'd not only have the offset but also the time zone that caused the offset. Keep in mind that multiple time zones can share the same offset.</span> <span> - </span> <span class="display-name">Manfred</span> <span> </span> <span class="date">25 Jul 2020 at 07:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tony Wall</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Apr 2014 at 11:11</span>
+     </div>
+    </div>
+    <div>
+     <p>The only negative side of DateTimeOffset I see is that Microsoft "forgot" (by design) to support it in their XmlSerializer class. But it has since been added to the XmlConvert utility class.</p>
+     <p><a href="https://learn.microsoft.com/en-us/dotnet/api/system.xml.xmlconvert.todatetimeoffset?view=netframework-4.7.2" rel="nofollow noreferrer">XmlConvert.ToDateTimeOffset</a></p>
+     <p><a href="https://learn.microsoft.com/en-us/dotnet/api/system.xml.xmlconvert.tostring?view=netframework-4.7.2#System_Xml_XmlConvert_ToString_System_DateTimeOffset_System_String_" rel="nofollow noreferrer">XmlConvert.ToString</a></p>
+     <p>I say go ahead and use DateTimeOffset and TimeZoneInfo because of all the benefits, just beware when creating entities which will or may be serialized to or from XML (all business objects then).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

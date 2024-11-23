@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How do I make a Map&lt;String, List&lt;String&gt;&gt; with SpEL?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How do I make a Map&lt;String, List&lt;String&gt;&gt; with SpEL?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>András Ballai</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>30 Nov 2022 at 13:46</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74628826/how-do-i-make-a-mapstring-liststring-with-spel">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm making a config in my Spring application and I want to define a map:</p>
+    <pre class="lang-java prettyprint-override"><code>@Value("${ordering:#{{:}}")
+private Map&lt;String, List&lt;String&gt;&gt; ordering;
+</code></pre>
+    <p>Here's what's in my config:</p>
+    <pre><code>ordering = {'SOMEVALUE' : {'ONE', 'THREE', 'TWO'}, 'OTHERVALUE' : {'THREE', 'ONE', 'TWO'}}
+</code></pre>
+    <p>But this always gets read as null (so I assume invalid SpEL).<br>
+      The name of the variable and config value aren't misspelled and other values are loaded from the same config, so those parts are set up properly.<br>
+      How should such a map be defined, what am I screwing up? Is there an online tool for parsing SpEL?</p>
+    <p>I tried several things: adding and removing the single ticks, same for double ticks and wrapping the lists in an extra {}, but none of these helped and the value is still set to null.<br>
+      I also tried modifying the annotation, to no avail:</p>
+    <pre><code>@Value("#{${ordering:#{{:}}}")
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Nov 2022 at 14:45</span>
+     </div>
+    </div>
+    <div>
+     <p>Two changes are needed.</p>
+     <p><em>First change:</em></p>
+     <p>The entry in the config file needs to be adjusted. SpEL uses a <code>{key:value}</code> notation (<a href="https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#expressions-inline-maps" rel="nofollow noreferrer">reference</a>), where the <code>key</code> should not be enclosed in quotes.</p>
+     <p>So, use this:</p>
+     <pre><code>ordering = {SOMEVALUE : {'ONE', 'THREE', 'TWO'}, OTHERVALUE : {'THREE', 'ONE', 'TWO'}}
+</code></pre>
+     <p><em>Second change:</em></p>
+     <p>Now you can refer to this as follows in your Java:</p>
+     <pre class="lang-java prettyprint-override"><code>@Value("#{${ordering}}")
+private Map&lt;String, List&lt;String&gt;&gt; ordering;
+</code></pre>
+     <p>And if you want to provide a default empty map, you can use <code>{:}</code> as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>@Value("#{${ordering_MISSING : {:} }}")
+private Map&lt;String, List&lt;String&gt;&gt; ordering2;
+</code></pre>
+     <p>Because there is no property called <code>ordering_MISSING</code>, the default will be used.</p>
+     <p>Reference: <a href="https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#expressions-inline-maps" rel="nofollow noreferrer">inline maps</a></p>
+     <blockquote>
+      <p><code>{:}</code> by itself means an empty map.</p>
+     </blockquote>
+     <hr>
+     <p>"<em>is there an online tool for parsing SpEL?</em>" - I am not aware of one. Someone else may know of one.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for the help, your recommendations did definitively fix my value. However I have since realized that the reason why the value was null, was because I read it before it was assigned a value. What is proper SO etiquette in this case, do I change the title and accept my answer?</span> <span> - </span> <span class="display-name">András Ballai</span> <span> </span> <span class="date">30 Nov 2022 at 15:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The most important thing is: Your problem is resolved! Regarding etiquette - I am not sure, but I think your self-answer is a good approach. You should avoid editing the question in such a way that it fundamentally changes the question. That would cause existing answers and comments to no longer make sense (which could be confusing and misleading). After that, the usual guidelines apply: accept the answer which is most helpful (bearing in mind that accepting - and voting - are always optional steps: you don't have to do either one).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">30 Nov 2022 at 15:31</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>András Ballai</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Nov 2022 at 15:05</span>
+     </div>
+    </div>
+    <div>
+     <p>I think I figured out what I was doing wrong: My actual SpEL might have been correct at some point, but I'm parsing the data read from that and storing it in another variable, at which point <code>ordering</code> was <code>null</code>. What I forgot to consider is that the other field I'm parsing <code>ordering</code> into might (and does) get evaluated first.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

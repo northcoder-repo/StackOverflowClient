@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>When using Ajax with jQuery DataTables, how do I determine what to do with the data returned?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>When using Ajax with jQuery DataTables, how do I determine what to do with the data returned?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>John Wooten</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Nov 2020 at 15:34</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64944852/when-using-ajax-with-jquery-datatables-how-do-i-determine-what-to-do-with-the-d">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Like many others, I look at various answers to similar questions, search the web for examples etc., but unless I happen to find an almost identical case that I am experiencing, I can't figure out how to have the DataTable populated by the Ajax call. I think it would be helpful if someone could explain the steps that happen and how to use the various parameters of the Ajax call for DataTables to get the data in the proper form depending on how it is returned.</p>
+    <p>For instance:</p>
+    <pre><code>json returned from get_all_accounts.php
+
+{"accounts":{"account":[{"accountid":"2066","email":"Master (Blank) Defaults Acct","fullname":"Test","account_status":"Active","create_date":"2\/19\/2010 2:58:12 PM","last_login":"2\/19\/2010 3:03:43 PM","subscription_level":"Gold","license_type":"Test\/Free","group_name":"Default Accounts"},{"accountid":"2169","email":"Default@gmail.com"......}]}}
+</code></pre>
+    <p>Now, in the web page, I have:</p>
+    <pre><code>$(document).ready(function() {
+    oTable = $('#users').DataTable({
+    processing: true,
+    bStateSave: true,
+    ajax: {
+        url: "./get_all_accounts.php",
+                        dataType: "JSON",
+        dataSrc: ""
+    },
+    columns: [
+        { data: "accountid", width: "5%" },
+        { data:  "email" , width: "25%" },
+        { data:  "fullname" },
+        { data:  "group_name" },
+        { data: "subscription_level" },
+        { data: "account_status" },
+        { data: "license_type" },
+        { data: "create_date" }
+    ]
+    });
+</code></pre>
+    <p>I've tried various things for dataSrc, like "accounts", "accountid", "accounts:account". I can't change the incoming data. It's valid json, I believe. How do I describe what the form of the data being returned is? I do the same thing for another data source which returns:</p>
+    <p>{"data":[{"0":"55","id":"55","1":"2020-01... and the javascript:</p>
+    <p>... dataSrc: "data" }, columns: [ { data: "id", width: "5%" }, { data: "email" , width: "25%" }, ...</p>
+    <p>handles it perfectly. The only difference I can see is in this case we have {data:[{ row data },{row data}]), while in the problem one, there is one more level of structure, viz.</p>
+    <pre><code>    {accounts:{account:[{row data},{row data} ...
+</code></pre>
+    <p>How does one, in general, handle these cases?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">json</span><span class="tag">ajax</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Nov 2020 at 16:54</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Short Answer</strong></p>
+     <p>For your specific question, you were very close with <code>dataSrc: "accounts:account"</code>. Instead, it needs to be <code>dataSrc: "accounts.account"</code> - using a dot instead of a colon. This is standard JavaScript dotted object notation for navigating down through the levels of a JSON structure.</p>
+     <p>So:</p>
+     <pre class="lang-js prettyprint-override"><code>ajax: {
+  url: "./get_all_accounts.php",
+  dataType: "JSON", // not actually needed - will be inferred.
+  dataSrc: "accounts.account"
+},
+</code></pre>
+     <p><strong>Longer Answer</strong></p>
+     <p>When DataTables receives a JSON object via an ajax call, it needs the JSON to contain an array. Each item in the array needs to represent a row of data (or, at least, the raw materials for creating a row).</p>
+     <p>DataTables will handle iterating over this array for you automatically - but it may need some help from you to know where to find this array inside your JSON.</p>
+     <p>Some examples of possible JSON structures received by your ajax call:</p>
+     <p>An object containing an array of other objects:</p>
+     <pre><code>{ "data": [ {...},{...},... ] }
+</code></pre>
+     <p>An object containing an array of arrays:</p>
+     <pre><code>{ "data": [ [...],[...],... ] }
+</code></pre>
+     <p>In both these cases, the array has a name. In this case, the name is <code>data</code>.</p>
+     <p>By default, this is what DataTables expects: It assumes a top-level name of "data" for the array, which is therefore the starting point for row iteration.</p>
+     <p>If the array is named something other than <code>data</code>, then this is where you need to use the ajax <a href="https://datatables.net/reference/option/ajax.dataSrc" rel="nofollow noreferrer"><code>dataSrc</code></a> option, to tell DataTables what the array's name actually is:</p>
+     <pre><code>{ "myTableData": [ {...},{...},... ] }
+</code></pre>
+     <pre><code>$('#example').dataTable( {
+  "ajax": {
+    "url": "whatever",
+    "dataSrc": "myTableData"
+  }
+} );
+</code></pre>
+     <p>However, what if the JSON looks like this:</p>
+     <pre><code>[ {...},{...},... ]
+</code></pre>
+     <p>or like this:</p>
+     <pre><code>[ [...],[...],... ]
+</code></pre>
+     <p>In these cases, there is no name, so the <code>dataSrc</code> options needs to reflect that:</p>
+     <pre><code>$('#example').dataTable( {
+  "ajax": {
+    "url": "whatever",
+    "dataSrc": ""
+  }
+} );
+</code></pre>
+     <p>In your case, the JSON is as follows:</p>
+     <pre><code>{
+    "accounts": {
+        "account": [{
+            "accountid": "2066",
+            "email": "Master (Blank) Defaults Acct",
+            "fullname": "Test",
+            "account_status": "Active",
+            "create_date": "2\/19\/2010 2:58:12 PM",
+            "last_login": "2\/19\/2010 3:03:43 PM",
+            "subscription_level": "Gold",
+            "license_type": "Test\/Free",
+            "group_name": "Default Accounts"
+        }, {
+            "accountid": "2169",
+            "email": "Default@gmail.com"
+        }]
+    }
+}
+</code></pre>
+     <p>Yes, it contains an array, but the array is located at <code>accounts.account</code>. This uses standard JavaScript dotted object notation to navigate from the entry point of your JSON to the location of the array. Therefore the <code>dataSrc</code> option has to reflect that:</p>
+     <pre><code>$('#example').dataTable( {
+  "ajax": {
+    "url": "whatever",
+    "dataSrc": "accounts.account"
+  }
+} );
+</code></pre>
+     <p>Now, you can refer to each name/value pair in each object, using the <code>columns.data</code> option - like you do in the question:</p>
+     <pre><code>columns: [
+  { data: "accountid", width: "5%" },
+  { data: "email" , width: "25%" },
+  { data: "fullname" },
+  { data: "group_name" },
+  { data: "subscription_level" },
+  { data: "account_status" },
+  { data: "license_type" },
+  { data: "create_date" }
+]
+</code></pre>
+     <p><strong>Nested Row Data</strong></p>
+     <p>Just to carry on the "dotted object notation" idea further...</p>
+     <p>As well as there being a possible nesting of the main data array, you can also have nesting of data inside each row of data - for example:</p>
+     <pre class="lang-js prettyprint-override"><code>{
+  "name": "Tiger Nixon",
+  "hr": {
+    "position": "System Architect",
+    "salary": "$3,120",
+    "start_date": "2011/04/25"
+  },
+  "contact": [
+    "Edinburgh",
+    "5421"
+  ]
+}
+</code></pre>
+     <p>In this case, we can use the same dot approach to access nested column data:</p>
+     <pre class="lang-js prettyprint-override"><code>"columns": [
+  { "data": "name" },
+  { "data": "hr.position" },
+  { "data": "contact.0" },
+  { "data": "contact.1" },
+  { "data": "hr.start_date" },
+  { "data": "hr.salary" }
+]
+</code></pre>
+     <p>I <a href="https://datatables.net/examples/ajax/deep.html" rel="nofollow noreferrer">stole</a> this last example from the official documentation.</p>
+     <p>Take a look at the <a href="https://datatables.net/examples/ajax/" rel="nofollow noreferrer">Ajax Source Data</a> page for some more examples.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks! This is exactly the kind of answer I was hoping for. Clarity really helps.</span> <span> - </span> <span class="display-name">John Wooten</span> <span> </span> <span class="date">21 Nov 2020 at 19:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Look at example at: <a href="https://datatables.net/reference/option/ajax" rel="nofollow noreferrer">datatables.net/reference/option/ajax</a>. I implemented this and it doesn't work. Since I have a similar dataset that I can't get to work and was trying it. Has something changed since the example was published?</span> <span> - </span> <span class="display-name">John Wooten</span> <span> </span> <span class="date">28 Nov 2020 at 19:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Which example are you referring to? There are a few on that page. Can you maybe create a <a href="https://jsfiddle.net/" rel="nofollow noreferrer">fiddle</a> showing your code? The fiddle would have to include a sample of data, also. (I have not found any out-of-date examples in the documentation - it generally seems to be very well maintained.)</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Nov 2020 at 19:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Here is (hopefully) a link to a jsFiddle example, copied from the examples. Must be some error, but I can't see it. <a href="https://jsfiddle.net/Wooten/y4kdtm87/33/#&amp;togetherjs=ODygPdLPvm" rel="nofollow noreferrer">jsfiddle.net/Wooten/y4kdtm87/33/#&amp;togetherjs=ODygPdLPvm</a></span> <span> - </span> <span class="display-name">John Wooten</span> <span> </span> <span class="date">30 Nov 2020 at 22:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The fiddle example is mixing two separate approaches: ajax-sourced data vs. JavaScript-sourced data. By declaring your data in a JS variable <code>var dataSet = [...]</code>, that means you cannot use <code>ajax: {...}</code> to access that data (there is no URL for ajax to access). Instead the <code>data: dataSet</code> line is used on its own. You can see both approaches (ajax vs. JS) by going to <a href="https://datatables.net/examples/data_sources/" rel="nofollow noreferrer">this page</a> and following the relevant "Data Sources" links. Hope that helps!</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">30 Nov 2020 at 22:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks, the secret sauce was adding the column names part. Another place 'implied' that they weren't needed, but I would guess that had to be data from which the column names could be inferred. Fiddle now works! (And so does the code I was trying to get working).</span> <span> - </span> <span class="display-name">John Wooten</span> <span> </span> <span class="date">1 Dec 2020 at 17:07</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

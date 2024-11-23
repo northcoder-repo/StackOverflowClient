@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>ElasticSearch, Sphinx, Lucene, Solr, Xapian. Which fits for which usage?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>ElasticSearch, Sphinx, Lucene, Solr, Xapian. Which fits for which usage?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>449</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>dzen</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Feb 2010 at 08:59</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/2271600/elasticsearch-sphinx-lucene-solr-xapian-which-fits-for-which-usage">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm currently looking at other search methods rather than having a huge SQL query. I saw <a href="http://elasticsearch.org/" rel="noreferrer">elasticsearch</a> recently and played with <a href="http://whoosh.ca/" rel="noreferrer" title="Whoosh">whoosh</a> (a Python implementation of a search engine).</p>
+    <p>Can you give reasons for your choice(s)?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">solr</span><span class="tag">lucene</span><span class="tag">elasticsearch</span><span class="tag">sphinx</span><span class="tag">xapian</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>8</td>
+       <td><span>Sphinx vs Solr comparison: <a href="http://stackoverflow.com/questions/1284083/choosing-a-stand-alone-full-text-search-server-sphinx-or-solr" title="choosing a stand alone full text search server sphinx or solr">stackoverflow.com/questions/1284083/…</a></span> <span> - </span> <span class="display-name">Mauricio Scheffer</span> <span> </span> <span class="date">19 Feb 2010 at 23:57</span></td>
+      </tr>
+      <tr>
+       <td>9</td>
+       <td><span>Lucene vs Solr: <a href="http://stackoverflow.com/questions/1400892/search-engine-lucene-or-solr" title="search engine lucene or solr">stackoverflow.com/questions/1400892/…</a></span> <span> - </span> <span class="display-name">Mauricio Scheffer</span> <span> </span> <span class="date">19 Feb 2010 at 23:57</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Whoosh v. Solr: <a href="http://stackoverflow.com/questions/3226596/full-text-search-whoosh-vs-solr" title="full text search whoosh vs solr">stackoverflow.com/questions/3226596/…</a></span> <span> - </span> <span class="display-name">Williams</span> <span> </span> <span class="date">5 Mar 2013 at 14:11</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@Gizzmo. True, these questions help us to understand basics requirement. Shouldn't be closed. <a href="http://stackoverflow.com/questions/10213009/solr-vs-elasticsearch" title="solr vs elasticsearch">stackoverflow.com/questions/10213009/solr-vs-elasticsearch</a> and <a href="http://solr-vs-elasticsearch.com/" rel="nofollow noreferrer">solr-vs-elasticsearch.com</a> might be helpful.</span> <span> - </span> <span class="display-name">ChikuMiku</span> <span> </span> <span class="date">5 Jul 2016 at 18:09</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>817</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>kimchy</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Feb 2010 at 11:31</span>
+     </div>
+    </div>
+    <div>
+     <p>As the creator of ElasticSearch, maybe I can give you some reasoning on why I went ahead and created it in the first place :).</p>
+     <p>Using pure Lucene is challenging. There are many things that you need to take care for if you want it to really perform well, and also, its a library, so no distributed support, it's just an embedded Java library that you need to maintain.</p>
+     <p>In terms of Lucene usability, way back when (almost 6 years now), I created Compass. Its aim was to simplify using Lucene and make everyday Lucene simpler. What I came across time and time again is the requirement to be able to have Compass distributed. I started to work on it from within Compass, by integrating with data grid solutions like GigaSpaces, Coherence, and Terracotta, but it's not enough.</p>
+     <p>At its core, a distributed Lucene solution needs to be sharded. Also, with the advancement of HTTP and JSON as ubiquitous APIs, it means that a solution that many different systems with different languages can easily be used.</p>
+     <p>This is why I went ahead and created ElasticSearch. It has a very advanced distributed model, speaks JSON natively, and exposes many advanced search features, all seamlessly expressed through JSON DSL.</p>
+     <p>Solr is also a solution for exposing an indexing/search server over HTTP, but I would argue that <a href="http://www.elasticsearch.org/" rel="noreferrer">ElasticSearch</a> provides a much superior distributed model and ease of use (though currently lacking on some of the search features, but not for long, and in any case, the plan is to get all <em>Compass</em> features into ElasticSearch). Of course, I am biased, since I created ElasticSearch, so you might need to check for yourself.</p>
+     <p>As for Sphinx, I have not used it, so I can't comment. What I can refer you is to <a href="http://sphinxsearch.com/forum/view.html?id=5118" rel="noreferrer">this thread at Sphinx forum</a> which I think proves the superior distributed model of ElasticSearch.</p>
+     <p>Of course, ElasticSearch has many more features than just being distributed. It is actually built with a cloud in mind. You can check the feature list on the site.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>72</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>tommy chheng</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Feb 2010 at 23:11</span>
+     </div>
+    </div>
+    <div>
+     <p>I have used Sphinx, Solr and Elasticsearch. Solr/Elasticsearch are built on top of Lucene. It adds many common functionality: web server api, faceting, caching, etc.</p>
+     <p>If you want to just have a simple full text search setup, Sphinx is a better choice.</p>
+     <p>If you want to customize your search at all, Elasticsearch and Solr are the better choices. They are very extensible: you can write your own plugins to adjust result scoring.</p>
+     <p>Some example usages:</p>
+     <ul>
+      <li>Sphinx: craigslist.org</li>
+      <li>Solr: Cnet, Netflix, digg.com</li>
+      <li>Elasticsearch: Foursquare, Github</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>67</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Yuval F</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Feb 2010 at 10:51</span>
+     </div>
+    </div>
+    <div>
+     <p>We use Lucene regularly to index and search tens of millions of documents. Searches are quick enough, and we use incremental updates that do not take a long time. It did take us some time to get here. The strong points of Lucene are its scalability, a large range of features and an active community of developers. Using bare Lucene requires programming in Java.</p>
+     <p>If you are starting afresh, the tool for you in the Lucene family is <a href="http://lucene.apache.org/solr/" rel="noreferrer">Solr</a>, which is much easier to set up than bare Lucene, and has almost all of Lucene's power. It can import database documents easily. Solr are written in Java, so any modification of Solr requires Java knowledge, but you can do a lot just by tweaking configuration files.</p>
+     <p>I have also heard good things about Sphinx, especially in conjunction with a MySQL database. Have not used it, though.</p>
+     <p>IMO, you should choose according to:</p>
+     <ul>
+      <li>The required functionality - e.g. do you need a French stemmer? Lucene and Solr have one, I do not know about the others.</li>
+      <li>Proficiency in the implementation language - Do not touch Java Lucene if you do not know Java. You may need C++ to do stuff with Sphinx. Lucene has also been ported into <a href="http://lucene.apache.org/#What+Is+Lucene%3F" rel="noreferrer">other</a> <a href="http://framework.zend.com/manual/en/zend.search.lucene.overview.html" rel="noreferrer">languages</a>. This is mostly important if you want to extend the search engine.</li>
+      <li>Ease of experimentation - I believe Solr is best in this aspect.</li>
+      <li>Interfacing with other software - Sphinx has a good interface with MySQL. Solr supports ruby, XML and JSON interfaces as a RESTful server. Lucene only gives you programmatic access through Java. <a href="http://www.compass-project.org/" rel="noreferrer">Compass</a> and <a href="https://www.hibernate.org/410.html" rel="noreferrer">Hibernate Search</a> are wrappers of Lucene that integrate it into larger frameworks.</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>I have never used Xapian. It looks like a fine search library whose features are on a par with Lucene's. Again, things that matter most are your application needs, the environment in which you want the search engine to run, your proficiency in the implementation language (C++ in Xapian search, with bindings to many other languages) and how customizable is the engine.</span> <span> - </span> <span class="display-name">Yuval F</span> <span> </span> <span class="date">20 Apr 2011 at 07:52</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Emiliano M.</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Nov 2010 at 01:14</span>
+     </div>
+    </div>
+    <div>
+     <p>We use Sphinx in a Vertical Search project with 10.000.000 + of MySql records and 10+ different database . It has got very excellent support for MySQL and high performance on indexing , research is fast but maybe a little less than Lucene. However it's the right choice if you need quickly indexing every day and use a MySQL db.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>13</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Abdullah</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 May 2012 at 03:29</span>
+     </div>
+    </div>
+    <div>
+     <p>My sphinx.conf</p>
+     <pre><code>source post_source 
+{
+    type = mysql
+
+    sql_host = localhost
+    sql_user = ***
+    sql_pass = ***
+    sql_db =   ***
+    sql_port = 3306
+
+    sql_query_pre = SET NAMES utf8
+    # query before fetching rows to index
+
+    sql_query = SELECT *, id AS pid, CRC32(safetag) as safetag_crc32 FROM hb_posts
+
+
+    sql_attr_uint = pid  
+    # pid (as 'sql_attr_uint') is necessary for sphinx
+    # this field must be unique
+
+    # that is why I like sphinx
+    # you can store custom string fields into indexes (memory) as well
+    sql_field_string = title
+    sql_field_string = slug
+    sql_field_string = content
+    sql_field_string = tags
+
+    sql_attr_uint = category
+    # integer fields must be defined as sql_attr_uint
+
+    sql_attr_timestamp = date
+    # timestamp fields must be defined as sql_attr_timestamp
+
+    sql_query_info_pre = SET NAMES utf8
+    # if you need unicode support for sql_field_string, you need to patch the source
+    # this param. is not supported natively
+
+    sql_query_info = SELECT * FROM my_posts WHERE id = $id
+}
+
+index posts 
+{
+    source = post_source
+    # source above
+
+    path = /var/data/posts
+    # index location
+
+    charset_type = utf-8
+}
+</code></pre>
+     <p>Test script:</p>
+     <pre><code>&lt;?php
+
+    require "sphinxapi.php";
+
+    $safetag = $_GET["my_post_slug"];
+//  $safetag = preg_replace("/[^a-z0-9\-_]/i", "", $safetag);
+
+    $conf = getMyConf();
+
+    $cl = New SphinxClient();
+
+    $cl-&gt;SetServer($conf["server"], $conf["port"]);
+    $cl-&gt;SetConnectTimeout($conf["timeout"]);
+    $cl-&gt;setMaxQueryTime($conf["max"]);
+
+    # set search params
+    $cl-&gt;SetMatchMode(SPH_MATCH_FULLSCAN);
+    $cl-&gt;SetArrayResult(TRUE);
+
+    $cl-&gt;setLimits(0, 1, 1); 
+    # looking for the post (not searching a keyword)
+
+    $cl-&gt;SetFilter("safetag_crc32", array(crc32($safetag)));
+
+    # fetch results
+    $post = $cl-&gt;Query(null, "post_1");
+
+    echo "&lt;pre&gt;";
+    var_dump($post);
+    echo "&lt;/pre&gt;";
+    exit("done");
+?&gt;
+</code></pre>
+     <p>Sample result:</p>
+     <pre><code>[array] =&gt; 
+  "id" =&gt; 123,
+  "title" =&gt; "My post title.",
+  "content" =&gt; "My &lt;p&gt;post&lt;/p&gt; content.",
+   ...
+   [ and other fields ]
+</code></pre>
+     <p>Sphinx query time:</p>
+     <pre><code>0.001 sec.
+</code></pre>
+     <p>Sphinx query time (1k concurrent):</p>
+     <pre><code>=&gt; 0.346 sec. (average)
+=&gt; 0.340 sec. (average of last 10 query)
+</code></pre>
+     <p>MySQL query time:</p>
+     <pre><code>"SELECT * FROM hb_posts WHERE id = 123;"
+=&gt; 0.001 sec.
+</code></pre>
+     <p>MySQL query time (1k concurrent):</p>
+     <pre><code>"SELECT * FROM my_posts WHERE id = 123;" 
+=&gt; 1.612 sec. (average)
+=&gt; 1.920 sec. (average of last 10 query)
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>larley</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Feb 2010 at 06:20</span>
+     </div>
+    </div>
+    <div>
+     <p>Lucene is nice and all, but their stop word set is awful. I had to manually add a ton of stop words to StopAnalyzer.ENGLISH_STOP_WORDS_SET just to get it anywhere near usable.</p>
+     <p>I haven't used Sphinx but I know people swear by its speed and near-magical "ease of setup to awesomeness" ratio.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Spike</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Feb 2011 at 15:41</span>
+     </div>
+    </div>
+    <div>
+     <p>Try indextank.</p>
+     <p>As the case of elastic search, it was conceived to be much easier to use than lucene/solr. It also includes very flexible scoring system that can be tweaked without reindexing.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>scoring can be tweek at runtime with solr too</span> <span> - </span> <span class="display-name">Karussell</span> <span> </span> <span class="date">11 May 2011 at 14:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>now there is no indextank anymore</span> <span> - </span> <span class="display-name">Karussell</span> <span> </span> <span class="date">14 Oct 2011 at 18:12</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>LinkdenIn open sources IndexTank, <a href="https://github.com/linkedin/indextank-engine" rel="nofollow noreferrer">github.com/linkedin/indextank-engine</a></span> <span> - </span> <span class="display-name">user452425</span> <span> </span> <span class="date">22 Dec 2011 at 07:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

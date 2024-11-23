@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why do we set the similarity function at index time in Lucene?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why do we set the similarity function at index time in Lucene?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Venkatesh Vinayakarao</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Nov 2020 at 16:52</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64755809/why-do-we-set-the-similarity-function-at-index-time-in-lucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>How does Lucene use Similarity during indexing time? I understand the role of similarity while reading the index. So, <code>searcher.setSimilarity()</code> makes sense in scoring. What is the use of <code>IndexWriterConfig.setSimilarity()</code>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Nov 2020 at 20:24</span>
+     </div>
+    </div>
+    <div>
+     <p><strong><em>How does Lucene use Similarity during indexing time?</em></strong></p>
+     <p>The short answer is: Lucene captures some statistics at indexing time which can then be used to support scoring at query time. I expect it is simply a matter of efficiency that these are captured as part of the indexing process, rather than being repeatedly re-computed on the fly, when running queries.</p>
+     <p>There is a section in the <a href="https://lucene.apache.org/core/8_7_0/core/org/apache/lucene/search/similarities/Similarity.html" rel="nofollow noreferrer"><code>Similarity</code></a> javadoc which describes this at a high level:</p>
+     <blockquote>
+      <p><em>At indexing time, the indexer calls <a href="https://lucene.apache.org/core/8_7_0/core/org/apache/lucene/search/similarities/Similarity.html#computeNorm-org.apache.lucene.index.FieldInvertState-" rel="nofollow noreferrer"><code>computeNorm(FieldInvertState)</code></a>, allowing the Similarity implementation to set a per-document value for the field that will be later accessible via LeafReader.getNormValues(String).</em></p>
+     </blockquote>
+     <p>The javadoc goes on to describe further details - for example:</p>
+     <blockquote>
+      <p><em>Many formulas require the use of average document length, which can be computed via a combination of CollectionStatistics.sumTotalTermFreq() and CollectionStatistics.docCount().</em></p>
+     </blockquote>
+     <p>So, for example, the <a href="https://lucene.apache.org/core/8_7_0/core/org/apache/lucene/codecs/lucene86/Lucene86SegmentInfoFormat.html" rel="nofollow noreferrer">segment info</a> file within a Lucene index records the number of documents in each segment.</p>
+     <p>There are other statistics which can be captured in an index to support scoring calculations at query time. You can see a summary of these stats in the <a href="https://lucene.apache.org/core/8_7_0/core/org/apache/lucene/codecs/lucene87/package-summary.html#Overview" rel="nofollow noreferrer">Index Structure Overview</a> documentation - with links to further details.</p>
+     <p><strong><em>What is the use of IndexWriterConfig.setSimilarity()?</em></strong></p>
+     <p>This is a related question which follows on from the above points.</p>
+     <p>By default, Lucene uses the <a href="https://lucene.apache.org/core/8_7_0/core/org/apache/lucene/search/similarities/BM25Similarity.html" rel="nofollow noreferrer"><code>BM25Similarity</code></a> formula.</p>
+     <p>That is one of a few different scoring models that you may choose to use (or you can define your own). The <code>setSimilarity()</code> method is how you can choose a different similarity (scoring model) from the default one. This means different statistics may need to be captured (and then used in different ways) to support the chosen scoring model.</p>
+     <p>It would not make sense to use one scoring model at indexing time, and a different one at query time.</p>
+     <p>(Just to note: I have never set the similarity scoring model myself - I have always used the default model.)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks. This answers my question.</span> <span> - </span> <span class="display-name">Venkatesh Vinayakarao</span> <span> </span> <span class="date">15 Nov 2020 at 15:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

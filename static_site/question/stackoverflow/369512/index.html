@@ -1,0 +1,1359 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to compare objects by multiple fields</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to compare objects by multiple fields</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>316</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Yuval Adam</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Dec 2008 at 19:56</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/369512/how-to-compare-objects-by-multiple-fields">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Assume you have some objects which have several fields they can be compared by:</p>
+    <pre><code>public class Person {
+
+    private String firstName;
+    private String lastName;
+    private String age;
+
+    /* Constructors */
+
+    /* Methods */
+
+}
+</code></pre>
+    <p>So in this example, when you ask if:</p>
+    <pre><code>a.compareTo(b) &gt; 0
+</code></pre>
+    <p>you might be asking if a's last name comes before b's, or if a is older than b, etc...</p>
+    <p>What is the cleanest way to enable multiple comparison between these kinds of objects without adding unnecessary clutter or overhead?</p>
+    <ul>
+     <li><code>java.lang.Comparable</code> interface allows comparison by one field only</li>
+     <li>Adding numerous compare methods (i.e. <code>compareByFirstName()</code>, <code>compareByAge()</code>, etc...) is cluttered in my opinion.</li>
+    </ul>
+    <p>So what is the best way to go about this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">oop</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>5</td>
+       <td><span>why is this a cw? It's a perfectly valid programming question.</span> <span> - </span> <span class="display-name">Elie</span> <span> </span> <span class="date">15 Dec 2008 at 20:42</span></td>
+      </tr>
+      <tr>
+       <td>3</td>
+       <td><span>Are you aware that Comparable allows comparison by as many fields as you like?</span> <span> - </span> <span class="display-name">DJClayworth</span> <span> </span> <span class="date">15 Dec 2008 at 20:47</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>possible duplicate of <a href="http://stackoverflow.com/questions/16206629/using-comparable-for-multiple-dynamic-fields-of-vo-in-java">Using Comparable for multiple dynamic fields of VO in java</a></span> <span> - </span> <span class="display-name">eugenevd</span> <span> </span> <span class="date">27 Feb 2014 at 11:51</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>535</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Display Name</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Aug 2014 at 08:25</span>
+     </div>
+    </div>
+    <div>
+     <p>With Java 8:</p>
+     <pre><code>Comparator.comparing((Person p)-&gt;p.firstName)
+          .thenComparing(p-&gt;p.lastName)
+          .thenComparingInt(p-&gt;p.age);
+</code></pre>
+     <p>If you have accessor methods:</p>
+     <pre><code>Comparator.comparing(Person::getFirstName)
+          .thenComparing(Person::getLastName)
+          .thenComparingInt(Person::getAge);
+</code></pre>
+     <p>If a class implements Comparable then such comparator may be used in compareTo method:</p>
+     <pre><code>@Override
+public int compareTo(Person o){
+    return Comparator.comparing(Person::getFirstName)
+              .thenComparing(Person::getLastName)
+              .thenComparingInt(Person::getAge)
+              .compare(this, o);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>14</td>
+        <td><span>Especially the cast <code>(Person p)</code> is important for chained comparators.</span> <span> - </span> <span class="display-name">membersound</span> <span> </span> <span class="date">6 Oct 2017 at 07:42</span></td>
+       </tr>
+       <tr>
+        <td>8</td>
+        <td><span>How efficient it is when comparing a large number of objects, e.g. when sorting? Does it have to create new <code>Comparator</code> instances in every call?</span> <span> - </span> <span class="display-name">jjurm</span> <span> </span> <span class="date">20 Nov 2017 at 22:38</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>I get a NullPointerException when one of the fields I am comparing is null, like a String. Is there anyway to keep this compare format but allow it to be null safe?</span> <span> - </span> <span class="display-name">rveach</span> <span> </span> <span class="date">4 May 2018 at 21:15</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>@jjurm <code>.thenComparing(Person::getLastName, Comparator.nullsFirst(Comparator.naturalOrder()))</code> - first field selector, then comparator</span> <span> - </span> <span class="display-name">gavenkoa</span> <span> </span> <span class="date">30 May 2018 at 14:22</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>@jjurm when you use it in <code>compareTo</code> as shown above the <code>Comparator</code> is created each time the method is called. You could prevent this by storing the comparator in a private static final field.</span> <span> - </span> <span class="display-name">Gandalf</span> <span> </span> <span class="date">23 Oct 2018 at 22:25</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@membersound: <code>(Person p)</code> is not a cast. It's the type declaration of the argument of the lambda expression.</span> <span> - </span> <span class="display-name">Stefan Steinegger</span> <span> </span> <span class="date">2 Dec 2020 at 14:53</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>181</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Steve Kuo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2008 at 22:07</span>
+     </div>
+    </div>
+    <div>
+     <p>You should implement <code>Comparable &lt;Person&gt;</code>. Assuming all fields will not be null (for simplicity sake), that age is an int, and compare ranking is first, last, age, the <code>compareTo</code> method is quite simple:</p>
+     <pre><code>public int compareTo(Person other) {
+    int i = firstName.compareTo(other.firstName);
+    if (i != 0) return i;
+
+    i = lastName.compareTo(other.lastName);
+    if (i != 0) return i;
+
+    return Integer.compare(age, other.age);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>10</td>
+        <td><span>if you implement Comparable&lt;Person&gt; then the method is compareTo(Person p).. it seems that this answer was mixed up with Comparator's compare&lt;T o1, T o2&gt; method</span> <span> - </span> <span class="display-name">Mike</span> <span> </span> <span class="date">14 Dec 2012 at 12:59</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>This is not recommended. Use Comparator when you have multiple fields.</span> <span> - </span> <span class="display-name">indika</span> <span> </span> <span class="date">20 Apr 2014 at 04:09</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>that's the best solution at the moment, (better than more comparators)</span> <span> - </span> <span class="display-name">Vasile Surdu</span> <span> </span> <span class="date">6 Jun 2014 at 18:41</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@indika, I'm curious: why is this not recommended? Comparing using more than one property seems perfectly fine to me.</span> <span> - </span> <span class="display-name">ars-longa-vita-brevis</span> <span> </span> <span class="date">25 Sep 2014 at 22:31</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@ars-longa-vita-brevis, If you are using Comparable then sorting logic must be in the same class whose objects are being sorted so this is called natural ordering of objects. With the use of Comparator you can write custom sorting logic outside the Person class. If you want to compare Person objects only by its first name or last name, you cant use this logic. You have to write it again,</span> <span> - </span> <span class="display-name">indika</span> <span> </span> <span class="date">26 Sep 2014 at 06:38</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>130</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Benny Bottema</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Nov 2013 at 10:41</span>
+     </div>
+    </div>
+    <div>
+     <p>(from <a href="http://blog.bennybottema.com/2013/06/21/ways-to-sort-lists-of-objects-in-java-based-on-multiple-fields/" rel="noreferrer">Ways to sort lists of objects in Java based on multiple fields</a>)</p>
+     <p>Working code in <a href="https://gist.github.com/bbottema/b891b25bf56e0ccb1f83" rel="noreferrer">this gist</a></p>
+     <h2>Using Java 8 lambda's (added April 10, 2019)</h2>
+     <p>Java 8 solves this nicely by lambda's (though Guava and Apache Commons might still offer more flexibility):</p>
+     <pre><code>Collections.sort(reportList, Comparator.comparing(Report::getReportKey)
+            .thenComparing(Report::getStudentNumber)
+            .thenComparing(Report::getSchool));
+</code></pre>
+     <p>Thanks to @gaoagong's <a href="https://stackoverflow.com/a/36367245/441662">answer below</a>.</p>
+     <h2>Messy and convoluted: Sorting by hand</h2>
+     <pre><code>Collections.sort(pizzas, new Comparator&lt;Pizza&gt;() {  
+    @Override  
+    public int compare(Pizza p1, Pizza p2) {  
+        int sizeCmp = p1.size.compareTo(p2.size);  
+        if (sizeCmp != 0) {  
+            return sizeCmp;  
+        }  
+        int nrOfToppingsCmp = p1.nrOfToppings.compareTo(p2.nrOfToppings);  
+        if (nrOfToppingsCmp != 0) {  
+            return nrOfToppingsCmp;  
+        }  
+        return p1.name.compareTo(p2.name);  
+    }  
+});  
+</code></pre>
+     <p>This requires a lot of typing, maintenance and is error prone.</p>
+     <h2>The reflective way: Sorting with BeanComparator</h2>
+     <pre><code>ComparatorChain chain = new ComparatorChain(Arrays.asList(
+   new BeanComparator("size"), 
+   new BeanComparator("nrOfToppings"), 
+   new BeanComparator("name")));
+
+Collections.sort(pizzas, chain);  
+</code></pre>
+     <p>Obviously this is more concise, but even more error prone as you lose your direct reference to the fields by using Strings instead (no typesafety, auto-refactorings). Now if a field is renamed, the compiler won’t even report a problem. Moreover, because this solution uses reflection, the sorting is much slower.</p>
+     <h2>Getting there: Sorting with Google Guava’s ComparisonChain</h2>
+     <pre><code>Collections.sort(pizzas, new Comparator&lt;Pizza&gt;() {  
+    @Override  
+    public int compare(Pizza p1, Pizza p2) {  
+        return ComparisonChain.start().compare(p1.size, p2.size).compare(p1.nrOfToppings, p2.nrOfToppings).compare(p1.name, p2.name).result();  
+        // or in case the fields can be null:  
+        /* 
+        return ComparisonChain.start() 
+           .compare(p1.size, p2.size, Ordering.natural().nullsLast()) 
+           .compare(p1.nrOfToppings, p2.nrOfToppings, Ordering.natural().nullsLast()) 
+           .compare(p1.name, p2.name, Ordering.natural().nullsLast()) 
+           .result(); 
+        */  
+    }  
+});  
+</code></pre>
+     <p>This is much better, but requires some boiler plate code for the most common use case: null-values should be valued less by default. For null-fields, you have to provide an extra directive to Guava what to do in that case. This is a flexible mechanism if you want to do something specific, but often you want the default case (ie. 1, a, b, z, null).</p>
+     <h2>Sorting with Apache Commons CompareToBuilder</h2>
+     <pre><code>Collections.sort(pizzas, new Comparator&lt;Pizza&gt;() {  
+    @Override  
+    public int compare(Pizza p1, Pizza p2) {  
+        return new CompareToBuilder().append(p1.size, p2.size).append(p1.nrOfToppings, p2.nrOfToppings).append(p1.name, p2.name).toComparison();  
+    }  
+});  
+</code></pre>
+     <p>Like Guava’s ComparisonChain, this library class sorts easily on multiple fields, but also defines default behavior for null values (ie. 1, a, b, z, null). However, you can’t specify anything else either, unless you provide your own Comparator.</p>
+     <h2>Thus</h2>
+     <p>Ultimately it comes down to flavor and the need for flexibility (Guava’s ComparisonChain) vs. concise code (Apache’s CompareToBuilder).</p>
+     <h2>Bonus method</h2>
+     <p>I found a nice solution that combines multiple comparators in order of priority <a href="https://codereview.stackexchange.com/a/74764/52676">on CodeReview</a> in a <code>MultiComparator</code>:</p>
+     <pre><code>class MultiComparator&lt;T&gt; implements Comparator&lt;T&gt; {
+    private final List&lt;Comparator&lt;T&gt;&gt; comparators;
+
+    public MultiComparator(List&lt;Comparator&lt;? super T&gt;&gt; comparators) {
+        this.comparators = comparators;
+    }
+
+    public MultiComparator(Comparator&lt;? super T&gt;... comparators) {
+        this(Arrays.asList(comparators));
+    }
+
+    public int compare(T o1, T o2) {
+        for (Comparator&lt;T&gt; c : comparators) {
+            int result = c.compare(o1, o2);
+            if (result != 0) {
+                return result;
+            }
+        }
+        return 0;
+    }
+
+    public static &lt;T&gt; void sort(List&lt;T&gt; list, Comparator&lt;? super T&gt;... comparators) {
+        Collections.sort(list, new MultiComparator&lt;T&gt;(comparators));
+    }
+}
+</code></pre>
+     <p>Ofcourse Apache Commons Collections has a util for this already:</p>
+     <p><a href="http://commons.apache.org/proper/commons-collections/javadocs/api-2.1.1/org/apache/commons/collections/ComparatorUtils.html#chainedComparator(java.util.Collection)" rel="noreferrer">ComparatorUtils.chainedComparator(comparatorCollection)</a></p>
+     <pre><code>Collections.sort(list, ComparatorUtils.chainedComparator(comparators));
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>90</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Elie</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2008 at 20:06</span>
+     </div>
+    </div>
+    <div>
+     <p>You can implement a <code>Comparator</code> which compares two <code>Person</code> objects, and you can examine as many of the fields as you like. You can put in a variable in your comparator that tells it which field to compare to, although it would probably be simpler to just write multiple comparators.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>6</td>
+        <td><span>I Actually prefer the idea of using a single Comparator. I don't think this answer is wrong, but anyone reading it should definitely check Steve Kuo answer below.</span> <span> - </span> <span class="display-name">Felipe Leão</span> <span> </span> <span class="date">13 Nov 2014 at 12:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The multiple comparators was only if you want different comparison methods that are not a function of the data itself - i.e. sometimes you want to compare by name, other times by age, etc. To compare by multiple fields at the same time, only one comparator would be necessary.</span> <span> - </span> <span class="display-name">Elie</span> <span> </span> <span class="date">13 Nov 2014 at 17:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nigel_V_Thomas</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Jul 2011 at 18:38</span>
+     </div>
+    </div>
+    <div>
+     <p>@Patrick To sort more than one field consecutively try <a href="https://commons.apache.org/proper/commons-collections/javadocs/api-2.1.1/org/apache/commons/collections/comparators/ComparatorChain.html" rel="noreferrer">ComparatorChain</a></p>
+     <blockquote>
+      <p>A ComparatorChain is a Comparator that wraps one or more Comparators in sequence. The ComparatorChain calls each Comparator in sequence until either 1) any single Comparator returns a non-zero result (and that result is then returned), or 2) the ComparatorChain is exhausted (and zero is returned). This type of sorting is very similar to multi-column sorting in SQL, and this class allows Java classes to emulate that kind of behaviour when sorting a List.</p>
+      <p>To further facilitate SQL-like sorting, the order of any single Comparator in the list can &gt;be reversed.</p>
+      <p>Calling a method that adds new Comparators or changes the ascend/descend sort after compare(Object, Object) has been called will result in an UnsupportedOperationException. However, take care to not alter the underlying List of Comparators or the BitSet that defines the sort order.</p>
+      <p>Instances of ComparatorChain are not synchronized. The class is not thread-safe at construction time, but it is thread-safe to perform multiple comparisons after all the setup operations are complete.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Xeroiris</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Oct 2014 at 13:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Another option you can always consider is Apache Commons. It provides a lot of options.</p>
+     <pre><code>import org.apache.commons.lang3.builder.CompareToBuilder;
+</code></pre>
+     <p>Ex:</p>
+     <pre><code>public int compare(Person a, Person b){
+
+   return new CompareToBuilder()
+     .append(a.getName(), b.getName())
+     .append(a.getAddress(), b.getAddress())
+     .toComparison();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ran Adler</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jun 2013 at 13:44</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>import com.google.common.collect.ComparisonChain;
+
+/**
+ * @author radler
+ * Class Description ...
+ */
+public class Attribute implements Comparable&lt;Attribute&gt; {
+
+    private String type;
+    private String value;
+
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+
+    public String getValue() { return value; }
+    public void setValue(String value) { this.value = value; }
+
+    @Override
+    public String toString() {
+        return "Attribute [type=" + type + ", value=" + value + "]";
+    }
+
+    @Override
+    public int compareTo(Attribute that) {
+        return ComparisonChain.start()
+            .compare(this.type, that.type)
+            .compare(this.value, that.value)
+            .result();
+    }
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>I like this strategy a lot. Thanks!</span> <span> - </span> <span class="display-name">Mr. Polywhirl</span> <span> </span> <span class="date">20 Apr 2018 at 17:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Most effective way! Thanks</span> <span> - </span> <span class="display-name">Zakaria Bouazza</span> <span> </span> <span class="date">7 Apr 2020 at 12:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>13</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Boune</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2008 at 23:34</span>
+     </div>
+    </div>
+    <div>
+     <p>You can also have a look at Enum that implements Comparator.</p>
+     <p><a href="http://tobega.blogspot.com/2008/05/beautiful-enums.html" rel="nofollow noreferrer">http://tobega.blogspot.com/2008/05/beautiful-enums.html</a></p>
+     <p>e.g.</p>
+     <pre><code>Collections.sort(myChildren, Child.Order.ByAge.descending());
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Luke Machowski</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Nov 2014 at 12:39</span>
+     </div>
+    </div>
+    <div>
+     <p>For those able to use the Java 8 streaming API, there is a neater approach that is well documented here: <a href="http://blog.jooq.org/2014/01/31/java-8-friday-goodies-lambdas-and-sorting/" rel="noreferrer">Lambdas and sorting</a></p>
+     <p>I was looking for the equivalent of the C# LINQ:</p>
+     <pre><code>.ThenBy(...)
+</code></pre>
+     <p>I found the mechanism in Java 8 on the Comparator:</p>
+     <pre><code>.thenComparing(...)
+</code></pre>
+     <p>So here is the snippet that demonstrates the algorithm.</p>
+     <pre><code>    Comparator&lt;Person&gt; comparator = Comparator.comparing(person -&gt; person.name);
+    comparator = comparator.thenComparing(Comparator.comparing(person -&gt; person.age));
+</code></pre>
+     <p>Check out the link above for a neater way and an explanation about how Java's type inference makes it a bit more clunky to define compared to LINQ.</p>
+     <p>Here is the full unit test for reference:</p>
+     <pre><code>@Test
+public void testChainedSorting()
+{
+    // Create the collection of people:
+    ArrayList&lt;Person&gt; people = new ArrayList&lt;&gt;();
+    people.add(new Person("Dan", 4));
+    people.add(new Person("Andi", 2));
+    people.add(new Person("Bob", 42));
+    people.add(new Person("Debby", 3));
+    people.add(new Person("Bob", 72));
+    people.add(new Person("Barry", 20));
+    people.add(new Person("Cathy", 40));
+    people.add(new Person("Bob", 40));
+    people.add(new Person("Barry", 50));
+
+    // Define chained comparators:
+    // Great article explaining this and how to make it even neater:
+    // http://blog.jooq.org/2014/01/31/java-8-friday-goodies-lambdas-and-sorting/
+    Comparator&lt;Person&gt; comparator = Comparator.comparing(person -&gt; person.name);
+    comparator = comparator.thenComparing(Comparator.comparing(person -&gt; person.age));
+
+    // Sort the stream:
+    Stream&lt;Person&gt; personStream = people.stream().sorted(comparator);
+
+    // Make sure that the output is as expected:
+    List&lt;Person&gt; sortedPeople = personStream.collect(Collectors.toList());
+    Assert.assertEquals("Andi",  sortedPeople.get(0).name); Assert.assertEquals(2,  sortedPeople.get(0).age);
+    Assert.assertEquals("Barry", sortedPeople.get(1).name); Assert.assertEquals(20, sortedPeople.get(1).age);
+    Assert.assertEquals("Barry", sortedPeople.get(2).name); Assert.assertEquals(50, sortedPeople.get(2).age);
+    Assert.assertEquals("Bob",   sortedPeople.get(3).name); Assert.assertEquals(40, sortedPeople.get(3).age);
+    Assert.assertEquals("Bob",   sortedPeople.get(4).name); Assert.assertEquals(42, sortedPeople.get(4).age);
+    Assert.assertEquals("Bob",   sortedPeople.get(5).name); Assert.assertEquals(72, sortedPeople.get(5).age);
+    Assert.assertEquals("Cathy", sortedPeople.get(6).name); Assert.assertEquals(40, sortedPeople.get(6).age);
+    Assert.assertEquals("Dan",   sortedPeople.get(7).name); Assert.assertEquals(4,  sortedPeople.get(7).age);
+    Assert.assertEquals("Debby", sortedPeople.get(8).name); Assert.assertEquals(3,  sortedPeople.get(8).age);
+    // Andi     : 2
+    // Barry    : 20
+    // Barry    : 50
+    // Bob      : 40
+    // Bob      : 42
+    // Bob      : 72
+    // Cathy    : 40
+    // Dan      : 4
+    // Debby    : 3
+}
+
+/**
+ * A person in our system.
+ */
+public static class Person
+{
+    /**
+     * Creates a new person.
+     * @param name The name of the person.
+     * @param age The age of the person.
+     */
+    public Person(String name, int age)
+    {
+        this.age = age;
+        this.name = name;
+    }
+
+    /**
+     * The name of the person.
+     */
+    public String name;
+
+    /**
+     * The age of the person.
+     */
+    public int age;
+
+    @Override
+    public String toString()
+    {
+        if (name == null) return super.toString();
+        else return String.format("%s : %d", this.name, this.age);
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>missingfaktor</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jun 2012 at 21:35</span>
+     </div>
+    </div>
+    <div>
+     <p>Writing a <code>Comparator</code> manually for such an use case is a terrible solution IMO. Such ad hoc approaches have many drawbacks:</p>
+     <ul>
+      <li>No code reuse. Violates DRY.</li>
+      <li>Boilerplate.</li>
+      <li>Increased possibility of errors.</li>
+     </ul>
+     <hr>
+     <p><strong>So what's the solution?</strong></p>
+     <p>First some theory.</p>
+     <p>Let us denote the proposition "type <code>A</code> supports comparison" by <code>Ord A</code>. (From program perspective, you can think of <code>Ord A</code> as an object containing logic for comparing two <code>A</code>s. Yes, just like <code>Comparator</code>.)</p>
+     <p>Now, if <code>Ord A</code> and <code>Ord B</code>, then their composite <code>(A, B)</code> should also support comparison. i.e. <code>Ord (A, B)</code>. If <code>Ord A</code>, <code>Ord B</code>, and <code>Ord C</code>, then <code>Ord (A, B, C)</code>.</p>
+     <p>We can extend this argument to arbitrary arity, and say:</p>
+     <p><code>Ord A, Ord B, Ord C, ..., Ord Z</code> ⇒ <code>Ord (A, B, C, .., Z)</code></p>
+     <p>Let's call this statement 1.</p>
+     <p>The comparison of the composites will work just as you described in your question: the first comparison will be tried first, then the next one, then the next, and so on.</p>
+     <p>That's the first part of our solution. Now the second part.</p>
+     <p>If you know that <code>Ord A</code>, and know how to transform <code>B</code> to <code>A</code> (call that transformation function <code>f</code>), then you can also have <code>Ord B</code>. How? Well, when the two <code>B</code> instances are to be compared, you first transform them to <code>A</code> using <code>f</code> and then apply <code>Ord A</code>.</p>
+     <p>Here, we are mapping the transformation <code>B → A</code> to <code>Ord A → Ord B</code>. This is known as contravariant mapping (or <code>comap</code> for short).</p>
+     <p><code>Ord A, (B → A)</code> ⇒<sub>comap</sub> <code>Ord B</code></p>
+     <p>Let's call this statement 2.</p>
+     <hr>
+     <p>Now let's apply this to your example.</p>
+     <p>You have a data type named <code>Person</code> that comprises three fields of type <code>String</code>.</p>
+     <ul>
+      <li>
+       <p>We know that <code>Ord String</code>. By statement 1, <code>Ord (String, String, String)</code>.</p></li>
+      <li>
+       <p>We can easily write a function from <code>Person</code> to <code>(String, String, String)</code>. (Just return the three fields.) Since we know <code>Ord (String, String, String)</code> and <code>Person → (String, String, String)</code>, by statement 2, we can use <code>comap</code> to get <code>Ord Person</code>.</p></li>
+     </ul>
+     <p>QED.</p>
+     <hr>
+     <p><strong>How do I implement all these concepts?</strong></p>
+     <p>The good news is you don't have to. There already exists <a href="http://functionaljava.org/" rel="noreferrer">a library</a> which implements all the ideas described in this post. (If you are curious how these are implemented, you can <a href="https://github.com/functionaljava/functionaljava" rel="noreferrer">look under the hood</a>.)</p>
+     <p>This is how the code will look with it:</p>
+     <pre><code>Ord&lt;Person&gt; personOrd = 
+ p3Ord(stringOrd, stringOrd, stringOrd).comap(
+   new F&lt;Person, P3&lt;String, String, String&gt;&gt;() {
+     public P3&lt;String, String, String&gt; f(Person x) {
+       return p(x.getFirstName(), x.getLastname(), x.getAge());
+     }
+   }
+ );
+</code></pre>
+     <p><strong>Explanation:</strong></p>
+     <ul>
+      <li><a href="http://functionaljava.googlecode.com/svn/artifacts/3.0/javadoc/fj/Ord.html#stringOrd" rel="noreferrer"><code>stringOrd</code></a> is an object of type <code>Ord&lt;String&gt;</code>. This corresponds to our original "supports comparison" proposition.</li>
+      <li><a href="http://functionaljava.googlecode.com/svn/artifacts/3.0/javadoc/fj/Ord.html#p3Ord%28fj.Ord,%20fj.Ord,%20fj.Ord%29" rel="noreferrer"><code>p3Ord</code></a> is a method that takes <code>Ord&lt;A&gt;</code>, <code>Ord&lt;B&gt;</code>, <code>Ord&lt;C&gt;</code>, and returns <code>Ord&lt;P3&lt;A, B, C&gt;&gt;</code>. This corresponds to statement 1. (<a href="http://functionaljava.googlecode.com/svn/artifacts/3.0/javadoc/fj/P3.html" rel="noreferrer"><code>P3</code></a> stands for product with three elements. Product is an algebraic term for composites.)</li>
+      <li><a href="http://functionaljava.googlecode.com/svn/artifacts/3.0/javadoc/fj/Ord.html#comap%28fj.F%29" rel="noreferrer"><code>comap</code></a> corresponds to well, <code>comap</code>.</li>
+      <li><a href="http://functionaljava.googlecode.com/svn/artifacts/3.0/javadoc/fj/F.html" rel="noreferrer"><code>F&lt;A, B&gt;</code></a> represents a transformation function <code>A → B</code>.</li>
+      <li><a href="http://functionaljava.googlecode.com/svn/artifacts/3.0/javadoc/fj/P.html#p%28A,%20B,%20C%29" rel="noreferrer"><code>p</code></a> is a factory method for creating products.</li>
+      <li>The whole expression corresponds to statement 2.</li>
+     </ul>
+     <p>Hope that helps.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Marc Novakowski</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2008 at 20:01</span>
+     </div>
+    </div>
+    <div>
+     <p>Instead of comparison methods you may want to just define several types of "Comparator" subclasses inside the Person class. That way you can pass them into standard Collections sorting methods.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pawan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 May 2018 at 22:14</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>//Following is the example in jdk 1.8
+package com;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+class User {
+    private String firstName;
+    private String lastName;
+    private Integer age;
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public User setAge(Integer age) {
+        this.age = age;
+        return this;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public User setFirstName(String firstName) {
+        this.firstName = firstName;
+        return this;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public User setLastName(String lastName) {
+        this.lastName = lastName;
+        return this;
+    }
+
+}
+
+public class MultiFieldsComparision {
+
+    public static void main(String[] args) {
+        List&lt;User&gt; users = new ArrayList&lt;User&gt;();
+
+        User u1 = new User().setFirstName("Pawan").setLastName("Singh").setAge(38);
+        User u2 = new User().setFirstName("Pawan").setLastName("Payal").setAge(37);
+        User u3 = new User().setFirstName("Anuj").setLastName("Kumar").setAge(60);
+        User u4 = new User().setFirstName("Anuj").setLastName("Kumar").setAge(43);
+        User u5 = new User().setFirstName("Pawan").setLastName("Chamoli").setAge(44);
+        User u6 = new User().setFirstName("Pawan").setLastName("Singh").setAge(5);
+
+        users.add(u1);
+        users.add(u2);
+        users.add(u3);
+        users.add(u4);
+        users.add(u5);
+        users.add(u6);
+
+        System.out.println("****** Before Sorting ******");
+
+        users.forEach(user -&gt; {
+            System.out.println(user.getFirstName() + " , " + user.getLastName() + " , " + user.getAge());
+        });
+
+        System.out.println("****** Aftre Sorting ******");
+
+        users.sort(
+                Comparator.comparing(User::getFirstName).thenComparing(User::getLastName).thenComparing(User::getAge));
+
+        users.forEach(user -&gt; {
+            System.out.println(user.getFirstName() + " , " + user.getLastName() + " , " + user.getAge());
+        });
+
+    }
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sachchit Bansal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jan 2020 at 08:12</span>
+     </div>
+    </div>
+    <div>
+     <p>Code implementation of the same is here if we have to sort the Person object based on multiple fields.</p>
+     <pre><code>import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+
+public class Person {
+
+private String firstName;
+private String lastName;
+private int age;
+
+public String getFirstName() {
+    return firstName;
+}
+
+public void setFirstName(String firstName) {
+    this.firstName = firstName;
+}
+
+public String getLastName() {
+    return lastName;
+}
+
+public void setLastName(String lastName) {
+    this.lastName = lastName;
+}
+
+public int getAge() {
+    return age;
+}
+
+public void setAge(int age) {
+    this.age = age;
+}
+
+public Person(String firstName, String lastName, int age) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.age = age;
+}
+
+
+static class PersonSortingComparator implements Comparator&lt;Person&gt; {
+
+    @Override
+    public int compare(Person person1, Person person2) {
+
+        // for first name comparison
+        int firstNameCompare = person1.getFirstName().compareTo(person2.getFirstName());
+
+        // for last name comparison
+        int lastNameCompare = person1.getLastName().compareTo(person2.getLastName());
+
+        // for last name comparison
+        int ageCompare = person1.getAge() - person2.getAge();
+
+        // Now comparing
+        if (firstNameCompare == 0) {
+            if (lastNameCompare == 0) {
+                return ageCompare;
+            }
+            return lastNameCompare;
+        }
+        return firstNameCompare;
+    }
+}
+
+public static void main(String[] args) {
+    Person person1 = new Person("Ajay", "Kumar", 27);
+    Person person2 = new Person("Ajay","Gupta", 23);
+    Person person3 = new Person("Ajay","Kumar", 22);
+
+
+    ArrayList&lt;Person&gt; persons = new ArrayList&lt;&gt;();
+    persons.add(person1);
+    persons.add(person2);
+    persons.add(person3);
+
+
+    System.out.println("Before Sorting:\n");
+    for (Person person : persons) {
+        System.out.println(person.firstName + " " + person.lastName + " " + person.age);
+    }
+
+    Collections.sort(persons, new PersonSortingComparator());
+
+    System.out.println("After Sorting:\n");
+    for (Person person : persons) {
+        System.out.println(person.firstName + " " + person.lastName + " " + person.age);
+    }
+}
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Michael Haren</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2008 at 20:00</span>
+     </div>
+    </div>
+    <div>
+     <p>I think it'd be more confusing if your comparison algorithm were "clever". I'd go with the numerous comparison methods you suggested.</p>
+     <p>The only exception for me would be equality. For unit testing, it's been useful to me to override the .Equals (in .net) in order to determine if several fields are equal between two objects (and not that the references are equal).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sblundy</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2008 at 20:03</span>
+     </div>
+    </div>
+    <div>
+     <p>If there are multiple ways a user might order person, you could also have multiple <a href="http://java.sun.com/javase/6/docs/api/java/util/Comparator.html" rel="nofollow noreferrer">Comparator</a>s setup as constants somewhere. Most of the sort operations and sorted collections take a comparator as a parameter.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Abhilash Ranjan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Jan 2022 at 18:24</span>
+     </div>
+    </div>
+    <div>
+     <p>Java 8 through lambda way we can compare by method reference. Student POJO</p>
+     <pre><code>public class Student {
+int id;
+String firstName;
+String lastName;
+String subject;
+
+public Student(int id, String firstName, String lastName, String subject) {
+    this.id = id;
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.subject = subject;
+}
+enter code here
+</code></pre>
+     <p>Now we can sort based on</p>
+     <p><code> 1. id-&gt;FirstName-&gt;LastName-&gt;Subject 2. Subject-&gt;id-&gt;FirstName-&gt;LastName</code></p>
+     <p>We will use Comparator in array Stream</p>
+     <pre><code>public class TestComprator {
+public static void main(String[] args) {
+    Student s1= new Student(108, "James", "Testo", "Physics");
+    Student s2= new Student(101, "Fundu", "Barito", "Chem");
+    Student s3= new Student(105, "Sindhu", "Sharan", "Math");
+    Student s4= new Student(98, "Rechel", "Stephen", "Physics");
+    System.out.printf("----------id-&gt;FirstName-&gt;LastName-&gt;Subject-------------");
+    Arrays.asList(s1,s2,s3,s4).stream()
+            .sorted(Comparator.comparing(Student::getId)
+                    .thenComparing(Student::getFirstName)
+                .thenComparing(Student::getLastName)
+                .thenComparing(Student::getSubject))
+            .forEach(System.out::println);
+
+    System.out.printf("----Subject-&gt;id-&gt;FirstName-&gt;LastName ------\n");
+    Arrays.asList(s1,s2,s3,s4).stream()
+            .sorted(Comparator. comparing(Student::getSubject)
+                    .thenComparing(Student::getId)
+                    .thenComparing(Student::getFirstName)
+                    .thenComparing(Student::getLastName)
+                   )
+            .forEach(System.out::println);
+}
+</code></pre>
+     <p>}</p>
+     <p>Output:-</p>
+     <pre><code>`----------id-&gt;FirstName-&gt;LastName-&gt;Subject-------------
+Student{id=98, firstName='Rechel', lastName='Stephen', subject='Physics'}
+Student{id=101, firstName='Fundu', lastName='Barito', subject='Chem'}
+Student{id=105, firstName='Sindhu', lastName='Sharan', subject='Math'}
+Student{id=108, firstName='James', lastName='Testo', subject='Physics'}
+ ----Subject-&gt;id-&gt;FirstName-&gt;LastName ------
+Student{id=101, firstName='Fundu', lastName='Barito', subject='Chem'}
+Student{id=105, firstName='Sindhu', lastName='Sharan', subject='Math'}
+Student{id=98, firstName='Rechel', lastName='Stephen', subject='Physics'}
+Student{id=108, firstName='James', lastName='Testo', subject='Physics'}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pradeep Singh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2014 at 12:09</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>//here threshold,buyRange,targetPercentage are three keys on that i have sorted my arraylist 
+final Comparator&lt;BasicDBObject&gt; 
+
+    sortOrder = new Comparator&lt;BasicDBObject&gt;() {
+                    public int compare(BasicDBObject e1, BasicDBObject e2) {
+                        int threshold = new Double(e1.getDouble("threshold"))
+                        .compareTo(new Double(e2.getDouble("threshold")));
+                        if (threshold != 0)
+                            return threshold;
+
+                        int buyRange = new Double(e1.getDouble("buyRange"))
+                        .compareTo(new Double(e2.getDouble("buyRange")));
+                        if (buyRange != 0)
+                            return buyRange;
+
+                        return (new Double(e1.getDouble("targetPercentage")) &lt; new Double(
+                                e2.getDouble("targetPercentage")) ? -1 : (new Double(
+                                        e1.getDouble("targetPercentage")) == new Double(
+                                                e2.getDouble("targetPercentage")) ? 0 : 1));
+                    }
+                };
+                Collections.sort(objectList, sortOrder);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I came to this question because my code started to like your answer ;)</span> <span> - </span> <span class="display-name">Jan Groth</span> <span> </span> <span class="date">6 Jan 2015 at 10:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>pallgeuer</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Dec 2020 at 11:14</span>
+     </div>
+    </div>
+    <div>
+     <p>Better late than never - if you're looking for unnecessary clutter or overhead then it's hard to beat the following in terms of least code/fast execution at the same time.</p>
+     <p><strong>Data class:</strong></p>
+     <pre><code>public class MyData {
+    int id;
+    boolean relevant;
+    String name;
+    float value;
+}
+</code></pre>
+     <p><strong>Comparator:</strong></p>
+     <pre><code>public class MultiFieldComparator implements Comparator&lt;MyData&gt; {
+    @Override
+    public int compare(MyData dataA, MyData dataB) {
+        int result;
+        if((result = Integer.compare(dataA.id, dataB.id)) == 0 &amp;&amp;
+           (result = Boolean.compare(dataA.relevant, dataB.relevant)) == 0 &amp;&amp;
+           (result = dataA.name.compareTo(dataB.name)) == 0)
+            result = Float.compare(dataA.value, dataB.value);
+        return result;
+    }
+}
+</code></pre>
+     <p>If you are just looking to sort a collection by a custom order then the following is even cleaner:</p>
+     <pre><code>myDataList.sort((dataA, dataB) -&gt; {
+    int result;
+    if((result = Integer.compare(dataA.id, dataB.id)) == 0 &amp;&amp;
+       (result = Boolean.compare(dataA.relevant, dataB.relevant)) == 0 &amp;&amp;
+       (result = dataA.name.compareTo(dataB.name)) == 0)
+        result = Float.compare(dataA.value, dataB.value);
+    return result;
+});
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mark Renouf</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2008 at 21:33</span>
+     </div>
+    </div>
+    <div>
+     <p>If you implement the <a href="http://java.sun.com/j2se/1.4.2/docs/api/java/lang/Comparable.html" rel="nofollow noreferrer">Comparable</a> interface, you'll want to choose one simple property to order by. This is known as natural ordering. Think of it as the default. It's always used when no specific comparator is supplied. Usually this is name, but your use case may call for something different. You are free to use any number of other Comparators you can supply to various collections APIs to override the natural ordering.</p>
+     <p>Also note that typically if a.compareTo(b) == 0, then a.equals(b) == true. It's ok if not but there are side effects to be aware of. See the excellent javadocs on the Comparable interface and you'll find lots of great information on this.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>vaquar khan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Dec 2015 at 13:16</span>
+     </div>
+    </div>
+    <div>
+     <p>Following blog given good chained Comparator example</p>
+     <p><a href="http://www.codejava.net/java-core/collections/sorting-a-list-by-multiple-attributes-example" rel="nofollow">http://www.codejava.net/java-core/collections/sorting-a-list-by-multiple-attributes-example</a></p>
+     <pre><code>import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+
+/**
+ * This is a chained comparator that is used to sort a list by multiple
+ * attributes by chaining a sequence of comparators of individual fields
+ * together.
+ *
+ */
+public class EmployeeChainedComparator implements Comparator&lt;Employee&gt; {
+
+    private List&lt;Comparator&lt;Employee&gt;&gt; listComparators;
+
+    @SafeVarargs
+    public EmployeeChainedComparator(Comparator&lt;Employee&gt;... comparators) {
+        this.listComparators = Arrays.asList(comparators);
+    }
+
+    @Override
+    public int compare(Employee emp1, Employee emp2) {
+        for (Comparator&lt;Employee&gt; comparator : listComparators) {
+            int result = comparator.compare(emp1, emp2);
+            if (result != 0) {
+                return result;
+            }
+        }
+        return 0;
+    }
+}
+</code></pre>
+     <p>Calling Comparator:</p>
+     <pre><code>Collections.sort(listEmployees, new EmployeeChainedComparator(
+                new EmployeeJobTitleComparator(),
+                new EmployeeAgeComparator(),
+                new EmployeeSalaryComparator())
+        );
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span> <span class="arrow"> <a href="#answer_22">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Gerold Broser -- On Strike</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Mar 2017 at 19:37</span>
+     </div>
+    </div>
+    <div>
+     <p>Starting from <a href="https://stackoverflow.com/a/369867/1744774">Steve's answer</a> the ternary operator can be used:</p>
+     <pre><code>public int compareTo(Person other) {
+    int f = firstName.compareTo(other.firstName);
+    int l = lastName.compareTo(other.lastName);
+    return f != 0 ? f : l != 0 ? l : Integer.compare(age, other.age);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_22"><span>Answer 22</span> <span class="arrow"> <a href="#answer_21">↑</a> </span> <span class="arrow"> <a href="#answer_23">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Exodus</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Nov 2017 at 13:02</span>
+     </div>
+    </div>
+    <div>
+     <p>It is easy to compare two objects with hashcode method in java`</p>
+     <pre><code>public class Sample{
+
+  String a=null;
+  String b=null;
+
+  public Sample(){
+      a="s";
+      b="a";
+  }
+  public Sample(String a,String b){
+      this.a=a;
+      this.b=b;
+  }
+  public static void main(String args[]){
+      Sample f=new Sample("b","12");
+      Sample s=new Sample("b","12");
+      //will return true
+      System.out.println((s.a.hashCode()+s.b.hashCode())==(f.a.hashCode()+f.b.hashCode()));
+
+      //will return false
+      Sample f=new Sample("b","12");
+      Sample s=new Sample("b","13");
+      System.out.println((s.a.hashCode()+s.b.hashCode())==(f.a.hashCode()+f.b.hashCode()));
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span><b>Please don't do that.</b> Hashcodes should not be used for equality comparisons but for hashtable indexing. Hash collisions may result in equality for two different objects. Even hashtables rely on <i>real equality</i> if hash collisions occur.</span> <span> - </span> <span class="display-name">Noel Widmer</span> <span> </span> <span class="date">22 Nov 2017 at 13:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_23"><span>Answer 23</span> <span class="arrow"> <a href="#answer_22">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Andrejs</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Mar 2012 at 16:12</span>
+     </div>
+    </div>
+    <div>
+     <p>Its easy to do using <a href="http://code.google.com/p/guava-libraries/wiki/CommonObjectUtilitiesExplained#equals" rel="nofollow noreferrer">Google's Guava library</a>.</p>
+     <p>e.g. <code>Objects.equal(name, name2) &amp;&amp; Objects.equal(age, age2) &amp;&amp; ...</code></p>
+     <p>More examples:</p>
+     <ul>
+      <li><a href="https://stackoverflow.com/a/5039178/1180621">https://stackoverflow.com/a/5039178/1180621</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>comparing things is different from performing equality check</span> <span> - </span> <span class="display-name">Clint Eastwood</span> <span> </span> <span class="date">11 Feb 2020 at 15:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

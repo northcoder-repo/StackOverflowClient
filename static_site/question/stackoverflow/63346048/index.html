@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>I need to take a CSV file and split it into separate files based on Column Header [JAVA]</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>I need to take a CSV file and split it into separate files based on Column Header [JAVA]</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>dlang17</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>10 Aug 2020 at 18:33</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63346048/i-need-to-take-a-csv-file-and-split-it-into-separate-files-based-on-column-heade">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am fairly new to Java and am struggling to read &gt; sort &gt; export a csv. I have a csv with [X, Y, Z, Scalar 1, Scalar 2, Scalar 3, Scalar 4] as headers that need to be separated into 4 csv's. The actual file is thousands of lines long so short example:</p>
+    <pre><code>[X,Y,Z, Sc1, Sc2, Sc3, Sc4]
+[1,0,0,   5,   7,   9,  10]
+[0,1,1,   6,   8,   4,   0]
+[0,0,1,   3,   3,   8,   2]
+</code></pre>
+    <p>I need split the source csv into 4 separate csv's with one scalar value and the x,y,z data.</p>
+    <pre><code>File 1       | File 2       | File 3       | File 4
+----------------------------------------------------------
+[Sc1, X,Y,Z] | [Sc2, X,Y,Z] | [Sc3, X,Y,Z] | [Sc4,  X,Y,Z]
+[5,   1,0,0] | [7,   1,0,0] | [9,   1,0,0] | [10,   1,0,0]
+[6,   0,1,1] | [8,   0,1,1] | [4,   0,1,1] | [ 0,   0,1,1]
+[3,   0,0,1] | [3,   0,0,1] | [8,   0,0,1] | [ 2,   0,0,1]
+</code></pre>
+    <p>I am currently reading the data in with BufferedReader, but I am not sure how to organize the data once its read or if this is even a good approach.</p>
+    <pre><code> ArrayList&lt;String&gt; readFileFast (String expDir,String filename) {
+        String path = expDir + filename;
+        ArrayList&lt;String&gt; fileContents = new ArrayList&lt;&gt;();
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(path));
+            String line;
+            while ((line = br.readLine()) != null) {
+                fileContents.add(line);
+            }
+        } catch (Exception e) {
+            SuperStackPrint(e);
+        }
+        return fileContents;
+      }
+
+println(readFileFast(expDir, "/DELETEME.csv"));
+</code></pre>
+    <p>Any insight on how to do this properly would be appreciated.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">csv</span><span class="tag">sorting</span><span class="tag">export-to-csv</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2020 at 16:51</span>
+     </div>
+    </div>
+    <div>
+     <p>You will benefit from using a library which specializes in reading and writing CSV files. There are a few to choose from, but here I will use <a href="http://opencsv.sourceforge.net/" rel="nofollow noreferrer">OpenCSV</a>.</p>
+     <p>If you don't end up using this library, it may at least give you some ideas for your own approach.</p>
+     <p>Also, when using libraries, I recommend using a tool such as Maven or Gradle to help manage this, as these tools take care of "dependencies of dependencies" for you - for example, where the OpenCSV library itself needs access to other libraries which it uses.</p>
+     <p>For Maven, here is OpenCSV dependency for my POM file:</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;com.opencsv&lt;/groupId&gt;
+    &lt;artifactId&gt;opencsv&lt;/artifactId&gt;
+    &lt;version&gt;5.2&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>The approach:</p>
+     <ol>
+      <li>
+       <p>Create a Java class (a "bean") to hold the data that will be loaded from the source CSV file. This will be called <code>SplitBean</code> in my example.</p></li>
+      <li>
+       <p>Create a collection of objects using this class, where <em><strong>each object contains the data for one row of the CSV file</strong></em>.</p></li>
+      <li>
+       <p>Iterate across this collection of objects, writing the relevant parts to 4 output files.</p></li>
+     </ol>
+     <p><em>You can choose to follow the above approach without using OpenCSV or a similar library. But you will have to write more of your own code relating to basic CSV operations. In your case, the data is not complicated, so that would not be unreasonable.</em></p>
+     <p><em>Either way, I recommend creating a class to represent a row of input data, and then processing a list of such objects when writing to your output files. This splits the process into 2 distinct steps, and makes use of Java objects to simplify the process.</em></p>
+     <p>Here is the <code>SplitBean</code> class:</p>
+     <pre><code>import com.opencsv.bean.CsvBindByName;
+        
+public class SplitBean {
+    @CsvBindByName(column = "X")
+    private int x;
+
+    @CsvBindByName(column = "Y")
+    private int y;
+
+    @CsvBindByName(column = "Z")
+    private int z;
+    
+    @CsvBindByName(column = "Sc1")
+    private int  sc1;
+
+    @CsvBindByName(column = "Sc2")
+    private int  sc2;
+
+    @CsvBindByName(column = "Sc3")
+    private int  sc3;
+
+    @CsvBindByName(column = "Sc4")
+    private int  sc4;
+
+    public static String[] getHeadingsOne() {
+        String[] s = { "Sc1", "X", "Y", "Z" };
+        return s;
+    }
+    
+    public static String[] getHeadingsTwo() {
+        String[] s = { "Sc2", "X", "Y", "Z" };
+        return s;
+    }
+    
+    public static String[] getHeadingsThree() {
+        String[] s = { "Sc3", "X", "Y", "Z" };
+        return s;
+    }
+    
+    public static String[] getHeadingsFour() {
+        String[] s = { "Sc4", "X", "Y", "Z" };
+        return s;
+    }
+    
+    public String[] getDataOne() {
+        String[] i = { String.valueOf(sc1), String.valueOf(x), 
+            String.valueOf(y), String.valueOf(z) };
+        return i;
+    }
+    
+    public String[] getDataTwo() {
+        String[] i = { String.valueOf(sc2), String.valueOf(x), 
+            String.valueOf(y), String.valueOf(z) };
+        return i;
+    }
+    
+    public String[] getDataThree() {
+        String[] i = { String.valueOf(sc3), String.valueOf(x), 
+            String.valueOf(y), String.valueOf(z) };
+        return i;
+    }
+    
+    public String[] getDataFour() {
+        String[] i = { String.valueOf(sc4), String.valueOf(x), 
+            String.valueOf(y), String.valueOf(z) };
+        return i;
+    }
+    
+    public int getX() {
+        return x;
+    }
+
+    public void setX(int x) {
+        this.x = x;
+    }
+
+    public int getY() {
+        return y;
+    }
+
+    public void setY(int y) {
+        this.y = y;
+    }
+
+    public int getZ() {
+        return z;
+    }
+
+    public void setZ(int z) {
+        this.z = z;
+    }
+
+    public int getSc1() {
+        return sc1;
+    }
+
+    public void setSc1(int sc1) {
+        this.sc1 = sc1;
+    }
+
+    public int getSc2() {
+        return sc2;
+    }
+
+    public void setSc2(int sc2) {
+        this.sc2 = sc2;
+    }
+
+    public int getSc3() {
+        return sc3;
+    }
+
+    public void setSc3(int sc3) {
+        this.sc3 = sc3;
+    }
+
+    public int getSc4() {
+        return sc4;
+    }
+
+    public void setSc4(int sc4) {
+        this.sc4 = sc4;
+    }
+    
+}
+</code></pre>
+     <p>This class uses <code>@CsvBindByName</code> annotations to map from column heading names in the source CSV file to field names in the class itself. You do not need to do things this way, but it's a convenient feature provided by OpenCSV.</p>
+     <p>The class also contains methods which handle the 4 different output files (which are subsets of the input file's data).</p>
+     <p>Now we can write a separate <code>doTheSplit()</code> method, to use this class:</p>
+     <pre><code>import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
+import com.opencsv.bean.HeaderColumnNameMappingStrategy;
+import com.opencsv.exceptions.CsvDataTypeMismatchException;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
+import com.opencsv.CSVWriter;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.FileWriter;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+
+public class SplitData {
+
+    public void doTheSplit() throws URISyntaxException, IOException,
+            CsvDataTypeMismatchException, CsvRequiredFieldEmptyException {
+        HeaderColumnNameMappingStrategy msIn = new HeaderColumnNameMappingStrategy();
+        msIn.setType(SplitBean.class);
+
+        Path path = Paths.get("C:/tmp/csvsplit/input.csv");
+        List&lt;SplitBean&gt; list;
+
+        // read the data from the input CSV file into our SplitBean list:
+        try ( Reader reader = Files.newBufferedReader(path)) {
+            CsvToBean cb = new CsvToBeanBuilder(reader)
+                    .withMappingStrategy(msIn)
+                    .build();
+            list = cb.parse();
+            int i = 1;
+        }
+
+        // set up 4 file writers:
+        try ( CSVWriter writer1 = new CSVWriter(new FileWriter("C:/tmp/csvsplit/output1.csv"));
+                CSVWriter writer2 = new CSVWriter(new FileWriter("C:/tmp/csvsplit/output2.csv"));
+                CSVWriter writer3 = new CSVWriter(new FileWriter("C:/tmp/csvsplit/output3.csv"));
+                CSVWriter writer4 = new CSVWriter(new FileWriter("C:/tmp/csvsplit/output4.csv"))) {
+
+            // first write the headers to each file (false = no quotes):
+            writer1.writeNext(SplitBean.getHeadingsOne(), false);
+            writer2.writeNext(SplitBean.getHeadingsTwo(), false);
+            writer3.writeNext(SplitBean.getHeadingsThree(), false);
+            writer4.writeNext(SplitBean.getHeadingsFour(), false);
+            
+            // then write each row of data (false = no quotes):
+            for (SplitBean item : list) {
+                writer1.writeNext(item.getDataOne(), false);
+                writer2.writeNext(item.getDataTwo(), false);
+                writer3.writeNext(item.getDataThree(), false);
+                writer4.writeNext(item.getDataFour(), false);
+            }
+        }
+    }
+
+}
+</code></pre>
+     <p>The first part of this code populates a <code>List&lt;SplitBean&gt; list</code>. There is one splitBean object for each row of data from the input spreadsheet. OpenCSV takes care of most of the work for you, behind the scenes.</p>
+     <p>Then, the code creates 4 file writers, which use the OpenCSV <code>CSVWriter</code> object, to help handle the formatting of our data into valid CSV rows.</p>
+     <p>With this code, we write column headers into each of the 4 files. Finally we iterate across our collection of <code>SplitBean</code> items, and write the relevant data subsets to each file.</p>
+     <p>So, for a CSV input file such as this:</p>
+     <pre><code>X,Y,Z,Sc1,Sc2,Sc3,Sc4
+1,0,0,5,7,9,10
+0,1,1,6,8,4,0
+0,0,1,3,3,8,2
+</code></pre>
+     <p>We end up with 4 different output files. One example:</p>
+     <pre><code>Sc1,X,Y,Z
+5,1,0,0
+6,0,1,1
+3,0,0,1
+</code></pre>
+     <p><strong>Additional note</strong>: One big advantage of using the <code>SplitBean</code> class in this way is that you have a lot more flexibility if you decide you need to perform more data transformations - for example, filtering out rows of data, or sorting data in different ways.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Where to put cutom validation?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Where to put cutom validation?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Hadesk68</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Feb 2020 at 21:34</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60177710/where-to-put-cutom-validation">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Where is the best place to put custom validations and the multiple variations or conditions it could have?</p>
+    <p>Thanks!</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">hibernate</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>I would give the database field a unique index and handle any constraint violations in the service.</span> <span> - </span> <span class="display-name">The Head Rush</span> <span> </span> <span class="date">11 Feb 2020 at 22:02</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jonathan Rosenne</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Feb 2020 at 21:52</span>
+     </div>
+    </div>
+    <div>
+     <p>I believe that the DAO should not contain application logic. The service layer should do all the validations and return meaningful error messages. In this case I would do so by asking the DAO to find the product and if it is found then it is duplicate.</p>
+     <p>Now I am going to slightly contradict myself.</p>
+     <p>In my code the DAO does contain basic checks such as field length. These are paranoid checks, done in addition to the application validations, because the error messages produced by the databases we use are useless in these cases and the checks are cheap. In the case of a duplicate primary key the database error messages are usable and a paranoid check would be too expensive. But it could be done as a safety measure if you feel you should. This is basically a cost vs. benefit analysis.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>You cannot update a product unless it exists, so the normal way is to get it first, in the service layer. Anyhow, in the general case, the service layer has to validate the updated fields against the other fields for consistency.</span> <span> - </span> <span class="display-name">Jonathan Rosenne</span> <span> </span> <span class="date">12 Feb 2020 at 04:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Feb 2020 at 22:22</span>
+     </div>
+    </div>
+    <div>
+     <p>I agree with @Jonathan - but have a slightly different way to express it, in case that helps.</p>
+     <p>What counts as an "already existing" product name/alias? Are we talking about an exact string match? Do we need to account for variations in data entry (upper/lowercase; words with/without accents/diacritics; and so on)? The business logic can get quite involved if you need more than strict <code>String</code> equality.</p>
+     <p>My preference is to put the minimal amount of such retrieval logic into the DAO layer here - which often boils down what is in the <code>where</code> clause of a <code>select</code> statement (or Hibernate ORM variant). Don't think of such logic as "checking for duplicates", but rather as returning a result set. That's DAO-specific.</p>
+     <p>Everything else (what you do with the data in the result set, to check for duplicates) is in the service layer.</p>
+     <p>(By the way, if experience is any guide, you may end up needing a full-text index, if you don't already have one.)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I would suggest that in this case the service layer should normalize the name, either by converting it to lower case or to upper case. For English you could use either, but for other languages, such as German with the sharp s, lower case is preferred. For even more languages normalization could be more complicated. But in any case this is not a DAO concern.</span> <span> - </span> <span class="display-name">Jonathan Rosenne</span> <span> </span> <span class="date">12 Feb 2020 at 04:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I recommend trimming - or stripping - any invisible characters from any data item entered by humans, because obviously they cannot see them, for example when cut and paste adds a space or a new line at the end.</span> <span> - </span> <span class="display-name">Jonathan Rosenne</span> <span> </span> <span class="date">12 Feb 2020 at 04:14</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

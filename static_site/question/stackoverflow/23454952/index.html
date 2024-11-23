@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Uses for Optional</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Uses for Optional</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>353</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Will</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 May 2014 at 10:07</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/23454952/uses-for-optional">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Having been using Java 8 now for 6+ months or so, I'm pretty happy with the new API changes. One area I'm still not confident in is when to use <code>Optional</code>. I seem to swing between wanting to use it everywhere something may be <code>null</code>, and nowhere at all.</p>
+    <p>There seem to be a lot of situations when I could use it, and I'm never sure if it adds benefits (readability / null safety) or just causes additional overhead.</p>
+    <p>So, I have a few examples, and I'd be interested in the community's thoughts on whether <code>Optional</code> is beneficial.</p>
+    <p>1 - As a public method return type when the method could return <code>null</code>:</p>
+    <pre><code>public Optional&lt;Foo&gt; findFoo(String id);
+</code></pre>
+    <p>2 - As a method parameter when the param may be <code>null</code>:</p>
+    <pre><code>public Foo doSomething(String id, Optional&lt;Bar&gt; barOptional);
+</code></pre>
+    <p>3 - As an optional member of a bean:</p>
+    <pre><code>public class Book {
+
+  private List&lt;Pages&gt; pages;
+  private Optional&lt;Index&gt; index;
+
+}
+</code></pre>
+    <p>4 - In <code>Collections</code>:</p>
+    <p>In general I don't think:</p>
+    <pre><code>List&lt;Optional&lt;Foo&gt;&gt;
+</code></pre>
+    <p>adds anything - especially since one can use <code>filter()</code> to remove <code>null</code> values etc, but are there any good uses for <code>Optional</code> in collections?</p>
+    <p>Any cases I've missed?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">java-8</span><span class="tag">option-type</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>One case I find useful is, for instance, if you have a substitution map. For instance <code>Map&lt;Character, String&gt;</code>. If there is no substitution I can use this: <code>Optional.ofNullable(map.get(c)).orElse(String.valueOf(c))</code>. Also note that Optional was stolen from Guava and it has a much nicer syntax: <code>Optional.fromNullable(map.get(c)).or(String.valueOf(c));</code></span> <span> - </span> <span class="display-name">fge</span> <span> </span> <span class="date">4 May 2014 at 10:10</span></td>
+      </tr>
+      <tr>
+       <td>3</td>
+       <td><span>Also, in collections, well, there are collections not allowing null values! Optional fits the bill in here. And you can <code>.filter(Optional::absent)</code> "null values" out</span> <span> - </span> <span class="display-name">fge</span> <span> </span> <span class="date">4 May 2014 at 10:11</span></td>
+      </tr>
+      <tr>
+       <td>3</td>
+       <td><span>@fge In all fairness, I think that the concept of <i>Optional</i> is actually stemming from FP.</span> <span> - </span> <span class="display-name">VH-NZZ</span> <span> </span> <span class="date">4 May 2014 at 10:50</span></td>
+      </tr>
+      <tr>
+       <td>4</td>
+       <td><span>@fge isn't that better expressed with <code>getOrDefault()</code>?</span> <span> - </span> <span class="display-name">Jim Garrison</span> <span> </span> <span class="date">17 Mar 2017 at 20:13</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>274</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Stuart Marks</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 May 2014 at 04:26</span>
+     </div>
+    </div>
+    <div>
+     <p>The main design goal of <code>Optional</code> is to provide a means for a function returning a value to indicate the absence of a return value. See <a href="http://mail.openjdk.java.net/pipermail/lambda-dev/2012-September/005952.html" rel="noreferrer">this discussion</a>. <strong>This allows the caller to continue a chain of fluent method calls.</strong></p>
+     <p>This most closely matches use case <strong>#1</strong> in the OP's question. Although, <em>absence of a value</em> is a more precise formulation than <em>null</em> since something like <code>IntStream.findFirst</code> could never return null.</p>
+     <hr>
+     <p>For use case <strong>#2</strong>, passing an optional argument to a method, this could be made to work, but it's rather clumsy. Suppose you have a method that takes a string followed by an optional second string. Accepting an <code>Optional</code> as the second arg would result in code like this:</p>
+     <pre><code>foo("bar", Optional.of("baz"));
+foo("bar", Optional.empty());
+</code></pre>
+     <p>Even accepting null is nicer:</p>
+     <pre><code>foo("bar", "baz");
+foo("bar", null);
+</code></pre>
+     <p>Probably the best is to have an overloaded method that accepts a single string argument and provides a default for the second:</p>
+     <pre><code>foo("bar", "baz");
+foo("bar");
+</code></pre>
+     <p>This does have limitations, but it's much nicer than either of the above.</p>
+     <p>Use cases <strong>#3</strong> and <strong>#4</strong>, having an <code>Optional</code> in a class field or in a data structure, is considered a misuse of the API. First, it goes against the main design goal of <code>Optional</code> as stated at the top. Second, it doesn't add any value.</p>
+     <p>There are three ways to deal with the absence of a value in an <code>Optional</code>: to provide a substitute value, to call a function to provide a substitute value, or to throw an exception. If you're storing into a field, you'd do this at initialization or assignment time. If you're adding values into a list, as the OP mentioned, you have the additional choice of simply not adding the value, thereby "flattening" out absent values.</p>
+     <p>I'm sure somebody could come up with some contrived cases where they really want to store an <code>Optional</code> in a field or a collection, but in general, it is best to avoid doing this.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Great answer - especially +1 for the link to the mailing list discussion. When first reading something about it - I had actually originally just assumed the new Optional value was intended to be used as a replacement for null values (i.e. intended to be used for all use cases described in the OP) but your answer shows that really is not the intention.</span> <span> - </span> <span class="display-name">Shorn</span> <span> </span> <span class="date">6 May 2014 at 12:25</span></td>
+       </tr>
+       <tr>
+        <td>60</td>
+        <td><span>I disagree with #3. It can be useful to have an <code>Optional</code> as a field when things are to be done or not to be done upon presence or absence of a value.</span> <span> - </span> <span class="display-name">glglgl</span> <span> </span> <span class="date">15 Mar 2015 at 09:20</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Btw <a href="http://mail.openjdk.java.net/pipermail/jdk8-dev/2013-September/003274.html" rel="nofollow noreferrer">mail.openjdk.java.net/pipermail/jdk8-dev/2013-September/…</a> is a further disucssion (a year later) where not using Optional as a parateter is more clearly stated. It's nicely summarised in <a href="http://blog.jhades.org/java-8-how-to-use-optional/" rel="nofollow noreferrer">blog.jhades.org/java-8-how-to-use-optional</a></span> <span> - </span> <span class="display-name">Motti Strom</span> <span> </span> <span class="date">12 May 2015 at 12:55</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Shorn I hope returning Optional from a private method instead of null is also a valid case just like a public API. correct?</span> <span> - </span> <span class="display-name">Shailesh Vaishampayan</span> <span> </span> <span class="date">20 Dec 2015 at 21:49</span></td>
+       </tr>
+       <tr>
+        <td>27</td>
+        <td><span>I don't see why doing <code>if(foo == null)</code> internally would be better than just storing the field as <code>optional</code>. And I don't see why explicitly calling <code>getOptionalFoo()</code> internally is better than just storing the field as an <code>Optional</code>. Also, if one field can be <code>null</code> and one field cannot be <code>null</code>, why not communicate that to the compiler by making them <code>Optional</code> or not <code>Optional</code>.</span> <span> - </span> <span class="display-name">mogronalol</span> <span> </span> <span class="date">24 Mar 2016 at 11:36</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@mogronalol If you want to use <code>Optional</code> as a field, you can; we just don't recommend it. If you do, I think you'll find that your code gets rather cluttered and hard to read. Also, <code>Optional</code> is another object, so every field that's an <code>Optional</code> consumes more space and costs an extra pointer deference. But if you're ok with these issues, go ahead.</span> <span> - </span> <span class="display-name">Stuart Marks</span> <span> </span> <span class="date">24 Mar 2016 at 18:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@stuartmarks I think what I am trying to emphasis is that it's easier to read, because you are being told whether a field can be null or not and the compiler is making you account for it. So if you are forced to use the optional object you'll be forced to account for avoiding <code>null</code>. If it's not <code>optional</code>, you can assume it's never null and not do the check. This is the rule of thumb I follow. I agree about space and pointer dereferencing, but doubt many developers work on applications where they have to worry about performance to that level. I may just be naive though.</span> <span> - </span> <span class="display-name">mogronalol</span> <span> </span> <span class="date">29 Mar 2016 at 12:58</span></td>
+       </tr>
+       <tr>
+        <td>38</td>
+        <td><span>@StuartMarks, this is one of the things that just baffles me when I hear it from all the <code>Optional&lt;&gt;</code> experts: "don't store <code>Optional&lt;&gt;</code> in a field". I'm truly trying to understand the point of this recommendation. Consider a DOM tree where a node could have a parent or not. It seems within the use case that <code>Node.getParent()</code> would return <code>Optional&lt;Node&gt;</code>. Am I really expected to store a <code>null</code> and wrap the result each time? Why? What does this extra inefficiency buy me, other than making my code look ugly?</span> <span> - </span> <span class="display-name">Garret Wilson</span> <span> </span> <span class="date">17 May 2016 at 13:51</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@GarretWilson If you've determined that using <code>Optional</code> for fields is more efficient for your use case, and doing so makes your code look good, then fine, go ahead and use it. I can't see your code. But I have to say I'm a bit skeptical. Using your example, suppose you have a DOM tree with <i>N</i> nodes. If you have <code>Optional&lt;Node&gt; parent</code> instead of a nullable <code>Node parent</code> field, then you've just doubled the number of objects in your DOM tree. It probably also reduces locality of reference significantly, causing a bunch more cache misses during traversal.</span> <span> - </span> <span class="display-name">Stuart Marks</span> <span> </span> <span class="date">20 May 2016 at 00:31</span></td>
+       </tr>
+       <tr>
+        <td>24</td>
+        <td><span>@GarretWilson On the other hand, suppose you have <code>Optional&lt;Node&gt; getParent() { return Optional.ofNullable(parent); }</code>. This <i>looks</i> expensive because it allocates an <code>Optional</code> every time! But if the caller unpacks it immediately, the object is extremely short-lived and is never promoted out of eden space. It might possibly even be eliminated by the JIT's escape analysis. The bottom line answer is "it depends" as always, but using <code>Optional</code> in fields potentially bloats memory use and slows down data structure traversal. And finally I think it clutters up code, but this is a matter of taste.</span> <span> - </span> <span class="display-name">Stuart Marks</span> <span> </span> <span class="date">20 May 2016 at 00:35</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@StuartMarks "if the caller unpacks it immediately"---yes, that seems to be another assumption that was made with Java 8, as only in Java 9 are we getting things such as <code>Optional.or()</code>, which finally realizes that many times the thing getting the optional is going to turn it around and pass it to something else. It seems silly (and wasteful) to be bouncing back and forth between "unpacking" and "Optional.ofNullable()ing" as we unwind the stack---not to mention bringing back the danger of accidentally referencing a <code>null</code>, which is what <code>Optional</code> was supposed to prevent in the first place.</span> <span> - </span> <span class="display-name">Garret Wilson</span> <span> </span> <span class="date">20 May 2016 at 03:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@StuartMarks, my actual use case was an i18n resource lookup facility that had an optional parent resolver, which would then be passed to the constructor of the actual resource lookup instance by the factory. Looking up resources in real time is not where we want to be bouncing between wrapped/unwrapped <code>Optional&lt;&gt;</code>s. But at this point I should stop with the Stack Overflow comments and write a blog entry. :)</span> <span> - </span> <span class="display-name">Garret Wilson</span> <span> </span> <span class="date">20 May 2016 at 03:57</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>@GarretWilson So did you write a blog for that? I would be interested in that :)</span> <span> - </span> <span class="display-name">akhil_mittal</span> <span> </span> <span class="date">12 Nov 2017 at 06:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>There is a contradiction in the information provided about Optional fields. In "Java 8 in Action", they literally use Optional fields as the first example and benefit. This book was written by Java designers who I assume work beneath you (Stuart) and Brian? Also in my experience there are cases where it makes sense. E.g. the absence of an Http proxy.</span> <span> - </span> <span class="display-name">wilmol</span> <span> </span> <span class="date">10 Nov 2019 at 11:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@akhil_mittal <a href="https://blog.codefx.org/techniques/intention-revealing-code-java-8-optional/" rel="nofollow noreferrer">blog.codefx.org/techniques/…</a></span> <span> - </span> <span class="display-name">Belun</span> <span> </span> <span class="date">28 May 2020 at 12:52</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>“and costs an extra pointer deference”—I wouldn’t be using Java if I cared about “an extra pointer dereference” (or twelve).</span> <span> - </span> <span class="display-name">Guildenstern</span> <span> </span> <span class="date">9 Jul 2020 at 17:21</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@wilmol directly from <a href="https://www.amazon.de/dp/1617293563" rel="nofollow noreferrer">the book’s description on Amazon</a>: “<i>Raoul-Gabriel Urma is CEO of Cambridge Spark. Mario Fusco is a senior software engineer at Red Hat. Alan Mycroft is a University of Cambridge computer science professor</i>” Where did you get the story from that either of them was a JDK developer?</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">10 Jan 2023 at 09:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>125</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nicolai Parlog</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Nov 2014 at 22:39</span>
+     </div>
+    </div>
+    <div>
+     <p>I'm late to the game but for what it's worth, I want to add my 2 Cents. They go against the <a href="https://nipafx.dev/design-java-optional/" rel="noreferrer">design goal of <code>Optional</code></a>, which is well summarized by <a href="https://stackoverflow.com/a/23464794/2525313">Stuart Marks's answer</a>, but I'm still convinced of their validity (obviously).</p>
+     <h2>Use Optional Everywhere</h2>
+     <h3>In General</h3>
+     <p>I wrote an entire <a href="http://blog.codefx.org/techniques/intention-revealing-code-java-8-optional/" rel="noreferrer">blog post about using <code>Optional</code></a> but it basically comes down to this:</p>
+     <ul>
+      <li>design your classes to avoid optionality wherever feasibly possible</li>
+      <li>in all remaining cases, the default should be to use <code>Optional</code> instead of <code>null</code></li>
+      <li>possibly make exceptions for: 
+       <ul>
+        <li>local variables</li>
+        <li>return values and arguments to private methods</li>
+        <li>performance critical code blocks (no guesses, use a profiler)</li>
+       </ul></li>
+     </ul>
+     <p>The first two exceptions can reduce the perceived overhead of wrapping and unwrapping references in <code>Optional</code>. They are chosen such that a null can never legally pass a boundary from one instance into another.</p>
+     <p>Note that this will almost never allow <code>Optional</code>s in collections which is almost as bad as <code>null</code>s. Just don't do it. ;)</p>
+     <h3>Regarding your questions</h3>
+     <ol>
+      <li>Yes.</li>
+      <li>If overloading is no option, yes.</li>
+      <li>If other approaches (subclassing, decorating, ...) are no option, yes.</li>
+      <li>Please no!</li>
+     </ol>
+     <h2>Advantages</h2>
+     <p>Doing this reduces the presence of <code>null</code>s in your code base, although it does not eradicate them. But that is not even the main point. There are other important advantages:</p>
+     <h3>Clarifies Intent</h3>
+     <p>Using <code>Optional</code> clearly expresses that the variable is, well, optional. Any reader of your code or consumer of your API will be beaten over the head with the fact that there might be nothing there and that a check is necessary before accessing the value.</p>
+     <h3>Removes Uncertainty</h3>
+     <p>Without <code>Optional</code> the meaning of a <code>null</code> occurrence is unclear. It could be a legal representation of a state (see <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Map.html#get-java.lang.Object-" rel="noreferrer"><code>Map.get</code></a>) or an implementation error like a missing or failed initialization.</p>
+     <p>This changes dramatically with the persistent use of <code>Optional</code>. Here, already the occurrence of <code>null</code> signifies the presence of a bug. (Because if the value were allowed to be missing, an <code>Optional</code> would have been used.) This makes debugging a null pointer exception much easier as the question of the meaning of this <code>null</code> is already answered.</p>
+     <h3>More Null Checks</h3>
+     <p>Now that nothing can be <code>null</code> anymore, this can be enforced everywhere. Whether with annotations, assertions or plain checks, you never have to think about whether this argument or that return type can be null. It can't!</p>
+     <h2>Disadvantages</h2>
+     <p>Of course, there is no silver bullet...</p>
+     <h3>Performance</h3>
+     <p>Wrapping values (especially primitives) into an extra instance can degrade performance. In tight loops this might become noticeable or even worse.</p>
+     <p>Note that the compiler might be able to circumvent the extra reference for short lived lifetimes of <code>Optional</code>s. In Java 10 <a href="http://cr.openjdk.java.net/%7Ejrose/values/values-0.html" rel="noreferrer">value types</a> might further reduce or remove the penalty.</p>
+     <h3>Serialization</h3>
+     <p><a href="https://nipafx.dev/why-isnt-java-optional-serializable/" rel="noreferrer"><code>Optional</code> is not serializable</a> but a <a href="https://nipafx.dev/serialize-java-optional/" rel="noreferrer">workaround</a> is not overly complicated.</p>
+     <h3>Invariance</h3>
+     <p>Due to the invariance of generic types in Java, certain operations become cumbersome when the actual value type is pushed into a generic type argument. An example is given <a href="http://blog.jooq.org/2014/03/28/java-8-friday-optional-will-remain-an-option-in-java/" rel="noreferrer">here (see "Parametric polymorphism")</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Another disadvantage (or limitation) is that you cannot sort Optional(xxx) instances, though Oracle clearly imposed that restriction deliberately. I'm skeptical about the wisdom of having these classes available where they should only be used in specific circumstances, and assuming the developer will do the right thing. Solving one problem may cause another. Maybe there should be compiler warnings to aid the developer when using the Optional(xxx) classes in "undesirable" ways (e.g. as method parameters, in collections, in constructors, etc.) if that really is not intended usage?</span> <span> - </span> <span class="display-name">skomisa</span> <span> </span> <span class="date">20 Feb 2015 at 00:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>About 4, optionals in collections: It is actually sometimes useful to store optionals in <code>List</code>s. This is the case when it is important that a certain element is located at a certain index, but the element can be present or not. That is clearly communicated by a <code>List&lt;Optional&lt;T&gt;&gt;</code> type. If on the other hand it is only important which objects that are members some some collection then there is not point.</span> <span> - </span> <span class="display-name">Lii</span> <span> </span> <span class="date">22 Jun 2016 at 14:14</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>I think use-case #2 is still very questionable. An <code>Optional</code> being passed into a method can be <code>null</code>. So what have you gained? Now you have two checks to make. See <a href="http://stackoverflow.com/a/31923042/650176">stackoverflow.com/a/31923042/650176</a></span> <span> - </span> <span class="display-name">David V</span> <span> </span> <span class="date">17 Oct 2016 at 20:55</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@DavidV look at the list of advantages I gave - they all apply to that case as well. Besides, if you go all in on <code>Optional</code> (which should be the case if you're willing to pass it as arguments) <code>null</code> is never a legal value. So calling a method with an explicit parameter <code>null</code> is obviously a mistake.</span> <span> - </span> <span class="display-name">Nicolai Parlog</span> <span> </span> <span class="date">17 Oct 2016 at 21:04</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>“Wrapping values (especially primitives)…”—What about e.g. <code>OptionalInt</code>? I don’t see how that’s worse than wrapping an <code>int</code> in a (nullable) <code>Integer</code>.</span> <span> - </span> <span class="display-name">Guildenstern</span> <span> </span> <span class="date">9 Jul 2020 at 17:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Guildenstern You're right, it's not worse than wrapping into <code>Integer</code>. It's the same, which is why you'd want to prevent both in high performance situations.</span> <span> - </span> <span class="display-name">Nicolai Parlog</span> <span> </span> <span class="date">27 Jul 2020 at 21:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>44</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Peter Lawrey</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 May 2014 at 10:17</span>
+     </div>
+    </div>
+    <div>
+     <p>Personally, I prefer to use <a href="http://www.jetbrains.com/idea/docs/NullableHowTo.pdf" rel="noreferrer">IntelliJ's Code Inspection Tool</a> to use <code>@NotNull</code> and <code>@Nullable</code> checks as these are largely compile time (can have some runtime checks) This has lower overhead in terms of code readability and runtime performance. It is not as rigorous as using Optional, however this lack of rigour should be backed by decent unit tests.</p>
+     <pre><code>public @Nullable Foo findFoo(@NotNull String id);
+
+public @NotNull Foo doSomething(@NotNull String id, @Nullable Bar barOptional);
+
+public class Book {
+
+  private List&lt;Pages&gt; pages;
+  private @Nullable Index index;
+
+}
+
+List&lt;@Nullable Foo&gt; list = ..
+</code></pre>
+     <p>This works with Java 5 and no need to wrap and unwrap values. (or create wrapper objects)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>10</td>
+        <td><span>Uhm, are those IDEA annotations? I prefer JSR 305's <code>@Nonnull</code> personally -- works with FindBugs ;)</span> <span> - </span> <span class="display-name">fge</span> <span> </span> <span class="date">4 May 2014 at 10:20</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@fge There is a lack of standards in this regard, but I believe the tools are generally configurable and you don't have to end up with <code>@Nonnull @NotNull etc</code></span> <span> - </span> <span class="display-name">Peter Lawrey</span> <span> </span> <span class="date">4 May 2014 at 10:21</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>Yes that is true; IDEA (13.x) gives three different choices... Meh, I always end up using JSR 305 anywa</span> <span> - </span> <span class="display-name">fge</span> <span> </span> <span class="date">4 May 2014 at 10:24</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>I know this is old, but the discussion about annotations &amp; tools deserves a link to <a href="http://stackoverflow.com/questions/35892063/which-nonnull-java-annotation-to-use#answer-35896657" title="which nonnull java annotation to use%23answer 35896657">stackoverflow.com/questions/35892063/…</a> - which btw specifically addresses the case of Java 8.</span> <span> - </span> <span class="display-name">Stephan Herrmann</span> <span> </span> <span class="date">13 Apr 2017 at 12:15</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>…as of 2021-01-29, this should be upvoted 192 another times.</span> <span> - </span> <span class="display-name">Ralf H</span> <span> </span> <span class="date">29 Jan 2021 at 00:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>29</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Behe</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 May 2014 at 11:56</span>
+     </div>
+    </div>
+    <div>
+     <p>I think the Guava Optional and their wiki page puts it quite well:</p>
+     <blockquote>
+      <p>Besides the increase in readability that comes from giving null a name, the biggest advantage of Optional is its idiot-proof-ness. It forces you to actively think about the absent case if you want your program to compile at all, since you have to actively unwrap the Optional and address that case. Null makes it disturbingly easy to simply forget things, and though FindBugs helps, we don't think it addresses the issue nearly as well.</p>
+      <p>This is especially relevant when you're returning values that may or may not be "present." You (and others) are far more likely to forget that other.method(a, b) could return a null value than you're likely to forget that a could be null when you're implementing other.method. Returning Optional makes it impossible for callers to forget that case, since they have to unwrap the object themselves for their code to compile. -- (Source: <a href="https://code.google.com/p/guava-libraries/wiki/UsingAndAvoidingNullExplained" rel="noreferrer">Guava Wiki - Using and Avoiding null - What's the point?</a>)</p>
+     </blockquote>
+     <p><code>Optional</code> adds some overhead, but I think its clear advantage is to make it <em>explicit</em> that an object might be absent and it enforces that programmers handle the situation. It prevents that someone forgets the beloved <code>!= null</code> check.</p>
+     <p>Taking the example of <a href="https://stackoverflow.com/a/23455046/1153530">2</a>, I think it is far more explicit code to write:</p>
+     <pre><code>if(soundcard.isPresent()){
+  System.out.println(soundcard.get());
+}
+</code></pre>
+     <p>than</p>
+     <pre><code>if(soundcard != null){
+  System.out.println(soundcard);
+}
+</code></pre>
+     <p>For me, the <code>Optional</code> better captures the fact that there is no soundcard present.</p>
+     <p>My 2¢ about your points:</p>
+     <ol>
+      <li><code>public Optional&lt;Foo&gt; findFoo(String id);</code> - I am not sure about this. Maybe I would return a <code>Result&lt;Foo&gt;</code> which might be <em>empty</em> or contain a <code>Foo</code>. It is a similar concept, but not really an <code>Optional</code>.</li>
+      <li><code>public Foo doSomething(String id, Optional&lt;Bar&gt; barOptional);</code> - I would prefer @Nullable and a findbugs check, as in <a href="https://stackoverflow.com/a/23455046/1153530">Peter Lawrey's answer</a> - see also <a href="https://plus.google.com/+JordanLewiser/posts/ayfR8F56PGy" rel="noreferrer">this discussion</a>.</li>
+      <li>Your book example - I am not sure if I would use the Optional internally, that might depend on the complexity. For the "API" of a book, I would use an <code>Optional&lt;Index&gt; getIndex()</code> to explicitly indicate that the book might not have an index.</li>
+      <li>I would not use it in collections, rather not allowing null values in collections</li>
+     </ol>
+     <p>In general, I would try to minimize passing around <code>null</code>s. (Once burnt...) I think it is worth to find the appropriate abstractions and indicate to the fellow programmers what a certain return value actually represents.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>21</td>
+        <td><span>You would write <code>soundcard.ifPresent(System.out::println)</code>. Calling <code>isPresent</code> is semantically the same as checking for <code>null</code>.</span> <span> - </span> <span class="display-name">a better oliver</span> <span> </span> <span class="date">25 Dec 2014 at 18:00</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>The issue to me is that things with Optional types can still be null. So to actually be completely safe you have to do something like <code>if(soundcard != null &amp;&amp; soundcard.isPresent())</code>. Though making an api that returns an Optional and could also return null is something I hope no one ever does.</span> <span> - </span> <span class="display-name">Simon Baumgardt-Wellander</span> <span> </span> <span class="date">21 Dec 2016 at 22:19</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>"It forces you to actively think about the absent case if you want your program to compile at all, since you have to actively unwrap the Optional and address that case." I'm not really sure how it forces this, though I don't work in Java a whole lot. Could you explain what Java does to force you to unwrap AND check the !isPresent case simply to compile?</span> <span> - </span> <span class="display-name">crush</span> <span> </span> <span class="date">9 Aug 2018 at 17:52</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>what I never understood: We are expected to forget !=null, but we never forget .isPresent?</span> <span> - </span> <span class="display-name">Ralf H</span> <span> </span> <span class="date">29 Jan 2021 at 00:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>19</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>ctomek</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 May 2016 at 07:53</span>
+     </div>
+    </div>
+    <div>
+     <p>From <a href="http://www.oracle.com/technetwork/articles/java/java8-optional-2175753.html" rel="noreferrer">Oracle tutorial</a>:</p>
+     <blockquote>
+      <p>The purpose of Optional is not to replace every single null reference in your codebase but rather to help design better APIs in which—just by reading the signature of a method—users can tell whether to expect an optional value. In addition, Optional forces you to actively unwrap an Optional to deal with the absence of a value; as a result, you protect your code against unintended null pointer exceptions.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>APIs just for the return part of the method, right? Optionals shouldn't be used as parameters because of type-erasure ? sometimes I use an Optional internally in a method, converted from a nullable parameter or as a field initialize from a null constructor parameter ... still trying to figure out if that is more useful than just leaving it as null - anyone have any thoughts?</span> <span> - </span> <span class="display-name">ycomp</span> <span> </span> <span class="date">27 Dec 2016 at 14:13</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ycomp You can find quite much information about those cases in <a href="http://stackoverflow.com/questions/31922866/why-should-java-8s-optional-not-be-used-in-arguments">this</a> or <a href="http://stackoverflow.com/questions/26327957/should-java-8-getters-return-optional-type?rq=1">that</a> question. Answers to those questions tell much more than what was asked about and cover other cases. For more info, browse more or ask your own question, because probably you won't get much attention here. ; )</span> <span> - </span> <span class="display-name">ctomek</span> <span> </span> <span class="date">27 Dec 2016 at 18:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>13</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user2023577</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Oct 2019 at 00:02</span>
+     </div>
+    </div>
+    <div>
+     <p>In java, just don't use them unless you are addicted to functional programming.</p>
+     <p>They have no place as method arguments (I promess someone one day will pass you a null optional, not just an optional that is empty).</p>
+     <p>They make sense for return values but they invite the client class to keep on stretching the behavior-building chain.</p>
+     <p>FP and chains have little place in an imperative language like java because it makes it very hard to debug, not just to read. When you step to the line, you can't know the state nor intent of the program; you have to step into to figure it out (into code that often isn't yours and many stack frames deep despite step filters) and you have to add lots of breakpoints down to make sure it can stop in the code/lambda you added, instead of simply walking the if/else/call trivial lines.</p>
+     <p>If you want functional programming, pick something else than java and hope you have the tools for debugging that.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>artifex</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Oct 2018 at 11:37</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>1 - As a public method return type when the method could return null:</p>
+     </blockquote>
+     <p>Here is a <a href="https://stackify.com/optional-java/" rel="noreferrer">good article</a> that shows usefulness of usecase #1. There this code</p>
+     <pre><code>...
+if (user != null) {
+    Address address = user.getAddress();
+    if (address != null) {
+        Country country = address.getCountry();
+        if (country != null) {
+            String isocode = country.getIsocode();
+            isocode = isocode.toUpperCase();
+        }
+    }
+}
+...
+</code></pre>
+     <p>is transformed to this</p>
+     <pre><code>String result = Optional.ofNullable(user)
+  .flatMap(User::getAddress)
+  .flatMap(Address::getCountry)
+  .map(Country::getIsocode)
+  .orElse("default");
+</code></pre>
+     <p>by using Optional as a return value of respective <em>getter</em> methods.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>In my opinion, the first example is much more readable than the transformed example. Also the first example could have only one if statement instead of 3.</span> <span> - </span> <span class="display-name">OuuGiii</span> <span> </span> <span class="date">23 Feb 2021 at 13:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>fge</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 May 2014 at 05:53</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is an interesting usage (I believe) for... Tests.</p>
+     <p>I intend to heavily test one of my projects and I therefore build assertions; only there are things I have to verify and others I don't.</p>
+     <p>I therefore build things to assert and use an assert to verify them, like this:</p>
+     <pre><code>public final class NodeDescriptor&lt;V&gt;
+{
+    private final Optional&lt;String&gt; label;
+    private final List&lt;NodeDescriptor&lt;V&gt;&gt; children;
+
+    private NodeDescriptor(final Builder&lt;V&gt; builder)
+    {
+        label = Optional.fromNullable(builder.label);
+        final ImmutableList.Builder&lt;NodeDescriptor&lt;V&gt;&gt; listBuilder
+            = ImmutableList.builder();
+        for (final Builder&lt;V&gt; element: builder.children)
+            listBuilder.add(element.build());
+        children = listBuilder.build();
+    }
+
+    public static &lt;E&gt; Builder&lt;E&gt; newBuilder()
+    {
+        return new Builder&lt;E&gt;();
+    }
+
+    public void verify(@Nonnull final Node&lt;V&gt; node)
+    {
+        final NodeAssert&lt;V&gt; nodeAssert = new NodeAssert&lt;V&gt;(node);
+        nodeAssert.hasLabel(label);
+    }
+
+    public static final class Builder&lt;V&gt;
+    {
+        private String label;
+        private final List&lt;Builder&lt;V&gt;&gt; children = Lists.newArrayList();
+
+        private Builder()
+        {
+        }
+
+        public Builder&lt;V&gt; withLabel(@Nonnull final String label)
+        {
+            this.label = Preconditions.checkNotNull(label);
+            return this;
+        }
+
+        public Builder&lt;V&gt; withChildNode(@Nonnull final Builder&lt;V&gt; child)
+        {
+            Preconditions.checkNotNull(child);
+            children.add(child);
+            return this;
+        }
+
+        public NodeDescriptor&lt;V&gt; build()
+        {
+            return new NodeDescriptor&lt;V&gt;(this);
+        }
+    }
+}
+</code></pre>
+     <p>In the NodeAssert class, I do this:</p>
+     <pre><code>public final class NodeAssert&lt;V&gt;
+    extends AbstractAssert&lt;NodeAssert&lt;V&gt;, Node&lt;V&gt;&gt;
+{
+    NodeAssert(final Node&lt;V&gt; actual)
+    {
+        super(Preconditions.checkNotNull(actual), NodeAssert.class);
+    }
+
+    private NodeAssert&lt;V&gt; hasLabel(final String label)
+    {
+        final String thisLabel = actual.getLabel();
+        assertThat(thisLabel).overridingErrorMessage(
+            "node's label is null! I didn't expect it to be"
+        ).isNotNull();
+        assertThat(thisLabel).overridingErrorMessage(
+            "node's label is not what was expected!\n"
+            + "Expected: '%s'\nActual  : '%s'\n", label, thisLabel
+        ).isEqualTo(label);
+        return this;
+    }
+
+    NodeAssert&lt;V&gt; hasLabel(@Nonnull final Optional&lt;String&gt; label)
+    {
+        return label.isPresent() ? hasLabel(label.get()) : this;
+    }
+}
+</code></pre>
+     <p>Which means the assert really only triggers if I want to check the label!</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user1134181</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Nov 2018 at 12:10</span>
+     </div>
+    </div>
+    <div>
+     <p><code>Optional</code> class lets you avoid to use <code>null</code> and provide a better alternative:</p>
+     <ul>
+      <li>
+       <p>This encourages the developer to make checks for presence in order to avoid uncaught <code>NullPointerException</code>'s.</p></li>
+      <li>
+       <p>API becomes better documented because it's possible to see, where to expect the values which can be absent.</p></li>
+     </ul>
+     <p><code>Optional</code> provides convenient API for further work with the object: <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html#isPresent--" rel="nofollow noreferrer"><code>isPresent()</code></a>; <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html#get--" rel="nofollow noreferrer"><code>get()</code></a>; <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html#orElse-T-" rel="nofollow noreferrer"><code>orElse()</code></a>; <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html#orElseGet-java.util.function.Supplier-" rel="nofollow noreferrer"><code>orElseGet()</code></a>; <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html#orElseThrow-java.util.function.Supplier-" rel="nofollow noreferrer"><code>orElseThrow()</code></a>; <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html#map-java.util.function.Function-" rel="nofollow noreferrer"><code>map()</code></a>; <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html#filter-java.util.function.Predicate-" rel="nofollow noreferrer"><code>filter()</code></a>; <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html#flatMap-java.util.function.Function-" rel="nofollow noreferrer"><code>flatmap()</code></a>.</p>
+     <p>In addition, many frameworks actively use this data type and return it from their API.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Raedwald</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Feb 2019 at 12:33</span>
+     </div>
+    </div>
+    <div>
+     <p>An <a href="https://docs.oracle.com/javase/10/docs/api/java/util/Optional.html" rel="nofollow noreferrer"><code>Optional</code></a> <a href="https://stackoverflow.com/a/54812170/545127">has similar semantics to an unmodifiable instance of the Iterator design pattern</a>:</p>
+     <ul>
+      <li>it might or might not refer to an object (as given by <a href="https://docs.oracle.com/javase/10/docs/api/java/util/Optional.html#isPresent()" rel="nofollow noreferrer"><code>isPresent()</code></a>)</li>
+      <li>it can be dereferenced (using <a href="https://docs.oracle.com/javase/10/docs/api/java/util/Optional.html#get()" rel="nofollow noreferrer"><code>get()</code></a>) if it does refer to an object</li>
+      <li>but it can not be advanced to the next position in the sequence (it has no <code>next()</code> method).</li>
+     </ul>
+     <p>Therefore consider returning or passing an <code>Optional</code> in contexts where you might previously have considered using a Java <a href="https://docs.oracle.com/javase/10/docs/api/java/util/Iterator.html" rel="nofollow noreferrer"><code>Iterator</code></a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Guildenstern</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jul 2020 at 18:18</span>
+     </div>
+    </div>
+    <div>
+     <p>Here are some of the methods that you can perform on an instance of <code>Optional&lt;T&gt;</code>:</p>
+     <ul>
+      <li><code>map</code></li>
+      <li><code>flatMap</code></li>
+      <li><code>orElse</code></li>
+      <li><code>orElseThrow</code></li>
+      <li><code>ifPresentOrElse</code></li>
+      <li><code>get</code></li>
+     </ul>
+     <p>Here are all the methods that you can perform on <code>null</code>:</p>
+     <ul>
+      <li><em>(there are none)</em></li>
+     </ul>
+     <p>This is really an apples to oranges comparison: <code>Optional&lt;T&gt;</code> is an actual instance of an object (unless it is <code>null</code>… but that would probably be a bug) while <code>null</code> is an aborted object. All you can do with <code>null</code> is check whether it is in fact <code>null</code>, or not. So if you like to use methods on objects, <code>Optional&lt;T&gt;</code> is for you; if you like to branch on special literals, <code>null</code> is for you.</p>
+     <p><code>null</code> does not compose. You simply can’t compose a value which you can only branch on. But <code>Optional&lt;T&gt;</code> does compose.</p>
+     <p>You can, for instance, make arbitrary long chains of “apply this function if non-empty” by using <code>map</code>. Or you can effectively make an imperative block of code which consumes the optional if it is non-empty by using <code>ifPresent</code>. Or you can make an “if/else” by using <code>ifPresentOrElse</code>, which consumes the non-empty optional if it is non-empty or else executes some other code.</p>
+     <p>…And it is at this point that we run into the true limitations of the <em>language</em> in my opinion: for very imperative code you have to wrap them in lambdas and pass them to methods:</p>
+     <pre><code>    opt.ifPresentOrElse(
+            string -&gt; { // if present...
+                // ...
+            }, () -&gt; { // or else...
+                // ...
+            }
+    );
+</code></pre>
+     <p>That might not be good enough for some people, style-wise.</p>
+     <p>It would be more seamless if <code>Optional&lt;T&gt;</code> was an algebraic data type that we could pattern match on (this is obviously pseudo-code:</p>
+     <pre><code>    match (opt) {
+        Present(str) =&gt; {
+            // ...
+        }
+        Empty =&gt;{
+            // ...
+        }
+    }
+</code></pre>
+     <p>But anyway, in summary: <code>Optional&lt;T&gt;</code> is a pretty robust empty-or-present object. <code>null</code> is just a sentinel value.</p>
+     <h2>Subjectively disregarded reasons</h2>
+     <p>There seems to be a few people who effectively argue that efficiency should determine whether one should use <code>Optional&lt;T&gt;</code> or branch on the <code>null</code> sentinel value. That seems a bit like making hard and fast rules on when to make objects rather than primitives in the general case. I think it’s a bit ridiculous to use <em>that</em> as the starting point for this discussion when you’re already working in a language where it’s idiomatic to make objects left-and-right, top to bottom, all the time (in my opinion).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>oopexpert</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Mar 2017 at 20:30</span>
+     </div>
+    </div>
+    <div>
+     <p>I do not think that Optional is a general substitute for methods that potentially return null values.</p>
+     <p>The basic idea is: The absence of a value does not mean that it potentially is available in the future. It's a difference between findById(-1) and findById(67).</p>
+     <p>The main information of Optionals for the caller is that he may not count on the value given but it may be available at some time. Maybe it will disappear again and comes back later one more time. It's like an on/off switch. You have the "option" to switch the light on or off. But you have no option if you do not have a light to switch on.</p>
+     <p>So I find it too messy to introduce Optionals everywhere where previously null was potentially returned. I will still use null, but only in restricted areas like the root of a tree, lazy initialization and explicit find-methods.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tom Gregory</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Jul 2022 at 10:14</span>
+     </div>
+    </div>
+    <div>
+     <h2>1 - As a public method return type when the method could return null:</h2>
+     <p>This is the intended use case for <code>Optional</code>, as seen in the <a href="https://docs.oracle.com/en/java/javase/18/docs/api/java.base/java/util/Optional.html" rel="nofollow noreferrer">JDK API docs</a>:</p>
+     <blockquote>
+      <p>Optional is primarily intended for use as a method return type where there is a clear need to represent "no result," and where using null is likely to cause errors.</p>
+     </blockquote>
+     <p><code>Optional</code> represents one of two states:</p>
+     <ol>
+      <li>it has a value (<code>isPresent</code> returns <code>true</code>)</li>
+      <li>it doesn't have a value (<code>isEmpty</code> returns <code>true</code>)</li>
+     </ol>
+     <p>So if you have a method that returns either something or nothing, this is the ideal use case for <code>Optional</code>.</p>
+     <p>Here's an example:</p>
+     <pre class="lang-java prettyprint-override"><code>Optional&lt;Guitarist&gt; findByLastName(String lastName);
+</code></pre>
+     <p>This method takes a parameter used to search for an entity in the database. It's possible that no such entity exists, so using an <code>Optional</code> return type is a good idea since it forces whoever is calling the method to consider the empty scenario. This reduces chances of a <code>NullPointerException</code>.</p>
+     <h2>2 - As a method parameter when the param may be null:</h2>
+     <p>Although technically possible, this is not the intended use case of <code>Optional</code>.</p>
+     <p>Let's consider your proposed method signature:</p>
+     <pre class="lang-java prettyprint-override"><code>public Foo doSomething(String id, Optional&lt;Bar&gt; barOptional);
+</code></pre>
+     <p>The main problem is that we could call <code>doSomething</code> where <code>barOptional</code> has one of 3 states:</p>
+     <ol>
+      <li>an <code>Optional</code> with a value e.g. <code>doSomething("123", Optional.of(new Bar())</code></li>
+      <li>an empty <code>Optional</code> e.g. <code>doSomething("123", Optional.empty())</code></li>
+      <li><code>null</code> e.g. <code>doSomething("123", null)</code></li>
+     </ol>
+     <p>These 3 states would need to be handled in the method implementation appropriately.</p>
+     <p>A better solution is to implement an overloaded method.</p>
+     <pre class="lang-java prettyprint-override"><code>public Foo doSomething(String id);
+
+public Foo doSomething(String id, Bar bar);
+</code></pre>
+     <p>This makes it very clear to the consumer of the API which method to call, and <code>null</code> does not need to be passed.</p>
+     <h2>3 - As an optional member of a bean:</h2>
+     <p>Given your example <code>Book</code> class:</p>
+     <pre class="lang-java prettyprint-override"><code>public class Book {
+  private List&lt;Pages&gt; pages;
+  private Optional&lt;Index&gt; index;
+}
+</code></pre>
+     <p>The <code>Optional</code> class variable suffers from the same issue as the <code>Optional</code> method parameter discussed above. It can have one of 3 states: present, empty, or <code>null</code>.</p>
+     <p>Other possible issues include:</p>
+     <ul>
+      <li><strong>serialization:</strong> if you implement <code>Serializable</code> and try to serialize an object of this class, you will encounter a <code>java.io.NotSerializableException</code> since <code>Optional</code> was not designed for this use case</li>
+      <li><strong>transforming to JSON:</strong> when serializing to JSON an <code>Optional</code> field may get mapped in an undesirable way e.g. <code>{"empty":false,"present":true}</code>. Although if you use the popular <em>Jackson</em> library, it does <a href="https://www.baeldung.com/jackson-optional" rel="nofollow noreferrer">provide a solution</a> to this problem.</li>
+     </ul>
+     <p>Despite these issues, Oracle themselves published <a href="https://www.oracle.com/technical-resources/articles/java/java8-optional.html" rel="nofollow noreferrer">this blog post</a> at the time of the Java 8 <code>Optional</code> release in 2014. It contains code examples using <code>Optional</code> for class variables.</p>
+     <pre class="lang-java prettyprint-override"><code>public class Computer {
+  private Optional&lt;Soundcard&gt; soundcard;  
+  public Optional&lt;Soundcard&gt; getSoundcard() { ... }
+  ...
+}
+</code></pre>
+     <p>In the following years though, developers have found better alternatives such as implementing a getter method to create the <code>Optional</code> object.</p>
+     <pre class="lang-java prettyprint-override"><code>public class Book {
+    private List&lt;Pages&gt; pages;
+    private Index index;
+    public Optional&lt;Index&gt; getIndex() {
+        return Optional.ofNullable(index);
+    }
+}
+</code></pre>
+     <p>Here we use the <code>ofNullable</code> method to return an <code>Optional</code> with a value if <code>index</code> is non-null, or otherwise an empty <code>Optional</code>.</p>
+     <h2>4 - In Collections:</h2>
+     <p>I agree that creating a <code>List</code> of <code>Optional</code> (e.g. <code>List&lt;Optional&lt;Foo&gt;&gt;</code>) doesn't add anything. Instead, just don't include the item in the <code>List</code> if it's not present.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>peter.petrov</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 May 2014 at 10:13</span>
+     </div>
+    </div>
+    <div>
+     <p>Seems <code>Optional</code> is only useful if the type T in Optional is a primitive type like <code>int</code>, <code>long</code>, <code>char</code>, etc. For "real" classes, it does not make sense to me as you can use a <code>null</code> value anyway.</p>
+     <p>I think it was taken from here (or from another similar language concept).</p>
+     <p><a href="http://msdn.microsoft.com/en-us/library/b3h38hb0.aspx" rel="nofollow"><code>Nullable&lt;T&gt;</code></a></p>
+     <p>In C# this <code>Nullable&lt;T&gt;</code> was introduced long ago to wrap value types.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>It is a ripoff of Guava's <code>Optional</code> in fact</span> <span> - </span> <span class="display-name">fge</span> <span> </span> <span class="date">4 May 2014 at 10:21</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@fge OK but when this was present in C# (2005, MS.NET 2.0), there was no Guava, I think. And ... who knows where C# took this from.</span> <span> - </span> <span class="display-name">peter.petrov</span> <span> </span> <span class="date">4 May 2014 at 10:22</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@fge "Ripoff of Guava's Optional" is kind of a funny way to put it, since the Guava guys participated in discussions, provided their experiences, and generally were in favor of <code>java.util.Optional</code>.</span> <span> - </span> <span class="display-name">Stuart Marks</span> <span> </span> <span class="date">4 May 2014 at 17:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@StuartMarks yes, and Guava has had <code>Optional</code> for quite some time before discussions of it making into Java 8 even began ;) And the same holds true for, for instance, <code>Function</code>, <code>Supplier</code> and <code>Predicate</code></span> <span> - </span> <span class="display-name">fge</span> <span> </span> <span class="date">4 May 2014 at 17:49</span></td>
+       </tr>
+       <tr>
+        <td>9</td>
+        <td><span>@fge No doubt Java's APIs were strongly influenced by Guava's. I'm taking issue with "ripoff" which sounds like stealing. The Guava guys <b>contributed</b> a lot of valuable ideas to Java 8.</span> <span> - </span> <span class="display-name">Stuart Marks</span> <span> </span> <span class="date">5 May 2014 at 04:00</span></td>
+       </tr>
+       <tr>
+        <td>9</td>
+        <td><span>You're missing the point. Optional is to be used instead of returning null. It is safer than potentially throwing a NullPointerException. See: <a href="http://www.oracle.com/technetwork/articles/java/java8-optional-2175753.html" rel="nofollow noreferrer">oracle.com/technetwork/articles/java/…</a></span> <span> - </span> <span class="display-name">Kilizo</span> <span> </span> <span class="date">13 Jan 2015 at 15:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@peter.petrov <code>Optional is only useful if the type T in Optional is a primitive</code> For that I can use a wrapper type, it allows returning a null.</span> <span> - </span> <span class="display-name">Kshitiz Sharma</span> <span> </span> <span class="date">29 Apr 2015 at 03:16</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jQuery DataTables: How to display what filters are being applied</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jQuery DataTables: How to display what filters are being applied</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>pee2pee</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 May 2022 at 10:33</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/72170588/jquery-datatables-how-to-display-what-filters-are-being-applied">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using a combination of <a href="https://datatables.net/extensions/fixedheader/examples/options/columnFiltering.html" rel="nofollow noreferrer">https://datatables.net/extensions/fixedheader/examples/options/columnFiltering.html</a> and <a href="https://datatables.net/examples/basic_init/state_save.html" rel="nofollow noreferrer">https://datatables.net/examples/basic_init/state_save.html</a></p>
+    <p>So someone can search for something, narrow down their results, go to another page, come back and not remember what the filters were previously</p>
+    <p>My ask is whether we can expose what current searches/filters are in place and for what columns?</p>
+    <p>Thanks</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 May 2022 at 14:23</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Problem</strong></p>
+     <p>The problem is that the search terms entered by users into each column heading are not restored when the saved state is restored (even though the search terms are re-applied to filter the DataTable). These fields are part of the DOM (not part of the underlying DataTable).</p>
+     <p><strong>Solution</strong></p>
+     <p>You need to take the following extra steps to retrieve these values from local storage and then re-display them in the HTML <code>&lt;input&gt;</code> fields, so the user can see them.</p>
+     <p>In the following DataTable, I am using the same <a href="https://datatables.net/extensions/fixedheader/examples/options/columnFiltering.html" rel="nofollow noreferrer">column filtering example</a> as referenced in the question.</p>
+     <p>I have also added the <code>stateSave: true</code> option to my example, to recreate the problem described in the question.</p>
+     <p><strong>Steps to Fix</strong></p>
+     <pre><code>var colSearches = [];
+</code></pre>
+     <p>The above variable will hold an array of the column search terms entered by the user.</p>
+     <pre><code>stateLoadParams: function (settings, data) {
+    // capture any previously used column search terms:
+    colSearches = [];
+    data.columns.forEach( (col, idx) =&gt; {
+        // The DataTables smart search wraps the search term in
+        // parentheses - so remove them here:
+        var searchTerm = col.search.search.slice(4, -4);
+        colSearches.push( searchTerm );
+      });
+}
+</code></pre>
+     <p>The above <a href="https://datatables.net/reference/option/stateLoadParams" rel="nofollow noreferrer"><code>stateLoadParams</code></a> option is used to populate my <code>colSearches</code> array. It retrieves each column search term from local storage. The <code>stateSave</code> option is already doing this, behind the scenes, for us - but we need to retrieve the saved data again here, so that we can manually re-populate the input fields.</p>
+     <p>Finally, I use the following code to restore the search terms into the relevant input fields in the column headings:</p>
+     <pre><code>$('.filters th:nth-child(' + (colIdx+1) + ') input').val( colSearches[colIdx] );
+</code></pre>
+     <p>The above line needs to be added to the existing <code>initComplete</code> function, after each <code>&lt;input&gt;</code> element is added to the table.</p>
+     <hr>
+     <p><strong>Note</strong></p>
+     <p>There is a potential limitation with this approach. It assumes your column <a href="https://datatables.net/reference/api/search()" rel="nofollow noreferrer"><code>search()</code></a> function is exactly the same as the one used in the demo example (and the code shown below). Specifically, the <code>regex</code> option must be <code>false</code> and the <code>smart</code> option must be <code>true</code> (which are the <code>search()</code> function's default values).</p>
+     <p>I have not tested the above approach with a customized <code>search()</code> function - for example, I suspect it may not work if you want to set the <code>regex</code> option to <code>true</code>.</p>
+     <hr>
+     <p>For reference, here is the full code with some sample data, so you can see how the pieces fit together:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.0.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office in Country&lt;/th&gt;
+                &lt;th&gt;Age&lt;/th&gt;
+                &lt;th&gt;Start date&lt;/th&gt;
+                &lt;th&gt;Salary&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Tiger Nixon&lt;/td&gt;
+                &lt;td&gt;System Architect&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;2011/04/25&lt;/td&gt;
+                &lt;td&gt;$320,800&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Garrett Winters&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;63&lt;/td&gt;
+                &lt;td&gt;2011/07/25&lt;/td&gt;
+                &lt;td&gt;$170,750&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Ashton Cox&lt;/td&gt;
+                &lt;td&gt;Junior "Technical" Author&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;66&lt;/td&gt;
+                &lt;td&gt;2009/01/12&lt;/td&gt;
+                &lt;td&gt;$86,000&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tfoot&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;script&gt;
+
+var colSearches = [];
+
+$(document).ready(function () {
+    // Setup - add a text input to each footer cell
+    $('#example thead tr')
+        .clone(true)
+        .addClass('filters')
+        .appendTo('#example thead');
+ 
+    var table = $('#example').DataTable({
+        
+        stateSave: true,
+        
+        stateLoadParams: function (settings, data) {
+            // capture any previously used column search terms:
+            colSearches = [];
+            data.columns.forEach( (col, idx) =&gt; {
+                // The DataTables smart search wraps the search term in
+                // parentheses - so remove them here:
+                var searchTerm = col.search.search.slice(4, -4);
+                colSearches.push( searchTerm );
+            });
+        },
+        
+        orderCellsTop: true,
+        fixedHeader: true,
+        initComplete: function () {
+            var api = this.api();
+ 
+            // For each column
+            api
+                .columns()
+                .eq(0)
+                .each(function (colIdx) {
+                    // Set the header cell to contain the input element
+                    var cell = $('.filters th').eq(
+                        $(api.column(colIdx).header()).index()
+                    );
+                    var title = $(cell).text();
+                    $(cell).html('&lt;input type="text" placeholder="' + title + '" /&gt;');
+                    
+                    // Restore the previously used search term:
+                    $('.filters th:nth-child(' + (colIdx+1) + ') input').val( colSearches[colIdx] );
+ 
+                    // On every keypress in this input
+                    $(
+                        'input',
+                        $('.filters th').eq($(api.column(colIdx).header()).index())
+                    )
+                        .off('keyup change')
+                        .on('keyup change', function (e) {
+                            e.stopPropagation();
+ 
+                            // Get the search value
+                            $(this).attr('title', $(this).val());
+                            var regexr = '({search})'; //$(this).parents('th').find('select').val();
+ 
+                            var cursorPosition = this.selectionStart;
+                            // Search the column for that value
+                            api
+                                .column(colIdx)
+                                .search(
+                                    this.value != ''
+                                        ? regexr.replace('{search}', '(((' + this.value + ')))')
+                                        : '',
+                                    this.value != '',
+                                    this.value == ''
+                                )
+                                .draw();
+ 
+                            $(this)
+                                .focus()[0]
+                                .setSelectionRange(cursorPosition, cursorPosition);
+                        });
+                });
+        }
+                
+    });
+});
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

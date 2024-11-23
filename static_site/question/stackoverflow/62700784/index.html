@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to SET LOCK MODE in java application</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to SET LOCK MODE in java application</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>isaace</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>2 Jul 2020 at 16:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62700784/how-to-set-lock-mode-in-java-application">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am working on a Java web application that uses Weblogic to connect to an Informix database. In the application we have multiple threads creating records in a table.</p>
+    <p>It happens pretty often that it fails and the following error is thrown:</p>
+    <pre><code>java.sql.SQLException: Could not do a physical-order read to fetch next row....
+Caused by: java.sql.SQLException: ISAM error: record is locked.
+</code></pre>
+    <p>I am assuming that both threads are trying to insert or update when the record is locked.</p>
+    <p>I did some research and found that there is an option to set the database that instead of throwing an error, it should wait for the lock to be released.</p>
+    <pre><code>SET LOCK MODE TO WAIT;
+SET LOCK MODE TO WAIT 17;
+</code></pre>
+    <p>I don't think that there is an option in JDBC to use this setting. How do I go about using this setting in my java web app?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">database</span><span class="tag">weblogic</span><span class="tag">informix</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Have you tried executing that in a <code>Statement</code>?</span> <span> - </span> <span class="display-name">Kayaman</span> <span> </span> <span class="date">2 Jul 2020 at 16:21</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Kayaman How would I do that?</span> <span> - </span> <span class="display-name">isaace</span> <span> </span> <span class="date">2 Jul 2020 at 16:26</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>You know, the <a href="https://docs.oracle.com/javase/8/docs/api/java/sql/Statement.html#execute-java.lang.String-" rel="nofollow noreferrer">oldschool way</a>.</span> <span> - </span> <span class="display-name">Kayaman</span> <span> </span> <span class="date">2 Jul 2020 at 16:29</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Kayaman I'll look into that. Thank you.</span> <span> - </span> <span class="display-name">isaace</span> <span> </span> <span class="date">2 Jul 2020 at 16:31</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>rzwitserloot</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jul 2020 at 16:32</span>
+     </div>
+    </div>
+    <div>
+     <p>You can always just send that SQL straight up, using <code>createStatement()</code>, and then send that exact SQL.</p>
+     <p>The more 'normal' / modern approach to this problem is a combination of MVCC, the transaction level 'SERIALIZABLE', retry, and random backoff.</p>
+     <p>I have no idea if Informix is anywhere near that advanced, though. Modern DBs such as Postgres are (mysql does not count as modern for the purposes of MVCC/serializable/retry/backoff, and transactional safety).</p>
+     <p>Doing MVCC/Serializable/Retry/Backoff in raw JDBC is very complicated; use a library such as JDBI or JOOQ.</p>
+     <p>MVCC: A mechanism whereby transactions are shallow clones of the underlying data. 2 separate transactions can both read and write to the same records in the same table without getting in each other's way. Things aren't 'saved' until you commit the transaction.</p>
+     <p>SERIALIZABLE: A transaction level (also called isolationlevel), settable with <code>jdbcDbObj.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);</code> - the safest level. If you know how version control systems work: You're asking the database to aggressively rebase everything so that the entire chain of commits is ordered into a single long line of events: Each transaction acts as if it was done after the previous transaction was completed. The simplest way to implement this level is to globally lock all the things. This is, of course, very detrimental to multithread performance. In practice, good DB engines (such as postgres) are smarter than that: Multiple threads can simultaneously run transactions without just being frozen and waiting for locks; the DB engine instead checks if the things that the transaction did (not just writing, also reading) is conflict-free with simultaneous transactions. If yes, it's all allowed. If not, all but one simultaneous transaction throw a retry exception. This is the only level that lets you do this sequence of events safely:</p>
+     <ol>
+      <li>Fetch the balance of isaace's bank account.</li>
+      <li>Fetch the balance of rzwitserloot's bank account.</li>
+      <li>subtract €10,- from isaace's number, failing if the balance is insufficient.</li>
+      <li>add €10,- to rzwitserloot's number.</li>
+      <li>Write isaace's new balance to the db.</li>
+      <li>Write rzwitserloot's new balance to the db.</li>
+      <li>commit the transaction.</li>
+     </ol>
+     <p>Any level less than SERIALIZABLE will silently fail the job; if multiple threads do the above simultaneously, no SQLExceptions occur but the sum of the balance of isaace and rzwitserloot will change over time (money is lost or created – in between steps 1 &amp; 2 vs. step 5/6/7, another thread sets new balances, but these new balances are lost due to the update in 5/6/7). With serializable, that cannot happen.</p>
+     <p>RETRY: The way smart DBs solve the problem is by failing (with a 'retry' error) all but one transaction, by checking if all SELECTs done by the entire transaction are not affected by any transactions that been committed to the db <strong>after</strong> this transaction was opened. If the answer is yes (some selects would have gone differently), the transaction fails. The point of this error is to tell the code that ran the transaction to just.. start from the top and do it again. Most likely this time there won't be a conflict and it will work. The assumption is that conflicts CAN occur but usually do not occur, so it is better to assume 'fair weather' (no locks, just do your stuff), check afterwards, and try again in the exotic scenario that it conflicted, vs. trying to lock rows and tables. Note that for example ethernet works the same way (assume fair weather, recover errors afterwards).</p>
+     <p>BACKOFF: One problem with retry is that computers are too consistent: If 2 threads get in the way of each other, they can both fail, both try again, just to fail again, forever. The solution is that the threads twiddle their thumbs for a <strong>random</strong> amount of time, to guarantee that at some point, one of the two conflicting retriers 'wins'.</p>
+     <p>In other words, if you want to do it 'right' (see the bank account example), but also relatively 'fast' (not globally locking), get a DB that can do this, and use JDBI or JOOQ; otherwise, you'd have to write code to run all DB stuff in a lambda block, catch the SQLException, check the SqlState to see if it is indicating that you should retry (sqlstate codes are DB-engine specific), and if yes, rerun that lambda, after waiting an exponentially increasing amount of time that also includes a random factor. That's fairly complicated, which is why I strongly advise you rely on JOOQ or JDBI to take care of this for you.</p>
+     <p>If you aren't ready for that level of DB usage, just make a statement and send "SET LOCK MDOE TO WAIT 17;" as SQL statement straight up, at the start of opening any connection. If you're using a connection pool there is usually a place you can configure SQL statements to be run on connection start.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for your long detailed answer. It is above my level of DB usage. I'll try first the simple way.</span> <span> - </span> <span class="display-name">isaace</span> <span> </span> <span class="date">2 Jul 2020 at 16:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Brian Hughes</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jul 2020 at 22:56</span>
+     </div>
+    </div>
+    <div>
+     <p>The Informix JDBC driver does allow you to automatically set the lock wait mode when you connect to the server.</p>
+     <p>Simply pass via the DataSource or connection URL the following parameter</p>
+     <blockquote>
+      <p>IFX_LOCK_MODE_WAIT=17</p>
+     </blockquote>
+     <p>The values for JDBC are</p>
+     <ul>
+      <li>(-1) Wait forever</li>
+      <li>(0) not wait (default)</li>
+      <li>(&gt; 0) wait this many seconds</li>
+     </ul>
+     <p>See <a href="https://www.ibm.com/support/knowledgecenter/SSGU8G_14.1.0/com.ibm.jdbc.doc/ids_jdbc_040.htm" rel="nofollow noreferrer">https://www.ibm.com/support/knowledgecenter/SSGU8G_14.1.0/com.ibm.jdbc.doc/ids_jdbc_040.htm</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Max</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Jul 2020 at 15:19</span>
+     </div>
+    </div>
+    <div>
+     <p>Connection conn = DriverManager.getConnection ( "jdbc:Informix-sqli://cleo:1550: IFXHOST=cleo;PORTNO=1550;user=rdtest;password=my_passwd;<strong>IFX_LOCK_MODE_WAIT=17</strong>";);</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

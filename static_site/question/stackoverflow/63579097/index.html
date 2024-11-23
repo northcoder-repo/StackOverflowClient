@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to Remove a text node from a Json file using Jackson</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to Remove a text node from a Json file using Jackson</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user2108383</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Aug 2020 at 12:41</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63579097/how-to-remove-a-text-node-from-a-json-file-using-jackson">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to remove a text node from Json using Jackson api, but I'm getting below error :</p>
+    <pre><code>com.fasterxml.jackson.databind.node.TextNode cannot be cast to com.fasterxml.jackson.databind.node.ObjectNode
+</code></pre>
+    <p>not sure where I went to wrong.</p>
+    <pre><code>    ObjectMapper mapper = new ObjectMapper();
+    
+    JsonNode json = mapper.readValue(jsonText, JsonNode.class);
+    for (JsonNode node : json) {
+                if (node.isNull() || node.isBoolean() || node.isNumber() || node.isTextual()) {
+                        ((ObjectNode) node).removeAll();
+    }
+}
+</code></pre>
+    <p>I got why I'm getting here bcz I'm trying to convert primitive to Object, how to Delete a primitive node from a Json, what do I need to do here.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">jackson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Aug 2020 at 13:37</span>
+     </div>
+    </div>
+    <div>
+     <p>The problem here is not because of primitives vs. objects, but because an <code>ObjectNode</code> represents a JSON object - namely a <code>{...}</code> structure, whereas a <code>TextNode</code> represents a piece of JSON text <code>"foo"</code>. You can't convert between these different Java objects representing these different JSON structures.</p>
+     <p>To delete sections of a JSON structure, I would recommend using an iterator.</p>
+     <p>Assume we have some test data:</p>
+     <pre><code>{
+    "count": 123,
+    "active": true,
+    "message": "hello world",
+    "details": {
+        "firstName": "John",
+        "lastName": "Smith"
+    }
+}
+</code></pre>
+     <p>I will process this as a string in the following code example:</p>
+     <pre><code>String jsonText = "{\"count\":123,\"active\":true,\"message\":\"hello world\",\"details\":{\"firstName\":\"John\",\"lastName\":\"Smith\"}}";
+System.out.println(jsonText);
+        
+ObjectMapper mapper = new ObjectMapper();
+JsonNode json = mapper.readValue(jsonText, JsonNode.class);
+        
+Iterator&lt;JsonNode&gt; it = json.iterator();
+while (it.hasNext()) {
+    JsonNode node = it.next();
+    if (node.isNull() || node.isBoolean() || node.isNumber() || node.isTextual()) {
+        it.remove(); 
+    } 
+}
+
+String outputText = mapper.writeValueAsString(json);
+System.out.println(outputText);
+</code></pre>
+     <p>The output from this is as follows:</p>
+     <pre><code>{"count":123,"active":true,"message":"hello world","details":{"firstName":"John","lastName":"Smith"}}
+{"details":{"firstName":"John","lastName":"Smith"}}
+</code></pre>
+     <p>All the text, boolean, and number fields have been removed - only the "details" object <code>{...}</code> is not deleted. If the test input had contained an array <code>[...]</code>, that would also have been preserved.</p>
+     <p>Note that this solution only iterates over the top level of nodes in the JSON test data. It does not iterate over the subnodes inside the "details" array. If you want to drill down into the hierarchy of your JSON, you would need a modified approach - for example by recursively calling a method:</p>
+     <pre><code>private JsonNode removeUnwantedNodes(JsonNode json) {
+    Iterator&lt;JsonNode&gt; it = json.iterator();
+    while (it.hasNext()) {
+        JsonNode node = it.next();
+        if (node.isNull() || node.isBoolean() || node.isNumber() || node.isTextual()) {
+            it.remove();
+        } else if (node.isContainerNode()) {
+            removeUnwantedNodes(node);
+        }
+    }
+    return json;
+}
+</code></pre>
+     <p>In this example, the <code>isContainerNode()</code> method checks for JSON objects <code>{...}</code> and JSON arrays <code>[...]</code>.</p>
+     <p><strong>Update - Empty Containers</strong></p>
+     <p>One consequence of deleting text/boolean/number nodes is that you can end up with empty containers in your JSON: <code>{}</code> and <code>[]</code>.</p>
+     <p>You may need one or more subsequent passes to remove these.</p>
+     <p>The condition to check is:</p>
+     <pre><code>if (node.isContainerNode() &amp;&amp; node.isEmpty()) {
+    it.remove();
+}
+</code></pre>
+     <p>This can be added to the approach shown above.</p>
+     <p>The way I would handle this is as follows:</p>
+     <p>(a) Create a deep copy of the JSON before iterating over it (for node removal). Make the copy using <code>JsonNode prevJson = json.deepCopy();</code>.</p>
+     <p>(b) Use a <code>while</code> loop to repeatedly iterate over the JSON, comparing the resulting JSON with the previous copy:</p>
+     <pre><code>while (!json.equals(prevJson)) {
+    prevJson = json.deepCopy();
+    json = iterateForRemoval(json);
+}
+</code></pre>
+     <p>Once the removal process can no longer find anything that needs removing, you are done.</p>
+     <p>This is necessary to clean up things such as nested arrays and objects: <code>[ [ [...] ] ]</code>, where a first pass will only be able to clean up the innermost array, and subsequent passes will remove the resulting empty arrays.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you that is working but I see empty braces something like this:</span> <span> - </span> <span class="display-name">user2108383</span> <span> </span> <span class="date">25 Aug 2020 at 14:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I think your comment was incomplete. Did you mean empty braces like this: <code>{}</code>? If so, then, yes that will happen as a result of removing all children from an object. If you want to remove the empty braces you will need a second pass, I think. Can you clarify in the question, by adding some input data and expected output data?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Aug 2020 at 14:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>sorry, yeah I'm getting the empty braces like : {}, [] etc..</span> <span> - </span> <span class="display-name">user2108383</span> <span> </span> <span class="date">25 Aug 2020 at 14:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>OK - to remove those, you need a second pass (and maybe more). I have updated the answer. Hope that helps.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Aug 2020 at 14:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you my bad I did the deep copy after the removal of element. thanks for correcting</span> <span> - </span> <span class="display-name">user2108383</span> <span> </span> <span class="date">25 Aug 2020 at 15:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

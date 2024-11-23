@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to get the number of milliseconds represented by a java.sql.Time?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to get the number of milliseconds represented by a java.sql.Time?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>STh</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Mar 2020 at 17:18</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60685351/how-to-get-the-number-of-milliseconds-represented-by-a-java-sql-time">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a <code>java.sql.Time</code> <code>(00:04:24)</code> from which I want to get the number of milliseconds (or seconds):</p>
+    <pre><code>ResultSet rs = ...;
+java.sql.Time time = rs.getTime("DURATION");
+long millis = time.getTime();
+</code></pre>
+    <p>But the result are <code>-3336000</code> instead of <code>264000</code>.</p>
+    <p>Click <a href="https://i.stack.imgur.com/6G3VB.png" rel="nofollow noreferrer">here</a> to see my output.</p>
+    <p>Why isn't the output <code>264000</code>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">sql</span><span class="tag">jdbc</span><span class="tag">mariadb</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>What is the database column type?</span> <span> - </span> <span class="display-name">Andreas</span> <span> </span> <span class="date">14 Mar 2020 at 17:28</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>If the server sends back text <code>"00:04:24"</code> as the column value, the JDBC driver might parse that as being in the current time zone, and if your time zone is CEST, i.e. GMT+1, then <code>1970-01-01T00:04:24</code> (264000) becomes <code>1969-12-31T23:04:24Z</code> (-3336000)</span> <span> - </span> <span class="display-name">Andreas</span> <span> </span> <span class="date">14 Mar 2020 at 17:34</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Try this instead: <code>java.time.LocalTime.parse(rs.getString("DURATION")).toSecond‌​OfDay()</code></span> <span> - </span> <span class="display-name">Andreas</span> <span> </span> <span class="date">14 Mar 2020 at 17:40</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Youcef LAIDANI</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Mar 2020 at 17:49</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are using the modern JDBC version, you can use :</p>
+     <pre><code>LocalTime time = rs.getObject("DURATION", LocalTime.class);
+long millis = time.toSecondOfDay() * 1000 + time.get(MILLI_OF_SECOND);
+</code></pre>
+     <p>About the calculation of milliseconds, unfortunately, there are no method to get the Milliseconds of the day, for that I used that way.</p>
+     <p>Or as suggested by <a href="https://stackoverflow.com/questions/60685351/how-to-get-the-number-of-milliseconds-represented-by-a-java-sql-time/60685611?noredirect=1#comment107381813_60685611">@Andreas</a> :</p>
+     <pre><code>long millis = time.toNanoOfDay() / 1000000
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Why not <code>long millis = time.toNanoOfDay() / 1000000</code>?</span> <span> - </span> <span class="display-name">Andreas</span> <span> </span> <span class="date">15 Mar 2020 at 13:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene query result is not correct when running official demo</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene query result is not correct when running official demo</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Tiina</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Jun 2021 at 02:15</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67880602/lucene-query-result-is-not-correct-when-running-official-demo">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I tried Lucene official demo by running <a href="https://lucene.apache.org/core/8_8_2/demo/src-html/org/apache/lucene/demo/IndexFiles.html" rel="nofollow noreferrer">IndexFiles</a> with arguments <code>-index . -docs . </code>, and console prints including pom.xml and *.java and *.class are added into index.</p>
+    <p>Then I tried <a href="https://lucene.apache.org/core/8_8_2/demo/src-html/org/apache/lucene/demo/SearchFiles.html" rel="nofollow noreferrer">SearchFiles</a> with arguments <code>-index . -query "lucene AND main"</code>, and console prints only IndexFiles.class and SearchFiles.class and IndexFiles.java, but not SearchFiles.java (which I think should be one of searched results).</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>When you run the demo using the <code>-query</code> flag on the command line, I think you will only see the first 10 results - is that what happened? Near the top of the output there should be a line telling you how many matching documents were found - what is that number?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">8 Jun 2021 at 13:40</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewjames The result was fewer than 10.</span> <span> - </span> <span class="display-name">Tiina</span> <span> </span> <span class="date">9 Jun 2021 at 04:27</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jun 2021 at 12:00</span>
+     </div>
+    </div>
+    <div>
+     <p>Your search results are correct (for the <code>.java</code> files, at least).</p>
+     <p>The sample code uses the <a href="https://lucene.apache.org/core/8_8_2/core/index.html" rel="nofollow noreferrer"><code>StandardAnalyzer</code></a> which, in turn, uses the <a href="https://lucene.apache.org/core/8_8_2/core/org/apache/lucene/analysis/standard/StandardTokenizer.html" rel="nofollow noreferrer"><code>StandardTokenizer</code></a>.</p>
+     <p>The <code>StandardTokenizer</code> splits input text into tokens using the rules described in <a href="http://unicode.org/reports/tr29/" rel="nofollow noreferrer">this document</a>. For example, from section 4 of that document:</p>
+     <p><a href="https://i.stack.imgur.com/d5Ubg.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/d5Ubg.png" alt="enter image description here"></a></p>
+     <p>When you have text such as the following, in the source files</p>
+     <pre><code>org.apache.lucene.analysis.Analyzer
+</code></pre>
+     <p>this is tokenized as a single token. There are no word boundaries.</p>
+     <p>Looking in the <code>IndexFiles.java</code> source file, there is the following text:</p>
+     <pre><code>demonstrating simple Lucene indexing
+</code></pre>
+     <p>This is tokenized into 4 separate tokens.</p>
+     <p>But in the <code>SearchFiles.java</code> source file, the text "lucene" only ever appears in text such as <code>org.apache.lucene.analysis.Analyzer</code> - and therefore the single token <code>lucene</code> is never created.</p>
+     <p>Your query therefore does not find any hits in the <code>IndexFiles.java</code> document because the query matches exact tokens. Both source files contain the word "main" but only one contains the word "lucene".</p>
+     <hr>
+     <p>For the <code>.class</code> files, because these are compiled bytecode files, I would say they should not be indexed in the first place. Lucene works with text files, not binary files. Yes, the class files will contain fragments of text, but they will also typically contain unprintable control characters, which are not suitable to be indexed. I think indexing results could be unpredictable because of this.</p>
+     <hr>
+     <p>You can explore the indexed data using Luke - which is bundled in the binary releases:</p>
+     <p><a href="https://i.stack.imgur.com/ADCEl.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/ADCEl.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

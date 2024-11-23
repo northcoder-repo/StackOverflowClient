@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>PatternReplaceCharFilterFactory arguments problem in Lucene (java)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>PatternReplaceCharFilterFactory arguments problem in Lucene (java)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>leyva_7</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 Oct 2022 at 10:07</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74053955/patternreplacecharfilterfactory-arguments-problem-in-lucene-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am doing a practice in Java using Lucene. I want to remove "{", "}" and ";" using a CharFilter in a CustomAnalyzer but I don't know how to call the "PatternReplaceCharFilterFactory". I have tried to call it passing it "map" but it doesn't work and it returns an exception. I have also tried with pattern "p" but it's the same.</p>
+    <pre><code>public static ArrayList&lt;String&gt; analyzer_codigo(String texto)throws IOException{
+    
+Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();
+map.put("{", "");
+map.put("}", "");
+map.put(";", "");
+
+Pattern p = Pattern.compile("([^a-z])");
+boolean replaceAll = Boolean.TRUE;
+Reader r = new Reader(texto);
+
+    Analyzer ana = CustomAnalyzer.builder(Paths.get("."))
+    .addCharFilter(PatternReplaceCharFilterFactory.class,p,"",r)
+    .withTokenizer(StandardTokenizerFactory.class) 
+    .addTokenFilter(LowerCaseFilterFactory.class)
+    .build();
+
+    return muestraTexto(ana, texto);
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Oct 2022 at 14:46</span>
+     </div>
+    </div>
+    <div>
+     <p>You can pass a <code>Map</code> to the <code>PatternReplaceCharFilterFactory</code> - but the keys you use for the map are those defined in the <a href="https://lucene.apache.org/core/9_4_0/analysis/common/org/apache/lucene/analysis/pattern/PatternReplaceCharFilterFactory.html" rel="nofollow noreferrer">JavaDoc</a> for the factory class:</p>
+     <blockquote>
+      <p><code>pattern="([^a-z])" replacement=""</code></p>
+     </blockquote>
+     <p>This uses Solr documentation to define the keys (<code>pattern</code> and <code>replacement</code>) together with their Solr default values.</p>
+     <p>Using these keys, your map becomes:</p>
+     <pre class="lang-java prettyprint-override"><code>Map&lt;String, String&gt; map = new HashMap&lt;&gt;();
+map.put("pattern", "\\{|\\}|;");
+map.put("replacement", "");
+</code></pre>
+     <p>The regular expression <code>\\{|\\}|;</code> needs to escape the <code>{</code> and <code>}</code> characters because they have special meanings, and then the regex backslashes also need to be escaped in the Java string.</p>
+     <p>So, the above regular expression means <code>{</code> and <code>}</code> and <code>;</code> will all be replaced by the empty string.</p>
+     <p>Your custom analyzer then becomes:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer analyzer = CustomAnalyzer.builder()
+        .withTokenizer(StandardTokenizerFactory.NAME)
+        .addCharFilter(PatternReplaceCharFilterFactory.NAME, map)
+        .addTokenFilter(LowerCaseFilterFactory.NAME)
+        .build();
+</code></pre>
+     <p>If you use this to index the following input string:</p>
+     <pre><code>foo{bar}baz;bat
+</code></pre>
+     <p>Then the indexed value will be stored as:</p>
+     <pre><code>foobarbazbat
+</code></pre>
+     <hr>
+     <p>Very minor point: I prefer to use <code>PatternReplaceCharFilterFactory.NAME</code> instead of <code>PatternReplaceCharFilterFactory.class</code> or even just <code>"patternReplace"</code> - but these all work.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>Just for completeness:</p>
+     <p>The <code>CustomAnalyzer.Builder</code> supports different ways to add a <code>CharFilter</code>. See its <a href="https://lucene.apache.org/core/9_4_0/analysis/common/org/apache/lucene/analysis/custom/CustomAnalyzer.Builder.html" rel="nofollow noreferrer"><code>addCharFilter</code></a> methods.</p>
+     <p>As well as the approach shown above, using a <code>Map</code>...</p>
+     <pre class="lang-java prettyprint-override"><code>.addCharFilter(PatternReplaceCharFilterFactory.NAME, map)
+</code></pre>
+     <p>...you can also use Java <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/language/varargs.html" rel="nofollow noreferrer">varargs</a>:</p>
+     <pre><code>"key1", "value1", "key2", "value2", ...
+</code></pre>
+     <p>So, in our case, this would be:</p>
+     <pre class="lang-java prettyprint-override"><code>.addCharFilter(PatternReplaceCharFilterFactory.NAME
+        "pattern", "\\{|\\}|;", "replacement", "")
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

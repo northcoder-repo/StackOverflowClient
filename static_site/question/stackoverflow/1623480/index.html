@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Generic Interface</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Generic Interface</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>54</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user192585</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Oct 2009 at 07:24</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/1623480/generic-interface">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Let's say I wanted to define an interface which represents a call to a remote service. Now, the call to the remote service generally returns something, but might also include input parameters. Suppose that an implementing class will typically only implement one service method. Given the above information, is the following a poor design (it doesn't quite feel right):</p>
+    <pre><code>public interface IExecutesService&lt;A,B&gt;
+{
+    public A executeService();
+    public A executeService(B inputParameter);
+}
+</code></pre>
+    <p>Now, let's say that I implement this interface with a class that executes a remote service with an input parameter:</p>
+    <pre><code>public class ServiceA implements IExecutesService&lt;String,String&gt;
+{
+  public String executeService()
+  {
+    //This service call should not be executed by this class
+    throw new IllegalStateException("This method should not be called for this class...blabla");
+  }
+
+  public String executeService(String inputParameter)
+  {
+    //execute some service
+  }
+</code></pre>
+    <p>I have two questions regarding the above:</p>
+    <ol>
+     <li>Is the use of a generic interface (<code>IExecutesService&lt;A,B&gt;</code>) good in the case where you want to provide subclasses which require different input parameters and return types for the interface methods?</li>
+     <li>How can I do the above better? I.e. I want to group my service executors under a common interface (<code>IExecutesService</code>); however, an implementing class will typically only implement one of the methods, and the use of an IllegalStateException feels really ugly. Also, the B type parameter in <code>IExecutesService&lt;A,B&gt;</code> will be redundant for an implementing class that calls a service without any input parameters. It also seems overkill creating two separate interfaces for the two different service calls.</li>
+    </ol>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">interface</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>@KenHilton Please only remove burninating tags from questions that are <i>not</i> off-topic/close-worthy; this question is opinion-based and thus should be closed. When the burnination effort is completed, the tag will be removed en masse via a system command, but removing the tag preemptively harms our ability to track and find off-topic questions during the crucial clean-up phase.</span> <span> - </span> <span class="display-name">TylerH</span> <span> </span> <span class="date">12 Dec 2018 at 18:40</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@KenHilton if you have any questions about the process or specific posts, feel free to join us in the burnination monitoring chatroom <a href="https://chat.stackoverflow.com/rooms/182583/burnination-progress-for-the-design-tag">chat.stackoverflow.com/rooms/182583/…</a></span> <span> - </span> <span class="display-name">TylerH</span> <span> </span> <span class="date">12 Dec 2018 at 18:44</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>83</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>cletus</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Oct 2009 at 07:33</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's one suggestion:</p>
+     <pre><code>public interface Service&lt;T,U&gt; {
+    T executeService(U... args);
+}
+
+public class MyService implements Service&lt;String, Integer&gt; {
+    @Override
+    public String executeService(Integer... args) {
+        // do stuff
+        return null;
+    }
+}
+</code></pre>
+     <p>Because of type erasure any class will only be able to implement one of these. This eliminates the redundant method at least.</p>
+     <p>It's not an unreasonable interface that you're proposing but I'm not 100% sure of what value it adds either. You might just want to use the standard <a href="http://java.sun.com/j2se/1.5.0/docs/api/java/util/concurrent/Callable.html" rel="noreferrer"><code>Callable</code></a> interface. It doesn't support arguments but that part of the interface has the least value (imho).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>14</td>
+        <td><span>Prefixing interfaces with "I" is a real .Net'ism. It doesn't really belong in Java code.</span> <span> - </span> <span class="display-name">cletus</span> <span> </span> <span class="date">26 Oct 2009 at 17:36</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>Before .NET, the Hungarian notation was used in code developed for Eclipse (and its ancestors, VAME...) in Zurich, thus the use of I to prefix interface names in Eclipse today.</span> <span> - </span> <span class="display-name">Yann-Gaël Guéhéneuc</span> <span> </span> <span class="date">12 Apr 2013 at 04:47</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Ironically, using "I" to prefix interface names isn't really <a href="https://msdn.microsoft.com/en-us/library/aa260976(v=vs.60).aspx" rel="nofollow noreferrer">Hungarian Notation</a>. The notation is meant to promote useful information about intended use. For example "csPassword" might mean "cryptographically secure password" while "rLast" might mean "last row." Adding an "I" prefix provides no information about how the interface is used and is therefore superfluous.</span> <span> - </span> <span class="display-name">Dave Jarvis</span> <span> </span> <span class="date">9 Sep 2016 at 21:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The use of varargs here seems make the design and the solution more feasible, I think this is the best design.</span> <span> - </span> <span class="display-name">Amos Kosgei</span> <span> </span> <span class="date">12 Oct 2018 at 09:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>20</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>dfa</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Oct 2009 at 07:49</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's another suggestion:</p>
+     <pre><code>public interface Service&lt;T&gt; {
+   T execute();
+}
+</code></pre>
+     <p>using this simple interface <strong>you can pass arguments via constructor</strong> in the concrete service classes:</p>
+     <pre><code>public class FooService implements Service&lt;String&gt; {
+
+    private final String input1;
+    private final int input2;
+
+    public FooService(String input1, int input2) {
+       this.input1 = input1;
+       this.input2 = input2;
+    }
+
+    @Override
+    public String execute() {
+        return String.format("'%s%d'", input1, input2);
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Considering the remote nature of the interface, I think you would have two remote calls. This might be costly performance-wise :-(</span> <span> - </span> <span class="display-name">KLE</span> <span> </span> <span class="date">26 Oct 2009 at 08:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>why would you take two calls? you ought to know what it is that you are calling/creating (or the service factory should), otherwise, how can you call it?</span> <span> - </span> <span class="display-name">Chii</span> <span> </span> <span class="date">26 Oct 2009 at 09:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi dfa, can you please help me with this. <a href="https://stackoverflow.com/questions/50998636/single-responsibility-principle-in-clean-architecture-aggregating-usecases-in-o" title="single responsibility principle in clean architecture aggregating usecases in o">stackoverflow.com/questions/50998636/…</a></span> <span> - </span> <span class="display-name">Dipendra Sharma</span> <span> </span> <span class="date">23 Jun 2018 at 10:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>denis.zhdanov</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Oct 2009 at 08:07</span>
+     </div>
+    </div>
+    <div>
+     <p>I'd stay with two different interfaces.</p>
+     <p>You said that <em>'I want to group my service executors under a common interface... It also seems overkill creating two separate interfaces for the two different service calls... A class will only implement one of these interfaces'</em></p>
+     <p>It's not clear what is the reason to have a single interface then. If you want to use it as a marker, you can just exploit annotations instead.</p>
+     <p>Another point is that there is a possible case that your requirements change and method(s) with another signature appears at the interface. Of course it's possible to use Adapter pattern then but it would be rather strange to see that particular class implements interface with, say, three methods where two of them trow UnsupportedOperationException. It's possible that the forth method appears etc.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>This is the only correct answer here. Your two groups of services are accessed via methods with different signatures. They do not share an interface. It's that simple.</span> <span> - </span> <span class="display-name">Tom Anderson</span> <span> </span> <span class="date">20 Jan 2012 at 13:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@user192585: your question looks like the result of a lack of imagination for naming two different services. If you keep putting two different groups of services into the same interface, you can end up in a situation where you will have a collection of objects represented by this unique interface but for which some objects will be allowed one service while the other objects will be allowed the other one but this, without knowing which one for each object in the collection. A good example of code confusion.</span> <span> - </span> <span class="display-name">SylvainL</span> <span> </span> <span class="date">27 Jun 2013 at 17:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>also - what about "I" in SOLID principles? :)</span> <span> - </span> <span class="display-name">mmmm</span> <span> </span> <span class="date">17 Jan 2016 at 00:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>KLE</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Oct 2009 at 08:38</span>
+     </div>
+    </div>
+    <div>
+     <p>As an answer strictly in line with your question, I support cleytus's proposal.</p>
+     <hr>
+     <p>You could also use a marker interface (with no method), say <code>DistantCall</code>, with several several sub-interfaces that have the precise signatures you want.</p>
+     <ul>
+      <li>The general interface would serve to mark all of them, in case you want to write some generic code for all of them.</li>
+      <li>The number of specific interfaces can be reduced by using cleytus's generic signature.</li>
+     </ul>
+     <p>Examples of 'reusable' interfaces:</p>
+     <pre><code>    public interface DistantCall {
+    }
+
+    public interface TUDistantCall&lt;T,U&gt; extends DistantCall {
+      T execute(U... us);
+    }
+
+    public interface UDistantCall&lt;U&gt; extends DistantCall {
+      void execute(U... us);
+    }
+
+    public interface TDistantCall&lt;T&gt; extends DistantCall {
+      T execute();
+    }
+
+    public interface TUVDistantCall&lt;T, U, V&gt; extends DistantCall {
+      T execute(U u, V... vs);
+    }
+    ....
+</code></pre>
+     <hr>
+     <p><strong>UPDATED</strong> in response to OP comment</p>
+     <p>I wasn't thinking of any <em>instanceof</em> in the calling. I was thinking your calling code knew what it was calling, and you just needed to assemble several distant call in a common interface for some generic code (<em>for example, auditing all distant calls, for performance reasons</em>). In your question, I have seen no mention that the calling code is generic :-(</p>
+     <p>If so, I suggest you have only one interface, only one signature. Having several would only bring more complexity, for nothing.</p>
+     <p>However, you need to ask yourself some broader questions :<br><strong>how you will ensure that caller and callee do communicate correctly?</strong></p>
+     <p>That could be a follow-up on this question, or a different question...</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I can see how this will work, however, this will most likely result in code that requires checking the actual instance being used to call the appropriate method (for e.g. xxx instanceof yyy)... is this type of programming a code smell? It doesn't seem like very good OOP practice. Can someone shed some light on this? Thanks</span> <span> - </span> <span class="display-name">user192585</span> <span> </span> <span class="date">26 Oct 2009 at 09:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Lucero</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Oct 2009 at 07:41</span>
+     </div>
+    </div>
+    <div>
+     <p>If I understand correctly, you want to have one class implement multiple of those interfaces with different input/output parameters? This will not work in Java, because the generics are implemented via erasure.</p>
+     <p>The problem with the Java generics is that the generics are in fact nothing but compiler magic. At runtime, the classes do not keep any information about the types used for generic stuff (class type parameters, method type parameters, interface type parameters). Therefore, even though you could have overloads of specific methods, you cannot bind those to multiple interface implementations which differ in their generic type parameters only.</p>
+     <p>In general, I can see why you think that this code has a smell. However, in order to provide you with a better solution, it would be necessary to know a little more about your requirements. Why do you want to use a generic interface in the first place?</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Just for clarity, it's not completely true that classes do not keep ANY information. You can still inspect bounds of parameters (i.e. how the generic class/method was defined) via reflection. Objects do not however, so you cannot tell how (with what parameters) an object was instantiated.</span> <span> - </span> <span class="display-name">falstro</span> <span> </span> <span class="date">26 Oct 2009 at 07:47</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Hi there. I don't want to have a class implementing multiple of these interfaces. A class will only implement one of these interfaces - the problem was that one class will generally only implement one of the methods in the interface, leaving the other redundant...which seemed ugly. The reason I chose generics in the interface was because subclasses will have differing return and input parameter types depending on the service calls they implement. Does this clear things up a bit? Thanks :)</span> <span> - </span> <span class="display-name">user192585</span> <span> </span> <span class="date">26 Oct 2009 at 07:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@roe, the bounds (constraints) on the class are there, yes, but that does not give any information about the type effectively used in a specific instance (object). My feeling is that many people using generics in Java are not aware of this.</span> <span> - </span> <span class="display-name">Lucero</span> <span> </span> <span class="date">26 Oct 2009 at 10:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Issue with gathering all email threads from All Mail; program only gathers first 500</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Issue with gathering all email threads from All Mail; program only gathers first 500</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Martimus</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Jun 2021 at 14:23</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68132600/issue-with-gathering-all-email-threads-from-all-mail-program-only-gathers-first">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to gather all my email threads from All Mail in my Gmail account. The issue is that my program gathers the first 500 and then stops. I do not get an exception error, but it does seem like there may be either a quota or something's wrong with my code.</p>
+    <pre><code>function getEmails() {
+   var generalThreads,inboxThreads;
+ //inboxThreads = GmailApp.getInboxThreads();
+   generalThreads = GmailApp.search('in:anywhere');
+
+
+    for (var i = 0; i &lt; generalThreads.length; i++) {
+     for (var j = 0; j &lt; generalThreads[i].getMessages().length; j++) {
+     var message = generalThreads[i].getMessages()[j],
+         label = generalThreads[i].getLabels().map(l=&gt;{return l.getName()}).join(','),
+         ident = message.getId(),
+         emailfrom = message.getFrom(),
+         str = emailfrom.split("&lt;").pop();
+         str = str.replace("&gt;", '');
+      }
+
+    Logger.log(i+" "+str+" "+ label +" "+ ident);
+    }
+   }
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">google-apps-script</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jun 2021 at 15:29</span>
+     </div>
+    </div>
+    <div>
+     <p>Instead of using <code>search(query)</code>, use <code>search(query, start, max)</code>, which lets you fetch up to 500 results at a time.</p>
+     <p>See <a href="https://developers.google.com/apps-script/reference/gmail/gmail-app#search(String,Integer,Integer)" rel="nofollow noreferrer">here</a> for the documentation.</p>
+     <p>For example:</p>
+     <pre><code>search('in:anywhere', 1, 500) 
+</code></pre>
+     <p>followed by</p>
+     <pre><code>search('in:anywhere', 501, 500)
+</code></pre>
+     <p>and so on, in a loop, until you get an empty array by checking <code>generalThreads.length</code>.</p>
+     <p>At that point you have finished.</p>
+     <p>500 is the default batch size if you only use <code>search(query)</code>.</p>
+     <p>Here is one approach:</p>
+     <pre class="lang-js prettyprint-override"><code>var batchStart = 1;
+var batchSize = 5; // for my small test
+
+function getAllMailThreads() {
+  var generalThreads = nextBatch(batchStart);
+  while ( generalThreads.length &gt; 0 ) {
+    processBatch(generalThreads);
+    generalThreads = nextBatch(batchStart += batchSize);
+  }
+}
+
+function nextBatch(batchStart) {
+  return GmailApp.search('in:anywhere', batchStart, batchSize);
+}
+
+function processBatch(generalThreads) {
+  // your logic for each batch goes here - my
+  // logic is just to log the thread IDs:
+  generalThreads.forEach((generalThread) =&gt; {
+    console.log( generalThread.getId() );
+  } )
+  console.log( '----' ); // end of a batch
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

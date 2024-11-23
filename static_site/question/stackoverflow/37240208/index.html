@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Reordering of reads</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Reordering of reads</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>22</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Roland</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 May 2016 at 15:36</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/37240208/reordering-of-reads">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Suppose there are two threads without synchronization, one sets <code>n = 1</code> another executes <code>method()</code>.</p>
+    <p>In the following "read" always refers to a read of field <code>n</code>.</p>
+    <pre><code>public class MyClass
+{
+  public int n = 0;
+
+  public void method() {
+    System.out.println(n); //read 1
+    System.out.println(n); //read 2
+  }
+}
+</code></pre>
+    <p>Would the following output be possible?</p>
+    <pre><code>1
+0
+</code></pre>
+    <p>The answer is yes because even though read 1 happens-before read 2, it is nevertheless possible for read 2 to be re-ordered before read 1 because it wouldn't change the semantics of intra-thread execution.</p>
+    <p>Is this reasoning correct?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">multithreading</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>Yes, that's correct. However, it is not the compiler that "reorders" the thread. The compiler simply compiles.</span> <span> - </span> <span class="display-name">Ely</span> <span> </span> <span class="date">15 May 2016 at 15:41</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I doubt <code>1,0</code> is possible. That seems very, very wrong.</span> <span> - </span> <span class="display-name">luk2302</span> <span> </span> <span class="date">15 May 2016 at 15:43</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I would be surprised to see 1,0. Have you actually seen this output?</span> <span> - </span> <span class="display-name">bhspencer</span> <span> </span> <span class="date">15 May 2016 at 15:46</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@qwwdfsad Wouldn't make a difference because <code>n</code> still needs to be read before being passed as a parameter to <code>println</code>. Btw, where does it say that <code>System.out</code> is thread safe?</span> <span> - </span> <span class="display-name">Roland</span> <span> </span> <span class="date">15 May 2016 at 16:25</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>The term you are looking for that will ensure the order of the instructions is a "memory barrier". You will never er see 1, 0 because the JVM will insert a memory barrier to ensure the semantics of the order of instructions. <a href="http://www.infoq.com/articles/memory_barriers_jvm_concurrency" rel="nofollow noreferrer">infoq.com/articles/memory_barriers_jvm_concurrency</a></span> <span> - </span> <span class="display-name">bhspencer</span> <span> </span> <span class="date">15 May 2016 at 17:36</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@Roland look at the implementation of <code>System.out::println</code> -&gt; there will be a <code>synchronized (this) {...}</code></span> <span> - </span> <span class="display-name">Eugene</span> <span> </span> <span class="date">13 May 2019 at 11:57</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>33</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Aleksey Shipilev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 May 2016 at 17:36</span>
+     </div>
+    </div>
+    <div>
+     <p>Happens-before does not imply the order for two arbitrary operations. To be more precise, the most important thing that happens-before does is tying up <strong>writes</strong> and <strong>reads</strong> in <em>happens-before consistency</em>. Notably, it tells what writes can a read observe: the last write in happens-before order, or any other write not ordered in happens-before (race). Note that two consecutive reads may see different values obtained from different (racy) writes, without violating that requirement.</p>
+     <p>E.g. JLS 17.4.5 says:</p>
+     <blockquote>
+      <p>It should be noted that the presence of a happens-before relationship between two actions does not necessarily imply that they have to take place in that order in an implementation. If the reordering produces results consistent with a legal execution, it is not illegal.</p>
+     </blockquote>
+     <p>Data races are creepy like that: racy reads can return surprising data on each read, and Java memory model captures that. So the more precise answer is that an execution that produces (1, 0) is not violating Java Memory Model constraints (sync order consistency, sync order - program order consistency, happens-before consistency, causality requirements), and therefore allowed.</p>
+     <p>Implementation-wise: on hardware, both loads can be started and/or arrive to memory subsystem at different times, regardless of their "program order", because they are independent; in compilers, instruction scheduling may also disregard the program order for the independent reads, exposing loads to hardware in "counter-intuitive" order.</p>
+     <p>If you want <strong>reads</strong> to be observed in the program order, you need a stronger property. JMM gives that property to synchronization actions (in your example, making a variable <code>volatile</code> would make that), which ties the actions in the <em>total</em> synchronization order that is <em>consistent</em> with program order. In that case, (1, 0) would be prohibited.</p>
+     <p>Illustration on a <a href="http://hg.openjdk.java.net/code-tools/jcstress/file/tip/tests-custom/src/main/java/org/openjdk/jcstress/tests/volatiles/ReadAfterReadTest.java">very special jcstress testcase</a> (see the full source for caveats):</p>
+     <pre><code>private final Holder h1 = new Holder();
+private final Holder h2 = h1;
+
+private static class Holder {
+    int a;
+    int trap;
+}
+
+@Actor
+public void actor1() {
+    h1.a = 1;
+}
+
+@Actor
+public void actor2(IntResult2 r) {
+    Holder h1 = this.h1;
+    Holder h2 = this.h2;
+    h1.trap = 0;
+    h2.trap = 0;
+    r.r1 = h1.a;
+    r.r2 = h2.a;
+}
+</code></pre>
+     <p>Even on x86 that does not reorder loads, yields (1, 0), oops:</p>
+     <pre><code>      [OK] o.o.j.t.volatiles.ReadAfterReadTest                                                                                                      
+    (fork: #1, iteration #1, JVM args: [-server])
+  Observed state   Occurrences              Expectation  Interpretation                                              
+          [0, 0]    16,736,450               ACCEPTABLE  Doing both reads early.                                     
+          [1, 1]   108,816,262               ACCEPTABLE  Doing both reads late.                                      
+          [0, 1]         3,941               ACCEPTABLE  Doing first read early, not surprising.                     
+          [1, 0]        84,477   ACCEPTABLE_INTERESTING  First read seen racy value early, and the s...
+</code></pre>
+     <p>Making <code>Holder.a</code> volatile would make (1, 0) to go away.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>You need only volatile if a variable is accessed by multiple threads. In this case calling method() is executed in one thread. So they sharing the same thread-local cache. Every change of n is visible to both println executions.</span> <span> - </span> <span class="display-name">Paul Wasilewski</span> <span> </span> <span class="date">15 May 2016 at 17:43</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>OP's question specifically tells that one thread is setting <code>n = 1</code>, and another is reading <code>n</code>. In the single-threaded case, there are no racy writes, and the thread is forced to observe the latest write to <code>n</code> (which may be said to "happen before" both reads).</span> <span> - </span> <span class="display-name">Aleksey Shipilev</span> <span> </span> <span class="date">15 May 2016 at 17:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@AlekseyShipilev that is a very smart jcstress test! would be cool if it would be part of the samples</span> <span> - </span> <span class="display-name">Eugene</span> <span> </span> <span class="date">16 May 2019 at 13:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Eugene: It is: <a href="http://hg.openjdk.java.net/code-tools/jcstress/file/4ece888be604/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/JMMSample_03_Coherence.java" rel="nofollow noreferrer">hg.openjdk.java.net/code-tools/jcstress/file/4ece888be604/…</a></span> <span> - </span> <span class="display-name">Aleksey Shipilev</span> <span> </span> <span class="date">17 May 2019 at 09:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>meriton</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 May 2016 at 17:45</span>
+     </div>
+    </div>
+    <div>
+     <p>We have 4 actions, that form the following happens-before graph:</p>
+     <pre><code>+-------+     ?    +-------+
+| n = 0 |   ----&gt;  | n = 1 |
++-------+          +-------+
+    |
+    |?
+    v
+  +---+             +---+
+  | n |     ----&gt;   | n |
+  +---+             +---+
+</code></pre>
+     <p>Since you are not giving the code that initializes n, it is not known whether n=0 happens-before n=1, and whether n=0 happens-before the first read of n.</p>
+     <p>If these edges do not exist, (n=1, n, n=0, n) is a sequentially consistent execution order, and the output 1 0 is trivially possible.</p>
+     <p>If it is known that n=0 happens-before n=1, there is no sequentially consistent execution with the output 1 0.</p>
+     <p>However, the Java Language Specification only guarantees that all executions are sequentially consistent if they are free of data races, which our program is not. Specifically, the spec writes:</p>
+     <blockquote>
+      <p>More specifically, if two actions share a happens-before relationship, they do not necessarily have to appear to have happened in that order to any code with which they do not share a happens-before relationship. Writes in one thread that are in a data race with reads in another thread may, for example, appear to occur out of order to those reads.</p>
+     </blockquote>
+     <p>And</p>
+     <blockquote>
+      <p>We say that a read r of a variable v is allowed to observe a write w to v if, in the happens-before partial order of the execution trace:</p>
+      <ul>
+       <li>
+        <p>r is not ordered before w (i.e., it is not the case that hb(r, w)), and</p></li>
+       <li>
+        <p>there is no intervening write w' to v (i.e. no write w' to v such that hb(w, w') and hb(w', r)).</p></li>
+      </ul>
+     </blockquote>
+     <p>In our case, both reads are allowed to observe both 0 and 1, because there is no intervening write.</p>
+     <p>Therefore, as far as I can tell, the output 1 0 is permitted by the Java Language Specification.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

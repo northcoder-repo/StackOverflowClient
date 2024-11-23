@@ -1,0 +1,1217 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to use java.net.URLConnection to fire and handle HTTP requests</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to use java.net.URLConnection to fire and handle HTTP requests</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2117</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>BalusC</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 May 2010 at 06:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/2793150/how-to-use-java-net-urlconnection-to-fire-and-handle-http-requests">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Use of <a href="http://docs.oracle.com/javase/8/docs/api/java/net/URLConnection.html" rel="noreferrer"><code>java.net.URLConnection</code></a> is asked about pretty often here, and the <a href="http://download.oracle.com/javase/tutorial/networking/urls/connecting.html" rel="noreferrer">Oracle tutorial</a> is <em>too</em> concise about it.</p>
+    <p>That tutorial basically only shows how to fire a <a href="https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods" rel="noreferrer">GET</a> request and read the response. It doesn't explain anywhere how to use it to, among others, perform a <a href="https://en.wikipedia.org/wiki/POST_%28HTTP%29" rel="noreferrer">POST</a> request, set request headers, read response headers, deal with cookies, submit a HTML form, upload a file, etc.</p>
+    <p>So, how can I use <code>java.net.URLConnection</code> to fire and handle "advanced" HTTP requests?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">http</span><span class="tag">httprequest</span><span class="tag">httpurlconnection</span><span class="tag">urlconnection</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>Some questions with lots of votes and general titles are flagged duplicate and link to this question. Also, there are <a href="https://openjdk.java.net/groups/net/httpclient/intro.html" rel="nofollow noreferrer">new ways</a> to execute HTTP requests in Java and the legacy <i>URLConnection</i> way may be deprecated in future. The title of this question should probably change to <i>How to execute HTTP requests in Java</i>.</span> <span> - </span> <span class="display-name">Mahozad</span> <span> </span> <span class="date">31 Dec 2021 at 19:31</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Related: <a href="https://stackoverflow.com/q/1359689/8583692">How to send HTTP request in Java?</a></span> <span> - </span> <span class="display-name">Mahozad</span> <span> </span> <span class="date">26 Nov 2022 at 14:42</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2839</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BalusC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 May 2010 at 06:16</span>
+     </div>
+    </div>
+    <div>
+     <p><sup><em>First a disclaimer beforehand: the posted code snippets are all basic examples. You'll need to handle trivial <code>IOException</code>s and <code>RuntimeException</code>s like <code>NullPointerException</code>, <code>ArrayIndexOutOfBoundsException</code> and consorts yourself.</em></sup></p>
+     <p><sup><em>In case you're developing for Android instead of Java, note also that since introduction of API level 28, cleartext HTTP requests are <a href="https://developer.android.com/about/versions/pie/android-9.0-changes-28#tls-enabled" rel="noreferrer">disabled by default</a>. You are encouraged to use <code>HttpsURLConnection</code>, but if it is really necessary, cleartext can be enabled in the Application Manifest.</em></sup></p>
+     <hr>
+     <h3>Preparing</h3>
+     <p>We first need to know at least the URL and the charset. The parameters are optional and depend on the functional requirements.</p>
+     <pre><code>String url = "http://example.com";
+String charset = "UTF-8";  // Or in Java 7 and later, use the constant: java.nio.charset.StandardCharsets.UTF_8.name()
+String param1 = "value1";
+String param2 = "value2";
+// ...
+
+String query = String.format("param1=%s&amp;param2=%s",
+    URLEncoder.encode(param1, charset),
+    URLEncoder.encode(param2, charset));
+</code></pre>
+     <p>The query parameters must be in <code>name=value</code> format and be concatenated by <code>&amp;</code>. You would normally also <a href="http://en.wikipedia.org/wiki/Percent-encoding" rel="noreferrer">URL-encode</a> the query parameters with the specified charset using <a href="http://docs.oracle.com/javase/8/docs/api/java/net/URLEncoder.html#encode-java.lang.String-java.lang.String-" rel="noreferrer"><code>URLEncoder#encode()</code></a>.</p>
+     <p><sup>The <code>String#format()</code> is just for convenience. I prefer it when I would need the String concatenation operator <code>+</code> more than twice.</sup></p>
+     <hr>
+     <h3>Firing an <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html#sec9.3" rel="noreferrer">HTTP GET</a> request with (optionally) query parameters</h3>
+     <p>It's a trivial task. It's the default request method.</p>
+     <pre><code>URLConnection connection = new URL(url + "?" + query).openConnection();
+connection.setRequestProperty("Accept-Charset", charset);
+InputStream response = connection.getInputStream();
+// ...
+</code></pre>
+     <p>Any query string should be concatenated to the URL using <code>?</code>. The <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.2" rel="noreferrer"><code>Accept-Charset</code></a> header may hint the server what encoding the parameters are in. If you don't send any query string, then you can leave the <code>Accept-Charset</code> header away. If you don't need to set any headers, then you can even use the <a href="http://docs.oracle.com/javase/8/docs/api/java/net/URL.html#openStream%28%29" rel="noreferrer"><code>URL#openStream()</code></a> shortcut method.</p>
+     <pre><code>InputStream response = new URL(url).openStream();
+// ...
+</code></pre>
+     <p>Either way, if the other side is an <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/http/HttpServlet.html" rel="noreferrer"><code>HttpServlet</code></a>, then its <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/http/HttpServlet.html#doGet%28javax.servlet.http.HttpServletRequest,%20javax.servlet.http.HttpServletResponse%29" rel="noreferrer"><code>doGet()</code></a> method will be called and the parameters will be available by <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/ServletRequest.html#getParameter%28java.lang.String%29" rel="noreferrer"><code>HttpServletRequest#getParameter()</code></a>.</p>
+     <p>For testing purposes, you can print the response body to <a href="https://en.wikipedia.org/wiki/Standard_streams#Standard_output_.28stdout.29" rel="noreferrer">standard output</a> as below:</p>
+     <pre><code>try (Scanner scanner = new Scanner(response)) {
+    String responseBody = scanner.useDelimiter("\\A").next();
+    System.out.println(responseBody);
+}
+</code></pre>
+     <hr>
+     <h3>Firing an <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html#sec9.5" rel="noreferrer">HTTP POST</a> request with query parameters</h3>
+     <p>Setting the <a href="http://docs.oracle.com/javase/8/docs/api/java/net/URLConnection.html#setDoOutput%28boolean%29" rel="noreferrer"><code>URLConnection#setDoOutput()</code></a> to <code>true</code> implicitly sets the request method to POST. The standard HTTP POST as web forms do is of type <code>application/x-www-form-urlencoded</code> wherein the query string is written to the request body.</p>
+     <pre><code>URLConnection connection = new URL(url).openConnection();
+connection.setDoOutput(true); // Triggers POST.
+connection.setRequestProperty("Accept-Charset", charset);
+connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=" + charset);
+
+try (OutputStream output = connection.getOutputStream()) {
+    output.write(query.getBytes(charset));
+}
+
+InputStream response = connection.getInputStream();
+// ...
+</code></pre>
+     <p>Note: whenever you'd like to submit a HTML form programmatically, don't forget to take the <code>name=value</code> pairs of any <code>&lt;input type="hidden"&gt;</code> elements into the query string and of course also the <code>name=value</code> pair of the <code>&lt;input type="submit"&gt;</code> element which you'd like to "press" programmatically (because that's usually been used in the server side to distinguish if a button was pressed and if so, which one).</p>
+     <p>You can also cast the obtained <a href="http://docs.oracle.com/javase/8/docs/api/java/net/URLConnection.html" rel="noreferrer"><code>URLConnection</code></a> to <a href="http://docs.oracle.com/javase/8/docs/api/java/net/HttpURLConnection.html" rel="noreferrer"><code>HttpURLConnection</code></a> and use its <a href="http://docs.oracle.com/javase/8/docs/api/java/net/HttpURLConnection.html#setRequestMethod%28java.lang.String%29" rel="noreferrer"><code>HttpURLConnection#setRequestMethod()</code></a> instead. But if you're trying to use the connection for output you still need to set <a href="http://docs.oracle.com/javase/8/docs/api/java/net/URLConnection.html#setDoOutput%28boolean%29" rel="noreferrer"><code>URLConnection#setDoOutput()</code></a> to <code>true</code>.</p>
+     <pre><code>HttpURLConnection httpConnection = (HttpURLConnection) new URL(url).openConnection();
+httpConnection.setRequestMethod("POST");
+// ...
+</code></pre>
+     <p>Either way, if the other side is an <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/http/HttpServlet.html" rel="noreferrer"><code>HttpServlet</code></a>, then its <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/http/HttpServlet.html#doPost%28javax.servlet.http.HttpServletRequest,%20javax.servlet.http.HttpServletResponse%29" rel="noreferrer"><code>doPost()</code></a> method will be called and the parameters will be available by <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/ServletRequest.html#getParameter%28java.lang.String%29" rel="noreferrer"><code>HttpServletRequest#getParameter()</code></a>.</p>
+     <hr>
+     <h3>Actually firing the HTTP request</h3>
+     <p>You can fire the HTTP request explicitly with <a href="http://docs.oracle.com/javase/8/docs/api/java/net/URLConnection.html#connect%28%29" rel="noreferrer"><code>URLConnection#connect()</code></a>, but the request will automatically be fired on demand when you want to get any information about the HTTP response, such as the response body using <a href="http://docs.oracle.com/javase/8/docs/api/java/net/URLConnection.html#getInputStream%28%29" rel="noreferrer"><code>URLConnection#getInputStream()</code></a> and so on. The above examples does exactly that, so the <code>connect()</code> call is in fact superfluous.</p>
+     <hr>
+     <h3>Gathering HTTP response information</h3>
+     <ol>
+      <li><a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html" rel="noreferrer">HTTP response status</a>:</li>
+     </ol>
+     <p>You need an <a href="http://docs.oracle.com/javase/8/docs/api/java/net/HttpURLConnection.html" rel="noreferrer"><code>HttpURLConnection</code></a> here. Cast it first if necessary.</p>
+     <pre><code>    int status = httpConnection.getResponseCode();
+</code></pre>
+     <ol start="2">
+      <li>
+       <p><a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html" rel="noreferrer">HTTP response headers</a>:</p>
+       <pre><code> for (Entry&lt;String, List&lt;String&gt;&gt; header : connection.getHeaderFields().entrySet()) {
+     System.out.println(header.getKey() + "=" + header.getValue());
+ }
+</code></pre></li>
+      <li>
+       <p><a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.17" rel="noreferrer">HTTP response encoding</a>:</p></li>
+     </ol>
+     <p>When the <code>Content-Type</code> contains a <code>charset</code> parameter, then the response body is likely text based and we'd like to process the response body with the server-side specified character encoding then.</p>
+     <pre><code>    String contentType = connection.getHeaderField("Content-Type");
+    String charset = null;
+
+    for (String param : contentType.replace(" ", "").split(";")) {
+        if (param.startsWith("charset=")) {
+            charset = param.split("=", 2)[1];
+            break;
+        }
+    }
+
+    if (charset != null) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(response, charset))) {
+            for (String line; (line = reader.readLine()) != null;) {
+                // ... System.out.println(line)?
+            }
+        }
+    } else {
+        // It's likely binary content, use InputStream/OutputStream.
+    }
+</code></pre>
+     <hr>
+     <h3>Maintaining the session</h3>
+     <p>The server side session is usually backed by a cookie. Some web forms require that you're logged in and/or are tracked by a session. You can use the <a href="http://docs.oracle.com/javase/8/docs/api/java/net/CookieHandler.html" rel="noreferrer"><code>CookieHandler</code></a> API to maintain cookies. You need to prepare a <a href="http://docs.oracle.com/javase/8/docs/api/java/net/CookieManager.html" rel="noreferrer"><code>CookieManager</code></a> with a <a href="http://docs.oracle.com/javase/8/docs/api/java/net/CookiePolicy.html" rel="noreferrer"><code>CookiePolicy</code></a> of <a href="http://docs.oracle.com/javase/8/docs/api/java/net/CookiePolicy.html#ACCEPT_ALL" rel="noreferrer"><code>ACCEPT_ALL</code></a> before sending all HTTP requests.</p>
+     <pre><code>// First set the default cookie manager.
+CookieHandler.setDefault(new CookieManager(null, CookiePolicy.ACCEPT_ALL));
+
+// All the following subsequent URLConnections will use the same cookie manager.
+URLConnection connection = new URL(url).openConnection();
+// ...
+
+connection = new URL(url).openConnection();
+// ...
+
+connection = new URL(url).openConnection();
+// ...
+</code></pre>
+     <p>Note that this is known to not always work properly in all circumstances. If it fails for you, then best is to manually gather and set the cookie headers. You basically need to grab all <code>Set-Cookie</code> headers from the response of the login or the first <code>GET</code> request and then pass this through the subsequent requests.</p>
+     <pre><code>// Gather all cookies on the first request.
+URLConnection connection = new URL(url).openConnection();
+List&lt;String&gt; cookies = connection.getHeaderFields().get("Set-Cookie");
+// ...
+
+// Then use the same cookies on all subsequent requests.
+connection = new URL(url).openConnection();
+for (String cookie : cookies) {
+    connection.addRequestProperty("Cookie", cookie.split(";", 2)[0]);
+}
+// ...
+</code></pre>
+     <p>The <code>split(";", 2)[0]</code> is there to get rid of cookie attributes which are irrelevant for the server side like <code>expires</code>, <code>path</code>, etc. Alternatively, you could also use <code>cookie.substring(0, cookie.indexOf(';'))</code> instead of <code>split()</code>.</p>
+     <hr>
+     <h3>Streaming mode</h3>
+     <p>The <a href="http://docs.oracle.com/javase/8/docs/api/java/net/HttpURLConnection.html" rel="noreferrer"><code>HttpURLConnection</code></a> will by default buffer the <em>entire</em> request body before actually sending it, regardless of whether you've set a fixed content length yourself using <code>connection.setRequestProperty("Content-Length", contentLength);</code>. This may cause <code>OutOfMemoryException</code>s whenever you concurrently send large POST requests (e.g. uploading files). To avoid this, you would like to set the <a href="http://docs.oracle.com/javase/8/docs/api/java/net/HttpURLConnection.html#setFixedLengthStreamingMode%28int%29" rel="noreferrer"><code>HttpURLConnection#setFixedLengthStreamingMode()</code></a>.</p>
+     <pre><code>httpConnection.setFixedLengthStreamingMode(contentLength);
+</code></pre>
+     <p>But if the content length is really not known beforehand, then you can make use of chunked streaming mode by setting the <a href="http://docs.oracle.com/javase/8/docs/api/java/net/HttpURLConnection.html#setChunkedStreamingMode%28int%29" rel="noreferrer"><code>HttpURLConnection#setChunkedStreamingMode()</code></a> accordingly. This will set the HTTP <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.41" rel="noreferrer"><code>Transfer-Encoding</code></a> header to <code>chunked</code> which will force the request body being sent in chunks. The below example will send the body in chunks of 1&nbsp;KB.</p>
+     <pre><code>httpConnection.setChunkedStreamingMode(1024);
+</code></pre>
+     <hr>
+     <h3>User-Agent</h3>
+     <p>It can happen that <a href="https://stackoverflow.com/questions/13670692/403-forbidden-with-java-but-not-web-browser">a request returns an unexpected response, while it works fine with a real web browser</a>. The server side is probably blocking requests based on the <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.43" rel="noreferrer"><code>User-Agent</code></a> request header. The <code>URLConnection</code> will by default set it to <code>Java/1.6.0_19</code> where the last part is obviously the JRE version. You can override this as follows:</p>
+     <pre><code>connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"); // Do as if you're using Chrome 41 on Windows 7.
+</code></pre>
+     <p>Use the User-Agent string from a <a href="http://www.useragentstring.com/pages/useragentstring.php" rel="noreferrer">recent browser</a>.</p>
+     <hr>
+     <h3>Error handling</h3>
+     <p>If the HTTP response code is <code>4nn</code> (Client Error) or <code>5nn</code> (Server Error), then you may want to read the <code>HttpURLConnection#getErrorStream()</code> to see if the server has sent any useful error information.</p>
+     <pre><code>InputStream error = ((HttpURLConnection) connection).getErrorStream();
+</code></pre>
+     <p>If the HTTP response code is -1, then something went wrong with connection and response handling. The <code>HttpURLConnection</code> implementation is in older JREs somewhat buggy with keeping connections alive. You may want to turn it off by setting the <code>http.keepAlive</code> system property to <code>false</code>. You can do this programmatically in the beginning of your application by:</p>
+     <pre><code>System.setProperty("http.keepAlive", "false");
+</code></pre>
+     <hr>
+     <h3>Uploading files</h3>
+     <p>You'd normally use <a href="http://www.w3.org/TR/html401/interact/forms.html#h-17.13.4.2" rel="noreferrer"><code>multipart/form-data</code></a> encoding for mixed POST content (binary and character data). The encoding is in more detail described in <a href="http://www.faqs.org/rfcs/rfc2388.html" rel="noreferrer">RFC2388</a>.</p>
+     <pre><code>String param = "value";
+File textFile = new File("/path/to/file.txt");
+File binaryFile = new File("/path/to/file.bin");
+String boundary = Long.toHexString(System.currentTimeMillis()); // Just generate some unique random value.
+String CRLF = "\r\n"; // Line separator required by multipart/form-data.
+URLConnection connection = new URL(url).openConnection();
+connection.setDoOutput(true);
+connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+try (
+    OutputStream output = connection.getOutputStream();
+    PrintWriter writer = new PrintWriter(new OutputStreamWriter(output, charset), true);
+) {
+    // Send normal param.
+    writer.append("--" + boundary).append(CRLF);
+    writer.append("Content-Disposition: form-data; name=\"param\"").append(CRLF);
+    writer.append("Content-Type: text/plain; charset=" + charset).append(CRLF);
+    writer.append(CRLF).append(param).append(CRLF).flush();
+
+    // Send text file.
+    writer.append("--" + boundary).append(CRLF);
+    writer.append("Content-Disposition: form-data; name=\"textFile\"; filename=\"" + textFile.getName() + "\"").append(CRLF);
+    writer.append("Content-Type: text/plain; charset=" + charset).append(CRLF); // Text file itself must be saved in this charset!
+    writer.append(CRLF).flush();
+    Files.copy(textFile.toPath(), output);
+    output.flush(); // Important before continuing with writer!
+    writer.append(CRLF).flush(); // CRLF is important! It indicates end of boundary.
+
+    // Send binary file.
+    writer.append("--" + boundary).append(CRLF);
+    writer.append("Content-Disposition: form-data; name=\"binaryFile\"; filename=\"" + binaryFile.getName() + "\"").append(CRLF);
+    writer.append("Content-Type: " + URLConnection.guessContentTypeFromName(binaryFile.getName())).append(CRLF);
+    writer.append("Content-Transfer-Encoding: binary").append(CRLF);
+    writer.append(CRLF).flush();
+    Files.copy(binaryFile.toPath(), output);
+    output.flush(); // Important before continuing with writer!
+    writer.append(CRLF).flush(); // CRLF is important! It indicates end of boundary.
+
+    // End of multipart/form-data.
+    writer.append("--" + boundary + "--").append(CRLF).flush();
+}
+</code></pre>
+     <p>If the other side is an <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/http/HttpServlet.html" rel="noreferrer"><code>HttpServlet</code></a>, then its <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/http/HttpServlet.html#doPost%28javax.servlet.http.HttpServletRequest,%20javax.servlet.http.HttpServletResponse%29" rel="noreferrer"><code>doPost()</code></a> method will be called and the parts will be available by <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/http/HttpServletRequest.html#getPart%28java.lang.String%29" rel="noreferrer"><code>HttpServletRequest#getPart()</code></a> (note, thus <strong>not</strong> <code>getParameter()</code> and so on!). The <code>getPart()</code> method is however relatively new, it's introduced in Servlet 3.0 (Glassfish 3, Tomcat 7, etc.). Prior to Servlet 3.0, your best choice is using <a href="http://commons.apache.org/fileupload" rel="noreferrer">Apache Commons FileUpload</a> to parse a <code>multipart/form-data</code> request. Also see <a href="https://stackoverflow.com/questions/2422468/upload-big-file-to-servlet/2424824#2424824">this answer</a> for examples of both the FileUpload and the Servelt 3.0 approaches.</p>
+     <hr>
+     <h3>Dealing with untrusted or misconfigured HTTPS sites</h3>
+     <p><sup><em>In case you're developing for Android instead of Java, <strong>be careful</strong>: the workaround below may save your day if you don't have correct certificates deployed during development. But you should not use it for production. These days (April 2021) Google will not allow your app be distributed on Play Store if they detect insecure hostname verifier, see <a href="https://support.google.com/faqs/answer/7188426." rel="noreferrer">https://support.google.com/faqs/answer/7188426.</a></em></sup></p>
+     <p>Sometimes you need to connect an HTTPS URL, perhaps because you're writing a web scraper. In that case, you may likely face a <code>javax.net.ssl.SSLException: Not trusted server certificate</code> on some HTTPS sites who doesn't keep their SSL certificates up to date, or a <code>java.security.cert.CertificateException: No subject alternative DNS name matching [hostname] found</code> or <code>javax.net.ssl.SSLProtocolException: handshake alert: unrecognized_name</code> on some misconfigured HTTPS sites.</p>
+     <p>The following one-time-run <code>static</code> initializer in your web scraper class should make <code>HttpsURLConnection</code> more lenient as to those HTTPS sites and thus not throw those exceptions anymore.</p>
+     <pre><code>static {
+    TrustManager[] trustAllCertificates = new TrustManager[] {
+        new X509TrustManager() {
+            @Override
+            public X509Certificate[] getAcceptedIssuers() {
+                return null; // Not relevant.
+            }
+            @Override
+            public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                // Do nothing. Just allow them all.
+            }
+            @Override
+            public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                // Do nothing. Just allow them all.
+            }
+        }
+    };
+
+    HostnameVerifier trustAllHostnames = new HostnameVerifier() {
+        @Override
+        public boolean verify(String hostname, SSLSession session) {
+            return true; // Just allow them all.
+        }
+    };
+
+    try {
+        System.setProperty("jsse.enableSNIExtension", "false");
+        SSLContext sc = SSLContext.getInstance("SSL");
+        sc.init(null, trustAllCertificates, new SecureRandom());
+        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+        HttpsURLConnection.setDefaultHostnameVerifier(trustAllHostnames);
+    }
+    catch (GeneralSecurityException e) {
+        throw new ExceptionInInitializerError(e);
+    }
+}
+</code></pre>
+     <hr>
+     <h3>Last words</h3>
+     <p>The <a href="http://hc.apache.org/httpcomponents-client-ga/" rel="noreferrer">Apache HttpComponents HttpClient</a> is <em>much</em> more convenient in this all :)</p>
+     <ul>
+      <li><a href="http://hc.apache.org/httpcomponents-client-ga/tutorial/html/" rel="noreferrer">HttpClient Tutorial</a></li>
+      <li><a href="http://hc.apache.org/httpcomponents-client-ga/examples.html" rel="noreferrer">HttpClient Examples</a></li>
+     </ul>
+     <hr>
+     <h3>Parsing and extracting HTML</h3>
+     <p>If all you want is parsing and extracting data from HTML, then better use a HTML parser like <a href="http://jsoup.org" rel="noreferrer">Jsoup</a>.</p>
+     <ul>
+      <li><a href="https://stackoverflow.com/questions/3152138/what-are-the-pros-and-cons-of-the-leading-java-html-parsers/3154281#3154281">What are the pros/cons of leading HTML parsers in Java</a></li>
+      <li><a href="https://stackoverflow.com/questions/2835505/how-to-scan-a-website-or-page-for-info-and-bring-it-into-my-program/2835555#2835555">How to scan and extract a webpage in Java</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I get a response code 500 doing a post using java.net.HTTLUrlConnection ... when doing it through jquery I don't get error even though the parameters are the same. Any idea why this is so?</span> <span> - </span> <span class="display-name">oneiros</span> <span> </span> <span class="date">22 Feb 2012 at 20:14</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@imperator: It's a bug in the server's code. It threw an exception. The error page which may contain detailed exception information is available in <code>getErrorStream()</code>. See also "Error Handling" part in the above answer. Or if it's your own server, read its server logs.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">22 Feb 2012 at 20:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>connection.getHeaderFields().entrySet()</code> doesn't even compile. HttpURLConnection doesn't have those methods.</span> <span> - </span> <span class="display-name">nikhil</span> <span> </span> <span class="date">14 Apr 2012 at 19:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hey, the meaning of Accept-Charset is very different from what you write above!</span> <span> - </span> <span class="display-name">Jan Algermissen</span> <span> </span> <span class="date">14 Apr 2012 at 19:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>With regards to the "System.setProperty("http.keepAlive", "false");" because "HttpURLConnection implementation is somewhat buggy", I got bitten by that. Every second connection attempt would return no results. After setting keepAlive to false it worked fine.</span> <span> - </span> <span class="display-name">aseq</span> <span> </span> <span class="date">3 May 2012 at 07:53</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@Brais: Please read the spec. The <code>--</code> part is not part of the boundary itself. It's just a separator string. I've rolled back your invalid edit.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">9 Oct 2012 at 13:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It may be good to mention the <code>disconnect()</code> method to actually terminate the request once you're done to prevent keeping it open for too long / eternity</span> <span> - </span> <span class="display-name">Steven De Groote</span> <span> </span> <span class="date">29 Apr 2013 at 14:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BalusC In section <code>Firing a HTTP GET request with (optionally) query parameters</code> it is mentioned that "<i>The Accept-Charset header may hint the server what encoding the parameters are in.</i>". According to the <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.2" rel="nofollow noreferrer">HTTP Spec</a> "<i>The Accept-Charset request-header field can be used to indicate what character sets are acceptable for the response.</i>" (not the request). Am I missing something here ?</span> <span> - </span> <span class="display-name">gkalpak</span> <span> </span> <span class="date">9 May 2013 at 21:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Expert: That's correct. However, some servers may "guess" request parameter encoding based on this. I've also explicitly stated <i>"may hint"</i> and not e.g. <i>"instructs"</i> or so. If it doesn't work for your target server, then it's just bad luck.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">10 May 2013 at 11:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BalusC: Not that I know too much about it, but I haven't ever found a source of indication that "Accept-Charset" could hint about the request query-params encoding. Yet, if you say it does, I surely trust you more on this one than me. (Just to make clear, I have not tried it on any server, so my comment was on a pure theoreticaly speaking basis.) Thx for your answer !</span> <span> - </span> <span class="display-name">gkalpak</span> <span> </span> <span class="date">10 May 2013 at 13:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Should we add a caveat next to "HttpClient is much more convenient" that the Android SDK says "<a href="http://developer.android.com/reference/org/apache/http/impl/client/DefaultHttpClient.html" rel="nofollow noreferrer">Prefer HttpURLConnection for new code</a>"?</span> <span> - </span> <span class="display-name">Edward Brey</span> <span> </span> <span class="date">24 Sep 2013 at 13:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It's necessary to set a timeout or the current thread may be blocked. See <code>setConnectTimeout</code> and <code>setReadTimeout</code>.</span> <span> - </span> <span class="display-name">Anderson</span> <span> </span> <span class="date">9 Jan 2014 at 03:57</span></td>
+       </tr>
+       <tr>
+        <td>10</td>
+        <td><span>The sad part is that on Android it is <i>not</i> recommended to use the Apache <code>HttpClient</code> now and <code>HttpURLConnection</code> is cruel. <a href="http://android-developers.blogspot.in/2011/09/androids-http-clients.html" rel="nofollow noreferrer">android-developers.blogspot.in/2011/09/…</a></span> <span> - </span> <span class="display-name">yati sagade</span> <span> </span> <span class="date">15 Apr 2014 at 05:27</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>According to my simple measures URLConn is 400-500ms faster than Apache.Httpclient</span> <span> - </span> <span class="display-name">To Kra</span> <span> </span> <span class="date">10 Jun 2014 at 19:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Why after I set <code>httpConnection.setChunkedStreamingMode(1024);</code>, nothing can not be uploaded? (No files appear at server.)</span> <span> - </span> <span class="display-name">Alston</span> <span> </span> <span class="date">21 Oct 2014 at 12:48</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I can not find Files.copy() and binaryFile.toPath() such methods.</span> <span> - </span> <span class="display-name">Haresh Chhelana</span> <span> </span> <span class="date">4 Jun 2015 at 05:24</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Haresh: They are part of Java 7. Like as those <code>try-with-resources</code> statements. Perhaps you're still on long EOL'ed Java 6 or even older? Just upgrade to at least Java 7 (we're currently already on Java 8), or replace Java 7 code by older Java equivalents. E.g. an old fashioned <code>for</code> loop writing a buffer from input to ouput.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">4 Jun 2015 at 06:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><a href="http://square.github.io/okhttp/" rel="nofollow noreferrer">OkHttp</a> is even easier, works on Android. Trust me - it's so much better than plain old HttUrlConnection.</span> <span> - </span> <span class="display-name">Jonas Czech</span> <span> </span> <span class="date">16 Feb 2016 at 15:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BalusC, thanks for the detailed explanation. One more moment, <code>JSOUP</code> 1.8.3 contains method <code>validateTLSCertificates()</code>. Is there any difference/benefits between using your snippet and just call JSOUP's <code>validateTLSCertificates()</code> (<a href="http://jsoup.org/apidocs/org/jsoup/Connection.html#validateTLSCertificates-boolean-" rel="nofollow noreferrer">jsoup.org/apidocs/org/jsoup/…</a>)?</span> <span> - </span> <span class="display-name">Mike</span> <span> </span> <span class="date">23 Mar 2016 at 16:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How do I integrate the last part, "Dealing with untrusted or misconfigured HTTPS sites", with Jsoup.connect(httpsurl).get() method?</span> <span> - </span> <span class="display-name">Luke</span> <span> </span> <span class="date">12 Feb 2018 at 10:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Luke Just copy paste the block in one of your involved classes.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">12 Feb 2018 at 11:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I ran my application with -Djavax.net.debug=ssl:handshake, with and without the above code and it seems to do the same things.</span> <span> - </span> <span class="display-name">Luke</span> <span> </span> <span class="date">12 Feb 2018 at 13:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>A better alternative to trusting all certificates is to trust the specific certificates that you deal with. The code is actually shorter. Here's an example: <a href="https://stackoverflow.com/a/57046932/27658">stackoverflow.com/a/57046932/27658</a></span> <span> - </span> <span class="display-name">Johannes Brodwall</span> <span> </span> <span class="date">15 Jul 2019 at 20:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Might be useful to add a note about why you get <code>java.lang.IllegalArgumentException: URI can't be null.</code> when you do a GET like this (with a non-null URL).</span> <span> - </span> <span class="display-name">nsandersen</span> <span> </span> <span class="date">24 Jul 2019 at 08:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>96</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Paal Thorstensen</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Dec 2011 at 02:20</span>
+     </div>
+    </div>
+    <div>
+     <p>When working with HTTP it's almost always more useful to refer to <code>HttpURLConnection</code> rather than the base class <code>URLConnection</code> (since <code>URLConnection</code> is an abstract class when you ask for <code>URLConnection.openConnection()</code> on a HTTP URL that's what you'll get back anyway).</p>
+     <p>Then you can instead of relying on <code>URLConnection#setDoOutput(true)</code> to implicitly set the request method to <em>POST</em> instead do <code>httpURLConnection.setRequestMethod("POST")</code> which some might find more natural (and which also allows you to specify other request methods such as <em>PUT</em>, <em>DELETE</em>, ...).</p>
+     <p>It also provides useful HTTP constants so you can do:</p>
+     <pre><code>int responseCode = httpURLConnection.getResponseCode();
+
+if (responseCode == HttpURLConnection.HTTP_OK) {
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>setDoOutPut true was my issue which set my GET to a POST. Thanks</span> <span> - </span> <span class="display-name">Patrick Kafka</span> <span> </span> <span class="date">21 Dec 2011 at 21:32</span></td>
+       </tr>
+       <tr>
+        <td>25</td>
+        <td><span>If you are trying to write data to the outputstream you <b>must</b> still set <code>setDoOutput()</code> to <code>true</code> otherwise an exception is thrown (even if you <code>setRequestMethod("POST")</code>). To be clear: setting <code>URLConnection#setDoOutput(true)</code> to <code>true</code> implicitly sets the request method to POST, but setting <code>httpURLConnection.setRequestMethod("POST")</code> to POST does <b>not</b> implicitly set <code>setDoOutput()</code> to <code>true</code>.</span> <span> - </span> <span class="display-name">Tony Chan</span> <span> </span> <span class="date">31 Jul 2012 at 00:09</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>8 years later, <code>setRequestMethod("POST")</code> <b><i>does</i></b> set <code>doOutput</code> to <b><code>true</code></b>.</span> <span> - </span> <span class="display-name">Alex Cohn</span> <span> </span> <span class="date">13 Apr 2021 at 09:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>54</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>David Chandler</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Jun 2012 at 16:37</span>
+     </div>
+    </div>
+    <div>
+     <p>Inspired by this and other questions on Stack&nbsp;Overflow, I've created a minimal open source <a href="http://code.google.com/p/basic-http-client/" rel="nofollow noreferrer">basic-http-client</a> that embodies most of the techniques found here.</p>
+     <p><a href="https://code.google.com/p/google-http-java-client/" rel="nofollow noreferrer">google-http-java-client</a> is also a great open source resource.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I was just thinking the same. But it might also be nice to have a barebones/simple Java library that only uses URLConnection code as presented here that encapsulates the code to simpler methods to do an HTTP GET, POST, etc. The library can then be compiled &amp; packaged as JAR and imported/used in Java code or the source class file can be included in Java project if external JARs are not desired. This could be done with other libraries like Apache, etc. but is more of a pain compared to a simple 1 file class library using URLConnection.</span> <span> - </span> <span class="display-name">David</span> <span> </span> <span class="date">23 Jan 2013 at 00:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><a href="http://www.rapidvaluesolutions.com/tech_blog/introduction-to-httpurlconnection-http-client-for-performing-efficient-network-operations/" rel="nofollow noreferrer">rapidvaluesolutions.com/tech_blog/…</a> favors HttpURLConnection over HttpClient</span> <span> - </span> <span class="display-name">Ravindra babu</span> <span> </span> <span class="date">25 Sep 2015 at 11:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>28</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>fernandohur</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Oct 2014 at 21:57</span>
+     </div>
+    </div>
+    <div>
+     <p>I suggest you take a look at the code on <a href="https://github.com/kevinsawicki/http-request">kevinsawicki/http-request</a>, its basically a wrapper on top of <code>HttpUrlConnection</code> it provides a much simpler API in case you just want to make the requests right now or you can take a look at the sources (it's not too big) to take a look at how connections are handled.</p>
+     <p>Example: Make a <code>GET</code> request with content type <code>application/json</code> and some query parameters:</p>
+     <pre><code>// GET http://google.com?q=baseball%20gloves&amp;size=100
+String response = HttpRequest.get("http://google.com", true, "q", "baseball gloves", "size", 100)
+        .accept("application/json")
+        .body();
+System.out.println("Response was: " + response);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>28</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Utkarsh Bhatt</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Dec 2014 at 12:58</span>
+     </div>
+    </div>
+    <div>
+     <p>There are two options you can go with HTTP URL Hits : GET / POST</p>
+     <p>GET Request:</p>
+     <pre><code>HttpURLConnection.setFollowRedirects(true); // Defaults to true
+
+String url = "https://name_of_the_url";
+URL request_url = new URL(url);
+HttpURLConnection http_conn = (HttpURLConnection)request_url.openConnection();
+http_conn.setConnectTimeout(100000);
+http_conn.setReadTimeout(100000);
+http_conn.setInstanceFollowRedirects(true);
+System.out.println(String.valueOf(http_conn.getResponseCode()));
+</code></pre>
+     <p>POST request:</p>
+     <pre><code>HttpURLConnection.setFollowRedirects(true); // Defaults to true
+
+String url = "https://name_of_the_url"
+URL request_url = new URL(url);
+HttpURLConnection http_conn = (HttpURLConnection)request_url.openConnection();
+http_conn.setConnectTimeout(100000);
+http_conn.setReadTimeout(100000);
+http_conn.setInstanceFollowRedirects(true);
+http_conn.setDoOutput(true);
+PrintWriter out = new PrintWriter(http_conn.getOutputStream());
+if (urlparameter != null) {
+   out.println(urlparameter);
+}
+out.close();
+out = null;
+System.out.println(String.valueOf(http_conn.getResponseCode()));
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>How can you view the actual JSON response?</span> <span> - </span> <span class="display-name">Sora</span> <span> </span> <span class="date">16 Jan 2018 at 19:01</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>28</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ali Dehghani</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Apr 2016 at 08:07</span>
+     </div>
+    </div>
+    <div>
+     <h2>Update</h2>
+     <blockquote>
+      <p>The new HTTP Client shipped with Java 9 but as part of an Incubator module named <code>jdk.incubator.httpclient</code>. Incubator modules are a means of putting non-final APIs in the hands of developers while the APIs progress towards either finalization or removal in a future release.</p>
+     </blockquote>
+     <p>In Java 9, you can send a <code>GET</code> request like:</p>
+     <pre><code>// GET
+HttpResponse response = HttpRequest
+    .create(new URI("http://www.stackoverflow.com"))
+    .headers("Foo", "foovalue", "Bar", "barvalue")
+    .GET()
+    .response();
+</code></pre>
+     <p>Then you can examine the returned <code>HttpResponse</code>:</p>
+     <pre><code>int statusCode = response.statusCode();
+String responseBody = response.body(HttpResponse.asString());
+</code></pre>
+     <p>Since this new HTTP Client is in 
+      <del><code>java.httpclient</code></del><code>jdk.incubator.httpclient</code> module, you should declare this dependency in your <code>module-info.java</code> file:</p>
+     <pre><code>module com.foo.bar {
+    requires jdk.incubator.httpclient;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>Further update: the module is out of incubation status. It’s now <a href="https://docs.oracle.com/en/java/javase/13/docs/api/java.net.http/module-summary.html" rel="nofollow noreferrer">java.net.http</a>, not jdk.incubator.httpclient.</span> <span> - </span> <span class="display-name">VGR</span> <span> </span> <span class="date">19 Sep 2019 at 13:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>RickHigh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Oct 2013 at 05:35</span>
+     </div>
+    </div>
+    <div>
+     <p>I was also very inspired by this response.</p>
+     <p>I am often on projects where I need to do some HTTP, and I may not want to bring in a lot of third-party dependencies (which bring in others and so on and so on, etc.)</p>
+     <p>I started to write my own utilities based on some of this conversation (not any where done):</p>
+     <pre><code>package org.boon.utils;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.Map;
+
+import static org.boon.utils.IO.read;
+
+public class HTTP {
+</code></pre>
+     <p>Then there are just a bunch or static methods.</p>
+     <pre><code>public static String get(
+        final String url) {
+
+    Exceptions.tryIt(() -&gt; {
+        URLConnection connection;
+        connection = doGet(url, null, null, null);
+        return extractResponseString(connection);
+    });
+    return null;
+}
+
+public static String getWithHeaders(
+        final String url,
+        final Map&lt;String, ? extends Object&gt; headers) {
+    URLConnection connection;
+    try {
+        connection = doGet(url, headers, null, null);
+        return extractResponseString(connection);
+    } catch (Exception ex) {
+        Exceptions.handle(ex);
+        return null;
+    }
+}
+
+public static String getWithContentType(
+        final String url,
+        final Map&lt;String, ? extends Object&gt; headers,
+        String contentType) {
+    URLConnection connection;
+    try {
+        connection = doGet(url, headers, contentType, null);
+        return extractResponseString(connection);
+    } catch (Exception ex) {
+        Exceptions.handle(ex);
+        return null;
+    }
+}
+public static String getWithCharSet(
+        final String url,
+        final Map&lt;String, ? extends Object&gt; headers,
+        String contentType,
+        String charSet) {
+    URLConnection connection;
+    try {
+        connection = doGet(url, headers, contentType, charSet);
+        return extractResponseString(connection);
+    } catch (Exception ex) {
+        Exceptions.handle(ex);
+        return null;
+    }
+}
+</code></pre>
+     <p>Then post...</p>
+     <pre><code>public static String postBody(
+        final String url,
+        final String body) {
+    URLConnection connection;
+    try {
+        connection = doPost(url, null, "text/plain", null, body);
+        return extractResponseString(connection);
+    } catch (Exception ex) {
+        Exceptions.handle(ex);
+        return null;
+    }
+}
+
+public static String postBodyWithHeaders(
+        final String url,
+        final Map&lt;String, ? extends Object&gt; headers,
+        final String body) {
+    URLConnection connection;
+    try {
+        connection = doPost(url, headers, "text/plain", null, body);
+        return extractResponseString(connection);
+    } catch (Exception ex) {
+        Exceptions.handle(ex);
+        return null;
+    }
+}
+
+
+public static String postBodyWithContentType(
+        final String url,
+        final Map&lt;String, ? extends Object&gt; headers,
+        final String contentType,
+        final String body) {
+
+    URLConnection connection;
+    try {
+        connection = doPost(url, headers, contentType, null, body);
+
+        return extractResponseString(connection);
+
+    } catch (Exception ex) {
+        Exceptions.handle(ex);
+        return null;
+    }
+
+}
+
+
+public static String postBodyWithCharset(
+        final String url,
+        final Map&lt;String, ? extends Object&gt; headers,
+        final String contentType,
+        final String charSet,
+        final String body) {
+
+    URLConnection connection;
+    try {
+        connection = doPost(url, headers, contentType, charSet, body);
+
+        return extractResponseString(connection);
+
+    } catch (Exception ex) {
+        Exceptions.handle(ex);
+        return null;
+    }
+}
+
+private static URLConnection doPost(String url, Map&lt;String, ? extends Object&gt; headers,
+                                    String contentType, String charset, String body
+                                    ) throws IOException {
+    URLConnection connection;/* Handle output. */
+    connection = new URL(url).openConnection();
+    connection.setDoOutput(true);
+    manageContentTypeHeaders(contentType, charset, connection);
+
+    manageHeaders(headers, connection);
+
+    IO.write(connection.getOutputStream(), body, IO.CHARSET);
+    return connection;
+}
+
+private static void manageHeaders(Map&lt;String, ? extends Object&gt; headers, URLConnection connection) {
+    if (headers != null) {
+        for (Map.Entry&lt;String, ? extends Object&gt; entry : headers.entrySet()) {
+            connection.setRequestProperty(entry.getKey(), entry.getValue().toString());
+        }
+    }
+}
+
+private static void manageContentTypeHeaders(String contentType, String charset, URLConnection connection) {
+    connection.setRequestProperty("Accept-Charset", charset == null ? IO.CHARSET : charset);
+    if (contentType!=null &amp;&amp; !contentType.isEmpty()) {
+        connection.setRequestProperty("Content-Type", contentType);
+    }
+}
+
+private static URLConnection doGet(String url, Map&lt;String, ? extends Object&gt; headers,
+                                    String contentType, String charset) throws IOException {
+    URLConnection connection;/* Handle output. */
+    connection = new URL(url).openConnection();
+    manageContentTypeHeaders(contentType, charset, connection);
+
+    manageHeaders(headers, connection);
+
+    return connection;
+}
+
+private static String extractResponseString(URLConnection connection) throws IOException {
+/* Handle input. */
+    HttpURLConnection http = (HttpURLConnection)connection;
+    int status = http.getResponseCode();
+    String charset = getCharset(connection.getHeaderField("Content-Type"));
+
+    if (status==200) {
+        return readResponseBody(http, charset);
+    } else {
+        return readErrorResponseBody(http, status, charset);
+    }
+}
+
+private static String readErrorResponseBody(HttpURLConnection http, int status, String charset) {
+    InputStream errorStream = http.getErrorStream();
+    if ( errorStream!=null ) {
+        String error = charset== null ? read( errorStream ) :
+            read( errorStream, charset );
+        throw new RuntimeException("STATUS CODE =" + status + "\n\n" + error);
+    } else {
+        throw new RuntimeException("STATUS CODE =" + status);
+    }
+}
+
+private static String readResponseBody(HttpURLConnection http, String charset) throws IOException {
+    if (charset != null) {
+        return read(http.getInputStream(), charset);
+    } else {
+        return read(http.getInputStream());
+    }
+}
+
+private static String getCharset(String contentType) {
+    if (contentType==null)  {
+        return null;
+    }
+    String charset = null;
+    for (String param : contentType.replace(" ", "").split(";")) {
+        if (param.startsWith("charset=")) {
+            charset = param.split("=", 2)[1];
+            break;
+        }
+    }
+    charset = charset == null ? IO.CHARSET : charset;
+
+    return charset;
+}
+</code></pre>
+     <p>Well, you get the idea....</p>
+     <p>Here are the tests:</p>
+     <pre><code>static class MyHandler implements HttpHandler {
+    public void handle(HttpExchange t) throws IOException {
+
+        InputStream requestBody = t.getRequestBody();
+        String body = IO.read(requestBody);
+        Headers requestHeaders = t.getRequestHeaders();
+        body = body + "\n" + copy(requestHeaders).toString();
+        t.sendResponseHeaders(200, body.length());
+        OutputStream os = t.getResponseBody();
+        os.write(body.getBytes());
+        os.close();
+    }
+}
+
+
+@Test
+public void testHappy() throws Exception {
+
+    HttpServer server = HttpServer.create(new InetSocketAddress(9212), 0);
+    server.createContext("/test", new MyHandler());
+    server.setExecutor(null); // creates a default executor
+    server.start();
+
+    Thread.sleep(10);
+
+    Map&lt;String,String&gt; headers = map("foo", "bar", "fun", "sun");
+
+    String response = HTTP.postBodyWithContentType("http://localhost:9212/test", headers, "text/plain", "hi mom");
+
+    System.out.println(response);
+
+    assertTrue(response.contains("hi mom"));
+    assertTrue(response.contains("Fun=[sun], Foo=[bar]"));
+
+    response = HTTP.postBodyWithCharset("http://localhost:9212/test", headers, "text/plain", "UTF-8", "hi mom");
+
+    System.out.println(response);
+
+    assertTrue(response.contains("hi mom"));
+    assertTrue(response.contains("Fun=[sun], Foo=[bar]"));
+
+    response = HTTP.postBodyWithHeaders("http://localhost:9212/test", headers, "hi mom");
+
+    System.out.println(response);
+
+    assertTrue(response.contains("hi mom"));
+    assertTrue(response.contains("Fun=[sun], Foo=[bar]"));
+
+    response = HTTP.get("http://localhost:9212/test");
+
+    System.out.println(response);
+
+    response = HTTP.getWithHeaders("http://localhost:9212/test", headers);
+
+    System.out.println(response);
+
+    assertTrue(response.contains("Fun=[sun], Foo=[bar]"));
+
+    response = HTTP.getWithContentType("http://localhost:9212/test", headers, "text/plain");
+
+    System.out.println(response);
+
+    assertTrue(response.contains("Fun=[sun], Foo=[bar]"));
+
+    response = HTTP.getWithCharSet("http://localhost:9212/test", headers, "text/plain", "UTF-8");
+
+    System.out.println(response);
+
+    assertTrue(response.contains("Fun=[sun], Foo=[bar]"));
+
+    Thread.sleep(10);
+
+    server.stop(0);
+}
+
+@Test
+public void testPostBody() throws Exception {
+
+    HttpServer server = HttpServer.create(new InetSocketAddress(9220), 0);
+    server.createContext("/test", new MyHandler());
+    server.setExecutor(null); // creates a default executor
+    server.start();
+
+    Thread.sleep(10);
+
+    Map&lt;String,String&gt; headers = map("foo", "bar", "fun", "sun");
+
+    String response = HTTP.postBody("http://localhost:9220/test", "hi mom");
+
+    assertTrue(response.contains("hi mom"));
+
+    Thread.sleep(10);
+
+    server.stop(0);
+}
+
+@Test(expected = RuntimeException.class)
+public void testSad() throws Exception {
+
+    HttpServer server = HttpServer.create(new InetSocketAddress(9213), 0);
+    server.createContext("/test", new MyHandler());
+    server.setExecutor(null); // creates a default executor
+    server.start();
+
+    Thread.sleep(10);
+
+    Map&lt;String,String&gt; headers = map("foo", "bar", "fun", "sun");
+
+    String response = HTTP.postBodyWithContentType("http://localhost:9213/foo", headers, "text/plain", "hi mom");
+
+    System.out.println(response);
+
+    assertTrue(response.contains("hi mom"));
+    assertTrue(response.contains("Fun=[sun], Foo=[bar]"));
+
+    Thread.sleep(10);
+
+    server.stop(0);
+}
+</code></pre>
+     <p>You can find the rest here:</p>
+     <p><a href="https://github.com/RichardHightower/boon" rel="nofollow noreferrer">https://github.com/RichardHightower/boon</a></p>
+     <p>My goal is to provide the common things one would want to do in a bit more easier way then....</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>It's odd that in the <code>doPost</code> method there is a <code>charset</code> param, that is used to set request header, but then the data is written with some hard-coded charset <code>IO.CHARSET</code>. A bug?</span> <span> - </span> <span class="display-name">Vit Khudenko</span> <span> </span> <span class="date">27 Nov 2013 at 13:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>19</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ravindra babu</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Sep 2015 at 12:07</span>
+     </div>
+    </div>
+    <div>
+     <p>Initially I was misled by <a href="http://www.innovation.ch/java/HTTPClient/urlcon_vs_httpclient.html" rel="nofollow noreferrer">this article</a> which favours <code>HttpClient</code>.</p>
+     <p>Later I have realized that <code>HttpURLConnection</code> is going to stay from <a href="https://github.com/loopj/android-async-http/issues/75" rel="nofollow noreferrer">this article</a>.</p>
+     <p><strong>As per the Google blog</strong>:</p>
+     <blockquote>
+      <p>Apache HTTP client has fewer bugs on Eclair and Froyo. It is the best choice for these releases. For Gingerbread , HttpURLConnection is the best choice. Its simple API and small size makes it great fit for Android.</p>
+      <p>Transparent compression and response caching reduce network use, improve speed and save battery. New applications should use HttpURLConnection; it is where we will be spending our energy going forward.</p>
+     </blockquote>
+     <p>After reading <a href="http://www.rapidvaluesolutions.com/tech_blog/introduction-to-httpurlconnection-http-client-for-performing-efficient-network-operations/" rel="nofollow noreferrer">this article</a> and some other stack over flow questions, I am convinced that <code>HttpURLConnection</code> is going to stay for longer durations.</p>
+     <p>Some of the SE questions favouring <code>HttpURLConnections</code>:</p>
+     <p><em><a href="https://stackoverflow.com/questions/4330392/on-android-make-a-post-request-with-url-encoded-form-data-without-using-urlenco/4794289#4794289">On Android, make a POST request with URL Encoded Form data without using UrlEncodedFormEntity</a></em></p>
+     <p><em><a href="https://stackoverflow.com/questions/4221420/httppost-works-in-java-project-not-in-android">HttpPost works in Java project, but not on Android</a></em></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>17</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ali Dehghani</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Jan 2016 at 12:06</span>
+     </div>
+    </div>
+    <div>
+     <p>There is also <a href="http://square.github.io/okhttp/">OkHttp</a>, which is an HTTP client that’s efficient by default:</p>
+     <blockquote>
+      <ul>
+       <li>HTTP/2 support allows all requests to the same host to share a socket.</li>
+       <li>Connection pooling reduces request latency (if HTTP/2 isn’t available).</li>
+       <li>Transparent GZIP shrinks download sizes.</li>
+       <li>Response caching avoids the network completely for repeat requests.</li>
+      </ul>
+     </blockquote>
+     <p>First create an instance of <code>OkHttpClient</code>:</p>
+     <pre><code>OkHttpClient client = new OkHttpClient();
+</code></pre>
+     <p>Then, prepare your <code>GET</code> request:</p>
+     <pre><code>Request request = new Request.Builder()
+      .url(url)
+      .build();
+</code></pre>
+     <p>finally, use <code>OkHttpClient</code> to send prepared <code>Request</code>:</p>
+     <pre><code>Response response = client.newCall(request).execute();
+</code></pre>
+     <p>For more details, you can consult the <a href="https://github.com/square/okhttp/wiki">OkHttp's documentation</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nison Cheruvathur</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Apr 2016 at 05:43</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are using HTTP <a href="https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods" rel="nofollow noreferrer">GET</a>, please remove this line:</p>
+     <pre><code>urlConnection.setDoOutput(true);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>yegor256</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Nov 2013 at 10:31</span>
+     </div>
+    </div>
+    <div>
+     <p>You can also use <a href="http://http.jcabi.com/apidocs-1.0/com/jcabi/http/request/JdkRequest.html"><code>JdkRequest</code></a> from <a href="http://http.jcabi.com">jcabi-http</a> (I'm a developer), which does all this work for you, decorating HttpURLConnection, firing HTTP requests and parsing responses, for example:</p>
+     <pre><code>String html = new JdkRequest("http://www.google.com").fetch().body();
+</code></pre>
+     <p>Check this blog post for more info: <a href="http://www.yegor256.com/2014/04/11/jcabi-http-intro.html">http://www.yegor256.com/2014/04/11/jcabi-http-intro.html</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>How do you handle cookies?</span> <span> - </span> <span class="display-name">Dejell</span> <span> </span> <span class="date">27 Jan 2015 at 19:08</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mahozad</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Dec 2021 at 19:07</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are using <strong>Java 11</strong> or newer (<a href="https://stackoverflow.com/q/65363995/8583692">except on Android</a>), instead of the legacy <code>HttpUrlConnection</code> class, you can use Java 11 new <a href="https://openjdk.java.net/groups/net/httpclient/intro.html" rel="nofollow noreferrer">HTTP Client API</a>.</p>
+     <h4>An example <em>GET</em> request:</h4>
+     <pre class="lang-java prettyprint-override"><code>var uri = URI.create("https://httpbin.org/get?age=26&amp;isHappy=true");
+var client = HttpClient.newHttpClient();
+var request = HttpRequest
+        .newBuilder()
+        .uri(uri)
+        .header("accept", "application/json")
+        .GET()
+        .build();
+var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+System.out.println(response.statusCode());
+System.out.println(response.body());
+</code></pre>
+     <p>The same request executed asynchronously:</p>
+     <pre class="lang-java prettyprint-override"><code>var responseAsync = client
+        .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+        .thenApply(HttpResponse::body)
+        .thenAccept(System.out::println);
+// responseAsync.join(); // Wait for completion
+</code></pre>
+     <h4>An example <em>POST</em> request:</h4>
+     <pre class="lang-java prettyprint-override"><code>var request = HttpRequest
+        .newBuilder()
+        .uri(uri)
+        .version(HttpClient.Version.HTTP_2)
+        .timeout(Duration.ofMinutes(1))
+        .header("Content-Type", "application/json")
+        .header("Authorization", "Bearer fake")
+        .POST(BodyPublishers.ofString("{ title: 'This is cool' }"))
+        .build();
+var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+</code></pre>
+     <p>For sending form data as multipart (<code>multipart/form-data</code>) or url-encoded (<code>application/x-www-form-urlencoded</code>) format, see <a href="https://stackoverflow.com/a/56482187/8583692">this solution</a>.</p>
+     <p>See <a href="https://www.baeldung.com/java-9-http-client" rel="nofollow noreferrer">this article</a> for examples and more information about HTTP Client API.</p>
+     <h2>Sidenote</h2>
+     <p>For Java standard library HTTP <strong>server</strong>, see <a href="https://stackoverflow.com/a/71635295/8583692">this post</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

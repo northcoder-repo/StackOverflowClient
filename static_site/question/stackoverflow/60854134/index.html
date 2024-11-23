@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How can i get name box from excel?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How can i get name box from excel?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>JsNinja</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Mar 2020 at 17:27</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60854134/how-can-i-get-name-box-from-excel">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm comparing 2 excel files cell by cell and when i found a difference i print it example DIFF Cell values at: Sch HI (1 of 4)!K40 =&gt; '6.0' v/s '5.0' cell position old value and new value</p>
+    <p>so instead of cell position i need to print the box name</p>
+    <pre><code> @Override
+    public void reportDiffCell(CellPos c1, CellPos c2) {
+        sheets.add(c1.getSheetName());
+        rows.add(c1.getRow());
+        cols.add(c1.getColumn());
+        results.add("DIFF Cell values at: " + c1.getCellPosition() + " =&gt; '" + c1.getCellValue()
+                + "' v/s '" + c2.getCellValue() + "'");
+    }
+</code></pre>
+    <p><a href="https://i.stack.imgur.com/3HoTQ.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/3HoTQ.png" alt="enter image description here"></a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">excel</span><span class="tag">apache-poi</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Take a look at <a href="https://poi.apache.org/components/spreadsheet/quick-guide.html#NamedRanges" rel="nofollow noreferrer">this</a> as a starting point. Bear in mind that one cell can be contained in multiple named ranges. So, you are probably better off iterating the named ranges independently of cell references - and then reporting on differences in those named ranges.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Mar 2020 at 17:42</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Mar 2020 at 21:40</span>
+     </div>
+    </div>
+    <div>
+     <p>An example of gathering the range names from a spreadsheet, so that they can be compared for a "diff" report...</p>
+     <p>For example, here is a spreadsheet with two named ranges:</p>
+     <pre><code>Name     : animals
+Refers to: Sheet1!$C$3:$D$4,Sheet1!$C$5
+
+Name     : birds
+Refers to: Sheet1!$B$8:$B$9
+</code></pre>
+     <p><a href="https://i.stack.imgur.com/3qTyD.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/3qTyD.png" alt="named ranges"></a></p>
+     <p>The following code populates the range names and references into a map:</p>
+     <pre><code>import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.usermodel.Name;
+
+...
+
+public Map&lt;String, String&gt; compare(String fileName) {
+
+    Map&lt;String, String&gt; namesMap = new HashMap();
+
+    File file = new File(fileName);
+    try (InputStream is = new FileInputStream(file)) {
+        Workbook wb = WorkbookFactory.create(is);
+        List&lt;? extends Name&gt; names = wb.getAllNames();
+
+        names.forEach((name) -&gt; {
+            namesMap.put(name.getNameName(), name.getRefersToFormula());
+        });
+
+    } catch (FileNotFoundException ex) {
+        // handler
+    } catch (IOException ex) {
+        // handler
+    }
+
+    return namesMap;
+}
+</code></pre>
+     <p>Now you can repeat this for each of your two Excel files, and then compare the keys and values in the two map objects (different range names; same names but different ranges of cells).</p>
+     <p><strong>UPDATE</strong>: THe above sample was written using Open JDK 13. The following POI dependencies were used (assuming Maven):</p>
+     <pre><code>&lt;dependencies&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;org.apache.poi&lt;/groupId&gt;
+        &lt;artifactId&gt;poi&lt;/artifactId&gt;
+        &lt;version&gt;4.1.2&lt;/version&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt; 
+        &lt;groupId&gt;org.apache.poi&lt;/groupId&gt; 
+        &lt;artifactId&gt;poi-ooxml&lt;/artifactId&gt; 
+        &lt;version&gt;4.1.2&lt;/version&gt;
+    &lt;/dependency&gt; 
+&lt;/dependencies&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>hey which version of apache you are working with ? i'm using &lt;version&gt;3.9&lt;/version&gt;</span> <span> - </span> <span class="display-name">JsNinja</span> <span> </span> <span class="date">26 Mar 2020 at 11:17</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@JsNinja My example was written using POI 4.1.2 (and OpenJDK 13). If you are using POI 3.9, then there are a couple of methods which I think are missing/different, for example <code>wb.getAllNames()</code> and <code>generateContiguous()</code> - and maybe also <code>WorkbookFactory</code>. The above code runs OK with POI 3.17. Is that is an option for you?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Mar 2020 at 12:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>actually i changed to 4.1.2 i get several errors i tried 3.17 too kinda errors : java.lang.NoSuchMethodError: org.apache.poi.POIXMLDocumentPart.getPackageRelationship()Lo‌​rg/apache/poi/openxm‌​l4j/opc/PackageRelat‌​ionship;</span> <span> - </span> <span class="display-name">JsNinja</span> <span> </span> <span class="date">26 Mar 2020 at 13:34</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@JsNinja - I updated the answer to show my POI dependencies, in case that helps.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Mar 2020 at 13:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>i will be back to it if this doesn't work <a href="https://stackoverflow.com/questions/26649598/get-name-of-cell-apache-poi" title="get name of cell apache poi">stackoverflow.com/questions/26649598/…</a> look do you have an idea?</span> <span> - </span> <span class="display-name">JsNinja</span> <span> </span> <span class="date">26 Mar 2020 at 14:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JsNinja - I don't know - but it suggests the project's configuration is still pointing at an older library, somewhere (see <a href="https://github.com/opensagres/xdocreport/issues/208" rel="nofollow noreferrer">here</a> and <a href="https://stackoverflow.com/questions/50502210/how-to-fix-this-exception-in-thread-main-java-lang-nosuchmethoderror-org-apac">here</a>).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Mar 2020 at 17:46</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Excel Hero</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Mar 2020 at 17:42</span>
+     </div>
+    </div>
+    <div>
+     <p>You could add a VBA function to the workbook and call that from java...</p>
+     <pre><code>Function CellName(r As Range)
+    On Error Resume Next
+    CellName = r.Name.Name
+    If Err Then CellName = r.Address(0, 0)
+End Function
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Sorry, I didn't notice. Perhaps a workaround could be to place the above function in the workbook and then call it from java.</span> <span> - </span> <span class="display-name">Excel Hero</span> <span> </span> <span class="date">25 Mar 2020 at 17:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java "for" statement implementation prevents garbage collecting</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java "for" statement implementation prevents garbage collecting</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>22</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>radistao</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>22 Feb 2017 at 22:18</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/42403347/java-for-statement-implementation-prevents-garbage-collecting">source</a>
+    </div>
+   </div>
+   <div>
+    <p><strong>UPD 21.11.2017:</strong> the bug is fixed in JDK, see <a href="https://stackoverflow.com/a/47404050/907576">comment from Vicente Romero</a></p>
+    <p>Summary:</p>
+    <p><strong>If <code>for</code> statement is used for any <code>Iterable</code> implementation the collection will remain in the heap memory till the end of current scope (method, statement body) and won't be garbage collected even if you don't have any other references to the collection and the application needs to allocate a new memory.</strong></p>
+    <p><a href="http://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8175883" rel="noreferrer">http://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8175883</a></p>
+    <p><a href="https://bugs.openjdk.java.net/browse/JDK-8175883" rel="noreferrer">https://bugs.openjdk.java.net/browse/JDK-8175883</a></p>
+    <p><em>The example</em>:</p>
+    <p>If i have the next code, which allocates a list of large strings with random content:</p>
+    <pre><code>import java.util.ArrayList;
+public class IteratorAndGc {
+    
+    // number of strings and the size of every string
+    static final int N = 7500;
+
+    public static void main(String[] args) {
+        System.gc();
+
+        gcInMethod();
+
+        System.gc();
+        showMemoryUsage("GC after the method body");
+
+        ArrayList&lt;String&gt; strings2 = generateLargeStringsArray(N);
+        showMemoryUsage("Third allocation outside the method is always successful");
+    }
+
+    // main testable method
+    public static void gcInMethod() {
+
+        showMemoryUsage("Before first memory allocating");
+        ArrayList&lt;String&gt; strings = generateLargeStringsArray(N);
+        showMemoryUsage("After first memory allocation");
+
+
+        // this is only one difference - after the iterator created, memory won't be collected till end of this function
+        for (String string : strings);
+        showMemoryUsage("After iteration");
+
+        strings = null; // discard the reference to the array
+
+        // one says this doesn't guarantee garbage collection,
+        // Oracle says "the Java Virtual Machine has made a best effort to reclaim space from all discarded objects".
+        // but no matter - the program behavior remains the same with or without this line. You may skip it and test.
+        System.gc();
+
+        showMemoryUsage("After force GC in the method body");
+
+        try {
+            System.out.println("Try to allocate memory in the method body again:");
+            ArrayList&lt;String&gt; strings2 = generateLargeStringsArray(N);
+            showMemoryUsage("After secondary memory allocation");
+        } catch (OutOfMemoryError e) {
+            showMemoryUsage("!!!! Out of memory error !!!!");
+            System.out.println();
+        }
+    }
+    
+    // function to allocate and return a reference to a lot of memory
+    private static ArrayList&lt;String&gt; generateLargeStringsArray(int N) {
+        ArrayList&lt;String&gt; strings = new ArrayList&lt;&gt;(N);
+        for (int i = 0; i &lt; N; i++) {
+            StringBuilder sb = new StringBuilder(N);
+            for (int j = 0; j &lt; N; j++) {
+                sb.append((char)Math.round(Math.random() * 0xFFFF));
+            }
+            strings.add(sb.toString());
+        }
+
+        return strings;
+    }
+
+    // helper method to display current memory status
+    public static void showMemoryUsage(String action) {
+        long free = Runtime.getRuntime().freeMemory();
+        long total = Runtime.getRuntime().totalMemory();
+        long max = Runtime.getRuntime().maxMemory();
+        long used = total - free;
+        System.out.printf("\t%40s: %10dk of max %10dk%n", action, used / 1024, max / 1024);
+    }
+}
+</code></pre>
+    <p>compile and run it with <strong>limited memory</strong>, like this (180mb):</p>
+    <pre><code>javac IteratorAndGc.java   &amp;&amp;   java -Xms180m -Xmx180m IteratorAndGc
+</code></pre>
+    <p>and at runtime i have:</p>
+    <blockquote>
+     <p>Before first memory allocating: 1251k of max 176640k</p>
+     <p>After first memory allocation: 131426k of max 176640k</p>
+     <p>After iteration: 131426k of max 176640k</p>
+     <p>After force GC in the method body: 110682k of max 176640k (almost nothing collected)</p>
+     <p>Try to allocate memory in the method body again:</p>
+     <pre><code>     !!!! Out of memory error !!!!:     168948k of max     176640k
+</code></pre>
+     <p>GC after the method body: 459k of max 176640k (the garbage is collected!)</p>
+     <p>Third allocation outside the method is always successful: 117740k of max 163840k</p>
+    </blockquote>
+    <p>So, inside <em>gcInMethod()</em> i tried to allocate the list, iterate over it, discard the reference to the list, (optional)force garbage collection and allocate similar list again. But i can't allocate second array because of lack of memory.</p>
+    <p>In the same time, outside the function body i can successfully force garbage collection (optional) and allocate the same array size again!</p>
+    <p>To avoid this <em>OutOfMemoryError</em> inside the function body it's enough to remove/comment only this one line:</p>
+    <p><strong><code>for (String string : strings);</code></strong> &lt;-- this is the evil!!!</p>
+    <p>and then output looks like this:</p>
+    <blockquote>
+     <p>Before first memory allocating: 1251k of max 176640k</p>
+     <p>After first memory allocation: 131409k of max 176640k</p>
+     <p>After iteration: 131409k of max 176640k</p>
+     <p>After force GC in the method body: 497k of max 176640k (the garbage is collected!)</p>
+     <p>Try to allocate memory in the method body again:</p>
+     <p>After secondary memory allocation: 115541k of max 163840k</p>
+     <p>GC after the method body: 493k of max 163840k (the garbage is collected!)</p>
+     <p>Third allocation outside the method is always successful: 121300k of max 163840k</p>
+    </blockquote>
+    <p>So, without <em>for</em> iterating the garbage successfully collected after discarding the reference to the strings, and allocated second time (inside the function body) and allocated third time (outside the method).</p>
+    <p>My supposition:</p>
+    <p><em>for</em> syntax construction is compiled to</p>
+    <pre><code>Iterator iter = strings.iterator();
+while(iter.hasNext()){
+    iter.next()
+}
+</code></pre>
+    <p>(and i checked this decompiling <code>javap -c IteratorAndGc.class</code>)</p>
+    <p>And looks like this <em>iter</em> reference stays in the scope till the end. You don't have access to the reference to nullify it, and GC can't perform the collection.</p>
+    <p><strong>Maybe this is normal behavior (maybe even specified in <em>javac</em>, but i haven't found), but IMHO if compiler creates some instances it should care about discarding them from the scope after using.</strong></p>
+    <p>That's how i expect to have the implementation of <code>for</code> statement:</p>
+    <pre><code>Iterator iter = strings.iterator();
+while(iter.hasNext()){
+    iter.next()
+}
+iter = null; // &lt;--- flush the water!
+</code></pre>
+    <p>Used java compiler and runtime versions:</p>
+    <pre><code>javac 1.8.0_111
+
+java version "1.8.0_111"
+Java(TM) SE Runtime Environment (build 1.8.0_111-b14)
+Java HotSpot(TM) 64-Bit Server VM (build 25.111-b14, mixed mode)
+</code></pre>
+    <p><strong>Note</strong>:</p>
+    <ul>
+     <li>
+      <p>the question is not about programming style, best practices, conventions and so on, the question is about an efficiency of Java platform.</p></li>
+     <li>
+      <p>the question is not about <code>System.gc()</code> behavior (you may remove all <em>gc</em> calls from the example) - during the second strings allocation the JVM <strong>must</strong> release the dicarded memory.</p></li>
+    </ul>
+    <p><a href="https://bitbucket.org/snippets/radistao/8eonK#file-IteratorAndGc.java" rel="noreferrer">Reference to the test java class</a>, <a href="https://www.compilejava.net/" rel="noreferrer">Online compiler to test</a> (but this resource has only 50 Mb of heap, so use N = 5000)</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">for-loop</span><span class="tag">memory-management</span><span class="tag">garbage-collection</span><span class="tag">iterator</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>You incorrectly understand how does GC work. There is no guarantee that GC will collect anything after one call.</span> <span> - </span> <span class="display-name">Andremoniy</span> <span> </span> <span class="date">22 Feb 2017 at 22:33</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Damn, read the description, pls! the question not about GC call!!! "the question is not about System.gc() behavior (you may remove all gc calls from the example) - during the second strings allocation the JVM must release the dicarded memory." The question is about "for" implementation.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Feb 2017 at 22:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Andremoniy pls, read the description and remove the duplication flag - the question is about "for" statement implementation, not about System.gc() call</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Feb 2017 at 22:54</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>You do not seem to consider that, to use the <code>Iterator</code> it also has load the <code>Iterator</code> class, the implementation <i>and</i> all of it's used dependencies. Those take up memory too. You could check the difference with an <code>-XX:+TraceClassLoading</code> VM argument.</span> <span> - </span> <span class="display-name">Jorn Vernee</span> <span> </span> <span class="date">22 Feb 2017 at 22:58</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>you think Iterator and related class loading should take 150Mb of memory? guess no. Also, when i leave the function body those Iterator Classes are not removed, but the memory is released! Also, classes are loaded to own memory, not to the heap.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Feb 2017 at 23:01</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>anyway: tested with <code>-XX:+TraceClassLoading</code>: all classes are loaded before the first memory allocating.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Feb 2017 at 23:05</span></td>
+      </tr>
+      <tr>
+       <td>3</td>
+       <td><span>Compared to what? <i>Any</i> way you traverse the collection, you have to retain a reference to it. The 'problem' is with the fact that you're traversing the collection, not with the 'implementation' of anything. NB 'during the second strings allocation the JVM must release the dicarded memory' is false. Please lay off the bold face. It hurts my eyes.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">22 Feb 2017 at 23:11</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Do you get any difference if you change this "enhanced for" to what it should be equivalent to (see <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-14.html#jls-14.14.2" rel="nofollow noreferrer">docs.oracle.com/javase/specs/jls/se8/html/…</a>)?</span> <span> - </span> <span class="display-name">avysk</span> <span> </span> <span class="date">22 Feb 2017 at 23:18</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Why i should retain a reference to a collection if i traverse it? Why JVM may skip garbage collection if the application requires a memory?</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Feb 2017 at 23:20</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>(a) How exactly could you traverse it <i>without</i> a reference to it? (b) The JVM only needs to run GC when it runs <i>out</i> of memory.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">22 Feb 2017 at 23:21</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@avysk if i use <code>for (Iterator&lt;String&gt; itr = strings.iterator(); itr.hasNext(); itr.next());</code> it also causes OutOfMemory, if i use <code>while(iter.hasNext()){iter.next()}; iter = null;</code> - it works fine, because i discard the instance to the iterator explicitly.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Feb 2017 at 23:29</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>@EJP and it runs OUT OF MEMORY! And i also described in the question how the compiler compiled the "for" statement - it compiled to iterator-while structure.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Feb 2017 at 23:31</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@radistao yep, it's beautiful. I've tried your code -- just changing it to boolean go = true; if (go) { for (String string:strings); } solves the problem :D</span> <span> - </span> <span class="display-name">avysk</span> <span> </span> <span class="date">22 Feb 2017 at 23:33</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@avysk Either you are suggesting that the compiler doesn't comply with the JLS or your question is entirely pointless. Which is it?</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">22 Feb 2017 at 23:34</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vicente Romero</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Nov 2017 at 01:59</span>
+     </div>
+    </div>
+    <div>
+     <p>Thanks for the bug report. We have fixed this bug, see <a href="https://bugs.openjdk.java.net/browse/JDK-8175883" rel="noreferrer">JDK-8175883</a>. As commented here in the case of the <strong>enhanced for</strong>, javac was generating synthetic variables so for a code like:</p>
+     <pre><code>void foo(String[] data) {
+    for (String s : data);
+}
+</code></pre>
+     <p>javac was approximately generating:</p>
+     <pre><code>for (String[] arr$ = data, len$ = arr$.length, i$ = 0; i$ &lt; len$; ++i$) {
+    String s = arr$[i$];
+}
+</code></pre>
+     <p>as mentioned above this translation approach implies that the synthetic variable <strong>arr$</strong> holds a reference to the array <strong>data</strong> that impedes the GC to collect the array once it is not referred anymore inside the method. This bug has been fixed by generating this code:</p>
+     <pre><code>String[] arr$ = data;
+String s;
+for (int len$ = arr$.length, i$ = 0; i$ &lt; len$; ++i$) {
+    s = arr$[i$];
+}
+arr$ = null;
+s = null;
+</code></pre>
+     <p>The idea is to set to null any synthetic variable of a reference type created by javac to translate the loop. If we were talking about an array of a primitive type, then the last assignment to null is not generated by the compiler. The bug has been fixed in repo <a href="http://hg.openjdk.java.net/jdk/jdk" rel="noreferrer">JDK repo</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>sure @radistao, np</span> <span> - </span> <span class="display-name">Vicente Romero</span> <span> </span> <span class="date">21 Nov 2017 at 22:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That's not a fix, that's a round of whack-a-mole. If instead any reference that goes out of scope would be nullified, this hack would not be needed, nor would developers have to worry about other similar situations. Superfluous nullifications (where the location is subsequently reassigned) can easily be micro-optimised away (right?), so there should not be any performance impact.</span> <span> - </span> <span class="display-name">RFST</span> <span> </span> <span class="date">20 May 2018 at 02:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Unfortunately, neither solution (nullifying all references when they go out of scope, or this hack), would work when an exception is thrown. Or would it, and why? BTW, these issues are face-palm territory to C++ programmers (RAII rules!)...</span> <span> - </span> <span class="display-name">RFST</span> <span> </span> <span class="date">20 May 2018 at 03:46</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@RFST the principle of managed code with garbage collection is that memory is not a resource in the RAII sense. I understand your impression, but that is caused by the overemphasis of the “problem”. Actually, local variables do not prevent the collection of their referent. These dangling references are only a problem in the rare corner case of processing large data without the JIT kicking in (as only with interpreted execution the JVM doesn’t recognize that these references are unused). Even then, this loop case could be fixed on the JVM side, by utilizing the stackmap tables.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">19 Feb 2020 at 09:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>vanza</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Feb 2017 at 02:02</span>
+     </div>
+    </div>
+    <div>
+     <p>So this is actually an interesting question that could have benefited from a slightly different wording. More specifically, focusing on the generated bytecode instead would have cleared a lot of the confusion. So let's do that.</p>
+     <p>Given this code:</p>
+     <pre><code>List&lt;Integer&gt; foo = new ArrayList&lt;&gt;();
+for (Integer i : foo) {
+  // nothing
+}
+</code></pre>
+     <p>This is the generated bytecode:</p>
+     <pre><code>   0: new           #2                  // class java/util/ArrayList
+   3: dup           
+   4: invokespecial #3                  // Method java/util/ArrayList."&lt;init&gt;":()V
+   7: astore_1      
+   8: aload_1       
+   9: invokeinterface #4,  1            // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+  14: astore_2      
+  15: aload_2       
+  16: invokeinterface #5,  1            // InterfaceMethod java/util/Iterator.hasNext:()Z
+  21: ifeq          37
+  24: aload_2       
+  25: invokeinterface #6,  1            // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+  30: checkcast     #7                  // class java/lang/Integer
+  33: astore_3      
+  34: goto          15
+</code></pre>
+     <p>So, play by play:</p>
+     <ul>
+      <li>Store the new list in local variable 1 ("foo")</li>
+      <li>Store the iterator in local variable 2</li>
+      <li>For each element, store the element in local variable 3</li>
+     </ul>
+     <p>Note that after the loop, there's no cleanup of anything that was used in the loop. That isn't restricted to the iterator: the last element is still stored in local variable 3 after the loop ends, even though there's no reference to it in the code.</p>
+     <p>So before you go "that's wrong, wrong, wrong", let's see what happens when I add this code after that code above:</p>
+     <pre><code>byte[] bar = new byte[0];
+</code></pre>
+     <p>You get this bytecode after the loop:</p>
+     <pre><code>  37: iconst_0      
+  38: newarray       byte
+  40: astore_2      
+</code></pre>
+     <p>Oh, look at that. The newly declared local variable is being stored in the same "local variable" as the iterator. So now the reference to the iterator is gone.</p>
+     <p>Note that this is different from the Java code you assume is the equivalent. The actual Java equivalent, which generates the exact same bytecode, is this:</p>
+     <pre><code>List&lt;Integer&gt; foo = new ArrayList&lt;&gt;();
+for (Iterator&lt;Integer&gt; i = foo.iterator(); i.hasNext(); ) {
+  Integer val = i.next();
+}
+</code></pre>
+     <p>And still there's no cleanup. Why's that?</p>
+     <p>Well, here we are in guessing territory, unless it's actually specified in the JVM spec (haven't checked). Anyway, to do cleanup, the compiler would have to generate extra bytecode (2 instructions, <code>aconst_null</code> and <code>astore_&lt;n&gt;</code>) for each variable that's going out of scope. This would mean the code runs slower; and to avoid that, possibly complicated optimizations would have to be added to the JIT.</p>
+     <p>So, why does your code fail?</p>
+     <p>You end up in a similar situation as the above. The iterator is allocated and stored in local variable 1. Then your code tries to allocate the new string array and, because local variable 1 is not in use anymore, it would be stored in the same local variable (check the bytecode). But the allocation happens before the assignment, so there's a reference to the iterator still, so there's no memory.</p>
+     <p>If you add this line before the <code>try</code> block, things work, even if you remove the <code>System.gc()</code> call:</p>
+     <pre><code>int i = 0;
+</code></pre>
+     <p>So, it seems the JVM developers made a choice (generate smaller / more efficient bytecode instead of explicitly nulling variables that go out of scope), and you happen to have written code that doesn't behave well under the assumptions they made about how people write code. Given that I've never seen this problem in actual applications, seems like a minor thing to me.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>this looks for me the most applicable answer: the "automatically generated identifier" for iterator reference keeps the memory till next usage of the identifier.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">23 Feb 2017 at 22:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>but even though: 1) if it is a corner case - it must be accounted (does a good developer skips corner cases?); 2) the platform (compiler+VM) should not work in undefined manner, when variable may be or may be not reused thus memory released or not; 3) making choice for "more efficient" sacrificing stability and determinism seems not a good choice; 4) this "corner case" i found in my working application, when after a big XML parsing and iterating i came to out of memory state.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">24 Feb 2017 at 22:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sotirios Delimanolis</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Feb 2017 at 23:37</span>
+     </div>
+    </div>
+    <div>
+     <p>The only relevant part of the enhanced for statement, here, is the extra local reference to the object.</p>
+     <p>Your example can be reduced to</p>
+     <pre><code>public class Example {
+    private static final int length = (int) (Runtime.getRuntime().maxMemory() * 0.8);
+
+    public static void main(String[] args) {
+        byte[] data = new byte[length];
+        Object ref = data; // this is the effect of your "foreach loop"
+        data = null;
+        // ref = null; // uncommenting this also makes this complete successfully
+        byte[] data2 = new byte[length];
+    }
+}
+</code></pre>
+     <p>This program will also fail with an <code>OutOfMemoryError</code>. If you remove the <code>ref</code> declaration (and its initialization), it will complete successfully.</p>
+     <p>The first thing you need to understand is that <em>scope</em> has nothing to do with garbage collection. <a href="http://docs.oracle.com/javase/specs/jls/se8/html/index.html" rel="nofollow noreferrer"><em>Scope</em> is a compile time concept that defines where identifiers and names in a program's source code can be used to refer to program entities.</a></p>
+     <p><a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-12.html#jls-12.6" rel="nofollow noreferrer">Garbage collection is driven by reachability.</a> If the JVM can determine that an object cannot be <em>accessed by any potential continuing computation from any live thread</em>, then it will consider it eligible for garbage collection. Also, the <code>System.gc()</code> is useless because the JVM will perform a major collection if it cannot find space to allocate a new object.</p>
+     <p>So the question becomes: <em>why can't the JVM determine that the <code>byte[]</code> object is no longer accessed if we store it in a second local variable</em>?</p>
+     <p>I don't have an answer for that. Different garbage collection algorithms (and JVMs) may behave differently in that regard. It seems that this JVM doesn't mark the object as unreachable when a second entry in the local variable table has a reference to that object.</p>
+     <hr>
+     <p>Here's a different scenario where the JVM didn't behave exactly as you migth have expected in regards to garbage collection:</p>
+     <ul>
+      <li><a href="https://stackoverflow.com/questions/21437699/outofmemoryerror-when-seemingly-unrelated-code-block-commented-out">OutOfMemoryError when seemingly unrelated code block commented out</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>in the example you keep the reference to the byte array in the <i>ref</i> object, isn't it? That's why it can't be collected. If i remove the <i>ref</i> declaration or set to <b>null</b> - the memory may be released ("makes this complete successfully" as you say. But I think the compiler or JVM should not create any "dead" references, which lock the memory, but not used any more.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Feb 2017 at 23:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>thanks for reference to "OutOfMemoryError when seemingly unrelated code block commented out" - i'll try also to find in the bytecode references for the <code>for</code> loop (but not much experienced in reading decompiled codes though)</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">22 Feb 2017 at 23:55</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@radistao You don't have to read byte code. The JLS defines how an <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-14.html#jls-14.14.2" rel="nofollow noreferrer">enhanced for statement</a> is compiled. There's an extra reference to the <code>Iterator</code> (which references your object), just like you suggested.</span> <span> - </span> <span class="display-name">Sotirios Delimanolis</span> <span> </span> <span class="date">22 Feb 2017 at 23:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>#i is an automatically generated identifier that is distinct from any other identifiers (automatically generated or otherwise) that are in scope (§6.3) at the point where the enhanced for statement occurs.</code> That's what i was looking for! thanks! could you put it as a separate answer - i'd mark it</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">23 Feb 2017 at 00:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>"Now the second question remains: is it reasonable (for me sounds "yes") that the "automatically generated identifier" should be discarded after the usage?</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">23 Feb 2017 at 00:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@radistao The enhanced for statement is addressed <a href="http://stackoverflow.com/questions/85190/how-does-the-java-for-each-loop-work">here</a>.</span> <span> - </span> <span class="display-name">Sotirios Delimanolis</span> <span> </span> <span class="date">23 Feb 2017 at 00:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@radistao As for the identifier, there's no such thing as <i>discarding it</i>. Java compiles local variable usage into a local variable table (in the .class file) which defines which variable is active at given points in the byte code.</span> <span> - </span> <span class="display-name">Sotirios Delimanolis</span> <span> </span> <span class="date">23 Feb 2017 at 00:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Let us <a href="http://chat.stackoverflow.com/rooms/136404/discussion-between-radistao-and-sotirios-delimanolis">continue this discussion in chat</a>.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">23 Feb 2017 at 00:12</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Sotirios Delimanolis: no, the local variable table is an optional debugging attribute that is irrelevant to the execution. The existence of local variables is purely determined by reads and writes into locations of the stack frame. That’s why the iterator reference is dangling after the <code>for</code> loop: there is no other variable causing its location to be overwritten with a new value. In practice, this will be irrelevant, as once the optimizer kicks in, it will do its own usage analysis, sometimes causing objects to be freed much earlier than you would expect. But here, it likely runs interpreted</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">23 Feb 2017 at 15:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Holger</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Feb 2017 at 16:51</span>
+     </div>
+    </div>
+    <div>
+     <p>As already stated in the other answers, there the concept of variable scopes is not known at runtime. In the compiled class files, local variables are only places within a stack frame (addressed by an index), to which writes and reads are performed. If multiple variable have disjunct scopes, they may use the same index, but there is no formal declaration of them. Only the write of a new value discards the old one.</p>
+     <p>So, there are three ways, how a reference held in a local variable storage can be considered unused:</p>
+     <ol>
+      <li>The storage location is overwritten by a new value</li>
+      <li>The method exits</li>
+      <li>No subsequent code reads the value</li>
+     </ol>
+     <p>It should be obvious that the third point is the hardest to check, hence, it does not always apply, but when the optimizer starts its work, it may lead to surprises in the other direction, as explained in “<a href="https://stackoverflow.com/q/24376768/2711488">Can java finalize an object when it is still in scope?</a>” and “<a href="https://stackoverflow.com/q/26642153/2711488">finalize() called on strongly reachable object in Java 8</a>”.</p>
+     <p>In your case, the application runs very shortly and likely non-optimized, which can lead to references being not recognized as being unused due to point 3, when point 1 and 2 do not apply.</p>
+     <p>You can easily verify that this is the case. When you change the line</p>
+     <pre><code>ArrayList&lt;String&gt; strings2 = generateLargeStringsArray(N);
+</code></pre>
+     <p>to</p>
+     <pre><code>ArrayList&lt;String&gt; strings2 = null;
+strings2 = generateLargeStringsArray(N);
+</code></pre>
+     <p>the <code>OutOfMemoryError</code> goes away. The reason is that the storage location holding the <code>Iterator</code> used in the preceding <code>for</code> loop has not been overwritten at this point. The new local variable <code>strings2</code> will reuse the storage, but this only manifests when a new value is actually written to it. So the initialization with <code>null</code> <em>before</em> calling <code>generateLargeStringsArray(N)</code> will overwrite the <code>Iterator</code> reference and allows the old list to be collected.</p>
+     <p>Alternatively, you can run the program in the original form using the option <code>-Xcomp</code>. This forces compilation of all methods. On my machine, it had a noticeable startup slowdown, but due to the variable usage analysis, the <code>OutOfMemoryError</code> also went away.</p>
+     <p>Having an application that allocates that much memory (compared to the max heap size) during the initialization, i.e. when most methods run interpreted, is an unusual corner case. Usually, most hot methods are sufficiently compiled before the memory consumption is that high. If you encounter this corner case repeatedly in a real life application, well, then <code>-Xcomp</code> might work for you.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>radistao</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Mar 2017 at 13:22</span>
+     </div>
+    </div>
+    <div>
+     <p>Finally, Oracle/Open JKD bug is accepted, approved and fixed:</p>
+     <p><a href="http://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8175883" rel="nofollow noreferrer">http://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8175883</a></p>
+     <p><a href="https://bugs.openjdk.java.net/browse/JDK-8175883" rel="nofollow noreferrer">https://bugs.openjdk.java.net/browse/JDK-8175883</a></p>
+     <p>Quoting the comments from the threads:</p>
+     <blockquote>
+      <p>This is an issue reproducible both on 8 and 9</p>
+      <p>There is some issue the program keeps it's own implicit auto-generated reference to the memory block till next implicit usage and its memory is being locked that causing OOM</p>
+     </blockquote>
+     <p>(this proves <a href="https://stackoverflow.com/a/42405723/907576">@vanza's expectation</a>, see <a href="https://bugs.openjdk.java.net/browse/JDK-8175883?focusedCommentId=14056806&amp;page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-14056806" rel="nofollow noreferrer">this example from the JDK developer</a>)</p>
+     <blockquote>
+      <p>According the spec this should not happen</p>
+     </blockquote>
+     <p>(this is an answer to my question: <em>if compiler creates some instances it should care about discarding them from the scope after using</em>)</p>
+     <p><strong>UPD 21.11.2017:</strong> the bug is fixed in JDK, see <a href="https://stackoverflow.com/a/47404050/907576">comment from Vicente Romero</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>radistao</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Feb 2017 at 23:16</span>
+     </div>
+    </div>
+    <div>
+     <p>Just to summarize the answers:</p>
+     <p>As @sotirios-delimanolis mentioned <a href="https://stackoverflow.com/questions/42403347/java-for-statement-implementation-prevents-garbage-collecting/42421723#comment71955998_42404363">in his comment</a> about <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-14.html#jls-14.14.2" rel="nofollow noreferrer">The enhanced for statement</a> - my assumption is explicitly defined: the <em>for</em> sugar statement is compiled to <code>Iterator</code> with <code>hasNext()</code>-<code>next()</code> calls:</p>
+     <blockquote>
+      <p>#i is an automatically generated identifier that is distinct from any other identifiers (automatically generated or otherwise) that are in scope (<a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-6.html#jls-6.3" rel="nofollow noreferrer">§6.3</a>) at the point where the enhanced for statement occurs.</p>
+     </blockquote>
+     <p>As then @vanza <a href="https://stackoverflow.com/a/42405723/907576">showed in his answer</a>: this automatically generated identifier might be or might be not overridden later. If it is overridden - the memory may be released, if not - the memory is not released any more.</p>
+     <p>Still (for me) is open question: <strong>if Java compiler or JVM creates some implicit references, shouldn't it care then later about discarding those references? Is there any guarantee that the same auto-generated iterator reference will be reused in the next calls before the next memory allocation</strong>? Shouldn't it be a rule: those who allocate memory then care about releasing it? I'd say - it <em>must</em> care about this. Otherwise the behavior is undefined (it may fall to OutOfMemoryError, or may not - who knows...)</p>
+     <p>Yes, my example is a corner case (nothing initialized between <code>for</code> iterator and the next memory allocation), but this doesn't mean it is <em>impossible</em> case. And this doesn't mean this case is hard to achieve - its quite probable to work in a limited memory environment with some large data and re-allocate the memory immediately it has been used. I found this case in my working application where I parse a large XML, which "eats" more than a half of memory.</p>
+     <p>(and the question is not only about iterator and <code>for</code> loops, guess it is common issue: the compiler or JVM sometimes doesn't cleanup own implicit references).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Well, as stated in my answer, if you really encounter this unusual scenario and have that memory pressure, there is an option that allows you to trade some CPU cycles for fixing this. Your case is also unusual in that it creates a large list, iterates over it once and drops it afterwards. Usually, lists have a much longer lifetime than an iterator and it is not the iterator’s storage that hurts…</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">24 Feb 2017 at 18:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If even it is a corner case - it should be processed correct. When you create an application do you skip corner cases processing and testing? Such things as a java application should work in a predictable way even in rare cases. And should not relay on "a reference may be or may be not reused by other calls". There is also <b>no any guarantee that that auto-generated reference will be reused</b> and the memory released! I found this case in my practice, that's why i post the problem here.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">24 Feb 2017 at 22:32</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I’m afraid, if you assume “a java application should work in a predictable way” and we’re talking only about memory consumption and performance, Java might be the wrong thing for you. You can’t assume instantaneous release of memory, you can’t predict the maximum recursion depth and there is no guaranty about the performance. There is no guaranty made in the specification that would be violated here. Besides that, as already said, your code works as expected, if you run it with the <code>-Xcomp</code> option.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">27 Feb 2017 at 09:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>-Xcomp is "Non-Standard Options" (<a href="http://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html" rel="nofollow noreferrer">docs.oracle.com/javase/8/docs/technotes/tools/unix/java.htm‌​l</a>), thus it may have different interpretation for different JVM implementations (here it is deprecated: <a href="https://www.ibm.com/support/knowledgecenter/SSYKE2_8.0.0/com.ibm.java.zos.80.doc/diag/appendixes/cmdline/xcomp.html" rel="nofollow noreferrer">ibm.com/support/knowledgecenter/SSYKE2_8.0.0/…</a>)</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">27 Feb 2017 at 13:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>And i can't understand why my assumption “a java application should work in a predictable way” sounds wrong? We all want to use predictable applications - that's the main point of stability. There is nothing about performance, recursion, stack depth and "instantaneous release" - Java promises to release unused memory. That memory is unused and not released. If JVM needs a time to release - take it, but don't complain "the developer has unpredictable coding style and has not reused my automatic linked references"</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">27 Feb 2017 at 13:58</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>The promise to release unused memory is only made on a best effort basis. Now, just think about it: if Java never managed to release that memory, it would be a predictable behavior. But some JVMs manage to release that memory under certain conditions, so is this making the situation better or worse? Besides that, there is no defined memory consumption anyway. A different JVM could always manage to release that memory, but consume twice the memory per object in general, thus still failing with that code. Does that make the situation better? How much memory you need <i>is</i> implementation-specific.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">27 Feb 2017 at 14:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>But if you think, this is a bug, you may file a bug report, rather than discuss it on Stackoverflow…</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">27 Feb 2017 at 14:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I did it, waiting for confirmation from JDK developers :)</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">27 Feb 2017 at 14:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Holger finally the bug is accepted, see my comment: <a href="http://stackoverflow.com/a/42556668/907576">stackoverflow.com/a/42556668/907576</a> . I still can't write them directly you advise about <code>-Xcomp</code> option because the issue tracker is private and doesn't have public registration. Will try to e-mail them.</span> <span> - </span> <span class="display-name">radistao</span> <span> </span> <span class="date">2 Mar 2017 at 14:25</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

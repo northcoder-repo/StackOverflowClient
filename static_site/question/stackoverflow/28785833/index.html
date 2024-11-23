@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Adding new value to existing Stream</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Adding new value to existing Stream</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>104</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Dmytro</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Feb 2015 at 19:21</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/28785833/adding-new-value-to-existing-stream">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Is there is a good way to add a new value to existing <code>Stream</code>? All I can imagine is something like this:</p>
+    <pre><code>public &lt;T&gt; Stream&lt;T&gt; addToStream(Stream&lt;T&gt; stream, T elem ) {
+    List&lt;T&gt; result = stream.collect(Collectors.toList());
+    result.add(elem);
+    return result.stream();
+}
+</code></pre>
+    <p>But I'm looking for something more concise that I can use in lambda expression without verbosity.</p>
+    <p>Another question appeared when I tried to implement <em>PECS</em> principle:</p>
+    <pre><code>public &lt;T&gt; Stream&lt;? super T&gt; addToStream(Stream&lt;? super T&gt; stream, T elem ) {
+    List&lt;? super T&gt; result = stream.collect(Collectors.toList()); //error
+    result.add(elem);
+    return result.stream();
+}
+</code></pre>
+    <p>Seems like wildcard doesn't work with <code>Stream.collect</code> and I'm wondering why.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">java-8</span><span class="tag">wildcard</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>There's no guarantee that the <code>List</code> returned from <code>collect(Collectors.toList())</code> supports <code>add</code>, you can use <code>Collectors.toCollection</code> instead to choose the type of list you get.</span> <span> - </span> <span class="display-name">Alex - GlassEditor.com</span> <span> </span> <span class="date">28 Feb 2015 at 20:47</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>113</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Brian Goetz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Feb 2015 at 20:11</span>
+     </div>
+    </div>
+    <div>
+     <p>The question belies an incorrect assumption: that streams actually contain their data. They do not; streams are not data structures, they are a means for specifying bulk operations across a variety of data sources.</p>
+     <p>There are combinators for combining two streams into one, such as <code>Stream.concat</code>, and factories for creating streams from a set of known elements (<code>Stream.of</code>) or from collections (<code>Collection.stream</code>). So you can combine these if you want to produce a new stream that is the concatenation of the stream you have in hand, along with a new stream describing the new elements.</p>
+     <p>The problem in your PECS example is that you've got three occurrences of <code>? super T</code>, and you are assuming they describe the same type, but they do not. Each occurrence of a wildcard corresponds to a unique capture, which isn't what you want; you need to give that type variable a name so the compiler knows that the type of the list and the type of the input stream are the same. (Also, don't materialize a collection; that's expensive, and potentially non-terminating if the stream is not finite. Just use concat.) So the answer is: you just got the generics wrong. Here's one way to do it:</p>
+     <pre><code>public&lt;T&gt; Stream&lt;T&gt; appendToStream(Stream&lt;? extends T&gt; stream, T element) {
+    return Stream.concat(stream, Stream.of(element));
+}
+</code></pre>
+     <p>You confused yourself with PECS because you were thinking about "inserting" into the stream, when in fact you're consuming from it.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>7</td>
+        <td><span>The method shouldn't be named "appendToStream"? Otherwise I think the parameters of the concat method should be switched.</span> <span> - </span> <span class="display-name">Andrea Polci</span> <span> </span> <span class="date">4 Jul 2016 at 08:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>concat</code> method can use but not to much,from javadoc:Use caution when constructing streams from repeated concatenation. Accessing an element of a deeply concatenated stream can result in deep call chains, or even StackOverflowException.</span> <span> - </span> <span class="display-name">TongChen</span> <span> </span> <span class="date">21 Sep 2019 at 09:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>47</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Eran</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Feb 2015 at 19:26</span>
+     </div>
+    </div>
+    <div>
+     <p>How about</p>
+     <pre><code>return Stream.concat(stream, Stream.of(elem));
+</code></pre>
+     <p>this is assuming the original Stream is finite. If it's not, you can concat them in a reversed order.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Use caution when constructing streams from repeated concatenation. Accessing an element of a deeply concatenated stream can result in deep call chains, or even StackOverflowException.</span> <span> - </span> <span class="display-name">TongChen</span> <span> </span> <span class="date">21 Sep 2019 at 09:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>artspb</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jun 2018 at 11:00</span>
+     </div>
+    </div>
+    <div>
+     <p>The <a href="https://github.com/amaembo/streamex" rel="nofollow noreferrer">StreamEx</a> library has corresponding <code>#prepend()</code> and <code>#append()</code> methods. Here's an example how they can be used:</p>
+     <pre><code>StreamEx.of("second").prepend("first").append("third").forEach(System.out::println);
+</code></pre>
+     <p>An output is as follows:</p>
+     <pre><code>first
+second
+third
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Nice! Albeit, another library.</span> <span> - </span> <span class="display-name">GhostCat again on strike</span> <span> </span> <span class="date">21 Nov 2018 at 19:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Solubris</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Aug 2019 at 21:16</span>
+     </div>
+    </div>
+    <div>
+     <p>The best way is using a flatMap as follows:</p>
+     <pre><code>public &lt;T&gt; Stream&lt;T&gt; appendToStream(Stream&lt;T&gt; stream, T element) {
+    return stream.flatMap(e -&gt; Stream.of(e, element));
+}
+</code></pre>
+     <p>This operates on the original stream so it can be just another intermediate operation on the stream, eg:</p>
+     <pre><code>    stream.flatMap(e -&gt; Stream.of(e, element))
+            .map(...)
+            .filter(...)
+            .collect(Collectors.toList());
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>How many times you want to add an element? :D Ounce for stream or once per element in original stream?</span> <span> - </span> <span class="display-name">user482745</span> <span> </span> <span class="date">15 Nov 2019 at 13:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

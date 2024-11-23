@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Processing Very Large Files (6Gig or greater) in Java</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Processing Very Large Files (6Gig or greater) in Java</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Timothy Clotworthy</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Feb 2020 at 20:06</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60440988/processing-very-large-files-6gig-or-greater-in-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I was using the following to load file and process as String:</p>
+    <pre><code>import java.nio.file.Files;
+import java.nio.file.Paths;
+.
+.
+.
+.
+
+readFile(String inputFile) throws IOException {
+   String content = "";
+
+   content = new 
+   String(Files.readAllBytes(Paths.get(inputFile)));
+
+   return content;
+}
+
+parseAndOutputToNewFile() {
+
+   String string = readFile(inputFile);
+
+   dostuff(string);
+}
+</code></pre>
+    <p>If my files were larger than a couple of Gig, they I would get an output of memory exception within the readFile() and never got to doStuff(). What is the more appropriate way to process larger files? Thank you.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>Do you really need the entire file in memory at once?</span> <span> - </span> <span class="display-name">azurefrog</span> <span> </span> <span class="date">27 Feb 2020 at 20:08</span></td>
+      </tr>
+      <tr>
+       <td>4</td>
+       <td><span>Stream the file, don't read it all into a single <code>String</code> in memory.</span> <span> - </span> <span class="display-name">Elliott Frisch</span> <span> </span> <span class="date">27 Feb 2020 at 20:08</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Andreas</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Feb 2020 at 20:26</span>
+     </div>
+    </div>
+    <div>
+     <p>Instead of <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/file/Files.html#readAllBytes-java.nio.file.Path-" rel="nofollow noreferrer"><code>Files.readAllBytes(Paths.get(inputFile))</code></a>, you should use <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/file/Files.html#lines-java.nio.file.Path-" rel="nofollow noreferrer"><code>Files.lines(Paths.get(inputFile))</code></a>, and process the lines as they are streamed.</p>
+     <pre><code>try (Stream&lt;String&gt; stream = Files.lines(Paths.get(inputFile))) {
+    stream. ... // process streamed lines of text here
+}
+</code></pre>
+     <p>Or the Java 7 <code>for</code> loop version:</p>
+     <pre><code>try (BufferedReader in = Files.newBufferedReader(Paths.get(inputFile), StandardCharsets.UTF_8)) {
+    for (String line; (line = in.readLine(buf)) != null; ) {
+        // process `line` here
+    }
+}
+</code></pre>
+     <p>If you need blocks of text, instead of lines of text, you should use a <a href="https://docs.oracle.com/javase/8/docs/api/java/io/BufferedReader.html" rel="nofollow noreferrer"><code>BufferedReader</code></a>, e.g. using <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/file/Files.html#newBufferedReader-java.nio.file.Path-" rel="nofollow noreferrer"><code>Files.newBufferedReader(Paths.get(inputFile))</code></a>, like this:</p>
+     <pre><code>try (BufferedReader in = Files.newBufferedReader(Paths.get(inputFile))) {
+    char[] buf = new char[4096];
+    for (int len; (len = in.read(buf)) &gt; 0; ) {
+        // process `len` chars from `buf` here
+    }
+}
+</code></pre>
+     <p>But, it all depends on what <code>dostuff()</code> needs to do, i.e. whether what it does can be done in a streaming fashion. Without knowing more about it, we can't give you definitive solutions.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for responses.doStuff(string) was taking the string, parsing against know markup, and essentially splitting it into 2 sections, and writing one section to one output file and the second section to a second output file. However, if I am passing a stream instead (i.e., doStuff(stream)), then I have to stream the input to some output stream until I encounter the known markup (say "&lt;\certainTag&gt;"), and then close the output stream for that section. Since I had a single String, I was just doing things like myString.substring(indexOf(blah), indexOf(bleh). Not sure how to do same with stream.</span> <span> - </span> <span class="display-name">Timothy Clotworthy</span> <span> </span> <span class="date">27 Feb 2020 at 21:26</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>dan1st is on strike</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Feb 2020 at 20:09</span>
+     </div>
+    </div>
+    <div>
+     <p>You don't have sufficient RAM allocated to the JVM (heap) to read the whole file in a string.</p>
+     <p>In order to bypass this, you'll need to modify the <code>doStuff</code> method to use a <code>Reader</code> and process the input lazily.</p>
+     <pre><code>try(Reader reader=new BufferedReader(new FileReader(inputFile)){
+    doStuff(reader);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

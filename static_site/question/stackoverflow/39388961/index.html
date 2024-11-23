@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Not able to configure Moxy using JAXB</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Not able to configure Moxy using JAXB</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>6</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>shivam-shekhar</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Sep 2016 at 10:48</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/39388961/not-able-to-configure-moxy-using-jaxb">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using Moxy Implementation of JAXB in my codeset and trying to create paths using @XMLPath but it seems to be not working. I have a Spring bassed Project and I have created jaxb.properties under /project/WEB/src/main/resources having content :</p>
+    <p>javax.xml.bind.context.factory=org.eclipse.persistence.jaxb.JAXBContextFactory</p>
+    <p>My classes are placed under /project/WEB/src/main/java I have configured my pom.xml to download the dependancy. persistence.moxy --&gt;</p>
+    <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;org.eclipse.persistence&lt;/groupId&gt;
+    &lt;artifactId&gt;org.eclipse.persistence.moxy&lt;/artifactId&gt;
+     &lt;version&gt;2.4.0&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+    <p>When I run the code on WAS server, Moxy is not recongnized and the path is not created. Not sure what am I doing wrong.</p>
+    <p>I even tried testing my JAXBContext class but what I get on the console is :</p>
+    <pre><code>JAXBContext jaxbContext = JAXBContext.newInstance(DocGenerator.class); 
+System.out.println(jaxbContext.getClass());
+</code></pre>
+    <p>class com.sun.xml.bind.v2.runtime.JAXBContextImpl</p>
+    <p>Can someone please help ?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">xml</span><span class="tag">maven</span><span class="tag">jaxb</span><span class="tag">moxy</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Feb 2020 at 16:36</span>
+     </div>
+    </div>
+    <div>
+     <p>In case this helps anyone else, the following fixed my recent "MOXy is configured but is being ignored" problem.</p>
+     <p>I tested it on Java 11 (Open JDK) by implementing the first example shown in the <a href="https://www.eclipse.org/eclipselink/api/2.7/org/eclipse/persistence/oxm/annotations/XmlPath.html" rel="nofollow noreferrer">@XmlPath</a> Javadoc.</p>
+     <p>In line with the instructions <a href="https://wiki.eclipse.org/EclipseLink/Examples/MOXy/JAXB/SpecifyRuntime" rel="nofollow noreferrer">here</a>, I added the required properties file to the package containing my domain classes (the annotated beans which I wanted to serialize).</p>
+     <h2>Solution for my IDE</h2>
+     <p>The step I initially forgot to do was this:</p>
+     <p>My IDE only copies compiled <code>.class</code> files to the target directory - it does not copy anything else (such as my properties file).</p>
+     <p>Duh.</p>
+     <p>How you fix that depends on your IDE. For me, it was a simple change to the ant build configuration for my project.</p>
+     <p>If you are using Maven, then the build step in the <code>pom.xml</code> would be as follows:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;build&gt;  
+    &lt;resources&gt;  
+        &lt;resource&gt;  
+            &lt;directory&gt;src/main/java&lt;/directory&gt;  
+            &lt;excludes&gt;  
+                &lt;exclude&gt;**/*.java&lt;/exclude&gt;  
+            &lt;/excludes&gt;  
+        &lt;/resource&gt;  
+    &lt;/resources&gt;  
+&lt;/build&gt;
+</code></pre>
+     <h2>Solution for the JAR</h2>
+     <p>Similarly, Maven needs to be instructed to copy the file to that folder in your JAR. There are various ways to do this. See <a href="https://stackoverflow.com/questions/16372374/move-a-text-file-into-target-folder-when-compiling-a-maven-project">this question</a> for some answers.</p>
+     <h2>Resources Directory</h2>
+     <p>Placing this specific config file into a <code>resources</code> directory does <em><strong>not</strong></em> work (at least, it did not work for me). The MOXy instructions are quite specific - and need to be followed exactly.</p>
+     <h2>POM Dependencies</h2>
+     <p>In Java 11, the module java.se.ee has been removed. See <a href="http://openjdk.java.net/jeps/320" rel="nofollow noreferrer">JEP-320</a>. This module includes JAXB (and JAX-WS). To use JAXB in Java 11 and newer, you need to add it to your project as a separate library.</p>
+     <p>Given that, here are my POM dependencies, for the record:</p>
+     <pre><code>        &lt;dependency&gt;
+            &lt;groupId&gt;com.sun.activation&lt;/groupId&gt;
+            &lt;artifactId&gt;javax.activation&lt;/artifactId&gt;
+            &lt;version&gt;1.2.0&lt;/version&gt;
+        &lt;/dependency&gt;
+        
+        &lt;!-- 
+             Use 2.3.1 below to prevent "illegal 
+             reflective access operation" warnings.
+        --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;javax.xml.bind&lt;/groupId&gt;
+            &lt;artifactId&gt;jaxb-api&lt;/artifactId&gt;
+            &lt;version&gt;2.3.1&lt;/version&gt;
+        &lt;/dependency&gt;
+        
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.sun.xml.bind&lt;/groupId&gt;
+            &lt;artifactId&gt;jaxb-core&lt;/artifactId&gt;
+            &lt;version&gt;2.3.0.1&lt;/version&gt;
+        &lt;/dependency&gt;
+        
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.sun.xml.bind&lt;/groupId&gt;
+            &lt;artifactId&gt;jaxb-impl&lt;/artifactId&gt;
+            &lt;version&gt;2.3.1&lt;/version&gt;
+        &lt;/dependency&gt;
+        
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.eclipse.persistence&lt;/groupId&gt;
+            &lt;artifactId&gt;eclipselink&lt;/artifactId&gt;
+            &lt;version&gt;2.7.6&lt;/version&gt;
+        &lt;/dependency&gt;
+</code></pre>
+     <hr>
+     <h2><strong>UPDATES</strong> for MOXy version 3</h2>
+     <p>The above notes work for MOXy version 2.7.6.</p>
+     <p>To work with version 3+, you need to take into account the recent transfer of many <code>javax</code> packages to Jakarta. You can read the background to this move <a href="https://blogs.oracle.com/javamagazine/transition-from-java-ee-to-jakarta-ee" rel="nofollow noreferrer">here</a>.</p>
+     <p>Steps to upgrade your project:</p>
+     <ol>
+      <li>Change the <code>jaxb.properties</code> file to the following:</li>
+     </ol>
+     <pre><code>jakarta.xml.bind.context.factory=org.eclipse.persistence.jaxb.JAXBContextFactory
+</code></pre>
+     <p>Note the changed reference to <code>jakarta</code> here, for the bind context.</p>
+     <ol start="2">
+      <li>Change <strong>all</strong> of your jaxb imports to refer to <code>jakarta</code> instead of <code>javax</code>. So, for example, change this:</li>
+     </ol>
+     <pre class="lang-java prettyprint-override"><code>import javax.xml.bind.JAXBContext; // old import
+</code></pre>
+     <p>to this:</p>
+     <pre class="lang-java prettyprint-override"><code>import jakarta.xml.bind.JAXBContext; // new import
+</code></pre>
+     <ol start="3">
+      <li>Use the following two dependencies in your <code>pom.xml</code>:</li>
+     </ol>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependency&gt;
+    &lt;groupId&gt;jakarta.xml.bind&lt;/groupId&gt;
+    &lt;artifactId&gt;jakarta.xml.bind-api&lt;/artifactId&gt;
+    &lt;version&gt;3.0.1&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;dependency&gt;
+    &lt;groupId&gt;org.eclipse.persistence&lt;/groupId&gt;
+    &lt;artifactId&gt;eclipselink&lt;/artifactId&gt;
+    &lt;version&gt;3.0.0&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>These two dependencies are sufficient to support an updated version of the code example presented here: <a href="http://blog.bdoughan.com/2010/07/xpath-based-mapping.html" rel="nofollow noreferrer">XPath Based Mapping using MOXy</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I am trying to make <code>@XmlPath</code> work. I have a maven project and I have all the maven dependency as you have but an updated version. I have the properties file within the <code>package</code> of the <code>class</code> which I am using in <code>JAXBContext</code> for <code>JAX searlization</code>. Seems like everything is fine from my side but still the <code>@XmlPath</code> has no impact on the produced XML file. With or without <code>@XmlPath</code> it's producing the same result. I have maven dependency so do I have to again add the <code>JAR</code> to my classpath? I am using <code>IntelliJ IDE</code> how can I make iDE take the properties file?</span> <span> - </span> <span class="display-name">BATMAN_2008</span> <span> </span> <span class="date">12 May 2021 at 08:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BATMAN_2008 - have you checked to see which JAXB implementation is being used by your application? You can use the code in the question to do that: <code>JAXBContext jaxbContext = JAXBContext.newInstance(YourClassNameGoesHere.class);</code> And then <code>System.out.println(jaxbContext.getClass());</code>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">12 May 2021 at 12:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hello, Thanks a lot for your response. Yes I did check that. it shows me <code>class com.sun.xml.bind.v2.runtime.JAXBContextImpl</code>. I have posted my question here completely, if you get a chance please have a look and provide your solution: <a href="https://stackoverflow.com/questions/67500565/xmlpath-has-no-impact-during-the-jaxb-marshalling" title="xmlpath has no impact during the jaxb marshalling">stackoverflow.com/questions/67500565/…</a></span> <span> - </span> <span class="display-name">BATMAN_2008</span> <span> </span> <span class="date">12 May 2021 at 12:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BATMAN_2008 - OK - that's the Metro implementation - not MOXy. So yes, there is a config problem somewhere. If I can I will take a look at your question.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">12 May 2021 at 13:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks a lot this helped me. This should work unless there is some conflict due to another dependency which I was having: <a href="https://stackoverflow.com/questions/67500565/xmlpath-has-no-impact-during-the-jaxb-marshalling" title="xmlpath has no impact during the jaxb marshalling">stackoverflow.com/questions/67500565/…</a></span> <span> - </span> <span class="display-name">BATMAN_2008</span> <span> </span> <span class="date">13 May 2021 at 04:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

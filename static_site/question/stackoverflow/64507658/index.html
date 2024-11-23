@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Jackson: deserialize JSON extract deep attribute into parent class</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Jackson: deserialize JSON extract deep attribute into parent class</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Patrick D</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Oct 2020 at 21:44</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64507658/jackson-deserialize-json-extract-deep-attribute-into-parent-class">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have some trouble wording my title, so if my question should be re-worded, I'd be happy to repost this question for clarification. :)</p>
+    <p>Problem: I have this JSON structure</p>
+    <pre><code>{
+    "name": "Bob",
+    "attributes": {
+        "evaluation": {
+            "stats": [
+                {
+                    "testDate": "2020-02-04",
+                    "score": 50
+                },
+                {
+                    "testDate": "2020-04-01",
+                    "score": 90
+                },
+                {
+                    "testDate": "2020-05-10",
+                    "score": 85
+                }
+            ],
+            "survey": {...}
+        },
+        "interests": {...},
+        "personality": [...],
+        "someRandomUnknownField": {...}
+    }
+}
+</code></pre>
+    <p><code>attributes</code> is any random number of fields <em>except</em> for <code>evaluation.stats</code> that we want to extract out. I want to be able to deserialize into the following classes:</p>
+    <pre><code>public class Person {
+    String name;
+    Map&lt;String, Object&gt; attributes;
+    List&lt;Stat&gt; stats;
+}
+
+public class Stat {
+    LocalDate date;
+    int score;
+}
+</code></pre>
+    <p>When I serialize it back to JSON, I should expect something like this:</p>
+    <pre><code>{
+    "name": "Bob",
+    "attributes" : {
+        "evaluation": {
+            "survey": {...}
+        },
+        "interests" : {...},
+        "personality": {...},
+        "someRandomUnknownField": {...}
+    },
+    "stats": [
+        {
+            "testDate": "2020-02-04",
+            "score": 50
+        },
+        {
+            "testDate": "2020-04-01",
+            "score": 90
+        },
+        {
+            "testDate": "2020-05-10",
+            "score": 85
+        }
+    ]
+}
+</code></pre>
+    <p>I could technically map the whole <code>Person</code> class to its own custom deserializer, but I want to leverage the built-in Jackson deserializers and annotations as much as possible. It's also imperative that <code>stats</code> is <em>extracted</em> (i.e., <code>stats</code> shouldn't also exist under <code>attributes</code>). I'm having trouble finding a simple and maintainable serialization/deserialization scheme. Any help would be appreciate!</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jackson</span><span class="tag">jackson-databind</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Oct 2020 at 21:57</span>
+     </div>
+    </div>
+    <div>
+     <p>I'm not sure if this meets your criterion for a simple and maintainable serialization/deserialization scheme, but you can manipulate the JSON tree to transform your starting JSON into the structure you need:</p>
+     <p>Assuming I start with a string containing your initial JSON:</p>
+     <pre><code>ObjectMapper mapper = new ObjectMapper();
+mapper.registerModule(new JavaTimeModule());
+JsonNode root = mapper.readTree(inputJson);
+
+// copy the "stats" node to the root of the JSON:
+ArrayNode statsNode = (ArrayNode) root.path("attributes").path("evaluation").path("stats");
+((ObjectNode) root).set("stats", statsNode);
+
+// delete the original "stats" node:
+ObjectNode evalNode = (ObjectNode) root.path("attributes").path("evaluation");
+evalNode.remove("stats");
+</code></pre>
+     <p>This now gives you the JSON you need to deserialize to your <code>Person</code> class:</p>
+     <pre><code>Person person = mapper.treeToValue(root, Person.class);
+</code></pre>
+     <p>When you serialize the <code>Person object</code> you get the following JSON output:</p>
+     <pre><code>{
+  "name" : "Bob",
+  "attributes" : {
+    "evaluation" : {
+      "survey" : { }
+    },
+    "interests" : { },
+    "personality" : [ ],
+    "someRandomUnknownField" : { }
+  },
+  "stats" : [ {
+    "score" : 50,
+    "testDate" : "2020-02-04"
+  }, {
+    "score" : 90,
+    "testDate" : "2020-04-01"
+  }, {
+    "score" : 85,
+    "testDate" : "2020-05-10"
+  } ]
+}
+</code></pre>
+     <p>Just to note, to get this to work, you need the <code>java.time</code> module:</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;com.fasterxml.jackson.datatype&lt;/groupId&gt;
+    &lt;artifactId&gt;jackson-datatype-jsr310&lt;/artifactId&gt;
+    &lt;version&gt;2.11.3&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>And you saw how this was registered in the above code:</p>
+     <pre><code>mapper.registerModule(new JavaTimeModule());
+</code></pre>
+     <p>I also annotated the <code>LocalDate</code> field in the <code>Stat</code> class, as follows:</p>
+     <pre><code>@JsonProperty("testDate")
+@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+private LocalDate date;
+</code></pre>
+     <p>Very minor note: In your starting JSON (in the question) you showed this:</p>
+     <pre><code>"personality": [...],
+</code></pre>
+     <p>But in your expected final JSON you had this:</p>
+     <pre><code>"personality": {...},
+</code></pre>
+     <p>I assumed this was probably a typo, and it should be an array, not an object, in both cases.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

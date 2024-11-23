@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Resizing a leaflet map on container resize</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Resizing a leaflet map on container resize</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>78</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Sandra</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Jun 2014 at 15:06</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/24412325/resizing-a-leaflet-map-on-container-resize">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a <code>&lt;div&gt;</code> containing a leaflet map. Upon certain events the height of the <code>&lt;div&gt;</code> will be altered. I'd like for the map to resize to the new dimensions of its surrounding <code>&lt;div&gt;</code> so that the old center is centered in the resized smaller or larger map. I tried using the <code>invalidateSize()</code> function, but it doesn't seem to work at all. How can I resize and center the map after that <code>map-container-resize</code> event?</p>
+    <pre><code>$mapContainer.on('map-container-resize', function () {
+   map.invalidateSize(); // doesn't seem to do anything
+});
+</code></pre>
+    <p><em>Edit to give more context:</em></p>
+    <p>The map container is styled initially as</p>
+    <pre><code>#map-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    transition: height 0.5s ease-in-out;
+}
+</code></pre>
+    <p>After a user clicks a certain button, another panel shows at the bottom of the page and the map-container's height will be reduced to something less than 100% (say 80%).</p>
+    <p>Upon click on this button, the map-container-resize event is triggered so that I can make the map resize and center on its old (i.e. before the resizing happened) center. The map itself should then also be resized to 80% of its initial height.</p>
+    <p>The APi doc for <code>invalidateSize</code> seemed to be what I wanted:</p>
+    <blockquote>
+     <p>"Checks if the map container size changed and updates the map if so [...]"</p>
+    </blockquote>
+    <p>But having a look with the output of the <code>getSize</code> function before and after the call to invalidateSize, nothing is different, the map remains at its old size.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">resize</span><span class="tag">leaflet</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>This needs more context. Are you actually firing a <code>map-container-resize</code> event? How is the map sized in CSS?</span> <span> - </span> <span class="display-name">tmcw</span> <span> </span> <span class="date">25 Jun 2014 at 22:13</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>did you mean 'resize' event ? this one works</span> <span> - </span> <span class="display-name">YaFred</span> <span> </span> <span class="date">26 Jun 2014 at 09:50</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span><code>on('resize')</code> only applies to WINDOW resizing, and <code>map-container-resize</code> does not exist. so what was the actual event here?</span> <span> - </span> <span class="display-name">phil294</span> <span> </span> <span class="date">1 Aug 2016 at 13:49</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>105</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sandra</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jul 2014 at 09:20</span>
+     </div>
+    </div>
+    <div>
+     <p>The problem is that the resizing of the <code>#map-container</code> <code>div</code> is done via a css transition. The transition hasn't started yet, let alone ended, when the call to invalidateSize happens so the leaflet map cannot recognize any change of dimensions of its surrounding <code>div</code>.</p>
+     <p>Triggering the <code>map-container-resize</code> event with a delay solved the problem. This way :</p>
+     <pre><code>setTimeout(function(){ map.invalidateSize()}, 400);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>working example: <a href="https://stackoverflow.com/a/29787856/2471632">https://stackoverflow.com/a/29787856/2471632</a></span> <span> - </span> <span class="display-name">Barbarossa</span> <span> </span> <span class="date">23 Aug 2019 at 02:24</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>A better solution might be to listen for <a href="https://kapeli.com/dash_share?docset_file=JavaScript&amp;docset_name=JavaScript&amp;path=developer.mozilla.org/en-US/docs/Web/API/HTMLElement/transitionend_event.html&amp;platform=javascript&amp;repo=Main&amp;source=developer.mozilla.org/en-US/docs/Web/API/HTMLElement/transitionend_event" rel="nofollow noreferrer">the <code>transitionend</code> event</a>.</span> <span> - </span> <span class="display-name">diachedelic</span> <span> </span> <span class="date">3 Feb 2022 at 04:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>20</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ilja Zverev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jun 2014 at 11:54</span>
+     </div>
+    </div>
+    <div>
+     <p><code>L.Map.invalidateSize()</code> only informs leaflet map object that its container size has been changed, and therefore is should draw less or more map tiles. It does not actually change any dimensions, e.g. of its containing <code>&lt;div&gt;</code>, and does not move the map. You should do it yourself.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This should be the best answer ! Thanks</span> <span> - </span> <span class="display-name">eightball</span> <span> </span> <span class="date">29 Aug 2019 at 15:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It does move the map</span> <span> - </span> <span class="display-name">Hayden Thring</span> <span> </span> <span class="date">24 Jun 2021 at 02:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>17</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Michael MacFadden</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Aug 2020 at 18:46</span>
+     </div>
+    </div>
+    <div>
+     <p>I came across this question today and wanted to provide an updated answer based on 2020 Browser API. This example uses the Browser's <a href="https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver" rel="noreferrer">ResizeObserver</a> to monitor the size of the div that Leaflet is mounted too. Assuming the following HTML Snippet:</p>
+     <pre><code>&lt;div id="map" /&gt;
+</code></pre>
+     <p>With the following JavaScript:</p>
+     <pre><code>const mapDiv = document.getElementById("map");
+const map = L.map(mapDiv).setView([51.505, -0.09], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+const resizeObserver = new ResizeObserver(() =&gt; {
+  map.invalidateSize();
+});
+
+resizeObserver.observe(mapDiv);
+</code></pre>
+     <p>This should monitor the map div, and call the invalidateSize() method on the Leaflet map when the map div size changes. This approach allows you to handle the resizing "closer" to the map code, rather than trying to rely on window resize events or listening for changes triggered elsewhere in the application.</p>
+     <p>Obviously the CSS for the map div itself will need to ensure that it resizes in whatever way you want it to. This code snippet will ensure the Leaflet is appropriately updated when that happens.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>this answer was Very helpful with some edition on angular 8 or above const resizeObserver = new (window as any).ResizeObserver(() =&gt; { map.invalidateSize(); }); resizeObserver.observe(mapDiv);</span> <span> - </span> <span class="display-name">taha mosaad</span> <span> </span> <span class="date">6 Dec 2021 at 14:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>perfect answer! saved me a huge headache! Leaflet centering seems good even I transition it's size with grid columns.</span> <span> - </span> <span class="display-name">Benny Jobigan</span> <span> </span> <span class="date">20 Mar 2023 at 10:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This answer worked perfectly for me as well! I had Leaflet in a flex container containing the map and a toolbar. Before this fix, the leaflet center would be totally off whenever the toolbar changed size. Now it correctly stays centered! Thanks for this</span> <span> - </span> <span class="display-name">UrbenLegend</span> <span> </span> <span class="date">8 Apr 2023 at 00:25</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mahdi Bashirpour</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Dec 2018 at 16:07</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use below code after <strong>resize</strong> that</p>
+     <pre class="lang-js prettyprint-override"><code>map.invalidateSize()
+</code></pre>
+     <p><a href="https://github.com/Leaflet/Leaflet/issues/690" rel="noreferrer">https://github.com/Leaflet/Leaflet/issues/690</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Srinadh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Mar 2021 at 18:17</span>
+     </div>
+    </div>
+    <div>
+     <p>Just <strong>call resize window event</strong> rather than timing the map to load.</p>
+     <pre><code>L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+window.dispatchEvent(new Event('resize'));  
+
+
+// Triggers a window resize 
+// Thus your map automatically triggers invalidateSize().
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This solution is really clean and is working great for me so far, are there any drawbacks to this approach?</span> <span> - </span> <span class="display-name">Grant Humphries</span> <span> </span> <span class="date">23 Apr 2021 at 23:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes. Say in future if you want to detect real window resize events at the main application level. Above process will create one false signal. That is during it’s time of initiation or depending on how many times you are calling the above process.</span> <span> - </span> <span class="display-name">Srinadh</span> <span> </span> <span class="date">25 Apr 2021 at 00:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you! This solved my problem using ionic 7 inside a tab component</span> <span> - </span> <span class="display-name">Doug</span> <span> </span> <span class="date">1 Apr 2023 at 19:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>more urgent jest</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Nov 2016 at 19:55</span>
+     </div>
+    </div>
+    <div>
+     <p>the accepted answer is a bit hacky in that it relies on the sleep being longer than the transition.</p>
+     <p>I have found <a href="https://stackoverflow.com/questions/15914760/how-to-listen-to-the-end-of-a-bootstrap-animation">this</a> to work well:</p>
+     <pre><code>$("body").on($.support.transition.end, '#main-navbar .nav-collapse', function(event){    
+    console.log("end of the animation");
+});
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>Note that <a href="http://api.jquery.com/jquery.support/" rel="nofollow noreferrer"><code>jQuery.support</code> is deprecated</a>.</span> <span> - </span> <span class="display-name">sameers</span> <span> </span> <span class="date">16 May 2017 at 00:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Disarticulate</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Sep 2017 at 21:55</span>
+     </div>
+    </div>
+    <div>
+     <p>Ran into this problem running VueJS, Leaflet 1.2.0. The resizing didn't appear complete as others mentioned above. My solution within VueJS was to call the nextTick function:</p>
+     <pre><code>  var vm = this
+  var container = vm.$refs.container
+  vm.mapStyle.width = `${vm.getElementContentWidth(container)}px`
+  vm.mapStyle.height = `${vm.getElementContentHeight(container)}px`
+  vm.$nextTick(() =&gt; {
+    if (vm.map) vm.map.invalidateSize()
+    if (vm.layerBase) vm.layerBase.redraw()
+  })
+</code></pre>
+     <p>I believe pure javascript would be</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks the nextTick with invalidateSize solved my issue !</span> <span> - </span> <span class="display-name">Dan</span> <span> </span> <span class="date">9 Jul 2019 at 13:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

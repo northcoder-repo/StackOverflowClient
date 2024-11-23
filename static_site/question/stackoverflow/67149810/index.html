@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Not able to display data streaming from websocket to dataTable</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Not able to display data streaming from websocket to dataTable</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>penta</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>18 Apr 2021 at 14:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67149810/not-able-to-display-data-streaming-from-websocket-to-datatable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to stream data via a websocket &amp; display it in dataTable. I am able to get data in my client but no data is actually getting displayed in the table.</p>
+    <p>How can I display the <em><strong>updated data</strong></em> inplace in realtime in the dataTables as soon as the websocket data is streamed.</p>
+    <pre><code>    &lt;script type="text/javascript" charset="utf-8"&gt;
+        streamData = ""
+        streamDataArr = new Array();
+            $(document).ready(function() {
+                namespace = 'http://localhost:8080/';
+                var socket = io(namespace);
+                socket.on('connect', function() {
+                    socket.emit('my_event', {data: 'connected to the SocketServer...'});
+                });
+                socket.on('my_response', function(msg, cb) {
+                    streamData = JSON.parse(msg.data);
+                    $('#log').append('&lt;br&gt;' + $('&lt;div/&gt;').text('logs message :- ' + JSON.stringify(streamData)).html());
+                    streamDataArr.push([streamData.instrument_token, streamData.last_price, streamData.ohlc.open])
+                    console.log(streamDataArr); //value is present
+                });         
+            });
+    
+        $(document).ready(function() 
+        {
+            alert("Arr:- ",streamDataArr) //empty why ?
+            alert("soemthing", streamDataArr[0]) //empty why ?
+            var table = $('#example').DataTable(
+                {
+            data: streamDataArr,
+            columns: [
+                { title: "Name" },
+                { title: "last price" },
+                { title: "Open price" },
+                    ]
+                } 
+                                               );
+        });
+        &lt;/script&gt;
+
+&lt;body&gt;
+    &lt;table id="example" class="display" style="width:100%"&gt; &lt;/table&gt;   
+&lt;/body&gt;
+</code></pre>
+    <p>P.S. i am new to datatable &amp; socket-io</p>
+    <p>Edit:- v2 of the code.</p>
+    <pre><code> &lt;script type="text/javascript" charset="utf-8"&gt;
+    streamData = ""
+    streamDataArr = new Array();
+       
+
+    
+    function fillDataTable(dataSet){
+    {
+        if (document.readyState === "complete"){
+        //alert("Arr:- ",dataSet) //empty why ?
+        //alert("soemthing", dataSet[0]) //empty why ?
+        var table = $('#example').DataTable(
+            {
+        data: dataSet,
+        retrieve: true,
+        deferRender: true,
+        searching: false,
+        paging: false,
+        columns: [
+            { title: "stock Name" },
+            { title: "stock last price" },
+            { title: "stock Open price" },
+                ]
+            });
+    
+            }
+        }
+    }
+
+            namespace = 'http://localhost:8080/';
+            var socket = io(namespace);
+
+            socket.on('my_response', function(msg, cb) {
+                streamData = JSON.parse(msg.data);
+                $('#log').append('&lt;br&gt;' + $('&lt;div/&gt;').text('logs message :- ' + JSON.stringify(streamData)).html());
+                streamDataArr.push([streamData.instrument_token, streamData.last_price, streamData.ohlc.open])
+                console.log(streamDataArr); //value is present
+                fillDataTable(streamDataArr);
+                
+                $('#example').DataTable().row.add( [streamData.instrument_token, streamData.last_price, streamData.ohlc.open] ).draw();
+                redraw();
+                // $('#example').DataTable().row(streamData.instrument_token).data("stock last price")  =  streamData.last_price
+                // $('#example').DataTable().row(streamData.instrument_token).data("stock Open price")  =  streamData.ohlc.open
+                
+            });     
+            function redraw(){  
+                var table = $('#example').DataTable();
+                var index = table.column( 0 ).data().indexOf( streamData.instrument_token );
+                if (index != ""){
+                alert("index is", String(index))
+                console.log(String(index))
+                $('#example').DataTable().row(index).data( [streamData.instrument_token, streamData.last_price, streamData.ohlc.open] ).draw();
+                }
+            }
+    &lt;/script&gt;
+</code></pre>
+    <p>By this the 1 entry is appearing twice, I cant really test, whether it updates in place as the source websocket is down</p>
+    <p>v3 version. By this the data is streaming but I am having duplicate entries as shown in the pic. I also noticed that it is replacing entries with other stocks.</p>
+    <p><a href="https://i.stack.imgur.com/ddQGJ.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/ddQGJ.png" alt="enter image description here"></a></p>
+    <pre><code>       &lt;script type="text/javascript" charset="utf-8"&gt;    
+        $(document).ready(function () {
+    var table; 
+    
+    // a dummy initial row for testing:
+    var dataSet = [  ];
+    $(document).ready(function () {
+        table = $('#example').DataTable({
+            data: dataSet,
+            columns: [
+                {title: "Symbol", data: "instrument_token"},
+                {title: "StockName", data: "stockName"},
+                {title: "last_price", data: "last_price"},
+                {title: "ohlcOpen", data: "ohlc.open"}
+                
+            ]
+        });
+    });
+    
+    // small helper function for selecting element by id
+    let id = id =&gt; document.getElementById(id);
+    
+    //Establish the WebSocket connection and set up event handlers
+    let ws = io.connect(null, {port: 8000, rememberTransport: false});
+                ws.on('my_response', function(msg, cb) {
+                    updateTable(msg);
+                });
+    //ws.onmessage = msg =&gt; updateTable(msg);
+    ws.onclose = () =&gt; alert("WebSocket connection closed");
+        
+    function updateTable(message) {
+        let stockData = JSON.parse(message.data);        
+        console.log("in updateTable stock data:-", stockData)
+        // check if symbol already in table:
+        var index = table.column( 0 ).data().indexOf( stockData.instrument_token );
+        
+        if (index &gt;= 0) {
+            // update the existing row:
+            table.row( index ).data( stockData ).draw();
+        } else {
+            // insert a new row:
+            table.row.add( stockData ).draw();
+        }
+    }
+    
+    });
+&lt;/script&gt;
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">socket.io</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Apr 2021 at 15:17</span>
+     </div>
+    </div>
+    <div>
+     <p>I have an example DataTable receiving data from a websocket source - but it is the standard JavaScript <a href="https://developer.mozilla.org/en-US/docs/Web/API/WebSocket" rel="nofollow noreferrer"><code>WebSocket</code></a> library - not <code>socket.io</code>.</p>
+     <p>However, I don't think that is an issue here, because the approach to displaying data in the Datatable is based on using the DataTables API with the source data returned from the websocket - and you already have that data: <code>console.log(streamDataArr); //value is present</code>.</p>
+     <p>In my test example, I have a simple table which contains one initial record sourced from a local variable:</p>
+     <pre class="lang-js prettyprint-override"><code>var dataSet = [ { "msg": "started" } ];
+$(document).ready(function () {
+  $('#example').DataTable({
+    data: dataSet,
+    columns: [{title: "Message", data: "msg"}]
+  });
+});
+</code></pre>
+     <p>My websocket data provides simple strings in my case (it could be JSON or anything you want, of course). I take that string and add it to the DataTable using the DataTables API. I do that in the socket handler, where the data is available:</p>
+     <pre class="lang-js prettyprint-override"><code>var socketOutputText = [the data from the socket];
+var newRow = { "msg": socketOutputText  };
+$('#example').DataTable().row.add( newRow ).draw();
+</code></pre>
+     <p>Here, I create a JS object <code>newRow</code> containing the fields needed for a row of DataTable data. In my case there is only one field (the table only has 1 column). I use the data name of <code>msg</code> to match the name I defined in my DataTable.</p>
+     <p>The I use the DataTables <code>row.add()</code> API function to add the row to the table and force a re-display of the table.</p>
+     <p>This is crude - it just keeps appending new rows to the table.</p>
+     <p>You can enhance this by adding logic to check for the existence of a record in the table (e.g. find a row key) and then update an existing row. So, the socket data could be a stock ticker feed, containing a symbol and a price.</p>
+     <p>You can use the <code>indexOf()</code> API call to locate the existing row for your stock symbol, Then you can use the <code>row().data( newRow )</code> API call to update an existing row in the table.</p>
+     <p>With this approach, you need to place all your socket processing inside a "document ready" function, to ensure that your code does not attempt to interact with a Datatable which has not yet been initialized.</p>
+     <hr>
+     <p>Here is the basic web page. I use this to display the DataTable - but I <em>also</em> use it to feed in my ticker data (just as way to test):</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+    &lt;head&gt;
+        &lt;meta charset="UTF-8"&gt;
+        &lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;
+        &lt;title&gt;Webs Sockets&lt;/title&gt;
+
+        &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+        &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+        &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+        &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+        &lt;link rel="stylesheet" href="style.css"&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+
+        &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;&lt;/table&gt;
+
+        &lt;br&gt;&lt;br&gt;
+
+        &lt;div id="tickControls"&gt;
+            &lt;input id="message" placeholder="Enter data as JSON string"&gt;
+            &lt;button id="send"&gt;Send&lt;/button&gt;
+        &lt;/div&gt;
+        
+        &lt;div id="tick"&gt;&lt;/div&gt;
+        &lt;script src="websocketDemo.js"&gt;&lt;/script&gt;
+
+
+    &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+     <p>The <code>websocketDemo.js</code> used in the above page:</p>
+     <pre class="lang-js prettyprint-override"><code>
+$(document).ready(function () {
+
+    var table; 
+    
+    // a dummy initial row for testing:
+    var dataSet = [ {"symbol": "AAPL", "price": 134.28} ];
+    $(document).ready(function () {
+        table = $('#example').DataTable({
+            data: dataSet,
+            columns: [
+                {title: "Symbol", data: "symbol"},
+                {title: "Price", data: "price"}
+            ]
+        });
+    });
+
+    // small helper function for selecting element by id
+    let id = id =&gt; document.getElementById(id);
+
+    //Establish the WebSocket connection and set up event handlers
+    let ws = new WebSocket("ws://" + location.hostname + ":" + location.port + "/ticker");
+    ws.onmessage = msg =&gt; updateTable(msg);
+    ws.onclose = () =&gt; alert("WebSocket connection closed");
+
+    // Add event listeners to button - this is just used to provide test input data
+    id("send").addEventListener("click", () =&gt; sendAndClear(id("message").value));
+
+    function sendAndClear(message) {
+        if (message !== "") {
+            ws.send(message);
+            id("message").value = "";
+        }
+    }
+
+    function updateTable(message) {
+        let stockData = JSON.parse(message.data);        
+        // check if symbol already in table:
+        var index = table.column( 0 ).data().indexOf( stockData.symbol );
+        
+        if (index &gt;= 0) {
+            // update the existing row:
+            table.row( index ).data( stockData ).draw();
+        } else {
+            // insert a new row:
+            table.row.add( stockData ).draw();
+        }
+
+    }
+
+});
+</code></pre>
+     <p>Again, bear in mind that this handles input test data, as well as updating the DataTable. Comments included in the code.</p>
+     <p>The page looks like this:</p>
+     <p><a href="https://i.stack.imgur.com/eRdWY.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/eRdWY.png" alt="enter image description here"></a></p>
+     <p>To enter a new ticker price, I enter a piece of JSON into the input field. In the above screenshot you can see the results of entering these two separate ticker updates:</p>
+     <pre><code>{"symbol": "MSFT", "price": 258.82}
+</code></pre>
+     <p>and</p>
+     <pre><code>{"symbol": "AAPL", "price": 133.97}
+</code></pre>
+     <p>You mentioned that you handle multiple symbols at a time - so my basic demo would have to loop through the JSON to handle each one separately in my <code>updateTable()</code> function.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>hey @andrewjames, thanks for the suggestion. If it is not too much to ask, can you edit my given code to your suggestion ? please note that i will have multiple entries ( similar to streaming multiple stock symbols, with few columns for each symbol)</span> <span> - </span> <span class="display-name">penta</span> <span> </span> <span class="date">19 Apr 2021 at 16:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am not fully sure if I followed it, hence requesting you if you could edit my given code :)</span> <span> - </span> <span class="display-name">penta</span> <span> </span> <span class="date">19 Apr 2021 at 16:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>please check out my v2 code &amp; suggest changes if any</span> <span> - </span> <span class="display-name">penta</span> <span> </span> <span class="date">19 Apr 2021 at 17:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I can show you <i>my</i> sample code (I have added it to the answer). But like I mentioned, it does not use <code>socket.io</code>. And it only handles one symbol at a time. I don't think these really matter, as the heart of the answer is in the <code>updateTable()</code> function, where the DataTables API is used.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Apr 2021 at 17:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>i think we are close, please see my v3.</span> <span> - </span> <span class="display-name">penta</span> <span> </span> <span class="date">20 Apr 2021 at 07:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The original problem from your question was: <i><b>no data is actually getting displayed in the table.</b></i> That problem appears to be solved now - congratulations!</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Apr 2021 at 13:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If you have a new, specific question not already covered here, you should probably create a new SO question for that. But I think with some basic debugging you should be able to see what is going on and then fix it yourself. I do not have your websocket tech, and I do not know what your data source is. You said "<i>i will have multiple entries</i>", so you need to handle that in your code. In my case I only had 1 entry per socket message.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Apr 2021 at 13:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I see you have asked a new question - thank you. But the example in that question is very strange. It has 2 "document ready" functions and 3 separate <code>table</code> references. You only need 1 of each.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Apr 2021 at 13:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

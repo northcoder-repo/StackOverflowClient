@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Get results with whitespace in lucene</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Get results with whitespace in lucene</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>miskinati</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>30 Dec 2020 at 16:25</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65510216/get-results-with-whitespace-in-lucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to get results with whitespace using Lucene <code>RegexpQuery</code>. Try ever possible search regex text like;</p>
+    <pre><code>[a-z]{4}\s[a-z]{5}
+[a-z]{4}( )[a-z]{5}
+[a-z]{4}(\s)[a-z]{5}
+</code></pre>
+    <p>I use (now) basic and use standard methods like;</p>
+    <pre><code>...
+IndexWriter writer = createWriter(storePath);
+Document docu1 = indexDoc(writer, catchText, Files.getLastModifiedTime(docDir).toMillis(), value.getUniqueId());
+documents.add(docu1);
+...
+writer.addDocuments(documents);
+writer.commit();
+...
+IndexReader reader = DirectoryReader.open(writer);
+IndexSearcher searcher = new IndexSearcher(reader);
+...
+Query q1 = new RegexpQuery(new Term("contents", var.getRuleText()), RegExp.ALL);
+...
+Document docX = reader.document(idX);
+String textX = docX.get("contents");
+TokenStream tokenStream = TokenSources.getTokenStream("contents", reader.getTermVectors(idX),textX,new StandardAnalyzer(), -1);
+OffsetAttribute offsetAtt = (OffsetAttribute)tokenStream.addAttribute(OffsetAttribute.class);
+</code></pre>
+    <p>How can I search with regex containing whitespace using <code>RegexpQuery</code>? If <code>RegexpQuery</code> can't be used is there any other suggested approach?</p>
+    <p>Search Text Example:</p>
+    <pre><code>Lorem ipsum test dolor sit amet.
+</code></pre>
+    <p>Must Result:</p>
+    <pre><code>test dolor
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">regex</span><span class="tag">lucene</span><span class="tag">whitespace</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Dec 2020 at 18:52</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use a phrase query with the standard analyzer to select documents containing the word "test" immediately followed by the word "dolor".</p>
+     <p>The <a href="https://lucene.apache.org/core/8_7_0/core/org/apache/lucene/analysis/standard/StandardAnalyzer.html" rel="nofollow noreferrer">standard analyzer</a> will tokenize on whitespace, and convert terms to lowercase:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer analyzer = new StandardAnalyzer();
+</code></pre>
+     <p>Then you can build a phrase query as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>import org.apache.lucene.search.PhraseQuery;
+import org.apache.lucene.index.Term;
+</code></pre>
+     <p>And:</p>
+     <pre class="lang-java prettyprint-override"><code>PhraseQuery.Builder builder = new PhraseQuery.Builder();
+builder.add(new Term("phrase", "test"), 1);
+builder.add(new Term("phrase", "dolor"), 2);
+PhraseQuery phraseQuery = builder.build();
+</code></pre>
+     <p>More details are provided <a href="https://lucene.apache.org/core/8_7_0/core/org/apache/lucene/search/PhraseQuery.html" rel="nofollow noreferrer">here</a>. In particular, note: <em>All terms in the phrase must match...</em></p>
+     <p><strong>Update</strong></p>
+     <p>Why does this work, given we tokenized our data on white spaces - thus losing the white spaces? This is because the indexes built by Lucene keep track of the positions of each term from the source documents. Lucene therefore knows which term immediately follows which other term. It can use this data to check whether a multi-term phrase exists in a document, or not.</p>
+     <p><strong>Update re. Indexing Requirements</strong></p>
+     <p>There are no special requirements when indexing data, if you want to use a phrase query. You can use a standard <code>TextField</code>, with no need to store the indexed content:</p>
+     <pre class="lang-java prettyprint-override"><code>doc.add(new TextField("content", "Lorem ipsum test dolor sit amet.", Field.Store.NO));
+</code></pre>
+     <p>This builds a field index which looks something like the following:</p>
+     <pre><code>field content
+  term amet
+    doc 0
+      freq 1
+      pos 5
+  term dolor
+    doc 0
+      freq 1
+      pos 3
+  term ipsum
+    doc 0
+      freq 1
+      pos 1
+  term lorem
+    doc 0
+      freq 1
+      pos 0
+  term sit
+    doc 0
+      freq 1
+      pos 4
+  term test
+    doc 0
+      freq 1
+      pos 2
+</code></pre>
+     <p>Terms are stored with their frequencies and their positions.</p>
+     <p>You get this because when you use a <code>TextField</code> (which is one of Lucene's pre-built field types) it includes <a href="https://lucene.apache.org/core/8_7_0/core/org/apache/lucene/index/IndexOptions.html#DOCS_AND_FREQS_AND_POSITIONS" rel="nofollow noreferrer"><code>IndexOptions.DOCS_AND_FREQS_AND_POSITIONS</code></a> as part of its definition.</p>
+     <p>You do need to be careful - there are plenty of other pre-defined field types in Lucene, and I expect not all of them capture position data automatically. You can build custom fields which capture exactly what you may need for your situation.</p>
+     <p><strong>Update for Regexp</strong></p>
+     <p>Given you must use a regexp for this, then one approach is to use a shingles filter. This can be set up as follows in a custom analyzer:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer shingleAnalyzer = new Analyzer() {
+    @Override
+    protected TokenStreamComponents createComponents(String fieldName) {
+        Tokenizer source = new StandardTokenizer();
+        TokenStream tokenStream = source;
+        tokenStream = new LowerCaseFilter(tokenStream);
+        tokenStream = new ASCIIFoldingFilter(tokenStream);
+        tokenStream = new ShingleFilter(tokenStream, 2, 2);
+        return new TokenStreamComponents(source, tokenStream);
+    }
+};
+</code></pre>
+     <p>This uses <a href="https://lucene.apache.org/core/8_3_0/analyzers-common/org/apache/lucene/analysis/shingle/ShingleFilter.html" rel="nofollow noreferrer"><code>ShingleFilter</code></a>.</p>
+     <p>Use this analyzer for indexing.</p>
+     <p>It will create tokens consisting of "shingles" - i.e. multiple consecutive words. In this case, each shingle will be 2 words in length.</p>
+     <p>So, for the following input document:</p>
+     <pre><code>Lorem ipsum test dolor sit amet
+</code></pre>
+     <p>The following terms will be indexed:</p>
+     <pre><code>lorem ipsum
+ipsum test
+test dolor
+and so on...
+</code></pre>
+     <p>As well as the above terms, this will also preserve the single-word terms in your index - so the index data can also be used for other queries.</p>
+     <p>Or, if you always want exactly two words per shingle, you can use <a href="https://lucene.apache.org/core/8_3_0/analyzers-common/org/apache/lucene/analysis/shingle/FixedShingleFilter.html" rel="nofollow noreferrer"><code>FixedShingleFilter</code></a>. In this case, single-word terms will <em>not</em> be included in the index. This keeps the index smaller than <code>ShingleFilter</code> but potentially with less flexibility, when it comes to running other types of query.</p>
+     <p>Now you can use a standard analyzer for querying, together with the regexp query you have been trying to use.</p>
+     <p>There is no special syntax in Lucene regexp for whitespaces, so the following expression will match a standard whitespace:</p>
+     <pre><code>[a-z]{4} [a-z]{5}
+</code></pre>
+     <p>To extract the specific matching words from the document, you would need to post-process the document using Java regex handling, or else process the token stream directly.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Does it always keep track of term position in the doc or is that an additional param that must be set when creating the field for the doc?</span> <span> - </span> <span class="display-name">RonC</span> <span> </span> <span class="date">30 Dec 2020 at 23:49</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@RonC - thanks for the note - it is an important point. I added some comments to the answer to try to address it.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">31 Dec 2020 at 00:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@andrewjames thanks for answer. I already use <code>PhraseQuery</code> for keyword search. But i need regex search. But your update gave me an idea. Maybe i search like phrasequery (separately) then get results position, if positions are consecutive, i have found the result. its may work but i guess gets slower.</span> <span> - </span> <span class="display-name">miskinati</span> <span> </span> <span class="date">5 Jan 2021 at 11:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>OK - understood - sorry for the unhelpful direction. In that case, shingles may be relevant. I have updated my answer with some related notes.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Jan 2021 at 14:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>RonC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Dec 2020 at 18:32</span>
+     </div>
+    </div>
+    <div>
+     <p>This will depend on what analyzer you used with the <code>IndexWriter</code> and whether the field you are searching is a tokenized field. So for example if the field was a text field that is tokenized, and the analyzer used with the <code>IndexWriter</code> removes whitespace as part of it's work to create a token stream, then no you can't use <em>any</em> query to match on whitespace since all whitespace was removed by the analyzer when the index was written.</p>
+     <p>On the other hand if the field you want to search is a non-analyzed string field then, using a <code>RegexpQuery</code> to query to that field regarding whitespace should work.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>After not indexing I guess it will not be different from normal regex performance. I wonder how elasticsearch did regex process. they also use lucene.</span> <span> - </span> <span class="display-name">miskinati</span> <span> </span> <span class="date">5 Jan 2021 at 11:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

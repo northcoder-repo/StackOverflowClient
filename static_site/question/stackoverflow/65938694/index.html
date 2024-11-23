@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to unmarshal XML file that contains mixed tag (has attributes, and has content value with nested tag) with JAXB?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to unmarshal XML file that contains mixed tag (has attributes, and has content value with nested tag) with JAXB?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Aleksey Kurkov</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Jan 2021 at 14:05</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65938694/how-to-unmarshal-xml-file-that-contains-mixed-tag-has-attributes-and-has-conte">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I need to convert xml file to java objects.</p>
+    <pre class="lang-xml prettyprint-override"><code>&lt;PRODUCT id="10" name="Notebook"&gt;
+    &lt;VALUE id="30" type="Formatted"&gt;This is mixed &lt;TUNIT style="style-12"&gt;formatted&lt;/TUNIT&gt; text value.&lt;/VALUE&gt;
+&lt;/PRODUCT&gt;
+</code></pre>
+    <p>Here is Product class:</p>
+    <pre class="lang-java prettyprint-override"><code>@Getter
+@Setter
+@XmlRootElement(name = "PRODUCT")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Product {
+
+    @XmlAttribute(name = "id")
+    private String id;
+
+    @XmlAttribute(name = "name")
+    private String name;
+
+    @XmlElementRef(name = "VALUE")
+    private Value value;
+}
+</code></pre>
+    <p>Here is Value class:</p>
+    <pre class="lang-java prettyprint-override"><code>@Getter
+@Setter
+@XmlRootElement(name = "VALUE")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Value {
+
+    @XmlAttribute(name = "id")
+    private String id;
+
+    @XmlAttribute(name = "type")
+    private String type;
+
+    @XmlValue
+    private String content;
+
+    @XmlElementRef(name = "TUNIT")
+    private Tunit tunit;
+}
+</code></pre>
+    <p>Here is Tunit class:</p>
+    <pre class="lang-java prettyprint-override"><code>@Getter
+@Setter
+@XmlRootElement(name = "TUNIT")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Tunit {
+
+    @XmlAttribute(name = "style")
+    private String style;
+
+    @XmlValue
+    private String content;
+}
+</code></pre>
+    <p>When I set @XmlAttribute for <code>&lt;VALUE&gt;</code> attribute id, @XmlValue for <code>&lt;VALUE&gt;</code> content, and @XmlElementRef for <code>&lt;TUNIT&gt;</code> - I'm getting an error:</p>
+    <p><code>If a class has @XmlElement property, it cannot have @XmlValue property.</code></p>
+    <p>Is it possible to unmarshal this xml with JAXB?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">xml</span><span class="tag">jaxb</span><span class="tag">unmarshalling</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Can you <a href="https://stackoverflow.com/posts/65938694/edit">edit</a> your question and add the Java classes corresponding to the <code>PRODUCT</code> and <code>VALUE</code> elements?</span> <span> - </span> <span class="display-name">Piotr P. Karwasz</span> <span> </span> <span class="date">28 Jan 2021 at 14:22</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Ok. I have edited my question and added java classes.</span> <span> - </span> <span class="display-name">Aleksey Kurkov</span> <span> </span> <span class="date">28 Jan 2021 at 14:58</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Thomas Fritsch</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jan 2021 at 15:20</span>
+     </div>
+    </div>
+    <div>
+     <p>Within your <code>&lt;VALUE ...&gt;...&lt;/VALUE&gt;</code> element you have mixed content: plain text and a <code>&lt;TUNIT&gt;</code> element.</p>
+     <p>Therefore, in your <code>Value</code> class you need to define a <code>List&lt;Object&gt;</code> property to receive this mixed content (in your case strings and objects of type <code>Tunit</code>. For this to happen you need to annotate it with <code>@XmlMixed</code> and also with <code>@XmlElementRef</code> (to define the mapping between XML <code>&lt;TUNIT&gt;</code> and Java <code>Tunit</code>). See also the example in the <a href="https://docs.oracle.com/javase/8/docs/api/javax/xml/bind/annotation/XmlMixed.html" rel="nofollow noreferrer">API documentation of <code>@XmlMixed</code></a>.</p>
+     <p>For your XML example with the XML fragment<br><code>This is mixed &lt;TUNIT style="style-12"&gt;formatted&lt;/TUNIT&gt; text value.</code><br>
+       the mixed content list in the <code>Value</code> object will receive these items:</p>
+     <ul>
+      <li>a string <code>"This is mixed "</code></li>
+      <li>a <code>Tunit</code> object</li>
+      <li>a string <code>" text value."</code></li>
+     </ul>
+     <p>So finally the <code>Value</code> class will look like this</p>
+     <pre><code>@XmlRootElement(name = "VALUE")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Value {
+
+    @XmlAttribute(name = "id")
+    private String id;
+
+    @XmlAttribute(name = "type")
+    private String type;
+
+    @XmlMixed
+    @XmlElementRef(name = "TUNIT", type = Tunit.class)
+    private List&lt;Object&gt; content;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to use Commons CSV remove duplicate in csv file using Java?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to use Commons CSV remove duplicate in csv file using Java?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>duolanierduone</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Apr 2021 at 14:07</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67284714/how-to-use-commons-csv-remove-duplicate-in-csv-file-using-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a csv file. It contains several duplicate columns. I am trying to remove these duplicates using Java. I found Apache Common csv library, some people use it to remove duplicate rows. How can I use it to remove or skip duplicate columns?</p>
+    <p>For example: my csv header is:</p>
+    <pre><code>ID Name Email Email
+</code></pre>
+    <p>So far my code is:</p>
+    <pre><code>Reader reader = Files.newBufferedReader(Paths.get("user.csv"));
+ 
+            // read csv file
+            Iterable&lt;CSVRecord&gt; records = CSVFormat.DEFAULT.withFirstRecordAsHeader()
+                    .withIgnoreHeaderCase()
+                    .withTrim()
+                    .parse(reader);
+        
+            for (CSVRecord record : records) {
+                System.out.println("Record #: " + record.getRecordNumber());
+                System.out.println("ID: " + record.get("ID"));
+                System.out.println("Name: " + record.get("Name"));
+                System.out.println("Email: " + record.get("Email"));
+                
+            }
+        
+            // close the reader
+            reader.close();
+
+
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">csv</span><span class="tag">apache-commons-csv</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>What is your code so far?</span> <span> - </span> <span class="display-name">aBnormaLz</span> <span> </span> <span class="date">27 Apr 2021 at 14:26</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@aBnormaLz see my edit. How can I write them into a new csv file, or just update it in the original file?</span> <span> - </span> <span class="display-name">duolanierduone</span> <span> </span> <span class="date">27 Apr 2021 at 15:15</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>It appears that you know in advance which columns you want to keep, and which can be discarded. Given the column headings can have duplicate names, you can access your columns by index: <a href="https://commons.apache.org/proper/commons-csv/user-guide.html#Accessing_column_values_by_index" rel="nofollow noreferrer">Accessing column values by index</a>. Access the ones you need - and then write out that data to a new CSV file.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">27 Apr 2021 at 18:07</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Apr 2021 at 20:42</span>
+     </div>
+    </div>
+    <div>
+     <p>Your code is close to what you need - you just need to use <code>CSVPrinter</code> to write out your data to a new file.</p>
+     <pre><code>import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
+
+public class App {
+
+    public static void main(String[] args) throws IOException {
+
+        try (final Reader reader = Files.newBufferedReader(Paths.get("source.csv"),
+                StandardCharsets.UTF_8)) {
+
+            final Writer writer = Files.newBufferedWriter(Paths.get("target.csv"),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE); // overwrites existing output file
+
+            try (final CSVPrinter printer = CSVFormat.DEFAULT
+                    .withHeader("ID", "Name", "Email")
+                    .print(writer)) {
+                
+                // read each input file record:
+                Iterable&lt;CSVRecord&gt; records = CSVFormat.DEFAULT
+                        .withFirstRecordAsHeader()
+                        .withIgnoreHeaderCase()
+                        .withTrim()
+                        .parse(reader);
+                
+                // write each output file record
+                for (CSVRecord record : records) {
+                    printer.print(record.get("ID"));
+                    printer.print(record.get("Name"));
+                    printer.print(record.get("Email"));
+                    printer.println();
+                }
+            }
+        }
+    }
+}
+</code></pre>
+     <p>This transforms the following source file:</p>
+     <pre><code>ID,Name,Email,Email
+1,Albert,foo@bar.com,foo@bar.com
+2,Brian,baz@bat.com,baz@bat.com
+</code></pre>
+     <p>To this target file:</p>
+     <pre><code>ID,Name,Email
+1,Albert,foo@bar.com
+2,Brian,baz@bat.com
+</code></pre>
+     <p>Some points to note:</p>
+     <ol>
+      <li>
+       <p>I was wrong in my comment. You do not need to use column indexes - you can use headings (as I do above) in your specific case.</p></li>
+      <li>
+       <p>Whenever reading and writing a file, it is recommended to provide the character encoding. In my case, I use UTF-8. (This assumes the original file was created as a URF-8 file, of course - or is compatible with that encoding.)</p></li>
+      <li>
+       <p>When opening the reader and the writer I use <a href="https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html" rel="nofollow noreferrer">"try-with-resources"</a> statements. These mean I do not have to explicitly close the file resources - Java takes care of that for me.</p></li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>@andrewjamesThanks! If user.csv file contains duplicate name, it will appear error: <code>Exception in thread "main" java.lang.IllegalArgumentException: The header contains a duplicate name: "Email" in [ID, Name, Email, Email]</code> I am not sure if you meet this error</span> <span> - </span> <span class="display-name">duolanierduone</span> <span> </span> <span class="date">28 Apr 2021 at 18:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Well, yes - that would give an error. But why are you using duplicate column names like that? As you can see from my answer, this is not needed. The point of your question is to <i>remove duplicate columns</i>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Apr 2021 at 18:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes, I didn't use the code to print same columns. When the code start running, it detects the input file contains the duplicate header, so it occurs this error.</span> <span> - </span> <span class="display-name">duolanierduone</span> <span> </span> <span class="date">28 Apr 2021 at 18:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>(1) Does this happen when you use my code? (2) What version of Commons CSV are you using?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Apr 2021 at 18:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Ah - that makes sense. Glad you resolved it.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Apr 2021 at 19:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Regarding "<i>many duplicate columns and thousands of rows</i>", the first step is: You need to decide some rules which can be followed. For example, If the column headings are the same, is that OK to identify a duplicate? If the data in every cell of column A matches the equivalent cell of column B, is that a duplicate? Waht if 99% of the values are the same? Is that a duplicate? These are all <i>business rules</i> which we cannot really help you with, here, on this site. We can help you implement those rules using code, if you get stuck...</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Apr 2021 at 19:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I mean, just like the example in your answer, if we don't know which column should be removed in advance, we only know there has duplicate column, how to find this duplicate column <code>Email</code> and remove it, then printer a new csv file</span> <span> - </span> <span class="display-name">duolanierduone</span> <span> </span> <span class="date">28 Apr 2021 at 20:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What is your definition of "duplicate column"? What makes a column a duplicate of some other column?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Apr 2021 at 20:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>same column name and same content.</span> <span> - </span> <span class="display-name">duolanierduone</span> <span> </span> <span class="date">28 Apr 2021 at 20:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>First you can just check the column headings. But if you find duplicate headings... Now you can no longer process one row at a time. You have to load the entire file into a collection of JavaBean objects, because you will not know if a column is a duplicate until you get to the last line of the file. But that is not really rigorous. What if you have heading <code>E-Mail</code> and heading <code>Email</code>? They are different. But all their contents are identical... This is a large and potentially complicated data cleansing issue. Far too large for a SO question.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Apr 2021 at 20:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

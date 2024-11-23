@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Junit5 csv exception in a very simple example?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Junit5 csv exception in a very simple example?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Duskry</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 May 2020 at 10:02</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61910286/junit5-csv-exception-in-a-very-simple-example">source</a>
+    </div>
+   </div>
+   <div>
+    <p><strong>A very simple code,I can't understand this error.pleace help me !</strong></p>
+    <p>Does '#' need "\" ? I tried but it doesn't work!</p>
+    <p>Or if you have any more helpful test this 'charTest' method or code please tell me!</p>
+    <pre><code>public class Stringtest {
+String charTest(char first,char second){
+    System.out.println("first = " + first);
+    System.out.println("second = " + second);
+    String res="";
+    if(first=='#'||first=='*'){
+        if(isNumbers(second)){
+            res+="FILE_CHANGE";
+            return res;
+        }
+    }
+    res+="N";
+    if(!isNumbers(second)){
+        res+="M";
+    }
+    return res;
+}
+boolean isNumbers(char chars){
+    return Character.getNumericValue(chars)&lt;=57 &amp;&amp; Character.getNumericValue(chars)&gt;=48;
+}
+
+@CsvSource(value = {
+        "*1",
+        "#0",   // #0  throws org.junit.platform.commons.PreconditionViolationException: Line at index 1 contains invalid CSV: "#0"
+        "*w",
+        "#?",  // why # can't be the firstchar?
+        "A1",
+        "cc"
+})
+@ParameterizedTest(name = "nums {index}==&gt;firstchar：{0},sencondchar：{1}")
+void test1(ArgumentsAccessor accessor){
+    System.out.println(charTest(accessor.getString(0).charAt(0),accessor.getString(0).charAt(1)));
+}
+</code></pre>
+    <p>}</p>
+    <p>This is the Exception stack for top 5</p>
+    <pre><code>org.junit.platform.commons.PreconditionViolationException: Line at index 1 contains invalid CSV: "#0"
+
+at org.junit.platform.commons.util.Preconditions.condition(Preconditions.java:296)
+at org.junit.platform.commons.util.Preconditions.notNull(Preconditions.java:68)
+at org.junit.jupiter.params.provider.CsvArgumentsProvider.parseLine(CsvArgumentsProvider.java:73)
+at org.junit.jupiter.params.provider.CsvArgumentsProvider.lambda$provideArguments$0(CsvArgumentsProvider.jav
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">junit</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 May 2020 at 00:22</span>
+     </div>
+    </div>
+    <div>
+     <p>If you take a look at the documentation for <code>CsvSource</code> and the <code>value()</code> parameter <a href="https://junit.org/junit5/docs/current/api/org.junit.jupiter.params/org/junit/jupiter/params/provider/CsvSource.html#value()" rel="nofollow noreferrer">here</a>, you will see that the <code>#</code> is interpreted as a comment:</p>
+     <blockquote>
+      <p><em>Any line beginning with a # symbol will be interpreted as a comment and will be ignored.</em></p>
+     </blockquote>
+     <p>That explains why you do not get the expected result - although throwing an error is not the same as "<em>will be ignored</em>" - so perhaps there is a bug, also.</p>
+     <p>If you can, I would suggest avoiding the <code>#</code> entirely. Depending on the constraints you are dealing with, that may not be an option, of course.</p>
+     <p>Otherwise, you may have better success with something like the following approach:</p>
+     <pre><code>import org.junit.jupiter.params.provider.ValueSource;
+
+...
+
+@ParameterizedTest
+@ValueSource(strings = {"11", "#2", "33"})
+public void test2(String input) {
+    System.out.println(charTest(input.charAt(0), input.charAt(1)));
+}
+</code></pre>
+     <p>This will handle leading <code>#</code>s as expected:</p>
+     <pre><code>first = #
+second = 2
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

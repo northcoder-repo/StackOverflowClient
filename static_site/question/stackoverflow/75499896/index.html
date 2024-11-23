@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Using dynamic variable in each</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Using dynamic variable in each</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>anjanesh</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Feb 2023 at 11:45</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75499896/using-dynamic-variable-in-each">source</a>
+    </div>
+   </div>
+   <div>
+    <pre><code>&lt;th:block th:each="someData, index : ${someData.from.somewhere}"&gt;
+    &lt;th:block th:each="image : ${images.foo0bar}"&gt;
+        &lt;img th:src="${image}"/&gt;
+    &lt;/th:block&gt;
+    &lt;hr/&gt;
+&lt;/th:block&gt;
+</code></pre>
+    <p>I want <strong>0</strong> in <code>images.foo0bar</code> to be replaced by <strong>index</strong></p>
+    <p>How do I do something like <code>th:each="image : ${images.foo + index + bar}"</code></p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Feb 2023 at 15:23</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use Thymeleaf's <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#preprocessing" rel="nofollow noreferrer">preprocessor</a> to execute a getter based on a concatenated string:</p>
+     <pre><code>__${...}__
+</code></pre>
+     <p>For example:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;th:block th:each="someData, iterstat : ${someData}"&gt;
+    &lt;th:block th:with="imageField=|images.foo${iterstat.index}bar|"&gt;
+        &lt;th:block th:each="image : ${__${imageField}__}"&gt;
+            &lt;img th:src="${image}"&gt;
+        &lt;/th:block&gt;
+    &lt;/th:block&gt;
+&lt;/th:block&gt;
+</code></pre>
+     <p>In the above approach, the <code>th:with="imageField=..."</code> is used to build the string you need:</p>
+     <pre><code>images.foo0bar  
+images.foo1bar  
+... and so on...
+</code></pre>
+     <p>That <code>imageField</code> variable is then used with the Thymeleaf preprocessing syntax to handle it as a field name in your <code>images</code> object.</p>
+     <hr>
+     <p><strong>UPDATE</strong></p>
+     <p>My solution above had a mistake, as originally written. Instead of this:</p>
+     <pre><code>__${imageField}__
+</code></pre>
+     <p>It should be this:</p>
+     <pre><code>${__${imageField}__}
+</code></pre>
+     <p>In other words, I forgot to wrap the pre-processor results in a Thymeleaf expression - so that the actual objects in each list (of image URLs) are retrieved.</p>
+     <p>I corrected this, above.</p>
+     <p>For backgound, here is the test data I used for the Thymeleaf model:</p>
+     <pre class="lang-java prettyprint-override"><code>List&lt;String&gt; someData = Stream.of("abc", "def", "ghi")
+        .collect(Collectors.toList());
+
+List&lt;String&gt; a = Stream.of("1", "2", "3")
+        .collect(Collectors.toList());
+List&lt;String&gt; b = Stream.of("4", "5", "6")
+        .collect(Collectors.toList());
+List&lt;String&gt; c = Stream.of("7", "8")
+        .collect(Collectors.toList());
+
+Images images = new Images();
+images.setFoo0bar(a);
+images.setFoo1bar(b);
+images.setFoo2bar(c);
+
+Map&lt;String, Object&gt; model = new HashMap&lt;&gt;();
+model.put("someData", someData);
+model.put("images", images);
+</code></pre>
+     <p>And my <code>Images</code> class contains these 3 fields:</p>
+     <pre class="lang-java prettyprint-override"><code>private List&lt;String&gt; foo0bar;
+private List&lt;String&gt; foo1bar;
+private List&lt;String&gt; foo2bar;
+</code></pre>
+     <hr>
+     <p><strong>Just a suggestion...</strong></p>
+     <p>The Java objects which support this appear to be a bit convoluted, behind the scenes.</p>
+     <p>You have a collection of <code>someData</code> which you do not directly access, except to iterate through a count of its contents.</p>
+     <p>You then use this count to build a field name, so you can executed the related getter - and iterate through <em>that</em> collection of image URLs, in a completely different (seemingly unrelated) object.</p>
+     <p>Just as a suggestion: If you re-arrange your Java data, you could avoid this Thymeleaf complexity.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>didn't even know this option existed.</span> <span> - </span> <span class="display-name">dsp_user</span> <span> </span> <span class="date">19 Feb 2023 at 15:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Woah ! This works big time ! - Thanks. I can't re-arrange the Java data - that was done by my Java friend - I am primarily a UI guy.</span> <span> - </span> <span class="display-name">anjanesh</span> <span> </span> <span class="date">19 Feb 2023 at 18:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

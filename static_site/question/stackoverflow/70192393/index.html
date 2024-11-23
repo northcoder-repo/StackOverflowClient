@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Unexpected result using Thymeleaf arithmetic</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Unexpected result using Thymeleaf arithmetic</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>andrewJames</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>1 Dec 2021 at 23:08</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/70192393">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a Thymeleaf template, without any Spring or SpEL being used - just the Thymeleaf standard dialect.</p>
+    <p>The relevant portion of the template is:</p>
+    <pre class="lang-html prettyprint-override"><code>&lt;div&gt;
+    &lt;span&gt;Inactive: &lt;/span&gt;
+    &lt;span th:text="${total - active}"&gt;&lt;/span&gt;
+&lt;/div&gt;
+</code></pre>
+    <p><strong>Test 1</strong></p>
+    <p>If my model is populated as follows:</p>
+    <pre class="lang-java prettyprint-override"><code>model.put("total", 10);
+model.put("active", 7);
+</code></pre>
+    <p>then I get the expected result:</p>
+    <pre class="lang-html prettyprint-override"><code>&lt;div&gt;
+    &lt;span&gt;Inactive: &lt;/span&gt;
+    &lt;span&gt;3&lt;/span&gt;
+&lt;/div&gt;
+</code></pre>
+    <p><strong>Test 2</strong></p>
+    <p>But if either (or both) of the model values is null:</p>
+    <pre class="lang-java prettyprint-override"><code>model.put("total", null);
+model.put("active", 7);
+</code></pre>
+    <p>then I get an unexpected result. With the above data, I get:</p>
+    <pre class="lang-html prettyprint-override"><code>&lt;div&gt;
+    &lt;span&gt;Inactive: &lt;/span&gt;
+    &lt;span&gt;-7.0&lt;/span&gt;
+&lt;/div&gt;
+</code></pre>
+    <p>In other words, the <code>null</code> is evaluated as the floating point <code>0.0</code>, and the result is therefore calculated as <code>-7.0</code>.</p>
+    <p>I would have expected it to throw a runtime error, caused by trying to perform arithmetic on a null value.</p>
+    <p><strong>Test 3</strong></p>
+    <p>If I change the template slightly and use the same data as test 2:</p>
+    <pre class="lang-html prettyprint-override"><code>&lt;div&gt;
+    &lt;span&gt;Inactive: &lt;/span&gt;
+    &lt;span th:text="${total} - ${active}"&gt;&lt;/span&gt;
+&lt;/div&gt;
+</code></pre>
+    <p>I get the following runtime error - which is what I expected for test 2:</p>
+    <blockquote>
+     <p>org.thymeleaf.exceptions.TemplateProcessingException: Cannot execute subtraction: operands are "null" and "7"</p>
+    </blockquote>
+    <p>Why does test 2 generate valid HTML with an unexpected calculation result, instead of throwing an error?</p>
+    <p>(I understand I need to handle these <code>null</code> values up-front to avoid issues, but this silent non-failure is a problem.)</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">html</span><span class="tag">thymeleaf</span><span class="tag">ognl</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Dec 2021 at 23:08</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Quick Answer</strong></p>
+     <p>You should handle <code>null</code> values explicitly up-front, as noted in the question.</p>
+     <p>You should also be aware of the inconsistent behavior between Thymeleaf's minus operator, and OGNL's minus operator.</p>
+     <p>Recommendation: Use the Thymeleaf minus operator.</p>
+     <p>A more detailed explanation follows...</p>
+     <p><strong>Thymeleaf and OGNL</strong></p>
+     <p>When you use the standard Thymeleaf dialect, expressions inside the opening <code>${</code> and closing <code>}</code> are handled by OGNL. From <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#using-and-displaying-variables" rel="nofollow noreferrer">the official documentation</a>:</p>
+     <blockquote>
+      <p><em>This is a variable expression, and it contains an expression in a language called OGNL (Object-Graph Navigation Language) that will be executed on the context variables map...</em></p>
+     </blockquote>
+     <p>You can read about OGNL and its syntax <a href="https://commons.apache.org/proper/commons-ognl/" rel="nofollow noreferrer">here</a>. Thymeleaf version 3.0.12 uses the <code>ognl-3.1.26.jar</code> library.</p>
+     <p>So, when you use <code>${total - active}</code>, that entire expression, including the subtraction, is handled by OGNL.</p>
+     <p>However, when you use <code>${total} - ${active}</code>, that is actually two separate OGNL expressions, with a minus sign in between them.</p>
+     <p>In the first case, it is OGNL's responsibility to perform the subtraction. But in the second case, the subtraction is performed by Thymeleaf, after it has delegated evaluation of the two <code>${...}</code> expressions to OGNL.</p>
+     <p>Thymeleaf generally shows the same behavior as OGNL for the majority of its operators. But in this specific case, <strong>the Thymeleaf minus operator behaves differently from the OGNL minus operator</strong>, when handling <code>null</code> values.</p>
+     <p>I would argue that the Thymeleaf behavior is the less surprising approach.</p>
+     <p><strong>Spring and SpEL</strong></p>
+     <p>If you use Spring with Thymeleaf, then all expressions inside <code>${</code> and <code>}</code> are delegated to SpEL (the <a href="https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#expressions" rel="nofollow noreferrer">Spring Expression Language</a>) - and OGNL is not used at all.</p>
+     <p>In this case the expression <code>${total - active}</code> will no longer "succeed" at runtime. Instead it will throw a SpEL exception:</p>
+     <blockquote>
+      <p>org.springframework.expression.spel.SpelEvaluationException: EL1030E: The operator 'SUBTRACT' is not supported between objects of type 'null' and 'java.lang.Integer'</p>
+     </blockquote>
+     <p>So, SpEL and the Thymeleaf standard dialect are consistent with each other - and OGNL is in the minority.</p>
+     <p><strong>Does OGNL really evaluate null as zero, here?</strong></p>
+     <p>Yes - and we can demonstrate that using OGNL in a simple Java program:</p>
+     <p>The dependency:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependency&gt;
+    &lt;groupId&gt;ognl&lt;/groupId&gt;
+    &lt;artifactId&gt;ognl&lt;/artifactId&gt;
+    &lt;version&gt;3.3.0&lt;/version&gt;
+    &lt;!-- same behavior:
+    &lt;version&gt;3.2.21&lt;/version&gt;
+    --&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>The Java demo:</p>
+     <pre class="lang-java prettyprint-override"><code>import ognl.Ognl;
+import ognl.OgnlException;
+
+public class NullDemo {
+    
+    public void run() throws OgnlException {        
+        // this uses a null context (2nd parameter), because we have 
+        // a simple hard-coded subtraction expression:
+        Object result = Ognl.getValue("null - 7", null);
+        System.out.println(result);
+        
+    }
+    
+}
+</code></pre>
+     <p>The output is: <code>-7.0</code>, the same as test #2 in the question.</p>
+     <hr>
+     <p><strong>Acknowledgements</strong></p>
+     <p>I am extremely grateful to the Thymeleaf team for pointing me in the right direction for this problem:</p>
+     <p><a href="https://github.com/thymeleaf/thymeleaf/issues/850" rel="nofollow noreferrer">Unexpected result from subtraction using nulls</a></p>
+     <hr>
+     <p><em>Postscript</em></p>
+     <p>The OGNL expression:</p>
+     <pre><code>"1 / null"
+</code></pre>
+     <p>evaluates to Java's <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Double.html#POSITIVE_INFINITY" rel="nofollow noreferrer"><code>Double.POSITIVE_INFINITY</code></a>, for the same reasons as the above behavior - where <code>null</code> is converted to <code>0.0</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

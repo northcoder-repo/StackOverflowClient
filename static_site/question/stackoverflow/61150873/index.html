@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to deserialize generic List&lt;T&gt; with Jackson?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to deserialize generic List&lt;T&gt; with Jackson?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>12</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>JDrost1818</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Apr 2020 at 01:06</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61150873/how-to-deserialize-generic-listt-with-jackson">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I've been using Jackson to serialize/deserialize objects for years and have always found it needlessly complicated to use <code>TypeReference&lt;T&gt;</code> to deserialize <code>List</code> etc. I created a simple helper function:</p>
+    <pre><code>public static &lt;T&gt; TypeReference&lt;List&lt;T&gt;&gt; list() {
+    return new TypeReference&lt;List&lt;T&gt;&gt;(){}
+}
+</code></pre>
+    <p>With intended use:</p>
+    <pre><code>List&lt;Foo&gt; foos = objectMapper.readValue(json, list());
+</code></pre>
+    <p>And it works! Kind of. When inspecting through the debugger, rather than a list of <code>Foo</code>, it is rather a list of <code>LinkedHashMap</code>. I understand that <code>ObjectMapper</code> deserializes into <code>LinkedHashMap</code> for type <code>Object</code> and I read the explanation for that here:</p>
+    <p><a href="https://stackoverflow.com/questions/6846244/jackson-and-generic-type-reference">Jackson and generic type reference</a></p>
+    <p>However, why is it able to assign <code>List&lt;LinkedHasMap&gt;</code> to a <code>List&lt;Foo&gt;</code>? At the very least shouldn't that be some sort of <code>ClassCastException</code>?</p>
+    <p>Also, is there anyway to do this with Java's type system?</p>
+    <p>NOTE: the following method declaration has the same issue, which makes sense because the additional argument is not needed for <code>T</code> to be determined:</p>
+    <pre><code>public static &lt;T&gt; TypeReference&lt;List&lt;T&gt;&gt; listOf(Class&lt;T&gt; ignored) {
+    return new TypeReference&lt;List&lt;T&gt;&gt;(){}
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">list</span><span class="tag">class</span><span class="tag">jackson</span><span class="tag">type-erasure</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span></span> <span> - </span> <span class="display-name">Savior</span> <span> </span> <span class="date">11 Apr 2020 at 01:24</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span></span> <span> - </span> <span class="display-name">Savior</span> <span> </span> <span class="date">11 Apr 2020 at 01:27</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span></span> <span> - </span> <span class="display-name">Savior</span> <span> </span> <span class="date">11 Apr 2020 at 02:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span></span> <span> - </span> <span class="display-name">Andreas</span> <span> </span> <span class="date">11 Apr 2020 at 03:21</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Michał Ziober</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Apr 2020 at 09:31</span>
+     </div>
+    </div>
+    <div>
+     <p>It works like this because of <strong>type erasure</strong> in <code>Java</code>. Please, read about it before you start reading next part of this answer:</p>
+     <ul>
+      <li><a href="https://docs.oracle.com/javase/tutorial/java/generics/erasure.html" rel="noreferrer">Type Erasure</a></li>
+      <li><a href="https://www.baeldung.com/java-type-erasure" rel="noreferrer">Type Erasure in Java Explained</a></li>
+      <li><a href="https://stackoverflow.com/questions/339699/java-generics-type-erasure-when-and-what-happens">Java generics type erasure: when and what happens?</a></li>
+     </ul>
+     <p>As you probably know right now, after reading above articles, your method after compilation looks like this:</p>
+     <pre><code>static &lt;T&gt; TypeReference&lt;List&gt; listOf(Class&lt;T&gt; ignored) {
+    return new TypeReference&lt;List&gt;(){};
+}
+</code></pre>
+     <p><code>Jackson</code> will try to find out the most appropriate type for it which will be <code>java.util.LinkedHashMap</code> for a <code>JSON Object</code>. To create <em>irrefutable</em> <code>type</code> you need to use <code>com.fasterxml.jackson.databind.type.TypeFactory</code> class. See below example:</p>
+     <pre><code>import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
+
+import java.io.File;
+import java.util.List;
+
+public class JsonTypeApp {
+
+    public static void main(String[] args) throws Exception {
+        File jsonFile = new File("./resource/test.json").getAbsoluteFile();
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        System.out.println("Try with 'TypeFactory'");
+        List&lt;Id&gt; ids = mapper.readValue(jsonFile, CollectionsTypeFactory.listOf(Id.class));
+        System.out.println(ids);
+        Id id1 = ids.get(0);
+        System.out.println(id1);
+
+        System.out.println("Try with 'TypeReference&lt;List&lt;T&gt;&gt;'");
+        List&lt;Id&gt; maps = mapper.readValue(jsonFile, CollectionsTypeFactory.erasedListOf(Id.class));
+        System.out.println(maps);
+        Id maps1 = maps.get(0);
+        System.out.println(maps1);
+    }
+}
+
+class CollectionsTypeFactory {
+    static JavaType listOf(Class clazz) {
+        return TypeFactory.defaultInstance().constructCollectionType(List.class, clazz);
+    }
+
+    static &lt;T&gt; TypeReference&lt;List&gt; erasedListOf(Class&lt;T&gt; ignored) {
+        return new TypeReference&lt;List&gt;(){};
+    }
+}
+
+class Id {
+    private int id;
+
+    // getters, setters, toString
+}
+</code></pre>
+     <p>Above example, for below <code>JSON</code> payload:</p>
+     <pre><code>[
+  {
+    "id": 1
+  },
+  {
+    "id": 22
+  },
+  {
+    "id": 333
+  }
+]
+</code></pre>
+     <p>prints:</p>
+     <pre><code>Try with 'TypeFactory'
+[{1}, {22}, {333}]
+{1}
+Try with 'TypeReference&lt;List&lt;T&gt;&gt;'
+[{id=1}, {id=22}, {id=333}]
+Exception in thread "main" java.lang.ClassCastException: java.util.LinkedHashMap cannot be cast to com.example.Id
+    at com.example.JsonTypeApp.main(JsonTypeApp.java:27)
+</code></pre>
+     <p>See also:</p>
+     <ul>
+      <li><a href="https://stackoverflow.com/questions/34578452/how-to-use-jacksons-typereference-with-generics">How to use Jackson's TypeReference with generics?</a></li>
+      <li><a href="https://stackoverflow.com/questions/60850439/jackson-create-javatype-from-class">Jackson create JavaType from Class</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span></span> <span> - </span> <span class="display-name">Marco Sulla</span> <span> </span> <span class="date">19 Jan 2023 at 13:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span></span> <span> - </span> <span class="display-name">Michał Ziober</span> <span> </span> <span class="date">19 Jan 2023 at 15:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

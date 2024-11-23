@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>timeit and its default_timer completely disagree</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>timeit and its default_timer completely disagree</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>52</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>superb rain</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>5 Sep 2020 at 19:25</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63757763/timeit-and-its-default-timer-completely-disagree">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I benchmarked these two functions (they unzip pairs back into source lists, came from <a href="https://stackoverflow.com/a/63753217/13008439">here</a>):</p>
+    <pre><code>n = 10**7
+a = list(range(n))
+b = list(range(n))
+pairs = list(zip(a, b))
+
+def f1(a, b, pairs):
+    a[:], b[:] = zip(*pairs)
+
+def f2(a, b, pairs):
+    for i, (a[i], b[i]) in enumerate(pairs):
+        pass
+</code></pre>
+    <p>Results with <code>timeit.timeit</code> (five rounds, numbers are seconds):</p>
+    <pre><code>f1 1.06   f2 1.57   
+f1 0.96   f2 1.69   
+f1 1.00   f2 1.85   
+f1 1.11   f2 1.64   
+f1 0.95   f2 1.63   
+</code></pre>
+    <p>So clearly <code>f1</code> is a lot faster than <code>f2</code>, right?</p>
+    <p>But then I also measured with <code>timeit.default_timer</code> and got a completely different picture:</p>
+    <pre><code>f1 7.28   f2 1.92   
+f1 5.34   f2 1.66   
+f1 6.46   f2 1.70   
+f1 6.82   f2 1.59   
+f1 5.88   f2 1.63   
+</code></pre>
+    <p>So clearly <code>f2</code> is a lot faster, right?</p>
+    <p>Sigh. Why do the timings totally differ like that, and which timing method should I believe?</p>
+    <p>Full benchmark code:</p>
+    <pre><code>from timeit import timeit, default_timer
+
+n = 10**7
+a = list(range(n))
+b = list(range(n))
+pairs = list(zip(a, b))
+
+def f1(a, b, pairs):
+    a[:], b[:] = zip(*pairs)
+
+def f2(a, b, pairs):
+    for i, (a[i], b[i]) in enumerate(pairs):
+        pass
+
+print('timeit')
+for _ in range(5):
+    for f in f1, f2:
+        t = timeit(lambda: f(a, b, pairs), number=1)
+        print(f.__name__, '%.2f' % t, end='   ')
+    print()
+
+print('default_timer')
+for _ in range(5):
+    for f in f1, f2:
+        t0 = default_timer()
+        f(a, b, pairs)
+        t = default_timer() - t0
+        print(f.__name__, '%.2f' % t, end='   ')
+    print()
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">python</span><span class="tag">performance</span><span class="tag">garbage-collection</span><span class="tag">timeit</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>58</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>superb rain</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Sep 2020 at 18:13</span>
+     </div>
+    </div>
+    <div>
+     <p>As Martijn commented, the difference is Python's garbage collection, which <code>timeit.timeit</code> disables during its run. And <code>zip</code> <a href="https://github.com/python/cpython/blob/1baf030a902392fe92d934ed0fb6a385cf7d8869/Python/bltinmodule.c#L2554-L2566" rel="noreferrer">creates 10 million iterator objects</a>, one for each of the 10 million iterables it's given.</p>
+     <p>So, garbage-collecting 10 million objects simply takes a lot of time, right? Mystery solved!</p>
+     <p>Well... no. That's not really what happens, and it's way more interesting than that. And there's a lesson to be learned to make such code faster in real life.</p>
+     <p>Python's main way to discard objects no longer needed is reference counting. The garbage collector, which is being disabled here, is for reference <em>cycles</em>, which the reference counting won't catch. And there aren't any cycles here, so it's all discarded by reference counting and the garbage collector doesn't actually collect any garbage.</p>
+     <p>Let's look at a few things. First, let's reproduce the much faster time by disabling the garbage collector ourselves.</p>
+     <p>Common setup code (all further blocks of code should be run directly after this in a fresh run, don't combine them):</p>
+     <pre><code>import gc
+from timeit import default_timer as timer
+
+n = 10**7
+a = list(range(n))
+b = list(range(n))
+pairs = list(zip(a, b))
+</code></pre>
+     <p>Timing with garbage collection <em>enabled</em> (the default):</p>
+     <pre><code>t0 = timer()
+a[:], b[:] = zip(*pairs)
+t1 = timer()
+print(t1 - t0)
+</code></pre>
+     <p>I ran it three times, took 7.09, 7.03 and 7.09 seconds.</p>
+     <p>Timing with garbage collection <em>disabled</em>:</p>
+     <pre><code>t0 = timer()
+gc.disable()
+a[:], b[:] = zip(*pairs)
+gc.enable()
+t1 = timer()
+print(t1 - t0)
+</code></pre>
+     <p>Took 0.96, 1.02 and 0.99 seconds.</p>
+     <p>So now we know it's indeed the garbage collection that somehow takes <strong>most of the time</strong>, even though it's not collecting anything.</p>
+     <p>Here's something interesting: Already just <em>the creation of the <code>zip</code> iterator</em> is responsible for most of the time:</p>
+     <pre><code>t0 = timer()
+z = zip(*pairs)
+t1 = timer()
+print(t1 - t0)
+</code></pre>
+     <p>That took 6.52, 6.51 and 6.50 seconds.</p>
+     <p>Note that I kept the <code>zip</code> iterator in a variable, so there isn't even anything to discard yet, neither by reference counting nor by garbage collecting!</p>
+     <p>What?! Where does the time go, then?</p>
+     <p>Well... as I said, there are no reference cycles, so the garbage collector won't actually collect any garbage. But the garbage collector doesn't know that! In order to figure that out, it needs to check!</p>
+     <p>Since the iterators <em>could</em> become part of a reference cycle, they're registered for garbage collection tracking. Let's see how many more objects get tracked due to the <code>zip</code> creation (doing this just after the common setup code):</p>
+     <pre><code>gc.collect()
+tracked_before = len(gc.get_objects())
+z = zip(*pairs)
+print(len(gc.get_objects()) - tracked_before)
+</code></pre>
+     <p>The output: <code>10000003</code> new objects tracked. I believe that's the <code>zip</code> object itself, its internal tuple to hold the iterators, its internal <a href="https://github.com/python/cpython/blob/1baf030a902392fe92d934ed0fb6a385cf7d8869/Python/bltinmodule.c#L2568-L2577" rel="noreferrer">result holder</a> tuple, and the 10 million iterators.</p>
+     <p>Ok, so the garbage collector tracks all these objects. But what does that mean? Well, every now and then, after a certain number of new object creations, the collector goes through the tracked objects to see whether some are garbage and can be discarded. The collector keeps three "generations" of tracked objects. New objects go into generation 0. If they survive a collection run there, they're moved into generation 1. If they survive a collection there, they're moved into generation 2. If they survive further collection runs there, they remain in generation 2. Let's check the generations before and after:</p>
+     <pre><code>gc.collect()
+print('collections:', [stats['collections'] for stats in gc.get_stats()])
+print('objects:', [len(gc.get_objects(i)) for i in range(3)])
+z = zip(*pairs)
+print('collections:', [stats['collections'] for stats in gc.get_stats()])
+print('objects:', [len(gc.get_objects(i)) for i in range(3)])
+</code></pre>
+     <p>Output (each line shows values for the three generations):</p>
+     <pre><code>collections: [13111, 1191, 2]
+objects: [17, 0, 13540]
+collections: [26171, 2378, 20]
+objects: [317, 2103, 10011140]
+</code></pre>
+     <p>The 10011140 shows that most of the 10 million iterators were not just registered for tracking, but are already in generation 2. So they were part of at least two garbage collection runs. And the number of generation 2 collections went up from 2 to 20, so our millions of iterators were part of up to 20 garbage collection runs (two to get into generation 2, and up to 18 more while already in generation 2). We can also register a callback to count more precisely:</p>
+     <pre><code>checks = 0
+def count(phase, info):
+    if phase == 'start':
+        global checks
+        checks += len(gc.get_objects(info['generation']))
+
+gc.callbacks.append(count)
+z = zip(*pairs)
+gc.callbacks.remove(count)
+print(checks)
+</code></pre>
+     <p>That told me 63,891,314 checks total (i.e., on average, each iterator was part of over 6 garbage collection runs). That's a lot of work. And all this just to create the <code>zip</code> iterator, before even using it.</p>
+     <p>Meanwhile, the loop</p>
+     <pre><code>for i, (a[i], b[i]) in enumerate(pairs):
+    pass
+</code></pre>
+     <p>creates almost no new objects at all. Let's check how much tracking <code>enumerate</code> causes:</p>
+     <pre><code>gc.collect()
+tracked_before = len(gc.get_objects())
+e = enumerate(pairs)
+print(len(gc.get_objects()) - tracked_before)
+</code></pre>
+     <p>Output: <code>3</code> new objects tracked (the <code>enumerate</code> iterator object itself, the single iterator it creates for iterating over <code>pairs</code>, and the result tuple it'll use (code <a href="https://github.com/python/cpython/blob/7c4185d62d4aec486d82c3ad02acd878db2d3537/Objects/enumobject.c#L40" rel="noreferrer">here</a>)).</p>
+     <p>I'd say that answers the question <em>"Why do the timings totally differ like that?"</em>. The <code>zip</code> solution creates millions of objects that go through multiple garbage collection runs, while the loop solution doesn't. So disabling the garbage collector helps the <code>zip</code> solution tremendously, while the loop solution doesn't care.</p>
+     <p>Now about the second question: "<em>Which timing method should I believe?</em>". Here's what <a href="https://docs.python.org/3/library/timeit.html#timeit.Timer.timeit" rel="noreferrer">the documentation</a> has to say about it (emphasis mine):</p>
+     <blockquote>
+      <p>By default, <code>timeit()</code> temporarily turns off garbage collection during the timing. The advantage of this approach is that it makes independent timings more comparable. The disadvantage is that <strong>GC may be an important component of the performance of the function being measured</strong>. If so, GC can be re-enabled as the first statement in the setup string. For example:</p>
+      <pre><code>timeit.Timer('for i in range(10): oct(i)', 'gc.enable()').timeit()
+</code></pre>
+     </blockquote>
+     <p>In our case here, the cost of garbage collection doesn't stem from some other unrelated code. It's directly caused by the <code>zip</code> call. And you do pay this price in reality, when you run that. So in this case, I do consider it an <em>"important component of the performance of the function being measured"</em>. To directly answer the question as asked: Here I'd believe the <code>default_timer</code> method, not the <code>timeit</code> method. Or put differently: Here the <code>timeit</code> method should be used with enabling garbage collection as suggested in the documentatiion.</p>
+     <p>Or... alternatively, we could actually disable garbage collection <strong>as part of the solution</strong> (not just for benchmarking):</p>
+     <pre><code>def f1(a, b, pairs):
+    gc.disable()
+    a[:], b[:] = zip(*pairs)
+    gc.enable()
+</code></pre>
+     <p>But is that a good idea? Here's what <a href="https://docs.python.org/3/library/gc.html" rel="noreferrer">the <code>gc</code> documentation</a> says:</p>
+     <blockquote>
+      <p>Since the collector supplements the reference counting already used in Python, you can disable the collector if you are sure your program does not create reference cycles.</p>
+     </blockquote>
+     <p>Sounds like it's an ok thing to do. But I'm not sure I don't create reference cycles elsewhere in my program, so I finish with <code>gc.enable()</code> to turn garbage collection back on after I'm done. At that point, all those temporary objects have already been discarded thanks to reference counting. So all I'm doing is avoiding lots of pointless garbage collection checks. I find this a valuable lesson and I might actually do that in the future, if I know I only temporarily create a lot of objects.</p>
+     <p>Finally, I highly recommend reading the <a href="https://docs.python.org/3/library/gc.html" rel="noreferrer"><code>gc</code> module documentation</a> and the <a href="https://devguide.python.org/garbage_collector/" rel="noreferrer">Design of CPython’s Garbage Collector</a> in Python's developer guide. Most of it is easy to understand, and I found it quite interesting and enlightening.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>wow why dont they teach that in python school?!</span> <span> - </span> <span class="display-name">o17t H1H' S'k</span> <span> </span> <span class="date">6 Oct 2021 at 19:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

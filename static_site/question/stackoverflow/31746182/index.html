@@ -1,0 +1,1290 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Docker Compose wait for container X before starting Y</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Docker Compose wait for container X before starting Y</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>592</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>svenhornberg</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>31 Jul 2015 at 12:25</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/31746182/docker-compose-wait-for-container-x-before-starting-y">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using rabbitmq and a simple python sample from <a href="https://www.rabbitmq.com/tutorials/tutorial-one-python.html" rel="noreferrer">here</a> together with docker-compose. My problem is that I need to wait for rabbitmq to be fully started. From what I searched so far, I don't know how to wait with container x (in my case worker) until y (rabbitmq) is started.</p>
+    <p>I found this <a href="http://blog.chmouel.com/2014/11/04/avoiding-race-conditions-between-containers-with-docker-and-fig/" rel="noreferrer">blog post</a> where he checks if the other host is online. I also found this <a href="https://docs.docker.com/reference/commandline/wait/" rel="noreferrer">docker command</a>:</p>
+    <blockquote>
+     <p><strong>wait</strong></p>
+     <p>Usage: docker wait CONTAINER [CONTAINER...]</p>
+     <p>Block until a container stops, then print its exit code.</p>
+    </blockquote>
+    <p>Waiting for a container to stop is maybe not what I am looking for but if it is, is it possible to use that command inside the docker-compose.yml? My solution so far is to wait some seconds and check the port, but is this the way to achieve this? If I don't wait, I get an error.</p>
+    <p><strong>docker-compose.yml</strong></p>
+    <pre class="lang-yaml prettyprint-override"><code>worker:
+    build: myapp/.
+    volumes:
+    - myapp/.:/usr/src/app:ro
+
+    links:
+    - rabbitmq
+rabbitmq:
+    image: rabbitmq:3-management
+</code></pre>
+    <p><strong>python hello sample (rabbit.py):</strong></p>
+    <pre class="lang-py prettyprint-override"><code>import pika
+import time
+
+import socket
+
+pingcounter = 0
+isreachable = False
+while isreachable is False and pingcounter &lt; 5:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.connect(('rabbitmq', 5672))
+        isreachable = True
+    except socket.error as e:
+        time.sleep(2)
+        pingcounter += 1
+    s.close()
+
+if isreachable:
+    connection = pika.BlockingConnection(pika.ConnectionParameters(
+            host="rabbitmq"))
+    channel = connection.channel()
+
+    channel.queue_declare(queue='hello')
+
+    channel.basic_publish(exchange='',
+                          routing_key='hello',
+                          body='Hello World!')
+    print (" [x] Sent 'Hello World!'")
+    connection.close()
+</code></pre>
+    <p><strong>Dockerfile for worker:</strong></p>
+    <pre><code>FROM python:2-onbuild
+RUN ["pip", "install", "pika"]
+
+CMD ["python","rabbit.py"]
+</code></pre>
+    <p><strong>Update Nov 2015</strong>:</p>
+    <p>A shell script or waiting inside your program is maybe a possible solution. But after seeing this <a href="https://github.com/docker/compose/issues/374" rel="noreferrer">Issue</a> I am looking for a command or feature of docker/docker-compose itself.</p>
+    <p>They mention a solution for implementing a health check, which may be the best option. A open tcp connection does not mean your service is ready or may remain ready. In addition to that I need to change my entrypoint in my dockerfile.</p>
+    <p>So I am hoping for an answer with docker-compose on board commands, which will hopefully the case if they finish this issue.</p>
+    <p><strong>Update March 2016</strong></p>
+    <p>There is a <a href="https://github.com/docker/docker/issues/21142" rel="noreferrer">proposal</a> for providing a built-in way to determine if a container is "alive". So docker-compose can maybe make use of it in near future.</p>
+    <p><strong>Update June 2016</strong></p>
+    <p>It seems that the healthcheck will be <a href="https://github.com/docker/docker/pull/23218" rel="noreferrer">integrated</a> into docker in Version 1.12.0</p>
+    <p><strong>Update January 2017</strong></p>
+    <p>I found a docker-compose solution see: <a href="https://stackoverflow.com/questions/31746182/docker-compose-wait-for-container-x-before-starting-y/41854997#41854997">Docker Compose wait for container X before starting Y</a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">docker</span><span class="tag">docker-compose</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>3</td>
+       <td><span>Using healthchecks in has been deprecated in docker-compose 2.3 to encourage making distributed systems fault tolerant. See: <a href="https://docs.docker.com/compose/startup-order/" rel="nofollow noreferrer">docs.docker.com/compose/startup-order</a></span> <span> - </span> <span class="display-name">Kmaid</span> <span> </span> <span class="date">11 Jul 2017 at 15:29</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I've run across this problem several times. You can overcome it, but docker-compose is going to fight you every step of the way. If you want setup-test-teardown container control, you're better of with something like conducto.</span> <span> - </span> <span class="display-name">MatrixManAtYrService</span> <span> </span> <span class="date">18 Dec 2020 at 02:21</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Kmaid <b>Update:</b> Support for <code>healthchecks</code> and <code>depends_on.condition</code> has actually made a comeback in v3. So you CAN actually use it — see <a href="https://docs.docker.com/compose/release-notes/#1270" rel="nofollow noreferrer">release notes</a> (the important bit is where it says v2 and v3 specs have been merged) + here are the <a href="https://github.com/compose-spec/compose-spec/blob/master/spec.md#long-syntax-1" rel="nofollow noreferrer">latest specs</a>.</span> <span> - </span> <span class="display-name">Arad Alvand</span> <span> </span> <span class="date">20 Dec 2022 at 20:06</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>549</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>svenhornberg</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jan 2017 at 15:10</span>
+     </div>
+    </div>
+    <div>
+     <p>Finally found a solution with a docker-compose method. Since docker-compose file format 2.1 you can define <a href="https://docs.docker.com/compose/compose-file/#healthcheck" rel="noreferrer">healthchecks</a>.</p>
+     <p>I did it in a <a href="https://github.com/svenhornberg/healthcheckcompose" rel="noreferrer">example project</a> you need to install at least docker 1.12.0+. I also needed to <a href="https://raw.githubusercontent.com/svenhornberg/healthcheckcompose/master/rabbitmq/Dockerfile" rel="noreferrer">extend the rabbitmq-management Dockerfile</a>, because curl isn't installed on the official image.</p>
+     <p>Now I test if the management page of the rabbitmq-container is available. If curl finishes with exitcode 0 the container app (python pika) will be started and publish a message to hello queue. Its now working (output).</p>
+     <p><strong>docker-compose (version 2.1):</strong></p>
+     <pre class="lang-yaml prettyprint-override"><code>version: '2.1'
+
+services:
+  app:
+    build: app/.
+    depends_on:
+      rabbit:
+        condition: service_healthy
+    links: 
+        - rabbit
+
+  rabbit:
+    build: rabbitmq/.
+    ports: 
+        - "15672:15672"
+        - "5672:5672"
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:15672"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+</code></pre>
+     <p><strong>output:</strong></p>
+     <pre><code>rabbit_1  | =INFO REPORT==== 25-Jan-2017::14:44:21 ===
+rabbit_1  | closing AMQP connection &lt;0.718.0&gt; (172.18.0.3:36590 -&gt; 172.18.0.2:5672)
+app_1     |  [x] Sent 'Hello World!'
+healthcheckcompose_app_1 exited with code 0
+</code></pre>
+     <p><em><strong>Dockerfile (rabbitmq + curl):</strong></em></p>
+     <pre><code>FROM rabbitmq:3-management
+RUN apt-get update
+RUN apt-get install -y curl 
+EXPOSE 4369 5671 5672 25672 15671 15672
+</code></pre>
+     <p><strong>Version 3 no longer supports the condition form of <a href="https://docs.docker.com/compose/compose-file/#depends_on" rel="noreferrer">depends_on</a>.</strong> So i moved from depends_on to restart on-failure. Now my app container will restart 2-3 times until it is working, but it is still a docker-compose feature without overwriting the entrypoint.</p>
+     <p><strong>docker-compose (version 3):</strong></p>
+     <pre class="lang-yaml prettyprint-override"><code>version: "3"
+
+services:
+
+  rabbitmq: # login guest:guest
+    image: rabbitmq:management
+    ports:
+    - "4369:4369"
+    - "5671:5671"
+    - "5672:5672"
+    - "25672:25672"
+    - "15671:15671"
+    - "15672:15672"
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:15672"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+
+  app:
+    build: ./app/
+    environment:
+      - HOSTNAMERABBIT=rabbitmq
+    restart: on-failure
+    depends_on:
+      - rabbitmq
+    links: 
+        - rabbitmq
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Hi, can this be done for postgres as well? I cannot make it work I'm doing the test like this: <code>test: ["CMD", "curl", "-f", "http://localhost:5432"]</code></span> <span> - </span> <span class="display-name">Willemoes</span> <span> </span> <span class="date">29 Jan 2017 at 22:09</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>hi, curl is not the right tool, you need to ping that port like <code>test: ["CMD", "ping", "-c","1", "localhost:5432"]</code> or call against a http endpoint with curl.</span> <span> - </span> <span class="display-name">svenhornberg</span> <span> </span> <span class="date">30 Jan 2017 at 08:33</span></td>
+       </tr>
+       <tr>
+        <td>8</td>
+        <td><span>@svenhornberg <code>ping</code> uses ICMP so doesn't support TCP ports. Maybe <code>nc</code> to test a TCP port. Probably better to use <code>psql -h localhost -p 5432</code> and query something.</span> <span> - </span> <span class="display-name">Matt</span> <span> </span> <span class="date">13 Feb 2017 at 05:14</span></td>
+       </tr>
+       <tr>
+        <td>46</td>
+        <td><span>"depends on" has been removed in version 3 <a href="https://docs.docker.com/compose/compose-file/#dependson" rel="nofollow noreferrer">docs.docker.com/compose/compose-file/#dependson</a></span> <span> - </span> <span class="display-name">nha</span> <span> </span> <span class="date">3 Apr 2017 at 11:08</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>"Version 3 no longer supports the condition form of depends_on." the official docs say. Does anyone know the reasoning behind it?</span> <span> - </span> <span class="display-name">Naymesh Mistry</span> <span> </span> <span class="date">20 Apr 2017 at 04:46</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>I think the main reason is, that an application itself should always be able to wait or recovery if others services are not available (look for resilience in micro service context)</span> <span> - </span> <span class="display-name">svenhornberg</span> <span> </span> <span class="date">20 Apr 2017 at 08:33</span></td>
+       </tr>
+       <tr>
+        <td>72</td>
+        <td><span>@nha It looks like the <code>condition</code> form of <code>depends_on</code> is removed, but <code>depends_on</code> itself is still around in v3</span> <span> - </span> <span class="display-name">akivajgordon</span> <span> </span> <span class="date">26 Jul 2017 at 20:25</span></td>
+       </tr>
+       <tr>
+        <td>27</td>
+        <td><span>How can healthchecks still be used to control startup order if <code>depends_on</code> with <code>condition</code> has been removed?</span> <span> - </span> <span class="display-name">Franz</span> <span> </span> <span class="date">31 Aug 2017 at 15:49</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Franz had this problem using version 3+. Took me time to find this solution, that is why I post it here: <a href="https://docs.docker.com/compose/startup-order/" rel="nofollow noreferrer">docs.docker.com/compose/startup-order</a> In a nutshell it suggests using a script which checks when to run it.</span> <span> - </span> <span class="display-name">Low</span> <span> </span> <span class="date">12 Jun 2018 at 08:49</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I used the <code>rabbitmq:3-management-alpine</code> image which has wget available (the <code>rabbitmq:3-management</code> image may as well) and then did the health check like so: <code>["CMD", "wget", "-qO-", "http://localhost:15672"]</code></span> <span> - </span> <span class="display-name">unsunghero</span> <span> </span> <span class="date">10 Oct 2018 at 14:35</span></td>
+       </tr>
+       <tr>
+        <td>12</td>
+        <td><span>unfortunately, <code>restart: on-failure</code> is not an option in case of running tests :C</span> <span> - </span> <span class="display-name">TooroSan</span> <span> </span> <span class="date">11 Oct 2018 at 00:53</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>Keep using Compose v2, as Docker themselves promote Compose v3 as a <i>sidegrade</i> to v2. More in <a href="https://github.com/docker/compose/issues/4958#issuecomment-316227127" rel="nofollow noreferrer">this discussion</a></span> <span> - </span> <span class="display-name">Agustín</span> <span> </span> <span class="date">13 Nov 2018 at 14:00</span></td>
+       </tr>
+       <tr>
+        <td>173</td>
+        <td><span>Hard to believe this such a pain still</span> <span> - </span> <span class="display-name">npr</span> <span> </span> <span class="date">29 Mar 2019 at 05:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Agustín I've read that several times now but it still feels wrong to use v2 when v3 is available. It might be a viable option "for now", but who knows when they deprecate v2? What if noone tells me and all of a sudden all our images stop working? No thanks.</span> <span> - </span> <span class="display-name">Moritz Friedrich</span> <span> </span> <span class="date">25 Mar 2020 at 11:08</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>You can exploit the bash <code>/dev/tcp</code> built-int feature: <code>["CMD", "bash", "-c", "echo hi &gt; /dev/tcp/localhost/5672"]</code></span> <span> - </span> <span class="display-name">tux_mind</span> <span> </span> <span class="date">12 Aug 2020 at 21:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>this is the ugliest solution but still, I didn't find an alternative. Thank you</span> <span> - </span> <span class="display-name">Charbel.AY</span> <span> </span> <span class="date">2 Apr 2021 at 19:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>["CMD-SHELL", "if rabbitmqctl status; then \nexit 0 \nfi \nexit 1"]</code> worked without having to change the official image</span> <span> - </span> <span class="display-name">badchoosed</span> <span> </span> <span class="date">4 May 2021 at 16:48</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>v3 <i>does</i> support <code>depends_on</code>, even the <code>condition</code> form. However see <a href="https://github.com/docker/docker.github.io/blob/master/compose/compose-file/compose-file-v3.md#depends_on" rel="nofollow noreferrer">github.com/docker/docker.github.io/blob/master/compose/…</a> "The depends_on option is ignored when deploying a stack in swarm mode with a version 3 Compose file."</span> <span> - </span> <span class="display-name">Benissimo</span> <span> </span> <span class="date">17 Aug 2021 at 18:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>[ "CMD", "nc", "-z", "localhost", "5672" ] is also possible</span> <span> - </span> <span class="display-name">CountZero</span> <span> </span> <span class="date">24 Sep 2021 at 21:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Just to test it out I gave <code>["CMD", "sleep", "20"]</code> as the test command and 5s as interval for 3 retries. But my second container always just immediately starts after the first. No sleep at all. Does this not work with 3.8 or am I missing something ?</span> <span> - </span> <span class="display-name">Devansh Sharma</span> <span> </span> <span class="date">27 Feb 2022 at 17:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>For RabbitMQ, <a href="https://devops.stackexchange.com/a/12200/19069">this answer</a> suggests using <code>rabbitmq-diagnostics -q ping</code> so that you don't need an extra installation.</span> <span> - </span> <span class="display-name">Emre</span> <span> </span> <span class="date">4 Mar 2022 at 14:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Looks like we have another tool, I haven't tested it but looks a lot better than whatever have been used before, please check this link - <a href="https://www.datanovia.com/en/lessons/docker-compose-wait-for-container-using-wait-tool/" rel="nofollow noreferrer">datanovia.com/en/lessons/…</a></span> <span> - </span> <span class="display-name">Lema</span> <span> </span> <span class="date">9 Oct 2022 at 10:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It does't work. It is not waiting</span> <span> - </span> <span class="display-name">Matteo</span> <span> </span> <span class="date">25 Nov 2022 at 12:47</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>Note that the support for <code>depends_on.&lt;service&gt;.condition</code> has actually made a comeback in v3 (and v2, of course), so you can use it — see <a href="https://docs.docker.com/compose/release-notes/#1270" rel="nofollow noreferrer">release notes</a> and here are the <a href="https://github.com/compose-spec/compose-spec/blob/master/spec.md#long-syntax-1" rel="nofollow noreferrer">latest specs</a>.</span> <span> - </span> <span class="display-name">Arad Alvand</span> <span> </span> <span class="date">20 Dec 2022 at 20:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>106</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>toast38coza</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Feb 2016 at 08:58</span>
+     </div>
+    </div>
+    <div>
+     <p>Quite recently they've added the <a href="https://docs.docker.com/compose/compose-file/#depends-on" rel="noreferrer"><code>depends_on</code> feature</a>.</p>
+     <p><strong>Edit:</strong></p>
+     <p>As of compose version 2.1+ till version 3 you can use <code>depends_on</code> in conjunction with <code>healthcheck</code> to achieve this:</p>
+     <p><a href="https://docs.docker.com/compose/compose-file/#dependson" rel="noreferrer">From the docs</a>:</p>
+     <pre><code>version: '2.1'
+services:
+  web:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+  redis:
+    image: redis
+  db:
+    image: redis
+    healthcheck:
+      test: "exit 0"
+</code></pre>
+     <p><strong>Before version 2.1</strong></p>
+     <p>You can still use <code>depends_on</code>, but it only effects the <em>order</em> in which services are started - not if they are ready before the dependant service is started.</p>
+     <p>It seems to require at least version 1.6.0.</p>
+     <p>Usage would look something like this:</p>
+     <pre><code>version: '2'
+services:
+  web:
+    build: .
+    depends_on:
+      - db
+      - redis
+  redis:
+    image: redis
+  db:
+    image: postgres 
+</code></pre>
+     <p>From the docs:</p>
+     <blockquote>
+      <p>Express dependency between services, which has two effects:</p>
+      <ul>
+       <li>docker-compose up will start services in dependency order. In the following example, db and redis will be started before web.</li>
+       <li>docker-compose up SERVICE will automatically include SERVICE’s dependencies. In the following example, docker-compose up web will also create and start db and redis.</li>
+      </ul>
+     </blockquote>
+     <p><strong>Note:</strong> As I understand it, although this does set the order in which containers are loaded. It does not guarantee that the service inside the container has actually loaded.</p>
+     <p>For example, you postgres <em>container</em> might be up. But the postgres service itself might still be initializing within the container.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>13</td>
+        <td><span><a href="https://github.com/dnephin" rel="nofollow noreferrer">dnephin</a> wrote: depends_on is only ordering. To actually delay the starting of another container there would need to be some way to detect when a process has finished initializing itself.</span> <span> - </span> <span class="display-name">svenhornberg</span> <span> </span> <span class="date">1 Mar 2016 at 07:15</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span><code>depends_on</code> doesn't wait until the container is in <code>ready</code> state(whatever that can mean in your case). It only waits until the container is in 'running' state.</span> <span> - </span> <span class="display-name">tortuga</span> <span> </span> <span class="date">31 Aug 2017 at 13:20</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@akauppi I don't find any such quote. Instead I see that version 3 <i>does</i> support <code>depends_on</code> (with a note about how it's not supported if you deploy in swarm mode) See <a href="https://docs.docker.com/compose/compose-file/compose-file-v3/#depends_on" rel="nofollow noreferrer">docs.docker.com/compose/compose-file/compose-file-v3/…</a> And I've tested locally with docker-compose version 3.7 and it <i>does</i> support <code>depends_on</code> with the condition form.</span> <span> - </span> <span class="display-name">Benissimo</span> <span> </span> <span class="date">17 Aug 2021 at 18:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Benissimo You do realise my comment is from 2017? Decades in Docker time.</span> <span> - </span> <span class="display-name">akauppi</span> <span> </span> <span class="date">18 Aug 2021 at 15:00</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@akauppi Sure, I recognize a lot has likely changed since then. Even though this question/answer is old it still appears high in search results for how to manage startup order in Docker. Other devs may stumble across these comments as I did and may find updates useful. I suppose the condition form of <code>depends_on</code> was removed at some point and later restored.</span> <span> - </span> <span class="display-name">Benissimo</span> <span> </span> <span class="date">23 Aug 2021 at 11:11</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Thank you so much, especially for explanation and reference to docs. I solved my problem with your help.</span> <span> - </span> <span class="display-name">kokserek</span> <span> </span> <span class="date">25 Nov 2021 at 02:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>87</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Henrik Sachse</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Jul 2015 at 19:25</span>
+     </div>
+    </div>
+    <div>
+     <p>Natively that is not possible, yet. See also this <a href="https://github.com/docker/compose/issues/374">feature request</a>.</p>
+     <p>So far you need to do that in your containers <code>CMD</code> to wait until all required services are there.</p>
+     <p>In the <code>Dockerfile</code>s <code>CMD</code> you could refer to your own start script that wraps starting up your container service. Before you start it, you wait for a depending one like:</p>
+     <p><strong>Dockerfile</strong></p>
+     <pre><code>FROM python:2-onbuild
+RUN ["pip", "install", "pika"]
+ADD start.sh /start.sh
+CMD ["/start.sh"]
+</code></pre>
+     <p><strong>start.sh</strong></p>
+     <pre><code>#!/bin/bash
+while ! nc -z rabbitmq 5672; do sleep 3; done
+python rabbit.py
+</code></pre>
+     <p>Probably you need to install netcat in your <code>Dockerfile</code> as well. I do not know what is pre-installed on the python image.</p>
+     <p>There are a few tools out there that provide easy to use waiting logic, for simple tcp port checks:</p>
+     <ul>
+      <li><a href="https://github.com/vishnubob/wait-for-it">wait-for-it</a></li>
+      <li><a href="https://github.com/jwilder/dockerize">dockerize</a></li>
+     </ul>
+     <p>For more complex waits:</p>
+     <ul>
+      <li><a href="https://github.com/aelsabbahy/goss">goss</a> - Explanation <a href="https://medium.com/@aelsabbahy/docker-1-12-kubernetes-simplified-health-checks-and-container-ordering-with-goss-fa8debbe676c">blog</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Could you explain what you mean by CMD ? Does this mean my programm has to do it, like i did it with a port check ? Or do you mean a specific CMD from e.g. linux for this ?</span> <span> - </span> <span class="display-name">svenhornberg</span> <span> </span> <span class="date">31 Jul 2015 at 22:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>thank you for explaining, I upvote your answer.But I think the upcoming feature request, would be the right answer to my question so I leave it unanswered so far.</span> <span> - </span> <span class="display-name">svenhornberg</span> <span> </span> <span class="date">1 Aug 2015 at 09:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>63</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Toilal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Feb 2016 at 07:21</span>
+     </div>
+    </div>
+    <div>
+     <p>Using <code>restart: unless-stopped</code> or <code>restart: always</code> may solve this problem.</p>
+     <p>If worker <code>container</code> stops when rabbitMQ is not ready, it will be restarted until it is.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>I like this solution for this case, but it doesn't work for containers that don't exit when one of the subprocesses that it runs fails. For example, a Tomcat container would continue to run even if a Java servlet that it ran were to fail to connect to a database server. Granted, Docker containers render servlet containers like Tomcat mostly unnecessary.</span> <span> - </span> <span class="display-name">Derek Mahar</span> <span> </span> <span class="date">6 May 2016 at 01:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DerekMahar, if you have a Java-based web application that only serves REST calls, what do you use instead of Jetty/Tomcat?</span> <span> - </span> <span class="display-name">JoeG</span> <span> </span> <span class="date">21 Dec 2016 at 19:31</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@JoeG, I meant Tomcat the servlet container that can host many applications, not embedded Tomcat. Docker renders the former mostly unnecessary, while making the latter more popular for microservices, for example.</span> <span> - </span> <span class="display-name">Derek Mahar</span> <span> </span> <span class="date">21 Dec 2016 at 20:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>AmanicA</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Feb 2016 at 13:54</span>
+     </div>
+    </div>
+    <div>
+     <p>you can also just add it to the command option eg.</p>
+     <pre><code>command: bash -c "sleep 5; start.sh"
+</code></pre>
+     <p><a href="https://github.com/docker/compose/issues/374#issuecomment-156546513">https://github.com/docker/compose/issues/374#issuecomment-156546513</a></p>
+     <p>to wait on a port you can also use something like this</p>
+     <pre><code>command: bash -c "while ! curl -s rabbitmq:5672 &gt; /dev/null; do echo waiting for xxx; sleep 3; done; start.sh"
+</code></pre>
+     <p>to increment the waiting time you can hack a bit more:</p>
+     <pre><code>command: bash -c "for i in {1..100} ; do if ! curl -s rabbitmq:5672 &gt; /dev/null ; then echo waiting on rabbitmq for $i seconds; sleep $i; fi; done; start.sh"
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Effective and easy to use: this is a good answer.</span> <span> - </span> <span class="display-name">Symon</span> <span> </span> <span class="date">31 Aug 2021 at 14:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>22</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>zooblin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Apr 2021 at 18:09</span>
+     </div>
+    </div>
+    <div>
+     <p>If you want to start service only then another service successfully completed (for example migration, data population, etc), <code>docker-compose</code> version 1.29, comes with <a href="https://github.com/docker/compose/issues/8154#issuecomment-817851623" rel="noreferrer">build in functionality for this</a> - <code>service_completed_successfully</code>.</p>
+     <pre><code>depends_on:
+  &lt;service-name&gt;:
+    condition: service_completed_successfully
+</code></pre>
+     <p>According to <a href="https://github.com/compose-spec/compose-spec/blob/master/spec.md#depends_on" rel="noreferrer">specification</a>:</p>
+     <blockquote>
+      <p><code>service_completed_successfully</code> - specifies that a dependency is expected to run to successful completion before starting a dependent service</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>This is really nice! Would you recommend using this over using <code>healthcheck</code>? What are the differences between the two?</span> <span> - </span> <span class="display-name">William Le</span> <span> </span> <span class="date">15 Sep 2022 at 17:20</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@SeanWilliam no, the purpose of the <code>healthcheck</code> is different, it should to determine whenever container is healthy. <code>depends_on</code> with <code>service_completed_successfully</code> condition can be used for setup, for example create service's database, populate db with data, run migrations, run dependency install, etc.. - instead of putting all setup inside single container, you can separate the whole setup to small dedicated containers, and than configure the actual service to be dependent on setup containers with <code>service_completed_successfully</code></span> <span> - </span> <span class="display-name">zooblin</span> <span> </span> <span class="date">16 Sep 2022 at 07:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@zooblin When I use it it just pauses for me after the depended on service completes, the depending service just doesn't happen, any help?</span> <span> - </span> <span class="display-name">Amon</span> <span> </span> <span class="date">21 Apr 2023 at 02:21</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>19</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Edwin O.</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Mar 2018 at 21:55</span>
+     </div>
+    </div>
+    <div>
+     <p><code>restart: on-failure</code> did the trick for me..see below</p>
+     <pre><code>---
+version: '2.1'
+services:
+  consumer:
+    image: golang:alpine
+    volumes:
+      - ./:/go/src/srv-consumer
+    working_dir: /go/src/srv-consumer
+    environment:
+      AMQP_DSN: "amqp://guest:guest@rabbitmq:5672"
+    command: go run cmd/main.go
+    links:
+          - rabbitmq
+    restart: on-failure
+
+  rabbitmq:
+    image: rabbitmq:3.7-management-alpine
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>quit</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Oct 2016 at 12:12</span>
+     </div>
+    </div>
+    <div>
+     <p>For container start ordering use</p>
+     <pre><code>depends_on:
+</code></pre>
+     <p>For waiting previous container start use script</p>
+     <pre><code>entrypoint: ./wait-for-it.sh db:5432
+</code></pre>
+     <p>This article will help you <a href="https://docs.docker.com/compose/startup-order/" rel="noreferrer">https://docs.docker.com/compose/startup-order/</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>7</td>
+        <td><span>@svenhornberg in the comment, you link, there is no explanation about wait-for-it.sh feature.</span> <span> - </span> <span class="display-name">quit</span> <span> </span> <span class="date">2 Dec 2016 at 19:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Evereq</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Apr 2019 at 16:59</span>
+     </div>
+    </div>
+    <div>
+     <p>Tried many different ways, but liked the simplicity of this: <a href="https://github.com/ufoscout/docker-compose-wait" rel="noreferrer">https://github.com/ufoscout/docker-compose-wait</a></p>
+     <p>The idea that you can use ENV vars in the docker compose file to submit a list of services hosts (with ports) which should be "awaited" like this: <code>WAIT_HOSTS: postgres:5432, mysql:3306, mongo:27017</code>.</p>
+     <p>So let's say you have the following docker-compose.yml file (copy/past from repo <a href="https://github.com/ufoscout/docker-compose-wait/blob/master/README.md" rel="noreferrer">README</a>):</p>
+     <pre><code>version: "3"
+
+services:
+
+  mongo:
+    image: mongo:3.4
+    hostname: mongo
+    ports:
+      - "27017:27017"
+
+  postgres:
+    image: "postgres:9.4"
+    hostname: postgres
+    ports:
+      - "5432:5432"
+
+  mysql:
+    image: "mysql:5.7"
+    hostname: mysql
+    ports:
+      - "3306:3306"
+
+  mySuperApp:
+    image: "mySuperApp:latest"
+    hostname: mySuperApp
+    environment:
+      WAIT_HOSTS: postgres:5432, mysql:3306, mongo:27017
+</code></pre>
+     <p>Next, in order for services to wait, you need to add the following two lines to your Dockerfiles (into Dockerfile of the services which should await other services to start):</p>
+     <pre><code>ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.0/wait /wait
+RUN chmod +x /wait
+</code></pre>
+     <p>The complete example of such sample Dockerfile (again from the project repo <a href="https://github.com/ufoscout/docker-compose-wait/blob/master/README.md" rel="noreferrer">README</a>):</p>
+     <pre><code>FROM alpine
+
+## Add your application to the docker image
+ADD MySuperApp.sh /MySuperApp.sh
+
+## Add the wait script to the image
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.0/wait /wait
+RUN chmod +x /wait
+
+## Launch the wait tool and then your application
+CMD /wait &amp;&amp; /MySuperApp.sh
+</code></pre>
+     <p>For other details about possible usage see <a href="https://github.com/ufoscout/docker-compose-wait/blob/master/README.md" rel="noreferrer">README</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I was looking for similiar answer. I've usually worked with <a href="https://hub.docker.com/r/dadarek/wait-for-dependencies" rel="nofollow noreferrer">hub.docker.com/r/dadarek/wait-for-dependencies</a> as it uses netcat underneath. The one you've provided is Rust-based. Can't comment on the quality of yours, but for me no additional layers is a definite pro.</span> <span> - </span> <span class="display-name">Filip Malczak</span> <span> </span> <span class="date">15 Jun 2019 at 11:00</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>I strongly recommend against this on grounds of security. You're running an arbitrary executable from a hyperlink. A better solution would be to do the same thing with a static script that's copied in to the image with COPY</span> <span> - </span> <span class="display-name">Paul K</span> <span> </span> <span class="date">6 Apr 2020 at 14:47</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@PaulK of course, it's understandable that running anything from hyperlink is not secure, but it's just a demo above how to make <code>https://github.com/ufoscout/docker-compose-wait</code> library working :) The way how you use that library does not change an answer that you can utilize some lib. Security is a complex topic and if we go far, we should check what that library is doing inside anyway, even if we COPY it :) So better to be more specific in your comment like: "I strongly recommend against the usage of that library from hyperlink". Hope you agree, thanks for a hint!</span> <span> - </span> <span class="display-name">Evereq</span> <span> </span> <span class="date">7 Apr 2020 at 15:23</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>maerteijn</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jul 2016 at 10:21</span>
+     </div>
+    </div>
+    <div>
+     <p>You can also solve this by setting an endpoint which waits for the service to be up by using netcat (using the <a href="https://github.com/aanand/docker-wait" rel="noreferrer">docker-wait</a> script). I like this approach as you still have a clean <code>command</code> section in your <code>docker-compose.yml</code> and you don't need to add docker specific code to your application:</p>
+     <pre><code>version: '2'
+services:
+  db:
+    image: postgres
+  django:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    entrypoint: ./docker-entrypoint.sh db 5432
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+</code></pre>
+     <p>Then your <code>docker-entrypoint.sh</code>:</p>
+     <pre><code>#!/bin/sh
+
+postgres_host=$1
+postgres_port=$2
+shift 2
+cmd="$@"
+
+# wait for the postgres docker to be running
+while ! nc $postgres_host $postgres_port; do
+  &gt;&amp;2 echo "Postgres is unavailable - sleeping"
+  sleep 1
+done
+
+&gt;&amp;2 echo "Postgres is up - executing command"
+
+# run the command
+exec $cmd
+</code></pre>
+     <p>This is nowadays documented in the official <a href="https://docs.docker.com/compose/startup-order/" rel="noreferrer">docker documentation</a>.</p>
+     <p>PS: You should install <code>netcat</code> in your docker instance if this is not available. To do so add this to your <code>Docker</code> file :</p>
+     <pre><code>RUN apt-get update &amp;&amp; apt-get install netcat-openbsd -y 
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Adrian Mitev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Nov 2015 at 14:41</span>
+     </div>
+    </div>
+    <div>
+     <p>There is a ready to use utility called "<a href="https://github.com/aanand/docker-wait" rel="noreferrer">docker-wait</a>" that can be used for waiting.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Thank you, but it is only a shell script so it is like h3nrik answer or waiting inside python. It is not a feature of docker-compose itself. May you have a look in <a href="https://github.com/docker/compose/issues/374" rel="nofollow noreferrer">github.com/docker/compose/issues/374</a> they plan to implement a healthcheck which would be the best way. A open tcp connection does not mean your service is ready or may remain ready. In addition to that I need to change my entrypoint in my dockerfile.</span> <span> - </span> <span class="display-name">svenhornberg</span> <span> </span> <span class="date">11 Nov 2015 at 14:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Igor Komar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Jan 2018 at 20:22</span>
+     </div>
+    </div>
+    <div>
+     <p>basing on this blog post <a href="https://8thlight.com/blog/dariusz-pasciak/2016/10/17/docker-compose-wait-for-dependencies.html" rel="noreferrer">https://8thlight.com/blog/dariusz-pasciak/2016/10/17/docker-compose-wait-for-dependencies.html</a></p>
+     <p>I configured my <code>docker-compose.yml</code> as shown below:</p>
+     <pre><code>version: "3.1"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.7.2-management-alpine
+    restart: always
+    environment:
+      RABBITMQ_HIPE_COMPILE: 1
+      RABBITMQ_MANAGEMENT: 1
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: 0.2
+      RABBITMQ_DEFAULT_USER: "rabbitmq"
+      RABBITMQ_DEFAULT_PASS: "rabbitmq"
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    volumes:
+      - data:/var/lib/rabbitmq:rw
+
+  start_dependencies:
+    image: alpine:latest
+    links:
+      - rabbitmq
+    command: &gt;
+      /bin/sh -c "
+        echo Waiting for rabbitmq service start...;
+        while ! nc -z rabbitmq 5672;
+        do
+          sleep 1;
+        done;
+        echo Connected!;
+      "
+
+volumes:
+  data: {}
+</code></pre>
+     <p>Then I do for run =&gt;:</p>
+     <p><code>docker-compose up start_dependencies</code></p>
+     <p><code>rabbitmq</code> service will start in daemon mode, <code>start_dependencies</code> will finish the work.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>lol, making query via <code>"curl", "-f", "http://localhost:15672"</code> for which u need to install <code>management</code> plugin and using healthcheck that already deprecated - its best answer. Simple working example with check via <code>nc</code> its - downvote. ha, ok...</span> <span> - </span> <span class="display-name">Igor Komar</span> <span> </span> <span class="date">12 Jan 2018 at 01:26</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>the answer does not use a native docker feature, its irrelevant if you use curl, nc or other tools. while! nc is the same as already posted in other answers.</span> <span> - </span> <span class="display-name">svenhornberg</span> <span> </span> <span class="date">12 Jan 2018 at 08:09</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>native docker features: 1. <a href="https://docs.docker.com/compose/startup-order/" rel="nofollow noreferrer">docs.docker.com/compose/startup-order</a> 2. <a href="https://github.com/docker/compose/issues/5007" rel="nofollow noreferrer">github.com/docker/compose/issues/5007</a> 3. <a href="https://github.com/docker/compose/issues/374" rel="nofollow noreferrer">github.com/docker/compose/issues/374</a></span> <span> - </span> <span class="display-name">Igor Komar</span> <span> </span> <span class="date">12 Jan 2018 at 09:00</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@IgorKomar, thanks man, you saved my day! :3 I used almost same mechanic to check mysql server is ready before actual application is started. ;) I am passing similar command to the <code>docker-compose run --name app-test --rm "app" bash -l -c 'echo Waiting for mysql service start... &amp;&amp; while ! nc -z db-server 3306; do sleep 1; done &amp;&amp; echo Connected! &amp;&amp; /bin/bash /script/ci_tests.sh'</code></span> <span> - </span> <span class="display-name">TooroSan</span> <span> </span> <span class="date">11 Oct 2018 at 00:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mathieu Gemard</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jul 2019 at 11:48</span>
+     </div>
+    </div>
+    <div>
+     <p>In version 3 of a Docker Compose file, you can use <a href="https://docs.docker.com/compose/compose-file/#restart" rel="nofollow noreferrer">RESTART</a>.</p>
+     <p>For example:</p>
+     <p><strong>docker-compose.yml</strong></p>
+     <pre><code>worker:
+    build: myapp/.
+    volumes:
+    - myapp/.:/usr/src/app:ro
+    restart: on-failure
+    depends_on:
+    - rabbitmq
+rabbitmq:
+    image: rabbitmq:3-management
+</code></pre>
+     <p>Note that I used <a href="https://docs.docker.com/compose/compose-file/#depends_on-1" rel="nofollow noreferrer">depends_on</a> instead of <a href="https://docs.docker.com/compose/compose-file/#links" rel="nofollow noreferrer">links</a> since the latter is deprecated in version 3.</p>
+     <p>Even though it works, it might not be the ideal solution since you restart the docker container at every failure.</p>
+     <p>Have a look to <a href="https://docs.docker.com/compose/compose-file/#restart_policy" rel="nofollow noreferrer">RESTART_POLICY</a> as well. it let you fine tune the restart policy.</p>
+     <p>When you <a href="https://docs.docker.com/compose/production/" rel="nofollow noreferrer">use Compose in production</a>, it is actually best practice to use the restart policy :</p>
+     <blockquote>
+      <p>Specifying a restart policy like restart: always to avoid downtime</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>NumesSanguis</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jun 2019 at 09:11</span>
+     </div>
+    </div>
+    <div>
+     <p>Not recommended for serious deployments, but here is essentially a "wait x seconds" command.</p>
+     <p>With <code>docker-compose</code> version <code>3.4</code> a <a href="https://docs.docker.com/compose/compose-file/#healthcheck" rel="nofollow noreferrer"><code>start_period</code> instruction has been added to <code>healthcheck</code></a>. This means we can do the following:</p>
+     <p><code>docker-compose.yml</code>:</p>
+     <pre><code>version: "3.4"
+services:
+  # your server docker container
+  zmq_server:
+    build:
+      context: ./server_router_router
+      dockerfile: Dockerfile
+
+  # container that has to wait
+  zmq_client:
+    build:
+      context: ./client_dealer/
+      dockerfile: Dockerfile
+    depends_on:
+      - zmq_server
+    healthcheck:
+      test: "sh status.sh"
+      start_period: 5s
+</code></pre>
+     <p><code>status.sh</code>:</p>
+     <pre><code>#!/bin/sh
+
+exit 0
+</code></pre>
+     <p>What happens here is that the <code>healthcheck</code> is invoked after 5 seconds. This calls the <code>status.sh</code> script, which always returns "No problem". We just made <code>zmq_client</code> container wait 5 seconds before starting!</p>
+     <p>Note: It's important that you have <code>version: "3.4"</code>. If the <code>.4</code> is not there, docker-compose complains.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>As a naive "wait 5s" solution, this one's quite ingenious. I would upvote, but I won't because this doesn't really work with prod-like setups and I'm afraid that someone would look at number of votes instead reading carefully. Still, I wanted to say "man, that's smart" ;)</span> <span> - </span> <span class="display-name">Filip Malczak</span> <span> </span> <span class="date">15 Jun 2019 at 10:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>PS. For more complicated solutions, see the Evereq's answer</span> <span> - </span> <span class="display-name">Filip Malczak</span> <span> </span> <span class="date">15 Jun 2019 at 11:06</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>That's <i>not</i> what <code>start_period</code> does. That configuration means there is a grace period where failed health checks don't count as retries. If it succeeds early, it's considered healthy. After the start period, a failure will count as a retry. See <a href="https://docs.docker.com/engine/reference/builder/#healthcheck" rel="nofollow noreferrer">docs.docker.com/engine/reference/builder/#healthcheck</a></span> <span> - </span> <span class="display-name">Capi Etheriel</span> <span> </span> <span class="date">28 Oct 2019 at 13:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ewaren</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Jun 2022 at 10:12</span>
+     </div>
+    </div>
+    <div>
+     <p>After trying several approaches, IMO the simplest and most elegant option is using the <code>jwilder/dockerize</code> utility image (mentioned by @Henrik Sachse but he did not show a concret example) with its <code>-wait</code> flag. Here is a simple example where I need a RabbitMQ to be ready before starting my app:</p>
+     <pre class="lang-yaml prettyprint-override"><code>version: "3.8"
+services:
+  # Start RabbitMQ.
+  rabbit:
+    image: rabbitmq
+
+  # Wait for RabbitMQ to be joinable.
+  check-rabbit-started: 
+    image: jwilder/dockerize:0.6.1
+    depends_on:
+      - rabbit
+    command: 'dockerize -wait=tcp://rabbit:5672'
+  
+  # Only start myapp once RabbitMQ is joinable.
+  myapp:
+    image: myapp:latest
+    depends_on:
+      - check-rabbit-started
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is a very nice solution! Worked great for me. Thank you!</span> <span> - </span> <span class="display-name">erwin</span> <span> </span> <span class="date">17 Apr 2023 at 02:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nilesh Gule</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Nov 2018 at 03:34</span>
+     </div>
+    </div>
+    <div>
+     <p>One of the alternative solution is to use a container orchestration solution like Kubernetes. Kubernetes has support for init containers which run to completion before other containers can start. You can find an example here with SQL Server 2017 Linux container where API container uses init container to initialise a database</p>
+     <p><a href="https://www.handsonarchitect.com/2018/08/understand-kubernetes-object-init.html" rel="nofollow noreferrer">https://www.handsonarchitect.com/2018/08/understand-kubernetes-object-init.html</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This would be my suggestion too. Sure the hacks work but a little bit of elbow grease gets you a TON more out of k8s.</span> <span> - </span> <span class="display-name">Jose Gleeson</span> <span> </span> <span class="date">11 Jan 2023 at 14:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>MichaPoe</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Aug 2020 at 16:34</span>
+     </div>
+    </div>
+    <div>
+     <p>I currently also have that requirement of waiting for some services to be up and running before others start. Also read the suggestions here and on some other places. But most of them require that the <code>docker-compose.yml</code> some how has to be changed a bit. So I started working on a solution which I consider to be an orchestration layer around docker-compose itself and I finally came up with a shell script which I called <code>docker-compose-profile</code>. It can wait for tcp connection to a certain container even if the service does not expose any port to the host directy. The trick I am using is to start another docker container inside the stack and from there I can (usually) connect to every service (as long no other network configuration is applied). There is also waiting method to watch out for a certain log message. Services can be grouped together to be started in a single step before another step will be triggered to start. You can also exclude some services without listing all other services to start (like a collection of available services minus some excluded services). This kind of configuration can be bundled to a profile. There is a yaml configuration file called <code>dcp.yml</code> which (for now) has to be placed aside your docker-compose.yml file.</p>
+     <p>For your question this would look like:</p>
+     <pre class="lang-yaml prettyprint-override"><code>command:
+  aliases:
+    upd:
+      command: "up -d"
+      description: |
+        Create and start container. Detach afterword.
+
+profiles:
+  default:
+    description: |
+      Wait for rabbitmq before starting worker.
+    command: upd
+    steps:
+      - label: only-rabbitmq
+        only: [ rabbitmq ]
+        wait:
+          - 5@tcp://rabbitmq:5432
+      - label: all-others
+</code></pre>
+     <p>You could now start your stack by invoking</p>
+     <pre class="lang-sh prettyprint-override"><code>dcp -p default upd
+</code></pre>
+     <p>or even simply by</p>
+     <pre class="lang-sh prettyprint-override"><code>dcp
+</code></pre>
+     <p>as there is only a default profile to run <code>up -d</code> on.</p>
+     <p>There is a <strong>tiny problem</strong>. My current version does not (yet) support special waiting condition like the ony You actually need. So there is no test to send a message to rabbit.</p>
+     <p>I have been already thinking about a further waiting method to run a certain command on host or as a docker container. Than we could extend that tool by something like</p>
+     <pre class="lang-yaml prettyprint-override"><code>...
+        wait:
+          - service: rabbitmq
+            method: container
+            timeout: 5
+            image: python-test-rabbit
+...
+</code></pre>
+     <p>having a docker image called <code>python-test-rabbit</code> that does your check.</p>
+     <p>The benefit then would be that there is <strong>no need</strong> anymore to bring the waiting part to your <strong>worker</strong>. It would be <strong>isolated</strong> and stay inside the orchestration layer.</p>
+     <p>May be someone finds this helpful to use. Any suggestions are very welcome.</p>
+     <p>You can find this tool at <a href="https://gitlab.com/michapoe/docker-compose-profile" rel="nofollow noreferrer">https://gitlab.com/michapoe/docker-compose-profile</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>kenorb</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Feb 2019 at 00:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is the example where <code>main</code> container waits for <code>worker</code> when it start responding for pings:</p>
+     <pre><code>version: '3'
+services:
+  main:
+    image: bash
+    depends_on:
+     - worker
+    command: bash -c "sleep 2 &amp;&amp; until ping -qc1 worker; do sleep 1; done &amp;&gt;/dev/null"
+    networks:
+      intra:
+        ipv4_address: 172.10.0.254
+  worker:
+    image: bash
+    hostname: test01
+    command: bash -c "ip route &amp;&amp; sleep 10"
+    networks:
+      intra:
+        ipv4_address: 172.10.0.11
+networks:
+  intra:
+    driver: bridge
+    ipam:
+      config:
+      - subnet: 172.10.0.0/24
+</code></pre>
+     <p>However, the proper way is to use <a href="https://docs.docker.com/compose/compose-file/#/healthcheck" rel="nofollow noreferrer"><code>healthcheck</code></a> (&gt;=2.1).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>chrisinmtown</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jun 2022 at 15:50</span>
+     </div>
+    </div>
+    <div>
+     <p>I guess the docker people really want us to wait on services using code in our own images. I still want to configure the services to wait for in <code>docker-compose.yml</code>. Here's one way if you're willing to use an entrypoint script.</p>
+     <p>Add this loop to your entrypoint script, using your choice of wait-for-it tool included in the image. I am using <a href="https://github.com/vishnubob/wait-for-it/" rel="nofollow noreferrer">https://github.com/vishnubob/wait-for-it/</a>. If you pass no services, the loop does nothing.</p>
+     <pre><code>for service in "$@"; do
+    echo "$0: wait for service $service"
+    if ! wait-for-it "$service"; then
+        echo "$0: failed on service $service"
+        exit 1
+    fi
+done
+</code></pre>
+     <p>Pass required services with this entry for the container in <code>docker-compose.yml</code>:</p>
+     <pre><code>    command: ["my-data-svc:5000"]
+</code></pre>
+     <p>This relies on the behavior that docker commands are passed as arguments to the entrypoint script. You can probably make a convincing argument that I'm abusing the intent of the docker command here. I'm not gonna die on that hill, it just works for me.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This solution is lacking context</span> <span> - </span> <span class="display-name">Levijatanu</span> <span> </span> <span class="date">13 Sep 2022 at 11:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Levijatanu I'll be glad to extend please suggest what context to add here.</span> <span> - </span> <span class="display-name">chrisinmtown</span> <span> </span> <span class="date">13 Sep 2022 at 11:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Benjamin Grašič</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Oct 2019 at 08:35</span>
+     </div>
+    </div>
+    <div>
+     <p>I just have 2 compose files and start one first and second one later. My script looks like that:</p>
+     <pre><code>#!/bin/bash
+#before i build my docker files
+#when done i start my build docker-compose
+docker-compose -f docker-compose.build.yaml up
+#now i start other docker-compose which needs the image of the first
+docker-compose -f docker-compose.prod.yml up
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is not considered a good practice. You cannot deliver the solution consisting of multiple conatiners from one compose file then.</span> <span> - </span> <span class="display-name">juergi</span> <span> </span> <span class="date">13 May 2020 at 09:16</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

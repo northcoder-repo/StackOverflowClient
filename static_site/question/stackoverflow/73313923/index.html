@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>No params on DataTable server rendering</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>No params on DataTable server rendering</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>jorge ricardo sierra hernandez</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Aug 2022 at 00:00</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73313923/no-params-on-datatable-server-rendering">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to use DataTables server rendering to show thousand of data in a view with this script:</p>
+    <pre class="lang-js prettyprint-override"><code>$('#info-comisiones').DataTable({
+
+   "processing": true,
+   "serverside": true,
+   ajax: {
+     type: "POST",
+     url: "/Sales/GetSalesByPaymentPeriodID",
+     contentType: "application/json; charset=utf-8",
+     dataType: "json",
+     data: function (dtParms) {
+       console.log(dtParms);
+       return JSON.stringify(dtParms);
+     },
+     dataFilter: function (res) {
+       var parsed = JSON.parse(res);
+       return JSON.stringify(parsed.d);
+     },
+     error: function (x, y) {
+       console.log(x);
+     }
+   },
+   "filter": true,
+   columns: [
+     {"data":"#"},
+     {"data":"F.Registro"},
+     {"data":"Hora"},
+     {"data":"Confirmación"},
+     {"data":"Habitación"},
+     {"data":"# Colaborador"},
+     {"data":"Nombre Colaborador"},
+     {"data":"Puesto"},
+     {"data":"Centro Consumo"},
+     {"data":"Misceláneo"},
+     {"data":"Capturista"},
+     {"data":"Puesto C."},
+     {"data":"Fecha Salida"},
+     {"data":"Descripción"},
+     {"data":"Moneda"},
+     {"data":"Acciones"},
+     {"data":"Cantidad"},
+     {"data":"T.Cambio"},
+     {"data":"% Descuento"},
+     {"data":"Impuestos"},
+     {"data":"Precio Unitario MXN"},
+     {"data":"Precio Unitario USD"},
+     {"data":"Total Neto"},
+     {"data":"% Comsión"},
+     {"data":"Total Comision MXN"}
+   ]
+});
+</code></pre>
+    <p>But the issue here is that in the line where I'm trying to see the data that is being sent to the server: <code>console.log(dtParms);</code> is showing an empty JSON object, and the server side is not receiving any data.</p>
+    <p>What could be the problem?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2022 at 01:31</span>
+     </div>
+    </div>
+    <div>
+     <p>Here are some notes. I think item (1) may be the only problem, but I mention the others, just in case they are also useful.</p>
+     <hr>
+     <ol>
+      <li>The <code>dataFilter</code> function in your Ajax call - why do you need that?</li>
+     </ol>
+     <p>It throws away the response and only keeps <code>parsed.d</code>. I don't know what <code>parsed.d</code> is supposed to be - but it's probably empty or invalid.</p>
+     <p>You need to keep all of the response as it contains (or it <em>should</em> contain) all of the data needed by DataTables. That is not only the actual table data but also related metadata as described in the <a href="https://datatables.net/manual/server-side#Returned-data" rel="nofollow noreferrer">Returned Data</a> section of the Server-Side manual.</p>
+     <p>I think you need to remove that <code>dataFilter</code> piece completely.</p>
+     <p>And make sure the response from the server matches the <a href="https://datatables.net/manual/server-side#Example-data" rel="nofollow noreferrer">expected JSON response structure</a>.</p>
+     <hr>
+     <ol start="2">
+      <li>What is <code>"filter": true</code>? That is not a valid DataTables option. It won't cause any harm. It will just be ignored.</li>
+     </ol>
+     <hr>
+     <ol start="3">
+      <li>
+       <p>The table's <code>columns</code> settings. This may not actually be a problem, but it looks very unusual. You have column settings such as this:</p>
+       <p>{"data":"Nombre Colaborador"}</p></li>
+     </ol>
+     <p>The value <code>Nombre Colaborador</code> should be a key in the <code>data</code> section of the JSON response - and maybe it is. But it's more typical to see JSON keys such as <code>nombreColaborador</code> instead. Like I say, maybe this is OK.</p>
+     <p>I mention this because the JSON keys are usually generated from your server-side data model structures, where the fields you are using do not permit spaces in their names.</p>
+     <hr>
+     <p>It's possible that there may be more (or different) issues not shown in the question, and not covered in my answer. If so, then you may need to add a sample of your JSON to the question.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

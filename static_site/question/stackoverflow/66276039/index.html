@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Export ALL rows from DataTables.js while displaying only some of them and keeping the pagination</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Export ALL rows from DataTables.js while displaying only some of them and keeping the pagination</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>AlexB</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Feb 2021 at 10:42</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66276039/export-all-rows-from-datatables-js-while-displaying-only-some-of-them-and-keepin">source</a>
+    </div>
+   </div>
+   <div>
+    <p>On a DataTable, I need :</p>
+    <ul>
+     <li>To export to Excel ALL rows</li>
+     <li>Display only some rows on screen, based on the value of the ItemId column</li>
+     <li>Keep the pagination efficient with 30 <strong>VISIBLE</strong> rows per page</li>
+    </ul>
+    <p>To display only the desired rows on screen, I'm using the <code>drawCallback</code></p>
+    <pre><code>// Each row has an ItemId property. Several rows may have the same ItemId
+// I want to display only the first row for each ItemId, but export all rows
+drawCallback: function (settings) {
+    var api = this.api();
+    var ids = [];
+                
+    $.each(api.rows({ page: 'current' }).data(), function (i, v) {
+        if ($.inArray(v.ItemId, ids) != -1)
+            $("#myDatatable tbody tr:eq(" + i + ")").css("visibility", "collapse")
+        else
+            ids.push(v.ItemId);
+    })
+},
+</code></pre>
+    <p>However, I'm using the pagination system, and I want to display 30 <strong>visible</strong> rows per page.</p>
+    <ul>
+     <li>If I use the above <code>drawCallback</code>, I only have 1 or 2 visible rows per page, and it's not what I want. However, rows which should be hidden are indeed hidden and the Export works well, as it exports ALL rows. Issue here is the pagination</li>
+     <li>If I remove the <code>drawCallback</code>, all the rows are displayed on screen which is not what I want neither. The export works (obviously) well as all rows are displayed and exported. Issue here is the displayed rows</li>
+    </ul>
+    <p>How to keep 30 <strong>visible</strong> rows on screen, while <strong>exporting all</strong> of them (visible + hidden) ?</p>
+    <p>For the record, I'm using DataTables 1.10.21</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span><span class="tag">export-to-excel</span><span class="tag">datatables-1.10</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Can you explain a bit more how filtering works? What is the relationship between <code>ItemId</code> and <code>LabId</code>? It looks as if the data in each column must overlap. Also, how the data is sorted will affect how the data is filtered - is that correct? (And because of the use of <code>{ page: 'current' }</code>, it appears that the page size can therefore affect which rows are displayable or not.)</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Feb 2021 at 14:56</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thank you for your comment. <code>LabId</code> was a bad copy/paste, I've edited my post. The filter works great, but on each page, I have 1 or 2 visible columns and 28 / 29 hidden, whereas I want 30 visible rows per page (and all of them, visible + hidden) in the Export. I also tried to remove the <code>{ page: 'current' }</code> but the issue remains the same.</span> <span> - </span> <span class="display-name">AlexB</span> <span> </span> <span class="date">19 Feb 2021 at 15:32</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Feb 2021 at 19:49</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>The Problem</strong></p>
+     <p>I think removing rows from the HTML table in the way shown in the question will always lead to the problem you are describing: Too few rows on one page.</p>
+     <p>This is because you have removed the data from the HTML table (the DOM) but DataTables (the JavaScript object where all your data is stored) does not know anything about these changes. So, it thinks you have a full page of data, showing 30 records.</p>
+     <p><strong>One Solution</strong></p>
+     <p>You can avoid this problem by using the DataTables filtering mechanism - but it is somewhat awkward, because (as you show in the question) how you filter a row depends on the data in previous rows.</p>
+     <p>Here is one approach:</p>
+     <ol>
+      <li>
+       <p>Create a hidden column in the table, and populate that with a specific text value indicating whether a row should be displayed or not.</p></li>
+      <li>
+       <p>When exporting to Excel, that is where you ensure all rows (visible and hidden) are exported - and where you ensure our extra hidden column, from (1) above, is not exported.</p></li>
+      <li>
+       <p>Add logic to the end of the "document ready" function to calculate which rows are shown/hidden. This logic is basically the equivalent of what you have in your question.</p></li>
+     </ol>
+     <p>The code:</p>
+     <pre><code>$(document).ready(function() {
+
+var firstFound = "##first_occurrence##"; // needs to be unique - must not clash with other data in the table
+
+var table = $('#myDatatable').DataTable( {
+  data: dataSet.data, // my test data is sourced from a JavaScript variable (see below)
+  pageLength: 5, // just for testing
+  columns: [
+    { title: "Name", data: "name" },
+    { title: "Office", data: "office" },
+    { title: "Position", data: "position" }, // this is my equivalent of your ItemId column
+    { title: "Start date", data: "start_date" },
+    { title: "Salary", data: "salary" },
+    { data: "id", visible: false } // this is where the 'firstFound' value is placed
+  ],
+  search: {
+    search: firstFound // forces filtering to be applied
+  },
+  dom: 'Brtip',
+  buttons: [
+    { 
+      title: '',
+      extend: 'excel', 
+      text: 'To Excel',
+      exportOptions: {
+        rows: { order:'current', search: 'none' }, // export all rows
+        columns: [ 0, 1, 2, 3, 4 ] // export all columns apart from the final column in my table
+      }
+    }
+  ]
+} );
+
+// the logic to populate the hidden column in my table:
+
+var positions = [];
+
+// column index 5 is the hidden column, used for filtering.
+// column index 2 is my "job position" data (accountant, etc).
+table.rows().every( function (rowIdx, tableLoop, rowLoop) {
+  var filterCell = table.cell( { row: rowIdx, column: 5 } );
+  var position = table.cell( { row: rowIdx, column: 2 } ).data();
+  if ($.inArray(position, positions) === -1) {
+    filterCell.data(firstFound);
+    positions.push(position);
+  } else {
+    filterCell.data("");
+  }
+} );
+
+// finally, re-draw the table to ensure the data changes are applied:
+table.draw();
+
+} );
+</code></pre>
+     <p>This shows you one approach. It may not be exactly what you need. For example, I have deliberately hidden the global filter box. Once the data is filtered and displayed, you cannot re-filter it in some other way.</p>
+     <hr>
+     <p>For reference, my sample test data looks like this:</p>
+     <pre><code>var dataSet = {
+  "data": [
+    {
+      "id": "1",
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "salary": "$320,800",
+      "start_date": "2011/04/25",
+      "office": "Edinburgh",
+      "extn": "5421"
+    },
+    ... // and so on...
+    {
+      "id": "2",
+      "name": "Garrett Winters",
+      "position": "Accountant",
+      "salary": "$170,750",
+      "start_date": "2011/07/25",
+      "office": "Tokyo",
+      "extn": "8422"
+    }
+  ]
+};
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Brilliant idea, thank you, I haven't thought about the <code>search</code>. I adapted it to my needs with some minor changes, but the idea is there, thank you</span> <span> - </span> <span class="display-name">AlexB</span> <span> </span> <span class="date">22 Feb 2021 at 14:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>DataTables split array value and render to multi table in single child row</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>DataTables split array value and render to multi table in single child row</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jacinth</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>1 Dec 2020 at 02:29</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65083906/datatables-split-array-value-and-render-to-multi-table-in-single-child-row">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I using DataTables (<a href="https://datatables.net/" rel="nofollow noreferrer">https://datatables.net/</a>) for data arrangement, and I already achieved show data in child row, the more I want to do is showing more detail data in it.</p>
+    <p>I have a JSON data like this</p>
+    <pre><code>{
+    "MACHINE": "A01",
+    "STATUS": "ENGTEST",
+    "TXN_TIME": "2020/09/17 00:04:15",
+    "AVAINFO": [
+      { 
+        "RECIPE": "8EX-001",
+        "ava": "Z03341#25#A9161#P#Z03934#5#A9021#P"
+      },
+      {
+        "RECIPE": "8EX-005",
+        "ava": "Z80597#3#B3542#L"
+      }
+    ],
+    "ID": "1"
+  }
+</code></pre>
+    <p>and I want to split [ava] with "#" and show the data format in child row like this <a href="https://i.stack.imgur.com/7MfAz.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/7MfAz.png" alt="enter image description here"></a></p>
+    <p>the detail code I have tried as below link <a href="http://live.datatables.net/bohoriga/1/edit" rel="nofollow noreferrer">http://live.datatables.net/bohoriga/1/edit</a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Dec 2020 at 14:46</span>
+     </div>
+    </div>
+    <div>
+     <p>You can build a sub-table inside your <code>format(d)</code> function - something like this:</p>
+     <pre class="lang-js prettyprint-override"><code>function format (d) {
+    var sub_table = '&lt;table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;"&gt;';
+    
+    var sub_rows = d.AVAINFO;
+    var array_length = sub_rows.length;
+    var sub_row = '';
+
+    if (array_length) { // AVAINFO is an array of values:
+      for (var i = 0; i &lt; array_length; i++) {
+        sub_row = '&lt;tr&gt;&lt;td&gt;' + sub_rows[i].RECIPE + '&lt;/td&gt;&lt;td&gt;' + sub_rows[i].ava + '&lt;/td&gt;&lt;/tr&gt;';
+        sub_table = sub_table + sub_row;
+      }
+    } else { // AVAINFO is a single object - not an array:
+      sub_row = '&lt;tr&gt;&lt;td&gt;' + d.AVAINFO.RECIPE + '&lt;/td&gt;&lt;td&gt;' + d.AVAINFO.ava + '&lt;/td&gt;&lt;/tr&gt;';
+      sub_table = sub_table + sub_row;
+    }
+
+    sub_table = sub_table + '&lt;/table&gt;';
+    return sub_table;
+}
+</code></pre>
+     <p>However, bear in mind that the code sample you link to in the question has some other bugs in it, which need to be fixed before my proposed approach will work.</p>
+     <p>For example, the DataTable refers to non-existent columns (e.g. <code>"targets": [4,5,6,7,8]</code> and elsewhere) and to non-existent data, e.g. <code>Type</code>.</p>
+     <p>Also, the JSON data in <code>$ajax_data</code> is not valid. It needs to be an array:</p>
+     <pre class="lang-js prettyprint-override"><code>$ajax_data = [
+  {
+    "MACHINE": "A01",
+    "STATUS": "ENGTEST",
+    "TXN_TIME": "2020/09/17 00:04:15",
+    "AVAINFO": [
+      { 
+        "RECIPE": "8EX-001",
+        "ava": "Z03341#25#A9161#P#Z03934#5#A9021#P"
+      },
+      {
+        "RECIPE": "8EX-005",
+        "ava": "Z80597#3#B3542#L"
+      }
+    ],
+    "ID": "1"
+  },
+  {
+    "MACHINE": "A03",
+    "STATUS": "IDLE",
+    "TXN_TIME": "2020/11/30 21:25:43",
+    "AVAINFO": {
+      "RECIPE": "8PI",
+      "ava": "Z90018#25#B1825#P#Z80238#20#B1115#P#Z20018#13#B0095#L#"
+    },
+    "ID": "2"
+  }
+];
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you @andrewjames, I renew the link of the example and tried to use <code>slice()</code> and <code>.split()</code> to solve it, could u give me more advice to approach the result?</span> <span> - </span> <span class="display-name">Jacinth</span> <span> </span> <span class="date">2 Dec 2020 at 07:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am not sure what you mean. What specific problem are you trying to solve?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">2 Dec 2020 at 12:53</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jacinth</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Dec 2020 at 03:50</span>
+     </div>
+    </div>
+    <div>
+     <p>I reference other related disscusions then solved this by add <code>.splice()</code>, <code>.slice()</code>, and use loop to create sub-row.</p>
+     <pre><code>function separate(arr, size) {
+  let res = [];
+  while (arr.length) {
+    res.push(arr.splice(0, size));
+  }
+  return res;
+}
+
+function format ( d ) {
+  var tr = '';
+  d.AVAINFO.forEach(function (item) {
+    var  a = item.ava.split("#");
+    result = separate(a, 4)   
+    //console.log(result);
+  tr += '&lt;tr&gt;'+          
+            '&lt;th&gt;Recipe&lt;/th&gt;'+
+            '&lt;th&gt;ORDER&lt;/th&gt;'+
+            '&lt;th&gt;QTY&lt;/th&gt;'+
+            '&lt;th&gt;CODE&lt;/th&gt;'+
+            '&lt;th&gt;TYPE&lt;/th&gt;'+
+        '&lt;/tr&gt;';
+  
+    for (i=0; i&lt;result.length; i++) {
+        tr += '&lt;/tr&gt;'+
+        '&lt;tr&gt;'+
+            '&lt;td&gt;'+item.RECIPE+'&lt;/td&gt;'+
+            '&lt;td&gt;'+result[i][0]+'&lt;/td&gt;'+
+            '&lt;td&gt;'+result[i][1]+'&lt;/td&gt;'+
+            '&lt;td&gt;'+result[i][2]+'&lt;/td&gt;'+
+            '&lt;td&gt;'+result[i][3]+'&lt;/td&gt;'+
+        '&lt;/tr&gt;';
+    }
+  });
+  
+    return '&lt;table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;"&gt;'+
+      tr +
+      '&lt;/table&gt;';
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Nice! - glad you figured out what you needed.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">3 Dec 2020 at 22:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

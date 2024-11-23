@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Convert nested Json string to object and render in Jquery datatable cell</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Convert nested Json string to object and render in Jquery datatable cell</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Gujjar</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Sep 2020 at 20:23</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63819057/convert-nested-json-string-to-object-and-render-in-jquery-datatable-cell">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to convert Json string into object and render it's specific value in JQuery Datatable Cell. I tried several hours for this but didn't able to achieve.</p>
+    <p><strong>Json Example</strong></p>
+    <pre><code>[
+{ "id":1, "Error": "Name missing in datatable"},
+{ "id":2, "Error": "{\"ErrorType\": \"401\", \"InnerException\":\"Invalid request, Please correct and submit\"}" }
+]
+</code></pre>
+    <p>First I want to check if <em>Error</em> is normal string or json string, if normal string show as it is and if json string convert it into json object and render <em>InnerException</em> into datatable cell. i tried following code but didn't get correct result.</p>
+    <p><strong>My code Example</strong></p>
+    <pre><code>var RespTable = $('#dtResponse').DataTable({
+data: dataList,
+columns: [
+{ "title": "ID", "data": "id", "defaultContent": ""},
+{ 
+"title": "Error Message",
+"data": "Error",
+"defaultContent": "",
+"render": function (data, type) {
+  var obj = JSON.parse(data)
+  if (obj != undefined)
+  return obj.InnerException;
+  else
+  return data
+  }
+}
+]
+});
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">json</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Sep 2020 at 21:12</span>
+     </div>
+    </div>
+    <div>
+     <p>I think you are close. If you can rely on the text containing "InnerException" (if there is an inner exception, of course), then you can do something like this:</p>
+     <pre><code>&lt;script type="text/javascript"&gt;
+
+let dataList = [{
+        "id": 1,
+        "Error": "Name missing in datatable"
+    },
+    {
+        "id": 2,
+        "Error": "{\"ErrorType\": \"401\", \"InnerException\":\"Invalid request, Please correct and submit\"}"
+    }
+];
+
+  $(document).ready(function() {
+
+    let RespTable = $('#dtResponse').DataTable( {
+      data: dataList,
+      columns: [
+        { "title": "ID", "data": "id", "defaultContent": ""},
+        { "title": "Error Message", "data": "Error", "defaultContent": "",
+          "render": function (data, type) {
+            if ( data.includes("InnerException") ) {
+              let innerJson = JSON.parse(data);
+              //console.log(innerJson);
+              return innerJson.InnerException;
+            } else {
+              return data;
+            }
+          }
+        }
+      ]
+    
+  } );
+
+} );
+
+&lt;/script&gt;
+</code></pre>
+     <p>This uses <code>data.includes("InnerException")</code> as the test to see if it is OK to parse the string as JSON, or not.</p>
+     <p>The end result:</p>
+     <p><a href="https://i.stack.imgur.com/ytMtT.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/ytMtT.png" alt="enter image description here"></a></p>
+     <p><strong>Update</strong></p>
+     <p>A more rigorous approach is to add a function such as this:</p>
+     <pre><code>function IsJsonString(str) {
+    try {
+        JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+    return true;
+}
+</code></pre>
+     <p>And then we can replace our string test with this:</p>
+     <pre><code>if ( IsJsonString(data) ) {...}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>What if Error string contains InnerException as a word? like "Error": "Name missing in datatable, see InnerException for more detail"</span> <span> - </span> <span class="display-name">Gujjar</span> <span> </span> <span class="date">9 Sep 2020 at 21:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If there is no safe string test, then yes - this is not a suitable approach.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">9 Sep 2020 at 21:26</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I have added a function you can use as a JSON tester.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">9 Sep 2020 at 21:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If those options are not suitable (string check and try/catch), I think <a href="https://stackoverflow.com/questions/3710204/how-to-check-if-a-string-is-a-valid-json-string-in-javascript-without-using-try">this question</a> has some more approaches you can investigate.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">9 Sep 2020 at 21:34</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I don't know using function like this is efficient way or it will work in all scenarios but its working for me.</span> <span> - </span> <span class="display-name">Gujjar</span> <span> </span> <span class="date">9 Sep 2020 at 22:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes - I am sure you are correct - this is not the most efficient approach (relying on a try/catch like this - and potentially performing the operation twice). I imagine it could be improved.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">11 Sep 2020 at 22:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

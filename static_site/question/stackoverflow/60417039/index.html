@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why am I not able to list Java resources in unit test?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why am I not able to list Java resources in unit test?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>John</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Feb 2020 at 15:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60417039/why-am-i-not-able-to-list-java-resources-in-unit-test">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have some files within <code>src/main/resources</code> that I wish to copy out to the filesystem. I want to get a list of those resources, then iterate through them and copy them out. I am using v0.9.11 of <a href="https://github.com/ronmamo/reflections" rel="nofollow noreferrer">Reflections</a> to parse the resources directory.</p>
+    <pre><code>public List&lt;String&gt; getMyResources() {
+    Reflections reflections = new Reflections(new ResourcesScanner());
+    Set&lt;String&gt; resources = reflections.getResources(Pattern.compile(".*"));
+    return new ArrayList&lt;&gt;(resources);
+}
+</code></pre>
+    <p>I want to test that I can find the files as part of a unit test:</p>
+    <pre><code>@Test
+public void getMyResources_returnsCorrectFiles() throws IOException {
+    MyResourceFinder finder = new MyResourceFinder();
+
+    List&lt;String&gt; resources = finder.getMyResources();
+    assertEquals(3, resources.size());
+    // other tests to check the files are found
+}
+</code></pre>
+    <p>However, there are no resources found, i.e. the <code>resources</code> array is of 0 length. This is also the case when I put test resources into <code>src/test/resources</code>. However, I can find and read individual resources by name like this:</p>
+    <pre><code>BufferedReader br = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("/path/to/my/resource.yaml")));
+</code></pre>
+    <p>What am I doing wrong and how do I list resources?</p>
+    <p>EDIT: to be clear, I can see the resources listed in the jar that is built. However, my unit test cannot list the resources in <code>src/main/resources</code> and I'd like to know why that is and how to make them appear in the resource array.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>Look at the contents of your jar file, notice how maven <b><i>packages</i></b> resources differs from your expectations. Correct your code accordingly. Note test resources are not packaged in your jar (because they are considered transient).</span> <span> - </span> <span class="display-name">Elliott Frisch</span> <span> </span> <span class="date">26 Feb 2020 at 15:18</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I can see the files in the jar, and they do follow my expectations. However, when I run the unit test, the resources are not found - I don't understand why they don't appear.</span> <span> - </span> <span class="display-name">John</span> <span> </span> <span class="date">26 Feb 2020 at 15:37</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Check this project, solves resources folder scanning: <a href="https://github.com/fraballi/resources-folder-scanner" rel="nofollow noreferrer">github.com/fraballi/resources-folder-scanner</a></span> <span> - </span> <span class="display-name">Felix Aballi</span> <span> </span> <span class="date">13 Mar 2020 at 18:30</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Mar 2020 at 19:03</span>
+     </div>
+    </div>
+    <div>
+     <p>Can you check how you are initalizing your <code>Reflections</code> object?</p>
+     <h2>Reflections 0.9.11</h2>
+     <p>If I use Reflections (v0.9.11) the way you describe in your question...</p>
+     <pre><code>Reflections reflections = new Reflections(new ResourcesScanner());
+</code></pre>
+     <p>...then I can recreate this issue - and I get a Reflections <code>WARN</code>ing. In my jUnit test, I expected to find 17 resources, but found none:</p>
+     <pre><code>2020-03-11 14:54:59.039 [WARN ] [main] Reflections - given scan urls are empty. set urls in the configuration
+...
+java.lang.AssertionError: expected:&lt;17&gt; but was:&lt;0&gt;
+</code></pre>
+     <p>However, if I change my code to this...</p>
+     <pre><code>Reflections reflections = new Reflections(new ConfigurationBuilder()
+        .setUrls(ClasspathHelper.forPackage("your.package.name.here"))
+        .setScanners(new ResourcesScanner()));
+</code></pre>
+     <p>...then I get this:</p>
+     <pre><code>2020-03-11 14:52:54.107 [INFO ] [main] Reflections - Reflections took 10 ms to scan 2 urls, producing 17 keys and 17 values
+</code></pre>
+     <p>And my unit test passes.</p>
+     <h2>Reflections 0.9.12</h2>
+     <p>Out of interest, if you upgrade to 0.9.12, your approach throws the same warning, but also a runtime exception:</p>
+     <pre><code>org.reflections.ReflectionsException: Scanner ResourcesScanner was not configured
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

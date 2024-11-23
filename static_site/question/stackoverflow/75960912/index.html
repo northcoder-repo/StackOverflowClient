@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf th:each rendering a chart js bar chart in each loop</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf th:each rendering a chart js bar chart in each loop</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Kayd Anderson</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Apr 2023 at 18:00</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75960912/thymeleaf-theach-rendering-a-chart-js-bar-chart-in-each-loop">source</a>
+    </div>
+   </div>
+   <div>
+    <p>this is my last try. I've had this issue for several weeks now but with no luck. I have a spring crud app with thymeleaf for a disc golf app. You can add courses and then add rounds for a logged in user (similar to udisc) and it all works great. A user can see all their rounds by course in an accordion. I use a Java Map and loop through <code>Map&lt;Course, List&lt;Round&gt;&gt;</code> and display it using thymeleaf/html. You click on the course (accordion) then it opens up to all rounds played for that course. Given my limited programming skills Im impressed with what ive done so far.</p>
+    <p>My problem is (and this is my 3rd try asking this) to have a bar chart in each round inside the accordion. With the code below, I get the desired horizontal bar chart in the first th:each but every round after has nothing. When I refresh the page because the Map is never in the same order the first course in the accordion always has a bar chart for the first round in the loop but never after. So how can I get a bar chart for each round in a Map that is sorted by <code>Map&lt;Course, List&lt;Round&gt;&gt;</code>?</p>
+    <p>If Im doing this the wrong way please advise, Im open to all suggestions. I know far less javascript than Java, so treat me as a beginner, but Im assuming there is a fetch() function or something that has to happen again in order for this to work. Asked previously <a href="https://stackoverflow.com/questions/75802446/show-dynamic-horizontal-bar-chart-in-thymeleaf-for-each">here</a> where there is some screen shots. Thanks in advance.</p>
+    <p>Course</p>
+    <pre><code>@Entity
+@Table(name = "course")
+@Builder
+public class Course {
+    @Id
+    @Column(name = "course_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "course_id", referencedColumnName = "course_id")
+    private List&lt;Hole&gt; holes = new ArrayList&lt;&gt;();
+
+    @Column(name = "course_par", nullable = false)
+    private int par;
+
+    @Column(name = "record", nullable = false)
+    private int record;
+
+    @Column(name = "course_average", nullable = false)
+    private double courseAverage;
+//getter setters etc
+
+</code></pre>
+    <pre><code>@Entity
+@Table(name = "round")
+public class Round {
+
+    @Id
+    @Column(name = "round_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long roundId;
+
+    @JsonIgnore
+    @ManyToOne
+    @JoinColumn(name = "course_id")
+    private Course course;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "round_id", referencedColumnName = "round_id")
+    private List&lt;Score&gt; scores = new ArrayList&lt;&gt;();
+
+    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
+    @Column(name = "round_date")
+    @DateTimeFormat(pattern = "dd/MM/yyyy")
+    private Date roundDate;
+
+    @Column(name = "round_total")
+    private int total;
+//getter setters etc
+</code></pre>
+    <p>Controller</p>
+    <pre><code>@GetMapping("/rounds/{id}")
+    public String roundsHome(@PathVariable(value = "id") Long id,
+                             Model model) {
+        List&lt;Course&gt; courses = courseService.getAllCourses();
+        List&lt;Round&gt; rounds = userService.getUserById(id).getRounds();
+
+        rounds.sort(Comparator.comparing(Round::getRoundDate).reversed());
+        Map&lt;Course, List&lt;Round&gt;&gt; mapRoundsByCourse = rounds.stream().collect(Collectors.groupingBy(Round::getCourse));
+
+        model.addAttribute("userId", id);
+        model.addAttribute("roundService", roundService);
+        model.addAttribute("courses", courses);
+        model.addAttribute("rounds", mapRoundsByCourse);
+        return "/discgolf/round/rounds";
+    }
+</code></pre>
+    <p>html</p>
+    <pre><code>&lt;th:block th:each="round : ${roundCourse.value}"&gt;
+                &lt;div id="cardBody" class="card-body"&gt;
+                    &lt;div class="row"&gt;
+                        &lt;div class="col-3"&gt;
+                            &lt;label&gt;Date: &lt;/label&gt;
+                            &lt;label th:text="${#dates.format(round.roundDate, 'dd-MMM-yyyy')}"&gt;&lt;/label&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-3"&gt;
+                            &lt;label&gt;Score: &lt;/label&gt;
+                            &lt;label th:if="${round.total - round.course.par == 0}" th:text="${'E'}"&gt;&lt;/label&gt;
+                            &lt;label th:if="${round.total - round.course.par &gt; 0}" th:text="${'+' + (round.total - round.course.par)}"&gt;&lt;/label&gt;
+                            &lt;label th:text="${'(' + round.total + ')'}"&gt;&lt;/label&gt;
+                        &lt;/div&gt;
+                        &lt;div class="col-6"&gt;
+                            &lt;div class="container-fluid"&gt;
+                                &lt;canvas th:attr="data-counts=${roundService.getListOfScoresByRoundId(round.roundId)}" id="myChart"&gt;&lt;/canvas&gt;
+&lt;!--                                &lt;canvas id="myChart"&gt;&lt;/canvas&gt;--&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;br&gt;
+                    &lt;div &gt;
+                        &lt;table id="courseInfo" class="table table-bordered w-auto"&gt;
+                            &lt;th:block th:each="course : ${round.course}"&gt;
+                                &lt;tr&gt;
+                                    &lt;th th:text="${'Hole'}"&gt;&lt;/th&gt;
+                                    &lt;th th:each="hole : ${course.holes}" th:text="${hole.number}"&gt;&lt;/th&gt;
+                                    &lt;th th:text="${'Total'}"&gt;&lt;/th&gt;
+                                &lt;/tr&gt;
+                                &lt;tr&gt;
+                                    &lt;td th:text="${'Par'}"&gt;&lt;/td&gt;
+                                    &lt;td th:each="par : ${course.holes}" th:text="${par.par}"&gt;&lt;/td&gt;
+                                    &lt;td th:text="${course.par}"&gt;&lt;/td&gt;
+                                &lt;/tr&gt;
+                                &lt;tr&gt;
+                                    &lt;td th:text="${'Score'}"&gt;&lt;/td&gt;
+                                    &lt;th:block th:each="score : ${round.scores}"&gt;
+                                        &lt;td th:text="${score.score}" th:style="'background-color: ' + ${score.color}"&gt;
+                                        &lt;/td&gt;
+                                    &lt;/th:block&gt;
+                                    &lt;td th:text="${round.total}"&gt;&lt;/td&gt;
+                                &lt;/tr&gt;
+                            &lt;/th:block&gt;
+                        &lt;/table&gt;
+                        &lt;br&gt;
+                        &lt;a th:href="@{/discgolf/deleteRound/{id}(id=${round.roundId})}" title="Remove Course"
+                           data-target="#deleteRoundModal" class="table-link danger" id="deleteRoundButton" &gt;
+                            &lt;span id="deleteRound" class="fa-stack"&gt;
+                                &lt;i class="fa fa-square fa-stack-2x"&gt;&lt;/i&gt;
+                                &lt;i class="fa fa-trash-o fa-stack-1x fa-inverse" title="Delete this round"&gt;&lt;/i&gt;
+                            &lt;/span&gt;
+                        &lt;/a&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;/th:block&gt;
+</code></pre>
+    <p>Javascript</p>
+    <pre><code>const countsTest = document.getElementById('myChart').getAttribute('data-counts');
+const counts = {};
+
+for (const num of countsTest) {
+  counts[num] = counts[num] ? counts[num] + 1 : 1;
+}
+
+var acc = document.getElementsByClassName("accordion");
+var i;
+
+for (i = 0; i &lt; acc.length; i++) {
+  acc[i].addEventListener("click", function() {
+    this.classList.toggle("active");
+    var panel = this.nextElementSibling;
+    if (panel.style.maxHeight) {
+      panel.style.maxHeight = null;
+    } else {
+      panel.style.maxHeight = panel.scrollHeight + "px";
+    }
+  });
+}
+
+
+  new Chart(document.getElementById('myChart'),{
+      type: 'bar',
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        scales: {
+          x: {
+            stacked: true,
+            display: false
+          },
+          y: {
+            stacked: true,
+            display: false
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+      },
+
+      data: {
+        labels: ["Score"],
+
+        datasets: [{
+          data: [counts[2]],
+          backgroundColor: "#77ACD8"
+        },{
+          data: [counts[3]]
+        },{
+          data: [counts[4]],
+          backgroundColor: "#FDD79C"
+        },{
+           data: [counts[5]],
+           backgroundColor: "#FDC26A"
+         },{
+             data: [counts[6], counts[7], counts[8], counts[9], counts[10]],
+             backgroundColor: "#FCAE37"
+           }]
+      }
+    }
+  );
+</code></pre>
+    <p>Example data</p>
+    <pre><code>Course{id=2, name='Ilsede', holes=[Hole{holeId=46, number=1, par=3}, Hole{holeId=47, number=2, par=3}, Hole{holeId=48, number=3, par=3}, Hole{holeId=49, number=4, par=3}, Hole{holeId=50, number=5, par=3}, Hole{holeId=51, number=6, par=3}, Hole{holeId=52, number=7, par=3}, Hole{holeId=53, number=8, par=3}, Hole{holeId=54, number=9, par=3}, Hole{holeId=55, number=10, par=3}, Hole{holeId=56, number=11, par=3}, Hole{holeId=57, number=12, par=3}, Hole{holeId=58, number=13, par=4}, Hole{holeId=59, number=14, par=3}, Hole{holeId=60, number=15, par=3}, Hole{holeId=61, number=16, par=3}, Hole{holeId=62, number=17, par=3}, Hole{holeId=63, number=18, par=3}], par=55, record=7}
+        =[Round{roundId=21, course=Course{id=2, name='Ilsede', holes=[Hole{holeId=46, number=1, par=3}, Hole{holeId=47, number=2, par=3}, Hole{holeId=48, number=3, par=3}, Hole{holeId=49, number=4, par=3}, Hole{holeId=50, number=5, par=3}, Hole{holeId=51, number=6, par=3}, Hole{holeId=52, number=7, par=3}, Hole{holeId=53, number=8, par=3}, Hole{holeId=54, number=9, par=3}, Hole{holeId=55, number=10, par=3}, Hole{holeId=56, number=11, par=3}, Hole{holeId=57, number=12, par=3}, Hole{holeId=58, number=13, par=4}, Hole{holeId=59, number=14, par=3}, Hole{holeId=60, number=15, par=3}, Hole{holeId=61, number=16, par=3}, Hole{holeId=62, number=17, par=3}, Hole{holeId=63, number=18, par=3}], par=55, record=7}, scores=[Score{scoreId=199, score=3, holePar=3}, Score{scoreId=200, score=3, holePar=3}, Score{scoreId=201, score=3, holePar=3}, Score{scoreId=202, score=4, holePar=3}, Score{scoreId=203, score=3, holePar=3}, Score{scoreId=204, score=3, holePar=3}, Score{scoreId=205, score=2, holePar=3}, Score{scoreId=206, score=3, holePar=3}, Score{scoreId=207, score=3, holePar=3}, Score{scoreId=208, score=4, holePar=3}, Score{scoreId=209, score=3, holePar=3}, Score{scoreId=210, score=3, holePar=3}, Score{scoreId=211, score=2, holePar=3}, Score{scoreId=212, score=3, holePar=3}, Score{scoreId=213, score=3, holePar=3}, Score{scoreId=214, score=4, holePar=3}, Score{scoreId=215, score=3, holePar=3}, Score{scoreId=216, score=2, holePar=3}], roundDate=2023-03-01 00:00:00.0, total=54},
+        Round{roundId=24, course=Course{id=2, name='Ilsede', holes=[Hole{holeId=46, number=1, par=3}, Hole{holeId=47, number=2, par=3}, Hole{holeId=48, number=3, par=3}, Hole{holeId=49, number=4, par=3}, Hole{holeId=50, number=5, par=3}, Hole{holeId=51, number=6, par=3}, Hole{holeId=52, number=7, par=3}, Hole{holeId=53, number=8, par=3}, Hole{holeId=54, number=9, par=3}, Hole{holeId=55, number=10, par=3}, Hole{holeId=56, number=11, par=3}, Hole{holeId=57, number=12, par=3}, Hole{holeId=58, number=13, par=4}, Hole{holeId=59, number=14, par=3}, Hole{holeId=60, number=15, par=3}, Hole{holeId=61, number=16, par=3}, Hole{holeId=62, number=17, par=3}, Hole{holeId=63, number=18, par=3}], par=55, record=7}, scores=[Score{scoreId=244, score=3, holePar=3}, Score{scoreId=245, score=3, holePar=3}, Score{scoreId=246, score=3, holePar=3}, Score{scoreId=247, score=3, holePar=3}, Score{scoreId=248, score=4, holePar=3}, Score{scoreId=249, score=3, holePar=3}, Score{scoreId=250, score=3, holePar=3}, Score{scoreId=251, score=3, holePar=3}, Score{scoreId=252, score=2, holePar=3}, Score{scoreId=253, score=3, holePar=3}, Score{scoreId=254, score=3, holePar=3}, Score{scoreId=255, score=3, holePar=3}, Score{scoreId=256, score=2, holePar=3}, Score{scoreId=257, score=3, holePar=3}, Score{scoreId=258, score=3, holePar=3}, Score{scoreId=259, score=4, holePar=3}, Score{scoreId=260, score=3, holePar=3}, Score{scoreId=261, score=3, holePar=3}], roundDate=2023-03-09 00:00:00.0, total=54}]
+</code></pre>
+    <p>roundService</p>
+    <pre><code>public List&lt;Integer&gt; getListOfScoresByRoundId(Long id) {
+        return scoreRepository.findAllScoresByRoundId(id);
+    }
+</code></pre>
+    <p>scoreRepository</p>
+    <pre><code>@Repository
+public interface ScoreRepository  extends CrudRepository&lt;Score, Long&gt; {
+
+    @Query(value = "SELECT s.score from score s WHERE s.round_id = :id", nativeQuery = true)
+    List&lt;Integer&gt; findAllScoresByRoundId(@Param("id") Long id);
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">html</span><span class="tag">spring-boot</span><span class="tag">chart.js</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>You are asking us to debug a fairly large set of code, with only parts of the code shown in the question, and not much data. This may boil down to something quite simple - but that is somewhat lost in the details. Can I suggest an alternative? (1) Give us a ruthlessly pared down <a href="https://stackoverflow.com/help/minimal-reproducible-example">minimal reproducible example</a>. (2) The only server-side code we need is something which provides hard-coded test data for the Thymeleaf template to iterate over. No DB code, no entity annotations...</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Apr 2023 at 19:58</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>(3) The Thymeleaf template can probably be reduced to a fraction of its current code - just the code for <code>th:each="roundCourse : ${rounds}"...</code> for the accordion and that part of the <code>&lt;th:block th:each="round...</code> which handles the canvas. Everything else can be thrown away for this problem solving exercise.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Apr 2023 at 19:59</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Having said that... you have <code>&lt;canvas id="myChart"&gt;&lt;/canvas&gt;</code> - and that <code>myChart</code> ID will be generated multiple times in the final HTML page - because it's in a loop. And now you have duplicate HTML IDs - bad! They are supposed to be unique. And then you use <code>document.getElementById('myChart')</code> - which finds "the" one element with that "unique" ID... so it only finds <a href="https://developer.mozilla.org/en-US/docs/Web/API/Document/getElementById" rel="nofollow noreferrer">one element</a>. Probably the first one it finds in the doc - and then maybe it stops looking.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Apr 2023 at 19:59</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Ah ok, I'll put that down to me not knowing javascript. Ive reduced the html and added the data of one course with two rounds. Anything else? The last time I asked this question I was helped with this codepen example <a href="https://codepen.io/dickensas/pen/JjazdmY" rel="nofollow noreferrer">codepen.io/dickensas/pen/JjazdmY</a> but I couldnt get it to work.</span> <span> - </span> <span class="display-name">Kayd Anderson</span> <span> </span> <span class="date">7 Apr 2023 at 20:23</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thank you for the updates. I can see you have put a large amount of work into all of this. But I cannot run your code. It is not a MRE. How do I use that sample data? It is not runnable. What is the data for <code>roundService.getListOfScoresByRoundId(round.roundId)</code>? And so on. If you yourself cannot run the code as a MRE (without a lot of edits) it's unlikely we will be able to. It's possible someone will be able to help you without all of this - but I can't - I'm not smart enough.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Apr 2023 at 20:40</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I've added the getListOfScoresbyRoundId(). Thank you for trying, I honestly feel this shouldn't be too complicated. Maybe Im making it complicated? I'd be happy to see an example of a chart rendering in a thymeleaf loop.</span> <span> - </span> <span class="display-name">Kayd Anderson</span> <span> </span> <span class="date">7 Apr 2023 at 20:54</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Suggestion - start here: (1) In your <code>&lt;canvas&gt;</code> tag change <code>id="myChart"</code> to <code>class="myChart"</code>. (2) In your JavaScript code, change that initial selector from <code>getElementById('myChart')</code> to <code>getElementsByClassName('myChart')</code> - note the plural "elements" here. This will select <i>all</i> your <code>&lt;canvas&gt;</code> elements - not just one. Now, your JavaScript code will have a collection of elements it can process in your JavaScript - similar to how you process a set of <code>&lt;accordion&gt;</code> elements.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">8 Apr 2023 at 13:30</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>(3) You need to loop through each <code>&lt;canvas&gt;</code> element and create each chart inside that loop, using the relevant data. This means you also need to fix <code>new Chart(document.getElementById('myChart')</code>. The above suggestions are just a start, to see if that at least gets multiple charts created (maybe it won't?). Also, ideally, in your Thymeleaf, you should be populating each separate <code>&lt;canvas th:attr="..."</code> with <i>only</i> the relevant data needed for that specific chart - not with all chart data, every time. But one step at a time.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">8 Apr 2023 at 13:31</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thanks again for trying, do you mind writing an answer? I get changing the 2 getElementById to getElementsByClassName. But the loop in step 3 I'm having not exactly sure how to do it correctly.</span> <span> - </span> <span class="display-name">Kayd Anderson</span> <span> </span> <span class="date">9 Apr 2023 at 10:04</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Apr 2023 at 14:17</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a minimal reproducible example which focuses on one specific problem: <strong>displaying multiple charts in one page</strong>, where each chart uses its relevant data.</p>
+     <p>Some assumptions:</p>
+     <ol>
+      <li>
+       <p>There is no Thymeleaf or Java code, because the objective, as stated above, is <em>only</em> to draw multiple charts. The chart code runs <em>after</em> all Thymeleaf and Java has finished - and the page only contains HTML and JavaScript. So, all of that prior processing is not relevant here.</p></li>
+      <li>
+       <p>I have assumed that the Thymeleaf generates HTML which contains only 2 charts. Obviously <em>your</em> Thymeleaf loop will generate more chart HTML. But again this is a MRE - it contains <em>nothing</em> which is not relevant to the <em>specific</em> problem.</p></li>
+      <li>
+       <p>I do not know what the data looks like for <code>data-counts=${roundService.getListOfScoresByRoundId(round.roundId)}</code> - that is missing from the question (or I missed it, if it is in there somewhere). Therefore I have provided my own data: <code>data-counts="[[1,2,3],[4,5,6]]"</code>. This is almost certainly <em>not</em> the same as your data. So you may need to take that into account... and adjust my approach for that.</p></li>
+      <li>
+       <p>My JavaScript code loops through every chart in the page, and extracts the relevant data array from <code>[[1,2,3],[4,5,6]]</code>. I have 2 charts - so there are 2 data arrays: <code>[1,2,3]</code> for the first chart and <code>[4,5,6]</code> for the second chart. Yes, this is all hard-coded data (as per my MRE). It assumes your Thymeleaf and Java code provides this data correctly.</p></li>
+      <li>
+       <p>You can uncomment the JavaScript <code>console.log()</code> statements to see what the code is doing, as it loops through each chart.</p></li>
+     </ol>
+     <p>Enough already. Here it is - just click the blue run button:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>const charts = document.getElementsByClassName('myChart');
+
+for (let i = 0; i &lt; charts.length; i++) {
+
+  const countsTest = charts[i].getAttribute('data-counts');
+  //console.log( charts[i] );
+  //console.log( JSON.parse( countsTest ) );
+  counts = JSON.parse(countsTest)[i];
+  //console.log( counts );
+
+  new Chart(charts[i], {
+    type: 'bar',
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      scales: {
+        x: {
+          stacked: true,
+          display: false
+        },
+        y: {
+          stacked: true,
+          display: false
+        }
+      },
+      plugins: {
+        legend: {
+          display: false
+        }
+      },
+    },
+
+    data: {
+      labels: ["Score"],
+
+      datasets: [{
+        data: [counts[0]],
+        backgroundColor: "#77ACD8"
+      }, {
+        data: [counts[1]]
+      }, {
+        data: [counts[2]],
+        backgroundColor: "#FDD79C"
+      }]
+    }
+  });
+
+}</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en" xmlns:th="http://www.thymeleaf.org"&gt;
+
+&lt;head&gt;
+  &lt;meta charset="utf-8"&gt;
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"&gt;
+  &lt;script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.jsdelivr.net/npm/chart.js"&gt;&lt;/script&gt;
+  &lt;title&gt;Rounds&lt;/title&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+
+  &lt;div&gt;
+    &lt;canvas data-counts="[[1,2,3],[4,5,6]]" class="myChart"&gt;&lt;/canvas&gt;
+  &lt;/div&gt;
+
+  &lt;div&gt;
+    &lt;canvas data-counts="[[1,2,3],[4,5,6]]" class="myChart"&gt;&lt;/canvas&gt;
+  &lt;/div&gt;
+
+&lt;/body&gt;
+
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>You can see that this approach contains the same chart data, repeated multiple times in the HTML: <code>[[1,2,3],[4,5,6]]</code>.</p>
+     <p>In other words, you are provide <em>all</em> the chart data for <em>all</em> charts in <em>each</em> chart tag.</p>
+     <p>Really, you should refactor that to only provide the relevant chart data in each chart:</p>
+     <pre><code>&lt;div&gt;
+    &lt;canvas data-counts="[1,2,3]" class="myChart"&gt;&lt;/canvas&gt;
+&lt;/div&gt;
+
+&lt;div&gt;
+    &lt;canvas data-counts="[4,5,6]" class="myChart"&gt;&lt;/canvas&gt;
+&lt;/div&gt;
+</code></pre>
+     <p>You may want to look at making this change after you get what you have to work.</p>
+     <hr>
+     <p>My apologies if this is not what you need, or is not helpful.</p>
+     <p>But at least it may give you some pointers - and it shows what I mean by a MRE. A good MRE is focused, limited in scope, and is easy for us to copy/paste and run for ourselves.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

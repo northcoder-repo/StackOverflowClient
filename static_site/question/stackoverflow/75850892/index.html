@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Spring MVC Thymeleaf absolute view ID `/view` behaves inconsistently</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Spring MVC Thymeleaf absolute view ID `/view` behaves inconsistently</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Garret Wilson</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Mar 2023 at 22:21</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75850892/spring-mvc-thymeleaf-absolute-view-id-view-behaves-inconsistently">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I had a simple Spring MVC application with Thymeleaf. I had a controller mapped to <code>/foo/</code> and it would delegate to a view <code>/bar/view</code> using redirect, so its <code>POST</code> method would return <code>redirect:/bar/view</code>. This worked fine in my IDE, from a JAR file, and from a Docker container.</p>
+    <p>I did some refactoring and remapped the controller to <code>/view</code>. Then I moved my view implementation from <code>templates/foo/view.html</code> to <code>templates/view.html</code>. And instead of sending back <code>redirect:/bar/view</code>, I sent back <code>/view</code>. This continued to work fine in my IDE (Eclipse EE 2023-03 on Windows) with Spring DevTools installed.</p>
+    <p>However it would fail running from the JAR, saying that it could not find <code>/view</code>. I double-checked everything, and finally just discovered that it will now only work from a JAR file if I return <code>view</code> for the view, and not <code>/view</code>.</p>
+    <p>Can someone tell me why this inconsistency exists, and point me to some documentation that covers this? Why can't I return <code>/view</code> as a view ID? But why does returning <code>/view</code> work in my IDE, but not using <code>java -jar …</code>? And finally, why does <code>redirect:/bar/view</code> work with an absolute view path, but not <code>/view</code>? I'm not arguing which way is better; I'm just wondering why the behavior is inconsistent, and wanting to know where this is documented.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">spring</span><span class="tag">spring-mvc</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>RAI</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Mar 2023 at 22:50</span>
+     </div>
+    </div>
+    <div>
+     <p>It's good to start with how Spring Boot resolves the view names.</p>
+     <p>When you return a view with a leading slash <code>/view</code> then Spring treats it as an <strong>absolute path</strong> and looks for the view in the <strong>root directory of your app</strong>.</p>
+     <p>If you are using view without a leading slash <code>view</code> then Spring treats it as a <strong>relative path</strong> and looks for the view <strong>from the current directory</strong>.</p>
+     <p><strong>Why then IDE works?</strong></p>
+     <p>Because IDE sets the working directory to the root of your project.</p>
+     <p><strong>Why then JAR doesn't work?</strong></p>
+     <p>It's because JAR sets the working directory to the directory where the JAR file contains.</p>
+     <p><strong>Why does <code>redirect:/bar/view</code> work?</strong></p>
+     <p>Redirect make a new request to the server, and then resolves the view name using the same rules as before.</p>
+     <p>It's good to use relative paths to prevent ambiguities.</p>
+     <p>Some information you can find <a href="https://docs.spring.io/spring-framework/docs/3.0.0.M3/reference/html/ch16s05.html" rel="nofollow noreferrer">Spring. Views and resolving them</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>RAI, your answer is excellent. You answered precisely my questions and gave me a reference for follow up. I'm going to assign a bounty to thank you for your time and attention to detail.</span> <span> - </span> <span class="display-name">Garret Wilson</span> <span> </span> <span class="date">26 Mar 2023 at 23:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>"If you are using view without a leading slash <code>view</code> then Spring treats it as a <code>relative path</code> and looks for the view <b>from the current directory</b>." From the current directory of the URL? @RAI this part is still a little confusing. If I have a controller mapped to <code>/foo/bar</code> and the view is stored in <code>…/templates/foo/view</code>, then returning <code>view</code> as the view doesn't work, even though it's at the same directory level as <code>/foo/bar</code> in the URL path. I have to return <code>foo/view</code> and just remember that this is apparently relative to the root of my context, not of the "current directory".</span> <span> - </span> <span class="display-name">Garret Wilson</span> <span> </span> <span class="date">7 May 2023 at 22:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

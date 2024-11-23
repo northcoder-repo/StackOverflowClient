@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Configure Javalin (Jetty) max request size (414 URI too long)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Configure Javalin (Jetty) max request size (414 URI too long)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Toby</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 Jan 2023 at 19:09</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75151174/configure-javalin-jetty-max-request-size-414-uri-too-long">source</a>
+    </div>
+   </div>
+   <div>
+    <p>How do you configure Javalin to change the max request size, specifically the config to increase the max size of the query parameters on the request (avoiding <code>414 URI too long</code>)?</p>
+    <p>I get <code>414 URI is too long</code> when I exceed what looks like a default size of 8KB so would like to configure my Javalin server to increase that slightly.</p>
+    <p>I think it uses Jetty under the hood which has a <code>HttpConfiguration.requestHeaderSize</code> variable that may control it. Or there's a <code>HttpParser._maxHeaderBytes</code> which is checked before throwing the <code>URI_TOO_LONG_414</code> exception.</p>
+    <p>I can't see how it can all be wired up...</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jetty</span><span class="tag">javalin</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jan 2023 at 19:48</span>
+     </div>
+    </div>
+    <div>
+     <p>Bearing in mind all the advice and warnings listed <a href="https://stackoverflow.com/a/75151357/12567365">here</a>... Assuming you have Javalin defined as follows in your <code>main</code> method:</p>
+     <pre class="lang-java prettyprint-override"><code>Javalin app = Javalin.create(config -&gt; {
+    config.jetty.server(MyJetty::create);
+}).start();
+</code></pre>
+     <p>Then you can create <code>MyJetty</code> to customize this and any other settings you may want to use.</p>
+     <p>A very basic example:</p>
+     <pre class="lang-java prettyprint-override"><code>import org.eclipse.jetty.server.HttpConfiguration;
+import org.eclipse.jetty.server.HttpConnectionFactory;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
+
+public class MyJetty {
+
+    public static Server create() {
+        Server server = new Server();
+        HttpConfiguration httpConfiguration = new HttpConfiguration();
+
+        httpConfiguration.setRequestHeaderSize(8192); // use your value here
+
+        HttpConnectionFactory httpCF = new HttpConnectionFactory(httpConfiguration);
+        ServerConnector httpConnector = new ServerConnector(server, httpCF);
+        httpConnector.setPort(8080); // use your port here
+        server.addConnector(httpConnector);
+        return server;
+    }
+
+}
+</code></pre>
+     <p>This only sets up a simple insecure HTTP connection - but shows one way to change the <code>HttpConfiguration</code> value for Javalin. You can use the same approach for other connectors you may want to configure, including ones using SSL/TLS.</p>
+     <hr>
+     <p>I am assuming the latest version of Javalin (version 5) since there were some syntax changes from Javalin 4 to 5 - and also the version of Jetty changed from 9 to 11.</p>
+     <p>If you are using Javalin 4, the <code>config</code> syntax is a bit different:</p>
+     <pre class="lang-java prettyprint-override"><code>config.server(MyJetty::create);
+</code></pre>
+     <p>But I don't think the Jetty code changes (for this specific setting, at least).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Joakim Erdfelt</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jan 2023 at 19:26</span>
+     </div>
+    </div>
+    <div>
+     <p>Only change the <code>HttpConfiguration</code>, it will inform the <code>HttpParser</code>.</p>
+     <p>You should be leery of doing this because ...</p>
+     <ul>
+      <li>many browsers do not support that large of a query.</li>
+      <li>3rd party internet security software on laptops will reject that exchange.</li>
+      <li>you open yourself to various old school DoS (Denial of Service) attacks related to hashmap/hashcode abuse. (to minimize this issue, use Java 17 or newer)</li>
+      <li>If you move to HTTP/2 (or HTTP/3) many servers will reject the extension of the maximum request headers (at the HTTP level) that would be needed to support this massive request path.</li>
+     </ul>
+     <p>Also, depending on what technology Javalin is using, you might need to also increase the <code>ContextHandler</code> <code>maxFormContentSize</code> and/or <code>maxFormKeys</code>.</p>
+     <p>If you have reached this need, it screams of abuse of the HTTP spec, you should investigate moving to a traditional HTTP POST with <code>Content-Type: application/x-www-form-urlencoded</code> instead.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Appreciate the comments and understand POST is often cited as a solution. I'm balancing similar misuse of POST in the context of REST and am aware the the HTTP spec doesn't preclude using a body with a GET (although not convention)</span> <span> - </span> <span class="display-name">Toby</span> <span> </span> <span class="date">18 Jan 2023 at 13:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

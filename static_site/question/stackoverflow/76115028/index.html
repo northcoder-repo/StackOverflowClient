@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Problem chaining tokenizer with filters with PythonAnalyzer in PyLucene</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Problem chaining tokenizer with filters with PythonAnalyzer in PyLucene</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user2773013</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Apr 2023 at 20:58</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76115028/problem-chaining-tokenizer-with-filters-with-pythonanalyzer-in-pylucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm new to PyLucene. I managed to install it on my Ubuntu, and looked at [sample code][1] of how custom analyzer is implemented. I tried modifying it by adding an NGramTokenFilter. But I keep getting an error when printing out the result of the custom analyzer. If I remove the ngram filter, it would work just fine.</p>
+    <p>Basically what I'm trying to do is split all incoming text by white space, lower case it, convert to ascii code, and do ngram.</p>
+    <p>The code is as follow:</p>
+    <pre><code>class myAnalyzer(PythonAnalyzer):
+
+def createComponents(self, fieldName):
+    source = WhitespaceTokenizer()
+    filter = LowerCaseFilter(source)
+    filter = ASCIIFoldingFilter(filter)
+    filter = NGramTokenFilter(filter,1,2)
+
+    return self.TokenStreamComponents(source, filter)
+
+def initReader(self, fieldName, reader):
+    return reader
+
+
+analyzer = myAnalyzer()
+stream = analyzer.tokenStream("", StringReader("MARGIN wondêrfule"))
+stream.reset()
+tokens=[]
+while stream.incrementToken():
+    tokens.append(stream.getAttribute(CharTermAttribute.class_).toString())
+print(tokens)
+</code></pre>
+    <p>The error I keep getting is:</p>
+    <pre><code>InvalidArgsError: (&lt;class 'org.apache.lucene.analysis.ngram.NGramTokenFilter'&gt;, '__init__', (&lt;ASCIIFoldingFilter: ASCIIFoldingFilter@192d74fb term=,bytes=[],startOffset=0,endOffset=0,positionIncrement=1,positionLength=1,type=word,termFrequency=1&gt;, 2, 3))
+</code></pre>
+    <p>What am I doing wrong?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span><span class="tag">pylucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Apr 2023 at 22:16</span>
+     </div>
+    </div>
+    <div>
+     <p>Looking at the JavaDoc for <a href="https://lucene.apache.org/core/9_5_0/analysis/common/org/apache/lucene/analysis/ngram/NGramTokenFilter.html" rel="nofollow noreferrer">NGramTokenFilter</a>, you have to use this:</p>
+     <pre><code>NGramTokenFilter(filter, size)
+</code></pre>
+     <p>for a fixed ngram size; or this:</p>
+     <pre><code>NGramTokenFilter(filter, min, max, boolean) 
+</code></pre>
+     <p>for a range of ngram sizes with a boolean for <code>preserveOriginal</code>, which determines:</p>
+     <blockquote>
+      <p>Whether or not to keep the original term when it is shorter than minGram or longer than maxGram</p>
+     </blockquote>
+     <p>What you have is neither of those.</p>
+     <p>(Side note: I'm not sure an ngram of size 1 makes a lot of sense - but maybe it's what you need.)</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>Just for completeness, here is my (somewhat modified) standalone version of the code in the question. The most relevant part is this line:</p>
+     <pre class="lang-py prettyprint-override"><code>result = NGramTokenFilter(filter, 1, 2, True)
+</code></pre>
+     <p>The program (using PyLucene 9.4.1 and Java 11):</p>
+     <pre class="lang-py prettyprint-override"><code>import sys, lucene, unittest
+from org.apache.pylucene.analysis import PythonAnalyzer
+from org.apache.lucene.analysis import Analyzer
+from java.io import StringReader
+from org.apache.lucene.analysis.core import WhitespaceTokenizer, LowerCaseFilter
+from org.apache.lucene.analysis.miscellaneous import ASCIIFoldingFilter
+from org.apache.lucene.analysis.ngram import NGramTokenFilter
+from org.apache.lucene.analysis.tokenattributes import CharTermAttribute
+
+class myAnalyzer(PythonAnalyzer):
+
+    def __init__(self):
+        PythonAnalyzer.__init__(self)
+
+    def createComponents(self, fieldName):
+        source = WhitespaceTokenizer()
+        filter = LowerCaseFilter(source)
+        filter = ASCIIFoldingFilter(filter)
+        result = NGramTokenFilter(filter, 1, 2, True)
+
+        return Analyzer.TokenStreamComponents(source, result)
+
+    def initReader(self, fieldName, reader):
+        return reader
+
+
+lucene.initVM(vmargs=['-Djava.awt.headless=true'])
+analyzer = myAnalyzer()
+stream = analyzer.tokenStream("", StringReader("MARGIN wondêrfule"))
+stream.reset()
+tokens=[]
+while stream.incrementToken():
+    tokens.append(stream.getAttribute(CharTermAttribute.class_).toString())
+print(tokens)
+</code></pre>
+     <p>The output:</p>
+     <pre><code>['m', 'ma', 'a', 'ar', 'r', 'rg', 'g', 'gi', 'i', 'in', 'n', 'margin', 'w', 'wo', 'o', 'on', 'n', 'nd', 'd', 'de', 'e','er', 'r', 'rf', 'f', 'fu', 'u', 'ul', 'l', 'le', 'e', 'wonderfule']
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>OMG.... after you pointed it out, I just realized that I was reading the documentation from Lucene 6.61, yet I have 9.4.1 installed. Genius part on my end!! and I wonder why I had invalid number of parameter error!! THANK YOU SO MUCH!!!!</span> <span> - </span> <span class="display-name">user2773013</span> <span> </span> <span class="date">27 Apr 2023 at 16:37</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

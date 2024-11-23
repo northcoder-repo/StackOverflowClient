@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Create a list of thymeleaf fragments and pss it as param to another fragment</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Create a list of thymeleaf fragments and pss it as param to another fragment</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Michael K</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>3 Mar 2020 at 13:12</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60508081/create-a-list-of-thymeleaf-fragments-and-pss-it-as-param-to-another-fragment">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Is it possible to statically initialize list of fragments and pass them as a parameter to another fragment? Something like this:</p>
+    <p>this:</p>
+    <pre><code>&lt;div th:fragment="links(name)" xmlns:th="http://www.w3.org/1999/html" th:remove="tag"&gt;
+    &lt;span th:replace="~{fthis::htmlIconTemplate(${name}, '')}"/&gt;
+&lt;/div&gt;
+
+&lt;th:block th:replace="fragments/new/template1 :: standartTemplate('', ${content}, { {{~{this::links('live')}, ~{this::links('live')}}})"&gt;
+&lt;/th:block&gt;
+</code></pre>
+    <p>template1:</p>
+    <pre><code>&lt;tr th:fragment="standartTemplate(mode, content, customFragments)" xmlns:th="http://www.w3.org/1999/xhtml"&gt;
+&lt;th:block th:replace="${customFragments.get(1)}"/&gt;
+&lt;/tr&gt;
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Mar 2020 at 17:27</span>
+     </div>
+    </div>
+    <div>
+     <p>I'm not sure if this fully answers your question. In the example below, the heart of the solution is this line:</p>
+     <pre><code>&lt;th:block th:replace = "__${#strings.listSplit(customFragments, ',')[1]}__"&gt;
+</code></pre>
+     <p>The example builds up to this, starting from simpler cases. Because I don't have some of the wider context of your code, this would have to be adapted, of course, to your specific situation.</p>
+     <h2>The Set-Up</h2>
+     <p>Contents of <code>frags_demo.html</code> - placed in the <code>resources</code> folder:</p>
+     <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html xmlns:th="http://www.thymeleaf.org"&gt;
+    &lt;head&gt;
+        &lt;title&gt;Fragments Demo&lt;/title&gt;
+        &lt;meta charset="UTF-8"&gt;
+        &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;h2&gt;Fragments Demo&lt;/h2&gt;
+
+        &lt;h3&gt;In-page fragment:&lt;/h3&gt;
+        &lt;div th:fragment="links(name)" th:remove="tag"&gt;
+            &lt;div th:text="'Here is ' + ${name}"&gt;&lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;h3&gt;First example:&lt;/h3&gt;
+        &lt;!-- simple example, with a string not fragment names --&gt;
+        &lt;th:block th:replace = "/fragments/fragments_one.html :: fragment_a(
+             mode = 'a mode', 
+             content = ${content}, 
+             customFragments = 'foo,bar,baz')"&gt;
+        &lt;/th:block&gt;
+
+        &lt;h3&gt;Second example:&lt;/h3&gt;
+        &lt;!-- example with hard-coded fragment names --&gt;
+        &lt;th:block th:replace = "/fragments/fragments_one.html :: fragment_a(
+             mode = 'a mode', 
+             content = ${content}, 
+             customFragments = '/frags_demo.html::links(\'foo\'),bar,baz')"&gt;
+        &lt;/th:block&gt;
+
+        &lt;h3&gt;Third example:&lt;/h3&gt;
+        &lt;!-- example with hard-coded fragment names, using the template fragment --&gt;
+        &lt;!-- use the absolute fragment path &amp; name - can't use 'this'            --&gt;
+        &lt;th:block th:replace = "/fragments/fragments_one.html :: fragment_b(
+             mode = 'a mode', 
+             content = ${content}, 
+             customFragments = '/frags_demo.html::links(\'foo\'),
+                                /frags_demo.html::links(\'bar\'),
+                                /frags_demo.html::links(\'baz\')')"&gt;
+        &lt;/th:block&gt;
+
+    &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+     <p>Contents of <code>fragments_one.html</code> - placed in a <code>fragments</code> sub-folder under the <code>resources</code> folder:</p>
+     <pre><code>&lt;!-- the customFragments parameter contains the string 'foo,bar,baz' --&gt;
+&lt;th:block th:fragment="fragment_a(mode, content, customFragments)"&gt;
+
+    &lt;th:block th:text="${'Fragment A from fragments_one.html'}"&gt;
+    &lt;/th:block&gt;
+
+    &lt;!-- use the Thymeleaf listSplit function to create a list --&gt;
+    &lt;!-- giving us ['foo', 'bar', 'baz']                       --&gt;
+
+    &lt;!-- picking one of the items (the 2nd one - zero-indexed!): --&gt;
+    &lt;div th:with="frag=${#strings.listSplit(customFragments, ',')[1]}"
+         th:text="${frag}"&gt;
+    &lt;/div&gt;
+
+    &lt;!-- iterating through the entire list: --&gt;
+    &lt;div th:each="frag : ${#strings.listSplit(customFragments, ',')}"&gt;
+        &lt;div th:text="${frag}"&gt;&lt;/div&gt;
+    &lt;/div&gt;
+
+&lt;/th:block&gt;
+
+&lt;th:block th:fragment="fragment_b(mode, content, customFragments)"&gt;
+    &lt;div&gt;The string representing the template:&lt;/div&gt;
+    &lt;div th:with="frag=${#strings.listSplit(customFragments, ',')[1]}"
+         th:text="${frag}"&gt;
+    &lt;/div&gt;
+
+    &lt;p/&gt;
+    &lt;div&gt;The invoked template:&lt;/div&gt;
+    &lt;th:block th:replace = "__${#strings.listSplit(customFragments, ',')[1]}__"&gt;
+    &lt;/th:block&gt;
+
+&lt;/th:block&gt;
+</code></pre>
+     <h2>The Output</h2>
+     <p>When you hit the <code>frags_demo</code> page, the following is displayed in the browser:</p>
+     <pre><code>Fragments Demo
+
+In-page fragment:
+
+Here is null
+
+First example:
+
+Fragment A from fragments_one.html
+bar
+foo
+bar
+baz
+
+Second example:
+
+Fragment A from fragments_one.html
+bar
+/frags_demo.html::links('foo')
+bar
+baz
+
+Third example:
+
+The string representing the template:
+/frags_demo.html::links('bar')
+
+The invoked template:
+Here is bar
+</code></pre>
+     <p>It is that very last line (<code>here is bar</code>) which represents the result of the parameterized fragment invocation.</p>
+     <h2>Walkthrough</h2>
+     <p>I build up the complexity through the examples, to help clarify how things work. The key points to note are:</p>
+     <p>Thymeleaf passes each fragment parameter as a string. So we use the built-in <code>#strings.listSplit</code> function to give us an iterable list. In my example it's comma-separated (<code>foo,bar,baz</code>). Depending on what ends up in the string, a comma may not be the right delimiter for you.</p>
+     <p>If you don't want to iterate through the full list, you can select any item with <code>[n]</code>.</p>
+     <p>Then in the demo we replace <code>foo,bar,baz</code> with three fragment references, to make the demo closer to what you want.</p>
+     <p>The final step is to use the preprocessing directive <code>__${...}__</code> to ensure the fragment selector is treated as a string by <code>th:replace</code>:</p>
+     <pre><code>&lt;th:block th:replace = "__${#strings.listSplit(customFragments, ',')[1]}__"&gt;
+</code></pre>
+     <h2>Final Thought</h2>
+     <p>If re-arranging templates and fragments could allow you to simplify, and avoid this complexity, then I would advocate for that, instead of this. But I don't know the larger context, so that may not be an option.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

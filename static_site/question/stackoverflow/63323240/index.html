@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to read enviroment variables in dockerfile correctly</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to read enviroment variables in dockerfile correctly</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Kshitij Singh</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Aug 2020 at 06:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63323240/how-to-read-enviroment-variables-in-dockerfile-correctly">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a Dockerfile where i am trying to read runtime args. Here is my dockerfile</p>
+    <pre><code>FROM clojure:openjdk-8-lein-slim-buster
+ENV dbconfig ""
+ENTRYPOINT ["java","-Ddbconfig=${dbconfig}", "-jar", "abc.jar", "server"]
+EXPOSE 8080
+</code></pre>
+    <p>And here is the docker run command where i am passing values at runtime. Am i doing something wrong here? Values are always recognized as null. I have also tried removing <code>ENV dbconfig ""</code> but nothing works</p>
+    <pre><code>docker run --rm -e dbconfig='{"somekey" "value"}' xyz/abc
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">docker</span><span class="tag">docker-compose</span><span class="tag">dockerfile</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>davidxxx</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Aug 2020 at 07:58</span>
+     </div>
+    </div>
+    <div>
+     <p>You have two ways to define entrypoint : <a href="https://docs.docker.com/engine/reference/builder/" rel="nofollow noreferrer">exec vs shell</a>.</p>
+     <blockquote>
+      <p>The exec form is parsed as a JSON array, which means that you must use double-quotes (“) around words not single-quotes (‘). So you use the <code>exec</code> form.</p>
+     </blockquote>
+     <p><a href="https://docs.docker.com/engine/reference/builder/#exec-form-entrypoint-example" rel="nofollow noreferrer">But</a> :</p>
+     <blockquote>
+      <p>Unlike the shell form, the exec form does not invoke a command shell. This means that normal shell processing does not happen. For example, ENTRYPOINT [ "echo", "$HOME" ] will not do variable substitution on $HOME</p>
+     </blockquote>
+     <p>So favor the shell form to allow env variable substitutions :</p>
+     <pre><code>ENTRYPOINT java -Ddbconfig=${dbconfig} -jar abc.jar server
+</code></pre>
+     <p>or invoke a shell in the exec form :</p>
+     <pre><code>ENTRYPOINT [ "sh", "-c", "java","-Ddbconfig=${dbconfig}", "-jar", "abc.jar", "server" ]
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rahul Sawant</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Aug 2020 at 07:06</span>
+     </div>
+    </div>
+    <div>
+     <p>Try using CMD to pass runtime arguments, sample like below</p>
+     <pre><code>ENTRYPOINT ["/bin/bash"]
+CMD ["/sample.sh", "argument1","argument2"]
+</code></pre>
+     <p>Then passing arguments at runtime would be:-</p>
+     <pre><code>docker run -i -t argument1 argument2
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

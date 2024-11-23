@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>"OR" query in lucene</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>"OR" query in lucene</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>leyva_7</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Nov 2022 at 11:35</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74581796/or-query-in-lucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to design an information retrieval system of a film database. I want to search by title so when i search "Cobra Kai" my analyzer descompose this string into "cobra kai", "cobra" and "kai" to do a better pairing. So my problem is that I have to do a query like this: "cobra kai" OR "cobra" OR "kai" but it's not working for me. Here is the code:</p>
+    <pre><code>ArrayList&lt;String&gt; busqueda_separada = muestraTexto(analyzer_titulo(), busquedaTitulo.getText());
+                        
+                        query1 = new TermQuery(new Term("titulo" ,busqueda_separada.get(0)));
+                        query2 = new TermQuery(new Term("titulo" ,busqueda_separada.get(1)));
+                        query3 = new TermQuery(new Term("titulo" ,busqueda_separada.get(2)));
+
+                        nested.add(query1, BooleanClause.Occur.SHOULD);
+                        nested.add(query2, BooleanClause.Occur.SHOULD);
+                        nested.add(query3, BooleanClause.Occur.SHOULD);
+
+                        bqbuilder.add(nested, BooleanClause.Occur.MUST);
+</code></pre>
+    <p>And this is my error: <a href="https://i.stack.imgur.com/kG9UO.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/kG9UO.png" alt="Error"></a></p>
+    <p>I have tried to do differents boolean clauses but it keeps the same.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Nov 2022 at 15:07</span>
+     </div>
+    </div>
+    <div>
+     <p>From the error message we can see that you have defined <code>nested</code> as a variable of type <code>BooleanQuery</code>.</p>
+     <p>As the error messages say, the class <code>BooleanQuery</code> does not have a method <code>add(Query, Occur)</code>. This means the following line will not compile:</p>
+     <pre><code>nested.add(query1, BooleanClause.Occur.SHOULD);
+</code></pre>
+     <p>Instead, the code should be using a <code>BooleanClause</code> here, instead of a <code>BooleanQuery</code>.</p>
+     <p>One <code>BooleanQuery</code> is made up of one or more clauses, using <code>BooleanClause</code>.</p>
+     <p>So, you can do the following:</p>
+     <pre class="lang-java prettyprint-override"><code>BooleanQuery.Builder bqBuilder = new BooleanQuery.Builder();
+
+Query query1 = new TermQuery(new Term("titulo", "cobra kai"));
+Query query2 = new TermQuery(new Term("titulo", "cobra"));
+Query query3 = new TermQuery(new Term("titulo", "kai"));
+
+BooleanClause nested1 = new BooleanClause(query1, BooleanClause.Occur.SHOULD);
+BooleanClause nested2 = new BooleanClause(query2, BooleanClause.Occur.SHOULD);
+BooleanClause nested3 = new BooleanClause(query3, BooleanClause.Occur.SHOULD);
+
+bqBuilder.add(nested1);
+bqBuilder.add(nested2);
+bqBuilder.add(nested3);
+
+BooleanQuery bq = bqBuilder.build();
+</code></pre>
+     <p>That builds a boolean query containing 3 clauses:</p>
+     <p><em>Find titles containing "cobra kai" OR "cobra" OR "kai".</em></p>
+     <p>I am not sure what this is for:</p>
+     <pre><code>bqbuilder.add(nested, BooleanClause.Occur.MUST);
+</code></pre>
+     <p>The <code>BooleanClause.Occur.MUST</code> does not appear to be needed, so I have dropped it from my code.</p>
+     <hr>
+     <p>You can simplify the above code by using a loop.</p>
+     <p>Assuming you already have a list containing your search terms (your <code>busqueda_separada</code> list):</p>
+     <pre><code>List&lt;String&gt; terms = Arrays.asList("cobra kai", "cobra", "kai");
+</code></pre>
+     <p>You can use that list as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>for (String term : terms) {
+    Query query = new TermQuery(new Term("titulo", term));
+    BooleanClause nested = new BooleanClause(query, BooleanClause.Occur.SHOULD);
+    bqBuilder.add(nested);
+}
+BooleanQuery bq2 = bqBuilder.build();
+</code></pre>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>One point I forgot to mention:</p>
+     <p>In your data, you have a search phrase: <code>cobra kai</code>. It's possible that you do not need to search for this, depending on how your data was indexed, and how you expect your search to work.</p>
+     <p>But assuming you <em>do</em> need it, you need to wrap the phrase in double-quotes, so that it is treated as a single search phrase by Lucene:</p>
+     <pre><code>List&lt;String&gt; terms = Arrays.asList("\"cobra kai\"", "cobra", "kai");
+</code></pre>
+     <p>This ensures the generated search is:</p>
+     <pre><code>titulo:"cobra kai" titulo:cobra titulo:kai
+</code></pre>
+     <p>And, by default, there is an implied "OR" in between each clause in the search.</p>
+     <hr>
+     <p>Your "extra" question:</p>
+     <blockquote>
+      <p>query should be like <code>(titulo=“cobra kai” OR titulo=“cobra” OR titulo=“kai”) AND anio=“2018”</code></p>
+     </blockquote>
+     <p>This is really a completely new question and you can see approaches in existing answers such as:</p>
+     <ul>
+      <li><a href="https://stackoverflow.com/q/3130908/12567365">How to create nested boolean query with lucene API (a AND (b OR c))?</a></li>
+      <li><a href="https://stackoverflow.com/q/37904977/12567365">Lucene 6.0! How to instantiate a BooleanQuery and add other search queries in it?</a></li>
+      <li>and probably several more...</li>
+     </ul>
+     <p>But one more approach (if I have understood correctly) is to nest 2 queries inside another boolean query and use <code>Occur.MUST</code> in that outer query for each clause.</p>
+     <p>So, you already have your first boolean query.</p>
+     <p>Now create another one. Actually if you only have one term, you don't even need a boolean query - just a term query:</p>
+     <pre><code>Query query2 = new TermQuery(new Term("year", "2018"));
+</code></pre>
+     <p>Now place these two queries into a brand new boolean query (this new query <em>contains</em> the first two queries):</p>
+     <pre><code>BooleanQuery.Builder bqBuilder = new BooleanQuery.Builder();
+bqBuilder.add(bq1, BooleanClause.Occur.MUST);
+bqBuilder.add(query2, BooleanClause.Occur.MUST);
+BooleanQuery bq = bqBuilder.build();
+</code></pre>
+     <p>The above is equivalent to the following Lucene classic query:</p>
+     <pre><code>+(body:"cobra kai" body:cobra body:kai) +year:2018
+</code></pre>
+     <p>And that, in turn, is equivalent to:</p>
+     <pre><code>(body:"cobra kai" OR body:cobra OR body:kai) AND year:2018
+</code></pre>
+     <p>Note that this uses the <a href="https://lucene.apache.org/core/9_4_2/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Boolean_operators" rel="nofollow noreferrer">plus operator</a>.</p>
+     <p>So the results MUST contain matches for both clauses - the clause for my <code>body</code> field and the clause for my <code>year</code> field.</p>
+     <hr>
+     <p>This can all get quite confusing if you think about Lucene boolean operators in the same way that you think about Boolean algebra. But they are not the same and serve different purposes. Lucene is not (only) about including and excluding records, but about <em>scoring</em> those records for relevance.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you very much for your answer, I still have a problem that I forgot to mention. How can I combine this query with other attributes that must appear. For example: “titulo: cobra kai”, that problem is solved and let’s say I have another field that shows the film year (“anio”). So the query will be “titulo: cobra kai AND anio:2018”, how can I do this combining the Boolean querys? Thank you so much.</span> <span> - </span> <span class="display-name">leyva_7</span> <span> </span> <span class="date">26 Nov 2022 at 19:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The query should be like (titulo=“cobra kai” OR titulo=“cobra” OR titulo=“kai”) AND anio=“2018”</span> <span> - </span> <span class="display-name">leyva_7</span> <span> </span> <span class="date">26 Nov 2022 at 19:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That is really a completely new question - but I added some notes to the answer. Feel free to ask a new question if these notes do not help - and if your research into existing questions also does not help.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Nov 2022 at 19:46</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

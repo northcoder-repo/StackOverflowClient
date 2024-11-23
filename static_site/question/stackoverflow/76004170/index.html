@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Datatables excel export stripHtml doesn't work</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Datatables excel export stripHtml doesn't work</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Elif Ece Sanli</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 Apr 2023 at 10:04</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76004170/datatables-excel-export-striphtml-doesnt-work">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have added a datatables export button to my datatable. In this table, some columns include html tags like</p>
+    <pre><code>&lt;button data-toggle="dropdown" class="btn btn-primary dropdown-toggle btn-xs"&gt;BUTTON NAME&lt;/button&gt;
+</code></pre>
+    <p>When I first added the export button, it worked fine and the rows with HTML tags exported without their tags like: BUTTON NAME. But then I had to include a replace function to my button code as following:</p>
+    <pre><code>buttons: [
+  {
+    extend: "excelHtml5",
+
+    exportOptions: {
+      format: {
+        body: function (data, row, column, node) {
+          return column === 18 ? data.replace(",", ".") : data;
+        },
+      },
+    },
+
+    tag: "img",
+
+    className: "btn-excel",
+
+    title: "file_title",
+
+    titleAttr: "Excel",
+
+    attr: {
+      src: "../images/menu_img/excel.ico",
+    },
+
+    action: newexportaction,
+  },
+];
+</code></pre>
+    <p>When I add this exportOptions attribute, the rows with HTML tags started to appear with their tags in the exported excel files. The column I am trying to replace doesn't have any html tag, they are all in some other column but this change affects them somehow.</p>
+    <p>I tried to add 'stripHtml: false' but it didn't make a difference. I also tried to write the replace function with switch case statements but it didn't work as well.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">html</span><span class="tag">ajax</span><span class="tag">datatables</span><span class="tag">export-to-excel</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span><i>"I tried to add 'stripHtml: false' but it didn't make a difference."</i> - well if anything, you should add it with <code>true</code>. Documentation says true was the default already - but I can't tell if <code>extend: "excelHtml5"</code> is not perhaps overwriting that here somehow.</span> <span> - </span> <span class="display-name">CBroe</span> <span> </span> <span class="date">13 Apr 2023 at 10:22</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Hi, I tried that too but no luck..</span> <span> - </span> <span class="display-name">Elif Ece Sanli</span> <span> </span> <span class="date">13 Apr 2023 at 10:30</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Apr 2023 at 15:06</span>
+     </div>
+    </div>
+    <div>
+     <p>When you use the <code>format</code> function for your Excel export button, DataTables populates its <code>data</code> parameter with the <strong>raw data</strong> from each DataTable cell. So, that raw data is the full HTML content for your <code>BUTTON NAME</code> button.</p>
+     <p>More precisely, you get each cell's <a href="https://datatables.net/reference/api/buttons.exportData()" rel="nofollow noreferrer"><code>innerHtml</code></a>. See also <a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/innerHTML" rel="nofollow noreferrer">here</a>.</p>
+     <p>That is why some other options such as <code>stripHtml: true</code> no longer have any effect.</p>
+     <p>You can perform the equivalent <code>stripHtml</code> step (in your specific case) by using the <code>node</code> parameter instead of the <code>data</code> parameter - and accessing the node's <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/innerText" rel="nofollow noreferrer"><code>innerText</code></a> using JavaScript:</p>
+     <pre class="lang-js prettyprint-override"><code>body: function (data, row, column, node) {
+  if (column === 5) {
+    return data.replace(",", ".");
+  } else if ( column === 3) {
+    return node.innerText;
+  } else {
+    return data;
+  }
+}
+</code></pre>
+     <p>My output in Excel is:</p>
+     <p><a href="https://i.stack.imgur.com/Gu8BV.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/Gu8BV.png" alt="enter image description here"></a></p>
+     <hr>
+     <p>Here is my full test example, so you can see the source data:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;link href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.css" rel="stylesheet"/&gt;
+  &lt;link href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.css" rel="stylesheet"/&gt;
+ 
+  &lt;script src="https://code.jquery.com/jquery-3.6.0.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.js"&gt;&lt;/script&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office in Country&lt;/th&gt;
+                &lt;th&gt;Age&lt;/th&gt;
+                &lt;th&gt;Start date&lt;/th&gt;
+                &lt;th&gt;Salary&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Tiger Nixon&lt;/td&gt;
+                &lt;td&gt;System Architect&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;&lt;button data-toggle="dropdown" class="btn btn-primary dropdown-toggle btn-xs"&gt;BUTTON NAME&lt;/button&gt;&lt;/td&gt;
+                &lt;td&gt;2011/04/25&lt;/td&gt;
+                &lt;td&gt;$320,800&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Garrett Winters&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;&lt;button data-toggle="dropdown" class="btn btn-primary dropdown-toggle btn-xs"&gt;BUTTON NAME&lt;/button&gt;&lt;/td&gt;
+                &lt;td&gt;2011/07/25&lt;/td&gt;
+                &lt;td&gt;$170,750&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;script&gt;
+
+$(document).ready(function() {
+
+  $('#example').DataTable( {
+    dom: 'Bfrtip',
+    buttons: [
+      {
+        extend: 'excelHtml5',
+        exportOptions: {
+          stripHtml: true,
+          format: {
+            body: function (data, row, column, node) {
+              if (column === 5) {
+                return data.replace(",", ".");
+              } else if ( column === 3) {
+                return node.innerText;
+              } else {
+                return data;
+              }
+            }
+          }
+        }
+      }
+    ]
+
+  } );
+
+} );
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

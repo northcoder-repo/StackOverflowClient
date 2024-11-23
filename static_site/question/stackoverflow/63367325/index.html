@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>datetime.now(tz) and datetime(year, month, day, tzinfo=tz) don't have same UTC offset</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>datetime.now(tz) and datetime(year, month, day, tzinfo=tz) don't have same UTC offset</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jed</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Aug 2020 at 22:41</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63367325/datetime-nowtz-and-datetimeyear-month-day-tzinfo-tz-dont-have-same-utc-o">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Why are the UTC offsets in the 2 datetimes created in the code below different? I'm using pytz==2019.1</p>
+    <pre><code>from datetime import datetime
+import pytz
+
+EASTERN = pytz.timezone('US/Eastern')
+dt1 = datetime.now(EASTERN)
+dt2 = datetime(2020, 8, 11, 15, 30, tzinfo=EASTERN)
+print(f'dt1: {dt1}')
+print(f'dt2: {dt2}')
+</code></pre>
+    <p>results:</p>
+    <blockquote>
+     <p>dt1: 2020-08-11 18:35:47.984745-04:00</p>
+    </blockquote>
+    <blockquote>
+     <p>dt2: 2020-08-11 15:30:00-04:56</p>
+    </blockquote>
+    <p>The first one shows an UTC offset of -04:00 which is correct (for this time of year), but the 2nd one is giving an UTC offset of -04:56.</p>
+    <p>How can I declare a datetime with the 2nd method and get the UTC offset from the first method.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">python</span><span class="tag">datetime</span><span class="tag">timezone-offset</span><span class="tag">pytz</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>You are comparing the time of the system (now) to some time that you supplied yourself (2020, 8, 11, 15, 30)</span> <span> - </span> <span class="display-name">hesham_EE</span> <span> </span> <span class="date">12 Aug 2020 at 00:08</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>sidenote: your <code>pytz</code> is outdated. recommendation: use <a href="https://dateutil.readthedocs.io/en/stable/" rel="nofollow noreferrer">dateutil</a> instead of <code>pytz</code> to avoid such weird behaviour. read <a href="https://blog.ganssle.io/articles/2018/03/pytz-fastest-footgun.html" rel="nofollow noreferrer">this blogpost</a> to get more info why this is the case.</span> <span> - </span> <span class="display-name">FObersteiner</span> <span> </span> <span class="date">12 Aug 2020 at 06:32</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@MrFuppes, your comment is spot on. After reading just the first couple paragraphs of the linked blog I understood what was going on. Can you put it in an answer and I'll mark it as THE answer?</span> <span> - </span> <span class="display-name">Jed</span> <span> </span> <span class="date">12 Aug 2020 at 14:02</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>From the blogpost @MrFuppes shared they actually reference this same issue under <code>pytz's time zone model</code></span> <span> - </span> <span class="display-name">Algebra8</span> <span> </span> <span class="date">12 Aug 2020 at 14:24</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>FObersteiner</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Aug 2020 at 14:24</span>
+     </div>
+    </div>
+    <div>
+     <p>The issue with the shown code is that <code>datetime.now(tz)</code> can handle a <code>pytz.timezone</code> as <code>tz</code> argument while the default constructor <code>datetime(y,m,d,...)</code> cannot. In this case, you have to use the <code>localize</code> method of the <code>timezone</code>,</p>
+     <pre><code>from datetime import datetime
+import pytz
+
+EASTERN = pytz.timezone('US/Eastern')
+dt1 = datetime.now(EASTERN)
+dt2 = EASTERN.localize(datetime(2020, 8, 11, 15, 30))
+print(f'dt1: {dt1}')
+print(f'dt2: {dt2}')
+# prints
+# dt1: 2020-08-12 10:07:09.738763-04:00
+# dt2: 2020-08-11 15:30:00-04:00
+</code></pre>
+     <p><a href="https://pypi.org/project/python-dateutil/" rel="nofollow noreferrer">dateutil</a> avoids this issue, more info can be found <a href="https://blog.ganssle.io/articles/2018/03/pytz-fastest-footgun.html" rel="nofollow noreferrer">here</a>. That would make the code work "as it is":</p>
+     <pre><code>from dateutil.tz import gettz
+
+EASTERN = gettz('US/Eastern')
+dt1 = datetime.now(EASTERN)
+dt2 = datetime(2020, 8, 11, 15, 30, tzinfo=EASTERN)
+print(f'dt1: {dt1}')
+print(f'dt2: {dt2}')
+# prints e.g.
+# dt1: 2020-08-12 10:20:07.796811-04:00
+# dt2: 2020-08-11 15:30:00-04:00
+</code></pre>
+     <p>In addition <code>pytz</code> is likely to be <a href="https://pypi.org/project/pytz-deprecation-shim/" rel="nofollow noreferrer">deprecated with Python 3.9</a> as you'll have <a href="https://docs.python.org/3.9/library/zoneinfo.html" rel="nofollow noreferrer">zoneinfo</a> as part of the standard library for these kinds of jobs.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Algebra8</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2020 at 23:34</span>
+     </div>
+    </div>
+    <div>
+     <p>with regards to <code>dt1</code>:</p>
+     <p><code>datetime.now()</code> will return the <code>tzinfo</code> from utc. You can see this if you do the following:</p>
+     <pre><code>&gt;&gt;&gt; repr(EASTERN.fromutc(datetime.now()))
+"datetime.datetime(2020, 8, 11, 12, 33, 28, 849873, tzinfo=&lt;DstTzInfo 'US/Eastern' EDT-1 day, 20:00:00 DST&gt;)"
+</code></pre>
+     <p>the <code>tz.fromutc()</code> is what <code>datetime.now()</code> does behind the scenes.</p>
+     <p>with regards to <code>dt2</code>:</p>
+     <p>if you check the repr of EASTERN you will see the following:</p>
+     <pre><code>&gt;&gt;&gt; repr(EASTERN)
+"&lt;DstTzInfo 'US/Eastern' LMT-1 day, 19:04:00 STD&gt;"
+&gt;&gt;&gt; repr(dt2)
+"datetime.datetime(2020, 8, 11, 15, 30, tzinfo=&lt;DstTzInfo 'US/Eastern' LMT-1 day, 19:04:00 STD&gt;)"
+</code></pre>
+     <p>I'm not very comfortable with timezone differences so I don't want to steer you in the wrong direction, but from what I can tell both of these two options yield the same result:</p>
+     <pre><code>dt2 = datetime(2020, 8, 11, 15, 30, tzinfo=EASTERN)
+dt2_eastern_corrected = EASTERN.fromutc(dt2)
+dt3 = datetime(2020, 8, 11, 15, 30)
+dt3_eastern_corrected = EASTERN.fromutc(dt3
+
+&gt;&gt;&gt; repr(dt2_eastern_corrected)
+"datetime.datetime(2020, 8, 11, 11, 30, tzinfo=&lt;DstTzInfo 'US/Eastern' EDT-1 day, 20:00:00 DST&gt;)"
+&gt;&gt;&gt; repr(dt3_eastern_corrected)
+"datetime.datetime(2020, 8, 11, 11, 30, tzinfo=&lt;DstTzInfo 'US/Eastern' EDT-1 day, 20:00:00 DST&gt;)"
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Maybe I should have been more clear; all I'm saying is that if you follow the breadcrumbs you'll see <code>datetime._fromtimestamp()</code> will return ` tz.fromutc(result)` if <code>tz</code> is passed into <code>datetime.now()</code>.</span> <span> - </span> <span class="display-name">Algebra8</span> <span> </span> <span class="date">12 Aug 2020 at 14:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>actually, the second part of your code (using <code>pytz.timezone.fromutc</code>) is quiet interesting, I presume this retrieves the internal timestamp (POSIX) of the datetime object, ignoring the tzinfo?</span> <span> - </span> <span class="display-name">FObersteiner</span> <span> </span> <span class="date">12 Aug 2020 at 14:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I'm not too sure about that part, if that is what <code>BaseTzInfo.fromutc</code> does then probably, but from a quick check <a href="https://github.com/stub42/pytz/blob/master/src/pytz/__init__.py#L225" rel="nofollow noreferrer">you can see</a> it does the localization in one step.</span> <span> - </span> <span class="display-name">Algebra8</span> <span> </span> <span class="date">12 Aug 2020 at 14:39</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Just realized it is a <a href="https://github.com/python/cpython/blob/master/Lib/datetime.py#L1137" rel="nofollow noreferrer">wrapper over <code>datetime.tzinfo</code></a>. I'm not too sure what the algorithm for <code>tzinfo.fromutc</code> but you can read it <a href="https://github.com/python/cpython/blob/master/Lib/datetime.py#L2307" rel="nofollow noreferrer">here</a>.</span> <span> - </span> <span class="display-name">Algebra8</span> <span> </span> <span class="date">12 Aug 2020 at 14:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>at least I think my assumption is wrong, it has nothing to do with the POSIX timestamp. If tzinfo of the datetime object passed is None, it calls localize. if tzinfo is set, it gets a bit hard to follow, but it seems the tzinfo is basically just overridden. Not sure I totally get that, though...</span> <span> - </span> <span class="display-name">FObersteiner</span> <span> </span> <span class="date">12 Aug 2020 at 15:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Overloading in Java and multiple dispatch</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Overloading in Java and multiple dispatch</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>29</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Vitaly Olegovitch</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>18 Mar 2012 at 14:32</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/9759141/overloading-in-java-and-multiple-dispatch">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a collection (or list or array list) in which I want to put both String values and double values. I decided to make it a collection of objects and using overloading ond polymorphism, but I did something wrong.</p>
+    <p>I run a little test:</p>
+    <pre><code>public class OOP {
+    void prova(Object o){
+        System.out.println("object");
+    }
+
+    void prova(Integer i){
+    System.out.println("integer");
+    }
+
+    void prova(String s){
+        System.out.println("string");
+    }
+
+    void test(){
+        Object o = new String("  ");
+        this.prova(o); // Prints 'object'!!! Why?!?!?
+    }
+
+    public static void main(String[] args) {
+        OOP oop = new OOP();
+        oop.test(); // Prints 'object'!!! Why?!?!?
+    }
+}
+</code></pre>
+    <p>In the test seems like the argument type is decided at compile time and not at runtime. Why is that?</p>
+    <p>This question is related to:</p>
+    <p><a href="https://stackoverflow.com/questions/154577/polymorphism-vs-overriding-vs-overloading">Polymorphism vs Overriding vs Overloading</a> <br><a href="https://stackoverflow.com/questions/210460/try-to-describe-polymorphism-as-easy-as-you-can">Try to describe polymorphism as easy as you can</a></p>
+    <p><strong>EDIT:</strong></p>
+    <p>Ok the method to be called is decided at compile time. Is there a workaround to avoid using the <code>instanceof</code> operator?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">oop</span><span class="tag">polymorphism</span><span class="tag">overloading</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>DaveFar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Mar 2012 at 16:38</span>
+     </div>
+    </div>
+    <div>
+     <p>This post seconds voo's answer, and gives details about/alternatives to late binding.</p>
+     <p>General JVMs only use <strong>single dispatch</strong>: the runtime type is only considered for the receiver object; for the method's parameters, the static type is considered. An efficient implementation with optimizations is quite easy using <a href="http://www.artima.com/insidejvm/ed2/linkmod.html" rel="noreferrer">method tables</a> (which are similar to C++'s virtual tables). You can find details e.g. in <a href="https://wikis.oracle.com/display/HotSpotInternals/VirtualCalls" rel="noreferrer">the HotSpot Wiki</a>.</p>
+     <p>If you want <strong>multiple dispatch</strong> for your parameters, take a look at</p>
+     <ul>
+      <li><a href="http://groovy.codehaus.org/" rel="noreferrer">groovy</a>. But to my latest knowledge, that has an outdated, slow multiple dispatch implementation (see e.g. <a href="http://www.javalobby.org/java/forums/t101157.html" rel="noreferrer">this performance comparison</a>), e.g. without caching.</li>
+      <li><a href="http://clojure.org/" rel="noreferrer">clojure</a>, but that is quite different to Java.</li>
+      <li><a href="http://multijava.sourceforge.net/" rel="noreferrer">MultiJava</a>, which offers multiple dispatch for Java. Additionally, you can use 
+       <ul>
+        <li><code>this.resend(...)</code> instead of <code>super(...)</code> to invoke the most-specific overridden method of the enclosing method;</li>
+        <li>value dispatching (code example below).</li>
+       </ul></li>
+     </ul>
+     <p>If you want to <strong>stick with Java</strong>, you can</p>
+     <ul>
+      <li>redesign your application by moving overloaded methods over a finer grained class hierarchy. An example is given in <a href="https://rads.stackoverflow.com/amzn/click/com/0321356683" rel="noreferrer">Josh Bloch's Effective Java</a>, Item 41 (Use overloading judiciously);</li>
+      <li>use some design patterns, such as Strategy, Visitor, Observer. These can often solve the same problems as multiple dispatch (i.e. in those situations you have trivial solutions for those patterns using multiple dispatch).</li>
+     </ul>
+     <hr>
+     <p>Value dispatching:</p>
+     <pre><code>class C {
+  static final int INITIALIZED = 0;
+  static final int RUNNING = 1;
+  static final int STOPPED = 2;
+  void m(int i) {
+    // the default method
+  }
+  void m(int@@INITIALIZED i) {
+    // handle the case when we're in the initialized `state'
+  }
+  void m(int@@RUNNING i) {
+    // handle the case when we're in the running `state'
+  }
+  void m(int@@STOPPED i) {
+    // handle the case when we're in the stopped `state'
+  }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Multijava is very interesting, but the last version is of the year 2006. Josh Bloch's Effective Java just says that you have to create many classes with just one method, that is something I would avoid. Patterns are the way to go.</span> <span> - </span> <span class="display-name">Vitaly Olegovitch</span> <span> </span> <span class="date">18 Mar 2012 at 16:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Oh - interesting and sad that Multijava is no longer maintained. I guess the guys are more focusing on other projects like the Java Modeling Language. About the example from Effective Java: can't you transfer that to more general cases? E.g. if you need to distinct 3 behaviors in your example, use a GeneralDecorator and two subclasses NumberDecorator and TextualDecorator? Then you only need OOP.prova(GeneralDecorator), which calls someMethod() from GeneralDecorator, which is single dispatched. Or would you call that a pattern already (e.g. inversion of control)?</span> <span> - </span> <span class="display-name">DaveFar</span> <span> </span> <span class="date">18 Mar 2012 at 17:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Btw, <a href="http://cleverlytitled.blogspot.de/2010/01/dynamic-dispatch-in-scala.html" rel="nofollow noreferrer">here is a blog post on how to solve your problem in Scala</a>, which only has single dispatch, too. The solution is not possible in Java, though, since it uses Scala's traits.</span> <span> - </span> <span class="display-name">DaveFar</span> <span> </span> <span class="date">18 Mar 2012 at 18:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>One further problem comes to my mind: I would have thought that Java's generics with type erasure are incompatible with multiple dispatching. Glancing over <a href="http://plrg.kaist.ac.kr/_media/research/publications/oopsla11.pdf" rel="nofollow noreferrer">plrg.kaist.ac.kr/_media/research/publications/oopsla11.pdf</a>, it somehow seems to work :-0</span> <span> - </span> <span class="display-name">DaveFar</span> <span> </span> <span class="date">18 Mar 2012 at 18:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes I think that Decorator Pattern is what I need. :) Scala is a very good language and I hope that it will become more mainstream. About generics and type erasure, I don't know type erasure, I would have to study a little bit to understand that article.</span> <span> - </span> <span class="display-name">Vitaly Olegovitch</span> <span> </span> <span class="date">18 Mar 2012 at 19:46</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Voo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Mar 2012 at 14:49</span>
+     </div>
+    </div>
+    <div>
+     <p>What you want is double or more general <a href="http://en.wikipedia.org/wiki/Multiple_dispatch#Common_Lisp" rel="noreferrer">multiple dispatch</a>, something that is actually implemented in other languages (common lisp comes to mind)</p>
+     <p>Presumably the main reason java doesn't have it, is because it comes at a performance penalty because overload resolution has to be done at runtime and not compile time. The usual way around this is the <a href="http://en.wikipedia.org/wiki/Visitor_pattern" rel="noreferrer">visitor pattern</a> - pretty ugly, but that's how it is.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I second your answer (+1), though I'm not sure today's compiler techniques are much slower for multiple dispatch (see my answer below). Do you happen to have any current statistics on that?</span> <span> - </span> <span class="display-name">DaveFar</span> <span> </span> <span class="date">18 Mar 2012 at 16:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DaveBall Haven't run any tests and I certainly doubt that it's "much slower" in most situations. But it certainly adds an additional level of complexity to the optimization and I can think of common situations where we'd get a virtual call instead of a direct call. Lots of Java classes implement an interface as the only class - that allows the usual optimization. This relies on the fact that lots of interfaces are implemented by only one class. Contrary to this, most methods take rather general parameters where there exist more than one applicable subclass (eg all collection classes)</span> <span> - </span> <span class="display-name">Voo</span> <span> </span> <span class="date">18 Mar 2012 at 18:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>cont. So we do get some overhead, it basically boils down to some if cascade and loading the class for all parameters (that's rather cheap though) at runtime. I don't think it affects the general case though where we don't need multiple dispatch and in cases where we do it avoids an annoying class of bugs and I really abhor the visitor pattern..</span> <span> - </span> <span class="display-name">Voo</span> <span> </span> <span class="date">18 Mar 2012 at 18:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I found your answer very useful for my particular case. But what I didn't understand was the reason you said that visitor-style implementation is pretty ugly. As we can see in wiki it's one of its purposes, to implement double-dispatch.</span> <span> - </span> <span class="display-name">St.Antario</span> <span> </span> <span class="date">15 Apr 2015 at 10:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>davidxxx</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Dec 2017 at 21:25</span>
+     </div>
+    </div>
+    <div>
+     <p>Old question but no answer provides a concrete solution in Java to solve the issue in a clean way.<br>
+       In fact, not easy but very interesting question. Here is my contribution.<br></p>
+     <blockquote>
+      <p>Ok the method to be called is decided at compile time. Is there a workaround to avoid using the instanceof operator?</p>
+     </blockquote>
+     <p>As said in the excellent @DaveFar answer, Java supports only the single-dispatch method.<br>
+       In this dispatching mode, the compiler bounds the method to invoke as soon as the compilation by relying on the declared types of the parameters and not their runtime types.<br></p>
+     <blockquote>
+      <p>I have a collection (or list or array list) in which I want to put both String values and double values.</p>
+     </blockquote>
+     <p>To solve the answer in a clean way and use a double dispatch, we have to bring abstraction for the manipulated data.<br>
+       Why ?<br></p>
+     <p>Here a naive visitor approach to illustrate the issue :</p>
+     <pre><code>public class DisplayVisitor {
+
+    void visit(Object o) {
+        System.out.println("object"));
+    }
+
+    void visit(Integer i) {
+        System.out.println("integer");
+    }
+
+    void visit(String s) {
+        System.out.println("string"));
+    }
+
+}
+</code></pre>
+     <p>Now, question : how visited classes may invoke the <code>visit()</code> method ?<br>
+       The second dispatch of the double dispatch implementation relies on the "this" context of the class that accepts to be visited.<br>
+       So we need to have a <code>accept()</code> method in <code>Integer</code>, <code>String</code> and <code>Object</code> classes to perform this second dispatch :</p>
+     <pre><code>public void accept(DisplayVisitor visitor){
+    visitor.visit(this);
+}
+</code></pre>
+     <p>But impossible ! Visited classes are built-in classes : <code>String</code>, <code>Integer</code>, <code>Object</code>.<br>
+       So we have no way to add this method.<br>
+       And anyway, we don't want to add that.<br></p>
+     <p>So to implement the double dispatch, we have to be able to modify the classes that we want to pass as parameter in the second dispatch.<br>
+       So instead of manipulating <code>Object</code> and <code>List&lt;Object&gt;</code> as declared type, we will manipulate <code>Foo</code> and <code>List&lt;Foo&gt;</code> where the <code>Foo</code> class is a wrapper holding the user value.<br></p>
+     <p>Here is the <code>Foo</code> interface :</p>
+     <pre><code>public interface Foo {
+    void accept(DisplayVisitor v);
+    Object getValue();
+}
+</code></pre>
+     <p><code>getValue()</code> returns the user value.<br>
+       It specifies <code>Object</code> as return type but Java supports covariance returns (since the 1.5 version), so we could define a more specific type for each subclass to avoid downcasts.<br></p>
+     <p><strong>ObjectFoo</strong></p>
+     <pre><code>public class ObjectFoo implements Foo {
+
+    private Object value;
+
+    public ObjectFoo(Object value) {
+        this.value = value;
+    }
+
+    @Override
+    public void accept(DisplayVisitor v) {
+        v.visit(this);
+    }
+
+    @Override
+    public Object getValue() {
+        return value;
+    }
+
+}
+</code></pre>
+     <p><strong>StringFoo</strong></p>
+     <pre><code>public class StringFoo implements Foo {
+
+    private String value;
+
+    public StringFoo(String string) {
+        this.value = string;
+    }
+
+    @Override
+    public void accept(DisplayVisitor v) {
+        v.visit(this);
+    }
+
+    @Override
+    public String getValue() {
+        return value;
+    }
+
+}
+</code></pre>
+     <p><strong>IntegerFoo</strong></p>
+     <pre><code>public class IntegerFoo implements Foo {
+
+    private Integer value;
+
+    public IntegerFoo(Integer integer) {
+        this.value = integer;
+    }
+
+    @Override
+    public void accept(DisplayVisitor v) {
+        v.visit(this);
+    }
+
+    @Override
+    public Integer getValue() {
+        return value;
+    }
+
+}
+</code></pre>
+     <p>Here is the <strong>DisplayVisitor</strong> class visiting <code>Foo</code> subclasses :</p>
+     <pre><code>public class DisplayVisitor {
+
+    void visit(ObjectFoo f) {
+        System.out.println("object=" + f.getValue());
+    }
+
+    void visit(IntegerFoo f) {
+        System.out.println("integer=" + f.getValue());
+    }
+
+    void visit(StringFoo f) {
+        System.out.println("string=" + f.getValue());
+    }
+
+}
+</code></pre>
+     <p>And here is a sample code to test the implementation :</p>
+     <pre><code>public class OOP {
+
+    void test() {
+
+        List&lt;Foo&gt; foos = Arrays.asList(new StringFoo("a String"),
+                                       new StringFoo("another String"),
+                                       new IntegerFoo(1),
+                                       new ObjectFoo(new AtomicInteger(100)));
+
+        DisplayVisitor visitor = new DisplayVisitor();
+        for (Foo foo : foos) {
+            foo.accept(visitor);
+        }
+
+    }
+
+    public static void main(String[] args) {
+        OOP oop = new OOP();
+        oop.test();
+    }
+}
+</code></pre>
+     <p>Output :</p>
+     <blockquote>
+      <p>string=a String</p>
+      <p>string=another String</p>
+      <p>integer=1</p>
+      <p>object=100</p>
+     </blockquote>
+     <hr>
+     <p><strong>Improving the implementation</strong></p>
+     <p>The actual implementation requires the introduction of a specific wrapper class for each buit-in type we want to wrap. As discussed, we don't have the choice to operate a double dispatch.<br>
+       But note that the repeated code in <strong>Foo</strong> subclasses could be avoided :</p>
+     <pre><code>private Integer value; // or String or Object
+
+@Override
+public Object getValue() {
+    return value;
+}
+</code></pre>
+     <p>We could indeed introduce a abstract generic class that holds the user value and provides an accessor to :</p>
+     <pre><code>public abstract class Foo&lt;T&gt; {
+
+    private T value;
+
+    public Foo(T value) {
+        this.value = value;
+    }
+
+    public abstract void accept(DisplayVisitor v);
+
+    public T getValue() {
+        return value;
+    }
+
+}
+</code></pre>
+     <p>Now <code>Foo</code> sublasses are lighter to declare :</p>
+     <pre><code>public class IntegerFoo extends Foo&lt;Integer&gt; {
+
+    public IntegerFoo(Integer integer) {
+        super(integer);
+    }
+
+    @Override
+    public void accept(DisplayVisitor v) {
+        v.visit(this);
+    }
+
+}
+
+public class StringFoo extends Foo&lt;String&gt; {
+
+    public StringFoo(String string) {
+        super(string);
+    }
+
+    @Override
+    public void accept(DisplayVisitor v) {
+        v.visit(this);
+    }
+
+}
+
+public class ObjectFoo extends Foo&lt;Object&gt; {
+
+    public ObjectFoo(Object value) {
+        super(value);
+    }
+
+    @Override
+    public void accept(DisplayVisitor v) {
+        v.visit(this);
+    }
+
+}
+</code></pre>
+     <p>And the <code>test()</code> method should be modified to declare a wildcard type (<code>?</code>) for the <code>Foo</code> type in the <code>List&lt;Foo&gt;</code> declaration.</p>
+     <pre><code>void test() {
+
+    List&lt;Foo&lt;?&gt;&gt; foos = Arrays.asList(new StringFoo("a String object"),
+                                      new StringFoo("anoter String object"),
+                                      new IntegerFoo(1),
+                                      new ObjectFoo(new AtomicInteger(100)));
+
+    DisplayVisitor visitor = new DisplayVisitor();
+    for (Foo&lt;?&gt; foo : foos) {
+        foo.accept(visitor);
+    }
+
+}
+</code></pre>
+     <p>In fact, if really needed, we could simplify further <code>Foo</code> subclasses by introducing java code generation.<br></p>
+     <p>Declaring this subclass :</p>
+     <pre><code>public class StringFoo extends Foo&lt;String&gt; {
+
+    public StringFoo(String string) {
+        super(string);
+    }
+
+    @Override
+    public void accept(DisplayVisitor v) {
+        v.visit(this);
+    }
+
+}
+</code></pre>
+     <p>could as simple as declaring a class and adding an annotation on:</p>
+     <pre><code>@Foo(String.class)
+public class StringFoo { }
+</code></pre>
+     <p>Where <code>Foo</code> is a custom annotation processed at compile time.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>unholysampler</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Mar 2012 at 14:38</span>
+     </div>
+    </div>
+    <div>
+     <p>When calling a method that is overloaded, Java picks the most restrictive type based on the type of <strong>the variable</strong> passed to the function. It does not use the type of the actual instance.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>NimChimpsky</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Mar 2012 at 14:37</span>
+     </div>
+    </div>
+    <div>
+     <p>this isn't polymoprhism, you've simply overloaded a method and called it with parameter of object type</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>According to <a href="https://en.wikipedia.org/wiki/Ad_hoc_polymorphism" rel="nofollow noreferrer">Wikipedia</a> function overloading is Ad hoc polymorphism.</span> <span> - </span> <span class="display-name">Quazi Irfan</span> <span> </span> <span class="date">12 Jan 2021 at 07:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>nist</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Mar 2012 at 14:44</span>
+     </div>
+    </div>
+    <div>
+     <p>Everything in Java is an <code>Object</code>/object (except primitive types). You store strings and integers as objects, and then as you call the <code>prove</code> method they are still referred to as objects. You should have a look at the <code>instanceof</code> keyword. <a href="http://www.codemiles.com/java-examples/java-instanceof-keyword-t3481.html" rel="nofollow">Check this link</a></p>
+     <pre><code>void prove(Object o){
+   if (o instanceof String)
+    System.out.println("String");
+   ....
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

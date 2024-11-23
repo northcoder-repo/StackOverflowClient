@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to use a Thymeleaf message from message.properties inside of my javascript file?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to use a Thymeleaf message from message.properties inside of my javascript file?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Maze</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>29 Apr 2020 at 03:38</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61493818/how-to-use-a-thymeleaf-message-from-message-properties-inside-of-my-javascript-f">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Pretty straightforward question. I was wondering if there were any capabilities to allow me taking a message from my message.properties file and insert that into my javascript file like I would with an html file.</p>
+    <p>For instance, I have a a title on my home page listed as:</p>
+    <pre><code>&lt;h1 th:text="#{home.screen.title}"&gt;&lt;/h1&gt;
+</code></pre>
+    <p>Where home.screen.title = Home</p>
+    <p>In my javascript file I have a function that accepts two strings and I'd like to have those as these thymeleaf messages. So, it would sort of be like:</p>
+    <pre><code>statusCode: {
+       404: function() {
+           PISAlert(th:text="#{encounter.error.notFound}", th:text="#{encounter.error.notFound.content}");
+       }
+   }
+</code></pre>
+    <p>Where encounter.error.notFound.title = Encountered a 404 error! and encounter.error.notFound.content = Object not found</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">spring-boot</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Apr 2020 at 17:02</span>
+     </div>
+    </div>
+    <div>
+     <p>There are two ways I can see to achieve this - but they both make some assumptions about the wider context of your question. If those assumptions are wrong, then these aproaches may not work.</p>
+     <h2>Option 1 of 2</h2>
+     <p>Pass Thymeleaf-provided parameters to your function (which is in a separate JS file) from the Thymeleaf template.</p>
+     <p>This simplifies the solution. The assumption (which diverges from your question) is that you only call this function from within Thymeleaf templates - and therefore you do not need to render the message strings directly into the JS code (in its separate JS file).</p>
+     <p>Example:</p>
+     <p>I use the following message file - jsdemo.properties:</p>
+     <pre><code>demo.error1=Error message one
+demo.error2=Error message two
+</code></pre>
+     <p>Here is the JS file in my example - js_demo.js:</p>
+     <pre><code>function getErrorMessagesA(msg1, msg2) {
+  console.log('parameter A1 = ' + msg1);
+  console.log('parameter A2 = ' + msg2);
+}
+</code></pre>
+     <p>Here is the Thymeleaf template which calls <code>getErrorMessagesA</code>:</p>
+     <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html xmlns:th="http://www.thymeleaf.org"&gt;
+    &lt;head&gt;
+        &lt;title&gt;JS Demo&lt;/title&gt;
+        &lt;meta charset="UTF-8"&gt;
+        &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+        &lt;script src="https://code.jquery.com/jquery-3.3.1.min.js"&gt;&lt;/script&gt;
+        &lt;script src="js/js_demo.js"&gt;&lt;/script&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;h2 id="derf"&gt;JS Demo&lt;/h2&gt;
+    &lt;/body&gt;
+
+    &lt;!-- option 1: call the function in an external script with parameters: --&gt;
+    &lt;script th:inline="javascript"&gt;
+        $(document).ready(function() {
+            getErrorMessagesA( [[#{welcome.error1}]], [[#{welcome.error2}]] );
+        });
+    &lt;/script&gt;
+
+&lt;/html&gt;
+</code></pre>
+     <p>The Thymeleaf template uses the <code>[[#{...}]]</code> syntax to embed Thymeleaf variables into JavaScript. See <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#inlining" rel="nofollow noreferrer">expression inlining</a>.</p>
+     <p>When the web page is rendered, the console displays the two messages as follows:</p>
+     <pre><code>parameter A1 = Error message one
+parameter A2 = Error message two
+</code></pre>
+     <h2>Option 2 of 2</h2>
+     <p>This uses a different approach, wherein the JS is added to the HTML template as a fragment (meaning it can be re-used in different templates. In this case, the function is called with no parameters.</p>
+     <p>The fragment is embedded in the main template using this (which replaces the "option 1" section in the above code):</p>
+     <pre><code>    &lt;!-- option 2: process the function as a Thymeleaf fragment: --&gt;
+    &lt;th:block th:replace="jsdemo_jscode.html :: js_fragment_1" &gt;&lt;/th:block&gt;
+    &lt;script th:inline="javascript"&gt;
+        $(document).ready(function() {
+            getErrorMessagesB();
+        });
+    &lt;/script&gt;
+</code></pre>
+     <p>The Thymeleaf fragment file:</p>
+     <pre><code>&lt;th:block th:fragment="js_fragment_1"&gt;
+
+    &lt;script th:inline="javascript"&gt;
+        function getErrorMessagesB() {
+            console.log('parameter B1 = ' + /*[[#{demo.error1}]]*/ '[msg not found]');
+            console.log('parameter B2 = ' + /*[[#{demo.error2}]]*/ '[msg not found]');
+        }
+    &lt;/script&gt;
+
+&lt;/th:block&gt;
+</code></pre>
+     <p>This uses the <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#javascript-natural-templates" rel="nofollow noreferrer">natural templating</a> syntax of Thymeleaf: <code>/*[[#{demo.error1}]]*/</code>, to ensure the JavaScript is valid. Note also the <code>th:inline="javascript"</code> directive.</p>
+     <p>When the web page is rendered, the console displays the two messages as follows:</p>
+     <pre><code>parameter B1 = Error message one
+parameter B2 = Error message two
+</code></pre>
+     <p>The main difference here is that the call to the JS in the fragment has no parameters - it's just <code>getErrorMessagesB();</code>.</p>
+     <h2>Option 3 of 2</h2>
+     <p>There is theoretically a third option - but I've never done this. I think it would be complicated.</p>
+     <p>You can use a parameter-free call in your Thymeleaf template <code>getErrorMessagesB();</code> - but instead of using a JS fragment as in option 2, you use the external JS file as in option 1.</p>
+     <p>Here, the JS would be as follows:</p>
+     <pre><code>function getErrorMessagesB() {
+    console.log('parameter B1 = ' + /*[[#{demo.error1}]]*/ '[msg not found]');
+    console.log('parameter B2 = ' + /*[[#{demo.error2}]]*/ '[msg not found]');
+}
+</code></pre>
+     <p>The complexity with this is that you need to <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#textual-template-modes" rel="nofollow noreferrer">process this file</a> in addition to - but separately from - the HTML file - and make it available to the HTML file. I've used textual templates, but never where they were a dependency on related HTML templates.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Wow, lots of interesting stuff to go over. I think that I may need the parameters pushing into the function so that I don't replicate the same one over about 50 different times. So I'll take a gander at option 1 to start with and 3 if I want to try and get creative. Thanks for the help!</span> <span> - </span> <span class="display-name">Maze</span> <span> </span> <span class="date">29 Apr 2020 at 18:07</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

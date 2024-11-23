@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Using JDBC with MongoDB to query Dates that are stored in String</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Using JDBC with MongoDB to query Dates that are stored in String</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Dragonturtle</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Dec 2020 at 11:14</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65197872/using-jdbc-with-mongodb-to-query-dates-that-are-stored-in-string">source</a>
+    </div>
+   </div>
+   <div>
+    <p>So, as in the title, I have the following example Document in my MongoDB database:</p>
+    <pre><code>    {"_id":{"$oid":"5fcf541b466a3d10f55f8241"}, "dateOfBirth":"1992-11-02T12:05:17"}
+</code></pre>
+    <p>As you can see, the date is stored as a String and not as an ISODate object. As far as I know, MongoDB should be able to still handle and query it as a Date. (<a href="https://stackoverflow.com/questions/34607314/how-to-handle-date-stored-as-string-in-mongodb">source</a>)</p>
+    <p>Thus, I am trying to query it in my java app with JDBC in the following way:</p>
+    <pre><code>    java.util.Date queryDate = new GregorianCalendar(1980, Calendar.JANUARY, 1).getTime();
+    Bson query = Filters.gte("dateOfBirth", queryDate);
+    FindIterable&lt;Document&gt; result = collection.find(query);
+</code></pre>
+    <p>However, this does not work. My thought process was, if I pass in a java.util.Date, then the Filters.gte() method will know i mean to query a Date and it will work as intended in MongoDB. However, I get 0 matches.</p>
+    <p>I also tried putting a formatter on my queryDate (for a different purpose, before):</p>
+    <pre><code>    DateFormat dformat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+    Bson query = Filters.gte("dateOfBirth", dformat.format(queryDate));
+</code></pre>
+    <p>However, this caused the Filters.gte() to query it as Strings, according to String-Comparison, so alphabetical order roughly. This made me think initially that the original java.util.Date version did/should indeed know then, that I queried a Date and not a String, it just somehow failed to convert the one in the database to a date-type? I'm unsure how it should work.</p>
+    <p>I understand this is a niche case usage, and that I really should insert dates as ISODate in mongoDB, however in my special case right now, this is not an option.</p>
+    <p>Is there a way to query dates stored as Strings in MongoDB if I am using JDBC?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">mongodb</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Dec 2020 at 19:12</span>
+     </div>
+    </div>
+    <div>
+     <p><em>Minor point: You are using the Java connector for MongoDB. JDBC drivers are for relational databases which use the SQL query language. I therefore changed the <code>JDBC</code> tag to <code>Java</code> in your question.</em></p>
+     <p><strong>Working with Dates as Strings</strong></p>
+     <p>Regarding the datetime format in your documents: Because of the format you are using, and because it is stored as a string, it is OK to use string comparisons when running your queries. Lexical ordering will ensure your string comparisons will be equivalent to datetime comparisons. This is what is being used by the code in the question you linked to.</p>
+     <p>Obviously this assumption will break if you have any data stored in other string formats, such as "dd-MM-yyyy", where the string ordering would not match the datetime ordering.</p>
+     <blockquote>
+      <p>However you proceed, you should <a href="https://stackoverflow.com/questions/1969442/whats-wrong-with-java-date-time-api"><strong>avoid the old and problematic</strong></a> Java <code>Date</code> and <code>Calendar</code> classes. Instead, use the modern <code>java.time</code> classes. <a href="https://stackoverflow.com/a/32443004/12567365">More background here</a>.</p>
+     </blockquote>
+     <p>In your case, your documents are storing datetime data without any timezone or offset information. You can use <code>java.time.LocalDateTime</code> for this. The word "local" in this name actually means "no specific locality or timezone" - which matches what you have in your Mongo documents.</p>
+     <p>The Java imports:</p>
+     <pre class="lang-java prettyprint-override"><code>import java.time.LocalDateTime;
+import java.time.Month;
+import java.time.format.DateTimeFormatter;
+</code></pre>
+     <p>And an example local datetime:</p>
+     <pre class="lang-java prettyprint-override"><code>LocalDateTime ldt = LocalDateTime.of(1980, Month.JANUARY, 1, 0, 0);
+DateTimeFormatter dtf = DateTimeFormatter.ISO_DATE_TIME;
+String s = ldt.format(dtf); // "1980-01-01T00:00:00"
+</code></pre>
+     <p><strong>Working with Dates as Objects</strong></p>
+     <p>If you want to use a Java <code>LocalDate</code> object directly in your query, instead of using string comparisons, you can use a projection to create a date object in your query results, and then use the Java <code>LocalDate</code> object directly in your filter:</p>
+     <pre class="lang-java prettyprint-override"><code>Bson resultsWithDate = Aggregates.project(Projections.fields(
+        Projections.include("dateOfBirth"),
+        Projections.computed("birthDate", Projections.computed("$toDate", "$dateOfBirth"))
+));
+</code></pre>
+     <p>The above projection adds a new <code>dateOfBirth</code> field to each retrieved document, and populates it via the <a href="https://docs.mongodb.com/manual/reference/operator/aggregation/toDate/" rel="nofollow noreferrer"><code>$toDate</code></a> operator.</p>
+     <p>Then we can apply our filter:</p>
+     <pre class="lang-java prettyprint-override"><code>collection.aggregate(
+        Arrays.asList(
+                resultsWithDate,
+                Aggregates.match(Filters.gte("birthDate", ldt)))
+).forEach(printConsumer);
+</code></pre>
+     <p>The filter now uses our <code>ldt</code> object, from above.</p>
+     <p>I am using the following helper method to print each results document as a JSON string in my console:</p>
+     <pre class="lang-java prettyprint-override"><code>Consumer&lt;Document&gt; printConsumer = (final Document document) -&gt; {
+    System.out.println(document.toJson());
+};
+</code></pre>
+     <p>There may be a more compact or efficient way to build this MongoDB aggregate - I am not a regular Mongo user.</p>
+     <p>Also, as a final note: My use of the Mongo <code>$toDate</code> operator does not specify a timezone - so it defaults to Zulu time (UT timezone), as shown in the sample output below:</p>
+     <pre><code>{
+    "_id": {
+        "$oid": "5fcf541b466a3d10f55f8241"
+    },
+    "dateOfBirth": "1992-11-02T12:05:17",
+    "birthDate": {
+        "$date": "1992-11-02T12:05:17Z"
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

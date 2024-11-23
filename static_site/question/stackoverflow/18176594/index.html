@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>When to use generic methods and when to use wild-card?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>When to use generic methods and when to use wild-card?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>159</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>benz</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Aug 2013 at 20:55</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/18176594/when-to-use-generic-methods-and-when-to-use-wild-card">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am reading about generic methods from <a href="http://docs.oracle.com/javase/tutorial/extra/generics/methods.html">OracleDocGenericMethod</a>. I am pretty confused about the comparison when it says when to use wild-card and when to use generic methods. Quoting from the document.</p>
+    <blockquote>
+     <pre><code>interface Collection&lt;E&gt; {
+    public boolean containsAll(Collection&lt;?&gt; c);
+    public boolean addAll(Collection&lt;? extends E&gt; c);
+}
+</code></pre>
+     <p>We could have used generic methods here instead:</p>
+     <pre><code>interface Collection&lt;E&gt; {
+    public &lt;T&gt; boolean containsAll(Collection&lt;T&gt; c);
+    public &lt;T extends E&gt; boolean addAll(Collection&lt;T&gt; c);
+    // Hey, type variables can have bounds too!
+}
+</code></pre>
+     <p>[…] This tells us that the type argument is being used for polymorphism; its only effect is to allow a variety of actual argument types to be used at different invocation sites. If that is the case, one should use wildcards. Wildcards are designed to support flexible subtyping, which is what we're trying to express here.</p>
+    </blockquote>
+    <p>Don't we think wild card like <code>(Collection&lt;? extends E&gt; c);</code> is also supporting kind of polymorphism? Then why generic method usage is considered not good in this?</p>
+    <p>Continuing ahead, it states,</p>
+    <blockquote>
+     <p>Generic methods allow type parameters to be used to express dependencies among the types of one or more arguments to a method and/or its return type. If there isn't such a dependency, a generic method should not be used.</p>
+    </blockquote>
+    <p>What does this mean?</p>
+    <p>They have presented the example</p>
+    <blockquote>
+     <pre><code>class Collections {
+    public static &lt;T&gt; void copy(List&lt;T&gt; dest, List&lt;? extends T&gt; src) {
+    ...
+}
+</code></pre>
+     <p>[…]</p>
+     <p>We could have written the signature for this method another way, without using wildcards at all:</p>
+     <pre><code>class Collections {
+    public static &lt;T, S extends T&gt; void copy(List&lt;T&gt; dest, List&lt;S&gt; src) {
+    ...
+}
+</code></pre>
+    </blockquote>
+    <p>The document discourages the second declaration and promotes usage of first syntax? What's the difference between the first and second declaration? Both seems to be doing the same thing?</p>
+    <p>Can someone put light on this area.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">generics</span><span class="tag">wildcard</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>226</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rohit Jain</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2013 at 21:16</span>
+     </div>
+    </div>
+    <div>
+     <p>There are certain places, where wildcards, and type parameters do the same thing. But there are also certain places, where you have to use type parameters.</p>
+     <ol>
+      <li>If you want to enforce some relationship on the different types of method arguments, you can't do that with wildcards, you have to use type parameters.</li>
+     </ol>
+     <p>Taking your method as example, suppose you want to ensure that the <code>src</code> and <code>dest</code> list passed to <code>copy()</code> method should be of same parameterized type, you can do it with type parameters like so:</p>
+     <pre><code>public static &lt;T extends Number&gt; void copy(List&lt;T&gt; dest, List&lt;T&gt; src)
+</code></pre>
+     <p>Here, you are ensured that both <code>dest</code> and <code>src</code> have same parameterized type for <code>List</code>. So, it's safe to copy elements from <code>src</code> to <code>dest</code>.</p>
+     <p>But, if you go on to change the method to use wildcard:</p>
+     <pre><code>public static void copy(List&lt;? extends Number&gt; dest, List&lt;? extends Number&gt; src)
+</code></pre>
+     <p>it won't work as expected. In 2nd case, you can pass <code>List&lt;Integer&gt;</code> and <code>List&lt;Float&gt;</code> as <code>dest</code> and <code>src</code>. So, moving elements from <code>src</code> to <code>dest</code> wouldn't be type safe anymore. If you don't need such kind of relation, then you are free not to use type parameters at all.</p>
+     <p>Some other difference between using wildcards and type parameters are:</p>
+     <ul>
+      <li>If you have only one parameterized type argument, then you can use wildcard, although type parameter will also work.</li>
+      <li>Type parameters support multiple bounds, wildcards don't.</li>
+      <li>
+       <p>Wildcards support both upper and lower bounds, type parameters just support upper bounds. So, if you want to define a method that takes a <code>List</code> of type <code>Integer</code> or it's super class, you can do:</p>
+       <pre><code>public void print(List&lt;? super Integer&gt; list)  // OK
+</code></pre>
+       <p>but you can't use type parameter:</p>
+       <pre><code> public &lt;T super Integer&gt; void print(List&lt;T&gt; list)  // Won't compile
+</code></pre></li>
+     </ul>
+     <hr>
+     <p><strong>References:</strong></p>
+     <ul>
+      <li><a href="http://www.angelikalanger.com/GenericsFAQ/FAQSections/TypeArguments.html#FAQ203" rel="noreferrer">Angelika Langer's Java Generics FAQs</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>This is strange answer. It doesn't explain why you need to use <code>?</code> at all. You could rewrite it as `public static &lt;T1 extends Number, T2 extends Number&gt; void copy(List&lt;T1&gt; dest, List&lt;T2&gt; src) and in this case it become obvious what is going on.</span> <span> - </span> <span class="display-name">kan</span> <span> </span> <span class="date">11 Aug 2013 at 21:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@kan. Well that's the real issue. You can use type parameter to enforce same type, but you can't do that with wildcards. Using two different types for type parameter is different thing.</span> <span> - </span> <span class="display-name">Rohit Jain</span> <span> </span> <span class="date">11 Aug 2013 at 21:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@kan. See my last two points for why you might need to use wildcards.</span> <span> - </span> <span class="display-name">Rohit Jain</span> <span> </span> <span class="date">11 Aug 2013 at 21:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Rohit what do you mean by type parameter supports upper bounds only?</span> <span> - </span> <span class="display-name">benz</span> <span> </span> <span class="date">11 Aug 2013 at 21:36</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@benz. You can't define a lower bounds in a <code>List</code> using type parameter. <code>List&lt;T super Integer&gt;</code> isn't valid, and won't compile.</span> <span> - </span> <span class="display-name">Rohit Jain</span> <span> </span> <span class="date">11 Aug 2013 at 21:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This all is making me go back to foundation real difference between wild card and generic methods :)thanks rohit for your explanation</span> <span> - </span> <span class="display-name">benz</span> <span> </span> <span class="date">11 Aug 2013 at 21:40</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@benz. You're welcome :) I highly suggest you to go through the link I posted at the end. That is the best resource on Generics you would get.</span> <span> - </span> <span class="display-name">Rohit Jain</span> <span> </span> <span class="date">11 Aug 2013 at 21:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sure rohit I will completely go through it and bug you back with the question. Thank you so much for your precious time.</span> <span> - </span> <span class="display-name">benz</span> <span> </span> <span class="date">11 Aug 2013 at 21:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>"Type parameters support multiple bounds, wildcards don't." "Wildcards support both upper and lower bounds, type parameters just support upper bounds." I didn't quite get this.. What do you mean by "type parameters support multiple bounds"? It just support upper, as you wrote in the next sentence.</span> <span> - </span> <span class="display-name">jorgen.ringen</span> <span> </span> <span class="date">29 Jun 2016 at 11:57</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>@jorgen.ringen <code>&lt;T extends X &amp; Y&gt;</code> -&gt; multiple bounds.</span> <span> - </span> <span class="display-name">Rohit Jain</span> <span> </span> <span class="date">29 Jun 2016 at 18:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>"If you have only one parameterized type argument, then you can use wildcard, although type parameter will also work." I think that statement is not always true especially when you have a generic method where you want to update, for example, the list you've passed as an argument with items in the list (say, you want to re-add all the items again).</span> <span> - </span> <span class="display-name">stdout</span> <span> </span> <span class="date">25 Jul 2018 at 12:56</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Then why is Java defined so that we can't use the super keyword for type parameter?</span> <span> - </span> <span class="display-name">user3509406</span> <span> </span> <span class="date">5 Nov 2018 at 03:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>32</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>chammu</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jul 2015 at 00:37</span>
+     </div>
+    </div>
+    <div>
+     <p>Consider following example from The Java Programming by James Gosling 4th edition below where we want to merge 2 SinglyLinkQueue:</p>
+     <pre><code>public static &lt;T1, T2 extends T1&gt; void merge(SinglyLinkQueue&lt;T1&gt; d, SinglyLinkQueue&lt;T2&gt; s){
+    // merge s element into d
+}
+
+public static &lt;T&gt; void merge(SinglyLinkQueue&lt;T&gt; d, SinglyLinkQueue&lt;? extends T&gt; s){
+        // merge s element into d
+}
+</code></pre>
+     <p>Both of the above methods have the same functionality. So which is preferable? Answer is 2nd one. In the author's own words :</p>
+     <p><strong>"The general rule is to use wildcards when you can because code with wildcards is generally more readable than code with multiple type parameters. When deciding if you need a type variable, ask yourself if that type variable is used to relate two or more parameters, or to relate a parameter type with the return type. If the answer is no, then a wildcard should suffice."</strong></p>
+     <p>Note: In book only second method is given and type parameter name is S instead of 'T'. First method is not there in the book.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>i voted up for the quote of a book, it is direct and concise</span> <span> - </span> <span class="display-name">TomasMolina</span> <span> </span> <span class="date">12 Feb 2018 at 21:21</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>le-doude</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2013 at 21:21</span>
+     </div>
+    </div>
+    <div>
+     <p>In your first question: It means that if there is a relation between the parameter's type and the method's return type then use a generic.</p>
+     <p>For example:</p>
+     <pre><code>public &lt;T&gt; T giveMeMaximum(Collection&lt;T&gt; items);
+public &lt;T&gt; Collection&lt;T&gt; applyFilter(Collection&lt;T&gt; items);
+</code></pre>
+     <p>Here you are extracting some of the T following a certain criteria. If T is <code>Long</code> your methods will return <code>Long</code> and <code>Collection&lt;Long&gt;</code>; the actual return type is dependent on the parameter type, thus it is useful, and advised, to use generic types.</p>
+     <p>When this is not the case you can use wild card types:</p>
+     <pre><code>public int count(Collection&lt;?&gt; items);
+public boolean containsDuplicate(Collection&lt;?&gt; items);
+</code></pre>
+     <p>In this two example whatever the type of the items in the collections the return types will be <code>int</code> and <code>boolean</code>.</p>
+     <p>In your examples:</p>
+     <pre><code>interface Collection&lt;E&gt; {
+    public boolean containsAll(Collection&lt;?&gt; c);
+    public boolean addAll(Collection&lt;? extends E&gt; c);
+}
+</code></pre>
+     <p>those two functions will return a boolean whatever is the types of the items in the collections. In the second case it is limited to instances of a subclass of E.</p>
+     <p>Second question:</p>
+     <pre><code>class Collections {
+    public static &lt;T&gt; void copy(List&lt;T&gt; dest, List&lt;? extends T&gt; src) {
+    ...
+}
+</code></pre>
+     <p>This first code allow you to pass an heterogeneous <code>List&lt;? extends T&gt; src</code> as a parameter. This list can contain multiple elements of different classes as long as they all extends the base class T.</p>
+     <p>if you had:</p>
+     <pre><code>interface Fruit{}
+</code></pre>
+     <p>and</p>
+     <pre><code>class Apple implements Fruit{}
+class Pear implements Fruit{}
+class Tomato implements Fruit{}
+</code></pre>
+     <p>you could do</p>
+     <pre><code>List&lt;? extends Fruit&gt; basket = new ArrayList&lt;? extends Fruit&gt;();
+basket.add(new Apple());
+basket.add(new Pear());
+basket.add(new Tomato());
+List&lt;Fruit&gt; fridge = new ArrayList&lt;Fruit&gt;(); 
+
+Collections.copy(fridge, basket);// works 
+</code></pre>
+     <p>On the other hand</p>
+     <pre><code>class Collections {
+    public static &lt;T, S extends T&gt; void copy(List&lt;T&gt; dest, List&lt;S&gt; src) {
+    ...
+}
+</code></pre>
+     <p>constrain <code>List&lt;S&gt; src</code> to be of one particular class S that is a subclass of T. The list can only contain elements of one class (in this instance S) and no other class, even if they implement T too. You wouldn't be able to use my previous example but you could do:</p>
+     <pre><code>List&lt;Apple&gt; basket = new ArrayList&lt;Apple&gt;();
+basket.add(new Apple());
+basket.add(new Apple());
+basket.add(new Apple());
+List&lt;Fruit&gt; fridge = new ArrayList&lt;Fruit&gt;();
+
+Collections.copy(fridge, basket); /* works since the basket is defined as a List of apples and not a list of some fruits. */
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span><code>List&lt;? extends Fruit&gt; basket = new ArrayList&lt;? extends Fruit&gt;();</code> Is not a valid syntax. You have to instantiate the ArrayList without bounds.</span> <span> - </span> <span class="display-name">Arnold Pistorius</span> <span> </span> <span class="date">29 Apr 2015 at 07:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Cannot add an Apple to the basket in the example above since the basket could be a list of Pears'. Incorrect example AFAIK. And does not compile as well.</span> <span> - </span> <span class="display-name">Khanna111</span> <span> </span> <span class="date">3 Dec 2016 at 09:16</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ArnoldPistorius That do confused me. I checked the API documentation of ArrayList and it has a constructor signed <code>ArrayList(Collection&lt;? extends E&gt; c)</code> . Can you explain me why you have said that?</span> <span> - </span> <span class="display-name">TomasMolina</span> <span> </span> <span class="date">12 Feb 2018 at 21:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Kurapika Could be that I was using an old Java version? Comment was posted almost 3 years ago.</span> <span> - </span> <span class="display-name">Arnold Pistorius</span> <span> </span> <span class="date">22 Feb 2018 at 10:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>kan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2013 at 21:07</span>
+     </div>
+    </div>
+    <div>
+     <p>Wildcard method is also generic - you could call it with some range of types.</p>
+     <p>The <code>&lt;T&gt;</code> syntax defines a type variable name. If a type variable has any use (e.g. in method implementation or as a constraint for other type), then it makes sense to name it, otherwise you could use <code>?</code>, as anonymous variable. So, looks like just a short-cut.</p>
+     <p>Moreover, the <code>?</code> syntax is not avoidable when you declare a field:</p>
+     <pre><code>class NumberContainer
+{
+ Set&lt;? extends Number&gt; numbers;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>Is this not supposed to be a comment?</span> <span> - </span> <span class="display-name">Buhake Sindi</span> <span> </span> <span class="date">11 Aug 2013 at 21:07</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@BuhakeSindi Sorry, what is unclear? Why -1? I think it answers the question.</span> <span> - </span> <span class="display-name">kan</span> <span> </span> <span class="date">11 Aug 2013 at 21:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Buhake Sindi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2013 at 21:26</span>
+     </div>
+    </div>
+    <div>
+     <p>I will try and answer your question, one by one.</p>
+     <blockquote>
+      <p>Don't we think wild card like <code>(Collection&lt;? extends E&gt; c);</code> is also supporting kind of polymorphism?</p>
+     </blockquote>
+     <p>No. The reason is that the <em>bounded wildcard</em> has no defined parameter type. It is an unknown. All it "knows" is that the "containment" is of a type <code>E</code> (whatever defined). So, it cannot verify and justify whether the value provided matches the bounded type.</p>
+     <p>So, it's no sensible to have polymorphic behaviours on wildcards.</p>
+     <blockquote>
+      <p>The document discourages the second declaration and promotes usage of first syntax? What's the difference between the first and second declaration? Both seems to be doing the same thing?</p>
+     </blockquote>
+     <p>The first option is better in this case as <code>T</code> is always bounded, and <code>source</code> will definitely have values (of unknowns) that subclasses <code>T</code>.</p>
+     <p>So, suppose that you want to copy all list of numbers, the first option will be</p>
+     <pre><code>Collections.copy(List&lt;Number&gt; dest, List&lt;? extends Number&gt; src);
+</code></pre>
+     <p><code>src</code>, essentially, can accept <code>List&lt;Double&gt;</code>, <code>List&lt;Float&gt;</code>, etc. as there is an upper bound to the parameterized type found in <code>dest</code>.</p>
+     <p>The 2nd option will force you to bind <code>S</code> for every type you want to copy, like so</p>
+     <pre><code>//For double 
+Collections.copy(List&lt;Number&gt; dest, List&lt;Double&gt; src); //Double extends Number.
+
+//For int
+Collections.copy(List&lt;Number&gt; dest, List&lt;Integer&gt; src); //Integer extends Number.
+</code></pre>
+     <p>As <code>S</code> is a parameterized type that needs binding.</p>
+     <p>I hope this helps.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Can you explain what do you mean in your last paragraph</span> <span> - </span> <span class="display-name">benz</span> <span> </span> <span class="date">11 Aug 2013 at 21:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The one that states 2nd option will force you to bind one......can you elaborate over it</span> <span> - </span> <span class="display-name">benz</span> <span> </span> <span class="date">11 Aug 2013 at 21:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>&lt;S extends T&gt;</code> states that <code>S</code> is a parameterized type that is a subclass of <code>T</code>, so it requires a parameterized type (no wildcard) that is a subclass of <code>T</code>.</span> <span> - </span> <span class="display-name">Buhake Sindi</span> <span> </span> <span class="date">11 Aug 2013 at 21:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vivek Kumar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Aug 2017 at 02:43</span>
+     </div>
+    </div>
+    <div>
+     <p>One other difference which is not listed here.</p>
+     <pre><code>static &lt;T&gt; void fromArrayToCollection(T[] a, Collection&lt;T&gt; c) {
+    for (T o : a) {
+        c.add(o); // correct
+    }
+}
+</code></pre>
+     <p>But the following will result in compile time error.</p>
+     <pre><code>static &lt;T&gt; void fromArrayToCollection(T[] a, Collection&lt;?&gt; c) {
+    for (T o : a) {
+        c.add(o); // compile time error
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>MagGGG</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Aug 2020 at 16:12</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>?</strong> means unknown</p>
+     <p>The general rule applies: You <strong>can read</strong> from it, but <strong>not write</strong></p>
+     <p>given simple pojo Car</p>
+     <pre><code>class Car {
+    void display(){
+
+    }
+}
+</code></pre>
+     <p>This will compile</p>
+     <pre><code>private static &lt;T extends Car&gt; void addExtractedAgain1(List&lt;T&gt; cars) {
+    T t = cars.get(1);
+    t.display();
+    cars.add(t);
+}
+</code></pre>
+     <p>This method won't compile</p>
+     <pre><code>private static void addExtractedAgain2(List&lt;? extends Car&gt; cars) {
+    Car car = cars.get(1);
+    car.display();
+    cars.add(car); // will not compile
+}
+</code></pre>
+     <p>Another example</p>
+     <pre><code>List&lt;?&gt; hi = Arrays.asList("Hi", new Exception(), 0);
+
+hi.forEach(o -&gt; {
+   o.toString() // it's ok to call Object methods and methods that don't need the contained type
+});
+
+hi.add(...) // nothing can be add here won't compile, we need to tell compiler what the data type is but we do not know
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Martin Maletinsky</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Mar 2018 at 09:40</span>
+     </div>
+    </div>
+    <div>
+     <p>As far as I understand, there is only one use case when wildcard is strictly needed (i.e. can express something that you can not express using explicit type parameters). This is when you need to specify a lower bound.</p>
+     <p>Apart from that however wildcards serve to write more concise code, as described by the following statements in the document you mention:</p>
+     <blockquote>
+      <p>Generic methods allow type parameters to be used to express dependencies among the types of one or more arguments to a method and/or its return type. If there isn't such a dependency, a generic method should not be used.</p>
+      <p>[...]</p>
+      <p>Using wildcards is clearer and more concise than declaring explicit type parameters, and should therefore be preferred whenever possible.</p>
+      <p>[...]</p>
+      <p>Wildcards also have the advantage that they can be used outside of method signatures, as the types of fields, local variables and arrays.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Arasn</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Nov 2019 at 04:22</span>
+     </div>
+    </div>
+    <div>
+     <p>Mainly -&gt; Wildcards enforce generics at the parameter/argument level of a Non-Generic method. Note. It can also be performed in genericMethod by default, but here instead of ? we can use T itself.</p>
+     <p>package generics;</p>
+     <pre><code>public class DemoWildCard {
+
+
+    public static void main(String[] args) {
+        DemoWildCard obj = new DemoWildCard();
+
+        obj.display(new Person&lt;Integer&gt;());
+        obj.display(new Person&lt;String&gt;());
+
+    }
+
+    void display(Person&lt;?&gt; person) {
+        //allows person of Integer,String or anything
+        //This cannnot be done if we use T, because in that case we have to make this method itself generic
+        System.out.println(person);
+    }
+
+}
+
+class Person&lt;T&gt;{
+
+}
+</code></pre>
+     <p>SO wildcard has its specific usecases like this.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

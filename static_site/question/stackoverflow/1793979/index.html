@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Registering multiple keystores in JVM</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Registering multiple keystores in JVM</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>57</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Raz</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Nov 2009 at 00:46</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/1793979/registering-multiple-keystores-in-jvm">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have two applications running in the same java virtual machine, and both use different keystores and truststores.</p>
+    <p>A viable option would be use a single keystore and import all the other ones into the shared keystore (e.g. keytool -import), but it would really help my requirements if I could use separate keystores for separate applications running in the same jvm.</p>
+    <p>I could set the keystore and truststores to be used as jvm parameters or system properties as follows:</p>
+    <pre><code>java -Djavax.net.ssl.keyStore=serverKeys 
+-Djavax.net.ssl.keyStorePassword=password 
+-Djavax.net.ssl.trustStore=serverTrust 
+-Djavax.net.ssl.trustStorePassword=password SSLApplication
+</code></pre>
+    <p>or</p>
+    <pre><code>System.setProperty("javax.net.ssl.keyStore","serverKeys")
+</code></pre>
+    <p>But the problem with this approach is that it specifies the keystore/truststore to be used at a JVM level, thus all applications running in the same JVM gets the same keystore/truststore.</p>
+    <p>I have also tried creating a custom SSLContext and setting it as the default, but it also sets the context for all applications running in the same JVM.</p>
+    <pre><code>SSLContext context = SSLContext.getInstance("SSL");
+context.init(kms, tms, null);
+SSLContext.setDefault(context);
+</code></pre>
+    <p>I want to be able use different keystores/truststores without modifying individual application codes.</p>
+    <p><strong>A solution that can <em>dynamically register multiple key stores</em> in addition to the default keystore/certs in jre into jvm would be great.</strong></p>
+    <p>The solution will work in this way:</p>
+    <ul>
+     <li>When JVM boots, it loads all the default certs/keystores from jre/certs folder (default java behaviour when no keystores specified).</li>
+     <li>When App 1 loads it registers its keystores,</li>
+     <li>then when App 2 loads it registers its keystores...</li>
+    </ul>
+    <p>Please let me know your ideas or solutions. Thanks in advance!</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">ssl</span><span class="tag">cryptography</span><span class="tag">jvm</span><span class="tag">jsse</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>If you think your issue is different that this, please clarify: <a href="http://stackoverflow.com/questions/1788031/how-can-i-have-multiple-ssl-certificates-for-a-java-server/1788047#1788047" title="how can i have multiple ssl certificates for a java server">stackoverflow.com/questions/1788031/…</a></span> <span> - </span> <span class="display-name">erickson</span> <span> </span> <span class="date">25 Nov 2009 at 01:15</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I have added my working code which could be adapted to answer this to my question, referred to by sylvarking.</span> <span> - </span> <span class="display-name">Lawrence Dol</span> <span> </span> <span class="date">25 Nov 2009 at 01:22</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>thanks sylvarking and software monkey. I need to fail over to the Java's default key/trust store if the custom ones don't work. I am working on the code you provided, I need to adapt it so that it works with the default JVM key managers.</span> <span> - </span> <span class="display-name">Raz</span> <span> </span> <span class="date">25 Nov 2009 at 23:56</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>For android developers, you can reference my answer <a href="https://stackoverflow.com/a/54877748/8154045">here</a>.</span> <span> - </span> <span class="display-name">KFJK</span> <span> </span> <span class="date">26 Feb 2019 at 02:56</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>41</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Cody A. Ray</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Apr 2013 at 06:16</span>
+     </div>
+    </div>
+    <div>
+     <p>Raz's answer was a great start, but wasn't quite flexible enough to meet my needs. The MultiStoreKeyManager explicitly checks the custom KeyManager and then falls back to the jvm KeyManager if an operation fails. I actually want to check jvm certs first; the best solution should be able to handle either case. Additionally, the answer fails to provide a working TrustManager.</p>
+     <p>I've written a couple more flexible classes, CompositeX509KeyManager and CompositeX509TrustManager, which add support for any number of keystores in an arbitrary order.</p>
+     <h3>CompositeX509KeyManager</h3>
+     <pre><code>package com.mycompany.ssl;
+
+import java.net.Socket;
+import java.security.Principal;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
+import java.util.List;
+
+import javax.annotation.Nullable;
+import javax.net.ssl.X509KeyManager;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+
+/**
+ * Represents an ordered list of {@link X509KeyManager}s with most-preferred managers first.
+ *
+ * This is necessary because of the fine-print on {@link SSLContext#init}:
+ *     Only the first instance of a particular key and/or trust manager implementation type in the
+ *     array is used. (For example, only the first javax.net.ssl.X509KeyManager in the array will be used.)
+ *
+ * @author codyaray
+ * @since 4/22/2013
+ * @see http://stackoverflow.com/questions/1793979/registering-multiple-keystores-in-jvm
+ */
+public class CompositeX509KeyManager implements X509KeyManager {
+
+  private final List keyManagers;
+
+  /**
+   * Creates a new {@link CompositeX509KeyManager}.
+   *
+   * @param keyManagers the X509 key managers, ordered with the most-preferred managers first.
+   */
+  public CompositeX509KeyManager(List keyManagers) {
+    this.keyManagers = ImmutableList.copyOf(keyManagers);
+  }
+
+  /**
+   * Chooses the first non-null client alias returned from the delegate
+   * {@link X509TrustManagers}, or {@code null} if there are no matches.
+   */
+  @Override
+  public @Nullable String chooseClientAlias(String[] keyType, Principal[] issuers, Socket socket) {
+    for (X509KeyManager keyManager : keyManagers) {
+      String alias = keyManager.chooseClientAlias(keyType, issuers, socket);
+      if (alias != null) {
+        return alias;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Chooses the first non-null server alias returned from the delegate
+   * {@link X509TrustManagers}, or {@code null} if there are no matches.
+   */
+  @Override
+  public @Nullable String chooseServerAlias(String keyType, Principal[] issuers, Socket socket) {
+    for (X509KeyManager keyManager : keyManagers) {
+      String alias = keyManager.chooseServerAlias(keyType, issuers, socket);
+      if (alias != null) {
+        return alias;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns the first non-null private key associated with the
+   * given alias, or {@code null} if the alias can't be found.
+   */
+  @Override
+  public @Nullable PrivateKey getPrivateKey(String alias) {
+    for (X509KeyManager keyManager : keyManagers) {
+      PrivateKey privateKey = keyManager.getPrivateKey(alias);
+      if (privateKey != null) {
+        return privateKey;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns the first non-null certificate chain associated with the
+   * given alias, or {@code null} if the alias can't be found.
+   */
+  @Override
+  public @Nullable X509Certificate[] getCertificateChain(String alias) {
+    for (X509KeyManager keyManager : keyManagers) {
+      X509Certificate[] chain = keyManager.getCertificateChain(alias);
+      if (chain != null &amp;&amp; chain.length &gt; 0) {
+        return chain;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get all matching aliases for authenticating the client side of a
+   * secure socket, or {@code null} if there are no matches.
+   */
+  @Override
+  public @Nullable String[] getClientAliases(String keyType, Principal[] issuers) {
+    ImmutableList.Builder aliases = ImmutableList.builder();
+    for (X509KeyManager keyManager : keyManagers) {
+      aliases.add(keyManager.getClientAliases(keyType, issuers));
+    }
+    return emptyToNull(Iterables.toArray(aliases.build(), String.class));
+  }
+
+  /**
+   * Get all matching aliases for authenticating the server side of a
+   * secure socket, or {@code null} if there are no matches.
+   */
+  @Override
+  public @Nullable String[] getServerAliases(String keyType, Principal[] issuers) {
+    ImmutableList.Builder aliases = ImmutableList.builder();
+    for (X509KeyManager keyManager : keyManagers) {
+      aliases.add(keyManager.getServerAliases(keyType, issuers));
+    }
+    return emptyToNull(Iterables.toArray(aliases.build(), String.class));
+  }
+
+  @Nullable
+  private static &lt;T&gt; T[] emptyToNull(T[] arr) {
+    return (arr.length == 0) ? null : arr;
+  }
+
+}
+</code></pre>
+     <h3>CompositeX509TrustManager</h3>
+     <pre><code>package com.mycompany.ssl;
+
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.List;
+
+import javax.net.ssl.X509TrustManager;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+
+/**
+ * Represents an ordered list of {@link X509TrustManager}s with additive trust. If any one of the
+ * composed managers trusts a certificate chain, then it is trusted by the composite manager.
+ *
+ * This is necessary because of the fine-print on {@link SSLContext#init}:
+ *     Only the first instance of a particular key and/or trust manager implementation type in the
+ *     array is used. (For example, only the first javax.net.ssl.X509KeyManager in the array will be used.)
+ *
+ * @author codyaray
+ * @since 4/22/2013
+ * @see http://stackoverflow.com/questions/1793979/registering-multiple-keystores-in-jvm
+ */
+public class CompositeX509TrustManager implements X509TrustManager {
+
+  private final List trustManagers;
+
+  public CompositeX509TrustManager(List trustManagers) {
+    this.trustManagers = ImmutableList.copyOf(trustManagers);
+  }
+
+  @Override
+  public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+    for (X509TrustManager trustManager : trustManagers) {
+      try {
+        trustManager.checkClientTrusted(chain, authType);
+        return; // someone trusts them. success!
+      } catch (CertificateException e) {
+        // maybe someone else will trust them
+      }
+    }
+    throw new CertificateException("None of the TrustManagers trust this certificate chain");
+  }
+
+  @Override
+  public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+    for (X509TrustManager trustManager : trustManagers) {
+      try {
+        trustManager.checkServerTrusted(chain, authType);
+        return; // someone trusts them. success!
+      } catch (CertificateException e) {
+        // maybe someone else will trust them
+      }
+    }
+    throw new CertificateException("None of the TrustManagers trust this certificate chain");
+  }
+
+  @Override
+  public X509Certificate[] getAcceptedIssuers() {
+    ImmutableList.Builder certificates = ImmutableList.builder();
+    for (X509TrustManager trustManager : trustManagers) {
+      certificates.add(trustManager.getAcceptedIssuers());
+    }
+    return Iterables.toArray(certificates.build(), X509Certificate.class);
+  }
+
+}
+</code></pre>
+     <h3>Usage</h3>
+     <p>For the standard case of one keystore + jvm keystore, you can wire it up like this. I’m using Guava again, but in a Guicey wrapper this time:</p>
+     <pre><code>@Provides @Singleton
+SSLContext provideSSLContext(KeyStore keystore, char[] password) {
+  String defaultAlgorithm = KeyManagerFactory.getDefaultAlgorithm();
+  X509KeyManager customKeyManager = getKeyManager("SunX509", keystore, password);
+  X509KeyManager jvmKeyManager = getKeyManager(defaultAlgorithm, null, null);
+  X509TrustManager customTrustManager = getTrustManager("SunX509", keystore);
+  X509TrustManager jvmTrustManager = getTrustManager(defaultAlgorithm, null);
+
+  KeyManager[] keyManagers = { new CompositeX509KeyManager(ImmutableList.of(jvmKeyManager, customKeyManager)) };
+  TrustManager[] trustManagers = { new CompositeX509TrustManager(ImmutableList.of(jvmTrustManager, customTrustManager)) };
+
+  SSLContext context = SSLContext.getInstance("SSL");
+  context.init(keyManagers, trustManagers, null);
+  return context;
+}
+
+private X509KeyManager getKeyManager(String algorithm, KeyStore keystore, char[] password) {
+  KeyManagerFactory factory = KeyManagerFactory.getInstance(algorithm);
+  factory.init(keystore, password);
+  return Iterables.getFirst(Iterables.filter(
+      Arrays.asList(factory.getKeyManagers()), X509KeyManager.class), null);
+}
+
+private X509TrustManager getTrustManager(String algorithm, KeyStore keystore) {
+  TrustManagerFactory factory = TrustManagerFactory.getInstance(algorithm);
+  factory.init(keystore);
+  return Iterables.getFirst(Iterables.filter(
+      Arrays.asList(factory.getTrustManagers()), X509TrustManager.class), null); 
+}
+</code></pre>
+     <p>I extracted this from <a href="http://codyaray.com/2013/04/java-ssl-with-multiple-keystores" rel="noreferrer">my blog post</a> about this problem which has a bit more detail, motivation, etc. All the code is there though, so its standalone. :)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I'm somewhat surprised the <code>getAcceptedIssuers()</code> work. It adds <code>X509Certificate[]</code> instances to a list and then casts the list of arrays to <code>X509Certificate</code>s? Here's a corrected one (that uses generics, too): <a href="https://gist.github.com/JensRantil/9b7fecb3647ecf1e3076" rel="nofollow noreferrer">gist.github.com/JensRantil/9b7fecb3647ecf1e3076</a></span> <span> - </span> <span class="display-name">Ztyx</span> <span> </span> <span class="date">4 Jun 2015 at 08:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Apparently, the JVM doesn't ship with a default key store. See <a href="http://stackoverflow.com/a/30640992/260805">stackoverflow.com/a/30640992/260805</a>.</span> <span> - </span> <span class="display-name">Ztyx</span> <span> </span> <span class="date">4 Jun 2015 at 10:12</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Using @Ztyx as a base I added some convenience methods if you just want to trust the system certs + your custom keystore: <a href="https://gist.github.com/HughJeffner/6eac419b18c6001aeadb" rel="nofollow noreferrer">gist.github.com/HughJeffner/6eac419b18c6001aeadb</a></span> <span> - </span> <span class="display-name">Hugh Jeffner</span> <span> </span> <span class="date">2 Mar 2016 at 22:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This solution seems to fail for certain certificates in our system. I asked that as a separate question.<a href="https://stackoverflow.com/questions/45166038/java-multiple-keystores-in-jvm" title="java multiple keystores in jvm">stackoverflow.com/questions/45166038/…</a> . Could you please comment on that? Regards</span> <span> - </span> <span class="display-name">simpleusr</span> <span> </span> <span class="date">18 Jul 2017 at 11:54</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This answer mostly worked for me. However, when using it as-is, it did not work due to the following SSL debug log: <code>X509KeyManager passed to SSLContext.init(): need an X509ExtendedKeyManager for SSLEngine use</code>. As a result, I changed my <code>X509KeyManager</code> with <code>X509ExtendedKeyManager</code> per your answer, and then it worked! Thanks for this answer.</span> <span> - </span> <span class="display-name">Kevin Meredith</span> <span> </span> <span class="date">25 Sep 2018 at 20:16</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>20</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Raz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Nov 2009 at 03:20</span>
+     </div>
+    </div>
+    <div>
+     <p>After playing with the code I have received from ZZ Coder, sylvarking and Software Monkey, I have found a solution that works:</p>
+     <p>First, I wrote a X509KeyManager that works combines a custom keystore and a default keystore.</p>
+     <pre><code>class MultiKeyStoreManager implements X509KeyManager {
+ private static final Logger logger = Logger.getLogger(MultiKeyStoreManager.class); 
+ private final X509KeyManager jvmKeyManager;
+ private final X509KeyManager customKeyManager;
+
+ public MultiKeyStoreManager(X509KeyManager jvmKeyManager, X509KeyManager customKeyManager ) {
+  this.jvmKeyManager = jvmKeyManager;
+  this.customKeyManager = customKeyManager;  
+ }
+
+ @Override
+ public String chooseClientAlias(String[] keyType, Principal[] issuers, Socket socket) {
+  // try the first key manager
+  String alias = customKeyManager.chooseClientAlias(keyType, issuers, socket);
+  if( alias == null ) {
+   alias = jvmKeyManager.chooseClientAlias(keyType, issuers, socket);
+   logger.warn("Reverting to JVM CLIENT alias : " + alias);
+  }
+
+  return alias;
+
+ }
+
+ @Override
+ public String chooseServerAlias(String keyType, Principal[] issuers, Socket socket) {
+  // try the first key manager
+  String alias = customKeyManager.chooseServerAlias(keyType, issuers, socket);
+  if( alias == null ) {
+   alias =  jvmKeyManager.chooseServerAlias(keyType, issuers, socket);
+   logger.warn("Reverting to JVM Server alias : " + alias);
+  } 
+  return alias;
+ }
+
+ @Override
+ public X509Certificate[] getCertificateChain(String alias) {
+  X509Certificate[] chain = customKeyManager.getCertificateChain(alias);
+  if( chain == null || chain.length == 0) {
+   logger.warn("Reverting to JVM Chain : " + alias);
+   return jvmKeyManager.getCertificateChain(alias);
+  } else {
+   return chain;
+  }  
+ }
+
+ @Override
+ public String[] getClientAliases(String keyType, Principal[] issuers) {
+  String[] cAliases = customKeyManager.getClientAliases(keyType, issuers);
+  String[] jAliases = jvmKeyManager.getClientAliases(keyType, issuers);
+  logger.warn("Supported Client Aliases Custom: " + cAliases.length + " JVM : " + jAliases.length);
+  return ArrayUtils.join(cAliases,jAliases);
+ }
+
+ @Override
+ public PrivateKey getPrivateKey(String alias) {
+  PrivateKey key = customKeyManager.getPrivateKey(alias);
+  if( key == null ) {
+   logger.warn("Reverting to JVM Key : " + alias);
+   return jvmKeyManager.getPrivateKey(alias);
+  } else {
+   return key;
+  }
+ }
+
+ @Override
+ public String[] getServerAliases(String keyType, Principal[] issuers) {
+  String[] cAliases = customKeyManager.getServerAliases(keyType, issuers);
+  String[] jAliases = jvmKeyManager.getServerAliases(keyType, issuers);
+  logger.warn("Supported Server Aliases Custom: " + cAliases.length + " JVM : " + jAliases.length);
+  return ArrayUtils.join(cAliases,jAliases);
+ }
+
+}
+</code></pre>
+     <p>Then, you can use this keystore manager when creating an SSL Context or SocketFactory. The code needs some refactoring and tidying up but it works perfectly.</p>
+     <pre><code> /**
+  * Returns an array of KeyManagers, set up to use the required keyStore.
+  * This method does the bulk of the work of setting up the custom trust managers.
+  * 
+  * @param props 
+  * 
+  * @return an array of KeyManagers set up accordingly.
+  */
+ private static KeyManager[] getKeyManagers(Properties props) throws IOException, GeneralSecurityException {
+  // First, get the default KeyManagerFactory.
+  String alg = KeyManagerFactory.getDefaultAlgorithm();
+  KeyManagerFactory kmFact = KeyManagerFactory.getInstance(alg);   
+  // Next, set up the KeyStore to use. We need to load the file into
+  // a KeyStore instance.
+  FileInputStream fis = new FileInputStream(props.getProperty(SSL_KEYSTORE));
+  logger.info("Loaded keystore");
+  KeyStore ks = KeyStore.getInstance("jks");
+  String keyStorePassword = props.getProperty(SSL_KEYSTORE_PASSWORD);
+  ks.load(fis, keyStorePassword.toCharArray());
+  fis.close();
+  // Now we initialise the KeyManagerFactory with this KeyStore
+  kmFact.init(ks, keyStorePassword.toCharArray());
+
+  // default
+  KeyManagerFactory dkmFact = KeyManagerFactory.getInstance(alg); 
+  dkmFact.init(null,null);  
+
+  // Get the first X509KeyManager in the list
+  X509KeyManager customX509KeyManager = getX509KeyManager(alg, kmFact);
+  X509KeyManager jvmX509KeyManager = getX509KeyManager(alg, dkmFact);
+
+  KeyManager[] km = { new MultiKeyStoreManager(jvmX509KeyManager, customX509KeyManager) };   
+  logger.debug("Number of key managers registered:" + km.length);  
+  return km;
+ }
+
+
+ /**
+  * Find a X509 Key Manager compatible with a particular algorithm
+  * @param algorithm
+  * @param kmFact
+  * @return
+  * @throws NoSuchAlgorithmException
+  */
+ private static X509KeyManager getX509KeyManager(String algorithm, KeyManagerFactory kmFact)
+   throws NoSuchAlgorithmException {
+  KeyManager[] keyManagers = kmFact.getKeyManagers();
+
+  if (keyManagers == null || keyManagers.length == 0) {
+   throw new NoSuchAlgorithmException("The default algorithm :" + algorithm + " produced no key managers");
+  }
+
+  X509KeyManager x509KeyManager = null;
+
+  for (int i = 0; i &lt; keyManagers.length; i++) {
+   if (keyManagers[i] instanceof X509KeyManager) {
+    x509KeyManager = (X509KeyManager) keyManagers[i];
+    break;
+   }
+  }
+
+  if (x509KeyManager == null) {
+   throw new NoSuchAlgorithmException("The default algorithm :"+ algorithm + " did not produce a X509 Key manager");
+  }
+  return x509KeyManager;
+ }
+
+
+
+
+ private static void initialiseManager(Properties props) throws IOException, GeneralSecurityException { 
+  // Next construct and initialise a SSLContext with the KeyStore and
+  // the TrustStore. We use the default SecureRandom.
+  SSLContext context = SSLContext.getInstance("SSL");
+  context.init(getKeyManagers(props), getTrustManagers(props), null);
+  SSLContext.setDefault(context);
+
+ }
+</code></pre>
+     <p>Let me know if anyone has any question or need any demonstration codes.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I had to add a MultiKeyStoreTrustManager as well, along with the getX509TrustManager() and getTrustManagers(..) functions. They more-or-less directly parallel the KeyManager code given, but won't work without it.</span> <span> - </span> <span class="display-name">Cody A. Ray</span> <span> </span> <span class="date">22 Apr 2013 at 21:16</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hakan54</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jul 2020 at 21:50</span>
+     </div>
+    </div>
+    <div>
+     <p>Maybe I am 10 years too late to answer this question, but it could be maybe helpful for other developers too. I also ran into the same challenge of loading multiple keystores as keymaterial/trustmaterial. I discovered this page and the answer which Cody A. Ray has provided. After using the same snippet for multiple projects, I thought it would be handy to create a library and also make it publicly available to contribute back to the community. Please have a look here: <a href="https://github.com/Hakky54/sslcontext-kickstart" rel="nofollow noreferrer">Github - SSLContext-Kickstart</a> The code snippet of Cody A. Ray for the CompositeKeyManager and CompositeTrustManager are both included.</p>
+     <p>Usage:</p>
+     <pre class="lang-java prettyprint-override"><code>import nl.altindag.ssl.SSLFactory;
+
+import javax.net.ssl.SSLContext;
+
+public class App {
+
+    public static void main(String[] args) {
+        String keyStorePathOne = ...;
+        String keyStorePathTwo = ...;
+        String trustStorePathOne = ...;
+        String trustStorePathTwo = ...;
+        char[] password = "password".toCharArray();
+
+
+        SSLFactory sslFactory = SSLFactory.builder()
+                .withDefaultTrustMaterial() // loads JDK trusted certificates
+                .withIdentityMaterial(keyStorePathOne, password)
+                .withIdentityMaterial(keyStorePathTwo, password)
+                .withTrustMaterial(trustStorePathOne, password)
+                .withTrustMaterial(trustStorePathTwo, password)
+                .build();
+
+        SSLContext sslContext = sslFactory.getSslContext();
+    }
+
+}
+</code></pre>
+     <p>I wasn't quite sure if I should post this here, because it could also be seen as a way to promote "my library" but I thought it could be helpful for developers.</p>
+     <p>You can add the dependency with the following snippet:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependency&gt;
+    &lt;groupId&gt;io.github.hakky54&lt;/groupId&gt;
+    &lt;artifactId&gt;sslcontext-kickstart&lt;/artifactId&gt;
+    &lt;version&gt;7.3.0&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>nl.altindag.ssl.exception.GenericKeyStoreException: KeyStore is not present for the giving input</span> <span> - </span> <span class="display-name">Леонид Дубравский</span> <span> </span> <span class="date">17 Mar 2021 at 10:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi @ЛеонидДубравский The code example uses the method to load the keystore for the given input from the classpath. It throws a runtime exception because it could not find it on the classpath, can you verify if it is actual present on the classpath and if the given path is correct?</span> <span> - </span> <span class="display-name">Hakan54</span> <span> </span> <span class="date">17 Mar 2021 at 11:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>the repository should be in the project directory? I can not specify the path? :SSLFactory sslFactory = SSLFactory.builder() .withIdentityMaterial("/home/efficeon/cert.jks", keyPass.toCharArray(), "JKS")</span> <span> - </span> <span class="display-name">Леонид Дубравский</span> <span> </span> <span class="date">17 Mar 2021 at 12:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes, you actually can! The library expects different kind of input when it is not from the classpath. It uses the Java Non blocking Input Output aka NIO api. Can you retry with the following code snippet and share your result here: <code>SSLFactory.builder() .withIdentityMaterial(Paths.get("/home/efficeon/cert.jks"), keyPass.toCharArray(), "JKS").build()</code></span> <span> - </span> <span class="display-name">Hakan54</span> <span> </span> <span class="date">17 Mar 2021 at 12:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Paths.get() helped me, thanks. But I am using SNIMatcher matcher = SNIHostName.createSNIMatcher ("local-print. (work | ua)") and when accessing local-print.work or local-print.ua, the browser only gets the first certificate from the first store.</span> <span> - </span> <span class="display-name">Леонид Дубравский</span> <span> </span> <span class="date">17 Mar 2021 at 12:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That option is missing in the Factory builder, but I think I can add it</span> <span> - </span> <span class="display-name">Hakan54</span> <span> </span> <span class="date">17 Mar 2021 at 15:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Let us <a href="https://chat.stackoverflow.com/rooms/230039/discussion-between-hakan54-and--">continue this discussion in chat</a>.</span> <span> - </span> <span class="display-name">Hakan54</span> <span> </span> <span class="date">17 Mar 2021 at 15:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>ZZ Coder</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Nov 2009 at 04:33</span>
+     </div>
+    </div>
+    <div>
+     <p>Check out my answer to this question,</p>
+     <p><a href="https://stackoverflow.com/questions/1788031/how-can-i-have-multiple-ssl-certificates-for-a-java-server">How can I have multiple SSL certificates for a Java server</a></p>
+     <p>If you use the MyKeyManager, you can have multiple keystores or you can use a single keystore for multiple contexts.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>thanks for your answer. I need to fail over to the Java's default key/trust store if the custom ones don't work. I am working on the code you provided, I need to adapt it so that it works with the default JVM key managers.</span> <span> - </span> <span class="display-name">Raz</span> <span> </span> <span class="date">25 Nov 2009 at 23:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

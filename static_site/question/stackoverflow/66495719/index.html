@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jquery: How do I access the underlying DataTable inside a createdRow() callback?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jquery: How do I access the underlying DataTable inside a createdRow() callback?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Bean Taxi</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>5 Mar 2021 at 16:00</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66495719/jquery-how-do-i-access-the-underlying-datatable-inside-a-createdrow-callback">source</a>
+    </div>
+   </div>
+   <div>
+    <p>When a row is created, I would like to add a child row containing a <code>&lt;table&gt;</code>, for later population via <code>on.click()</code> + <code>DataTable()</code> + <code>ajax</code>. Pretty simple. The <code>createdRow()</code> callback seems like a great place to do this ... if I could get it to work.</p>
+    <p><code>createdRow()</code> takes 4 parameters which appear to be the following.</p>
+    <ul>
+     <li><code>row</code> - HTML element of the created row</li>
+     <li><code>data</code> - plain ol' JSON of the new row's data</li>
+     <li><code>dataIndex</code> - the row # within its table</li>
+     <li><code>cells</code> - DOM elements for the <code>&lt;td&gt;</code>s that make up the row</li>
+    </ul>
+    <p>None of these are DataTables or child objects. Not only that, I do not seem to have a way to get at the underlying <code>&lt;table&gt;</code> element. Neither <code>$(row).closest('table')</code> nor <code>$(cells[0]).closest('table')</code> seem to return anything, and <code>$(row).parent()</code> doesn't work either. It seems as though the row isn't inserted into the table yet.</p>
+    <p>If the row really hasn't been inserted into the table when <code>createdRow()</code> is called, then I guess I just need to use another callback, like <code>initComplete()</code>, and iterate over rows. But <code>createdRow()</code> would be perfect, since all the data is right there in the args, so I hope I am just missing something simple and <code>createdRow()</code> can be made to work.</p>
+    <p>Thanks!</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">datatable</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>can you show us your code</span> <span> - </span> <span class="display-name">uingtea</span> <span> </span> <span class="date">5 Mar 2021 at 17:11</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Mar 2021 at 17:19</span>
+     </div>
+    </div>
+    <div>
+     <p>You can access a table's API object from within the table itself using one of the approaches shown <a href="https://datatables.net/reference/api/" rel="nofollow noreferrer">here</a>. So, for example,</p>
+     <pre><code>$('#your_table_id_here').DataTable()
+</code></pre>
+     <p>With this, you can do the following to create a child row:</p>
+     <pre><code>$('#example').DataTable( {
+  "createdRow": function( row, data, dataIndex, cells ) {
+    var myTable = $('#example').DataTable();
+    myTable.row( dataIndex ).child( '&lt;table&gt;&lt;tr&gt;&lt;td&gt;some data&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;' ).show();
+  }
+} );
+</code></pre>
+     <p>This basically uses the <code>row()</code> API call with the row index number to get the row as a DataTables object (instead of a <code>&lt;tr&gt;</code> element).</p>
+     <hr>
+     <p>If you are adding a new row via the DataTables API using <code>row.add()</code>, then you can use the row object which is returned from that function, without needing to create a new instance of the DataTable's API:</p>
+     <pre><code>var row = table.row.add( ['John Doe', 'more info', ...] ).draw();
+row.child( '&lt;table&gt;&lt;tr&gt;&lt;td&gt;some data&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;' ).show();
+</code></pre>
+     <p>The above example assumes that <code>table</code> is the variable assigned to your DataTable when the DataTable is created:</p>
+     <pre><code>var table = $('#example').DataTable( {
+   // your usual DataTable options here
+} );
+</code></pre>
+     <p>Adding a child to a row is typically done when the table is <a href="https://datatables.net/examples/api/row_details.html" rel="nofollow noreferrer">initially rendered</a>, without using the <code>createdRow</code> option. I think this is the easiest way to handle things such as the open/close buttons (if you want those).</p>
+     <hr>
+     <p><strong>Update</strong> regarding a comment about not having access to the HTML table's ID.</p>
+     <p>Inside the <code>createdRow</code> callback function you can use <code>this</code> as a selector also: <code>var myTable = $( this ).DataTable();</code>. In this case, there is no need to know the ID of the table.</p>
+     <p>Using this, my earlier example becomes the following:</p>
+     <pre><code>$('#example').DataTable( {
+  "createdRow": function( row, data, dataIndex, cells ) {
+    var myTable = $( this ).DataTable();
+    myTable.row( dataIndex ).child( '&lt;table&gt;&lt;tr&gt;&lt;td&gt;some data&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;' ).show();
+  }
+} );
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you, but I don't have a reference the table id within <code>createdRow()</code>. My initial page is a <code>&lt;ul&gt;</code> of <code>&lt;table&gt;</code>s, each of which gets turned into a DataTable during <code>$().ready()</code> and populated asynchronously via ajax. My plan was for <code>createdRow()</code> to add a child to each returned row in each returned table. Conceptually this is the best place to do it, as opposed to inside an <code>on.click()</code> handler as in the example you mentioned. I appreciate being pointed at workarounds, but in this case I'm really only interested in if it's possible in <code>createdRow()</code>. Thank you though.</span> <span> - </span> <span class="display-name">Bean Taxi</span> <span> </span> <span class="date">5 Mar 2021 at 18:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Btw my current workaround is to loop over all the rows inside <code>initComplete()</code> callback, which isn't too bad. I'm unaccustomed to a callback on an object making it so difficult to refer to the source object, but perhaps that's just how it is in this case.</span> <span> - </span> <span class="display-name">Bean Taxi</span> <span> </span> <span class="date">5 Mar 2021 at 18:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Understood. You should probably update your question with this extra information. In case it helps, you can use any valid jQuery selector in place of an <code>id</code> value - for example, you can use a class name common to all your tables: <code>var allMyTables = $('.some_class_name').DataTable();</code>. See <a href="https://datatables.net/manual/api#Multiple-tables" rel="nofollow noreferrer">multiple tables</a>. That may or may not help you - it probably depends on the specific process by which your tables get turned into DataTables objects.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Mar 2021 at 18:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I added one more note to my answer - just in case it may also help (but I understand if it's not what you need).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Mar 2021 at 21:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The note did it :) <code>$(this)</code> was exactly what I was looking for. I knew there had to be something. Thanks!</span> <span> - </span> <span class="display-name">Bean Taxi</span> <span> </span> <span class="date">8 Mar 2021 at 21:44</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

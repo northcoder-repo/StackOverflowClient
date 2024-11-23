@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Wrap text with CDATA in XML</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Wrap text with CDATA in XML</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>kovica</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>29 Apr 2021 at 08:19</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67313575/wrap-text-with-cdata-in-xml">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a template that produces XML. Something like:</p>
+    <pre><code>&lt;items&gt;
+    &lt;item th:each="itemEntry: ${rs1}"&gt;
+        &lt;name th:text="${itemEntry.value['ITEM_NAME']}"&gt;&lt;/name&gt;
+    &lt;/item&gt;
+&lt;/items&gt;
+</code></pre>
+    <p>What would I have to do to wrap the text of element name in CDATA, so that the result would be:</p>
+    <pre><code>&lt;items&gt;
+    &lt;item&gt;
+        &lt;name&gt;&lt;![CDATA[My text]]&gt;&lt;/name&gt;
+    &lt;/item&gt;
+&lt;/items&gt;
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>kovica</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 May 2021 at 06:52</span>
+     </div>
+    </div>
+    <div>
+     <p>At the end it was quite simple. I had to create my own dialect:</p>
+     <pre><code>public class KovicaDialect extends AbstractDialect implements IExpressionObjectDialect {
+    private static final XMLExpressionObjectFactory xmlExpressionObjectFactory = new XMLExpressionObjectFactory();
+
+    public KovicaDialect() {
+        super("kovica");
+    }
+
+    @Override
+    public IExpressionObjectFactory getExpressionObjectFactory() {
+        return xmlExpressionObjectFactory;
+    }
+}
+</code></pre>
+     <p>The expression object factory looks like this:</p>
+     <pre><code>public class XMLExpressionObjectFactory implements IExpressionObjectFactory {
+    private static final String EXPRESSION_OBJECT_PREFIX = "xml";
+    private static final Set&lt;String&gt; EXPRESSION_OBJECT_NAMES = Collections.unmodifiableSet(new HashSet(Arrays.asList(EXPRESSION_OBJECT_PREFIX)));
+
+    @Override
+    public Set&lt;String&gt; getAllExpressionObjectNames() {
+        return EXPRESSION_OBJECT_NAMES;
+    }
+
+    @Override
+    public Object buildObject(IExpressionContext context, String expressionObjectName) {
+        if (expressionObjectName.equals(EXPRESSION_OBJECT_PREFIX) == true) {
+            return new XMLUtils();
+        }
+
+        return null;
+    }
+
+    @Override
+    public boolean isCacheable(String expressionObjectName) {
+        return true;
+    }
+}
+</code></pre>
+     <p>And the util class:</p>
+     <pre><code>public class XMLUtils {
+    public String cdata(String str) {
+        String returnString = null;
+
+        if (str != null) {
+            returnString = "&lt;![CDATA[" + str + "]]&gt;";
+        }
+
+        return returnString;
+    }
+}
+</code></pre>
+     <p>You have to set this dialect:</p>
+     <pre><code>org.thymeleaf.TemplateEngine templateEngine = new org.thymeleaf.TemplateEngine();
+templateEngine.addDialect(new KovicaDialect());
+</code></pre>
+     <p>then you can use it like this (it has to be an <code>th:utext</code>):</p>
+     <pre><code>&lt;name th:utext="${#xml.cdata(itemEntry.value['ITEM_NAMESMALL'])}"&gt;&lt;/name&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

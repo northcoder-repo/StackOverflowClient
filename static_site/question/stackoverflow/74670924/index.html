@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to merge two groupingBy in java streams?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to merge two groupingBy in java streams?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Mohit Kumar</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>3 Dec 2022 at 21:34</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74670924/how-to-merge-two-groupingby-in-java-streams">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a input object</p>
+    <pre><code>  @Getter
+  class Txn {
+
+    private String hash;
+    private String withdrawId;
+    private String depositId;
+    private Integer amount;
+    private String date;
+
+  }
+</code></pre>
+    <p>and the output object is</p>
+    <pre><code>  @Builder
+  @Getter
+  class UserTxn {
+
+    private String hash;
+    private String walletId;
+    private String txnType;
+    private Integer amount;
+  }
+</code></pre>
+    <p>In the <strong>Txn</strong> object transfers the <strong>amount</strong> from the <strong>withdrawId -&gt; depositId</strong>.</p>
+    <p>what I am doing is I am <strong>adding</strong> all the <strong>transactions</strong> (Txn objects) in a single amount <strong>grouped by hash</strong>.</p>
+    <p>but for that I have to make <strong>two streams for groupingby</strong> withdrawId and second or for depositId and then the <strong>third stream for merging</strong> them</p>
+    <p>grouping by withdrawId</p>
+    <pre><code>var withdrawStream = txnList.stream().collect(Collectors.groupingBy(Txn::getHash, LinkedHashMap::new,
+        Collectors.groupingBy(Txn::getWithdrawId, LinkedHashMap::new, Collectors.toList())))
+    .entrySet().stream().flatMap(hashEntrySet -&gt; hashEntrySet.getValue().entrySet().stream()
+        .map(withdrawEntrySet -&gt;
+            UserTxn.builder()
+                .hash(hashEntrySet.getKey())
+                .walletId(withdrawEntrySet.getKey())
+                .txnType("WITHDRAW")
+                .amount(withdrawEntrySet.getValue().stream().map(Txn::getAmount).reduce(0, Integer::sum))
+                .build()
+        ));
+</code></pre>
+    <p>grouping by depositId</p>
+    <pre><code>var depositStream = txnList.stream().collect(Collectors.groupingBy(Txn::getHash, LinkedHashMap::new,
+        Collectors.groupingBy(Txn::getDepositId, LinkedHashMap::new, Collectors.toList())))
+    .entrySet().stream().flatMap(hashEntrySet -&gt; hashEntrySet.getValue().entrySet().stream()
+        .map(withdrawEntrySet -&gt;
+            UserTxn.builder()
+                .hash(hashEntrySet.getKey())
+                .walletId(withdrawEntrySet.getKey())
+                .txnType("DEPOSIT")
+                .amount(withdrawEntrySet.getValue().stream().map(Txn::getAmount).reduce(0, Integer::sum))
+                .build()
+        ));
+</code></pre>
+    <p>then merging them again, using deposites - withdraws</p>
+    <pre><code>var res = Stream.concat(withdrawStream, depositStream).collect(Collectors.groupingBy(UserTxn::getHash, LinkedHashMap::new,
+    Collectors.groupingBy(UserTxn::getWalletId, LinkedHashMap::new, Collectors.toList())))
+    .entrySet().stream().flatMap(hashEntrySet -&gt; hashEntrySet.getValue().entrySet().stream()
+        .map(withdrawEntrySet -&gt; {
+              var depositAmount = withdrawEntrySet.getValue().stream().filter(userTxn -&gt; userTxn.txnType.equals("DEPOSIT")).map(UserTxn::getAmount).reduce(0, Integer::sum);
+              var withdrawAmount = withdrawEntrySet.getValue().stream().filter(userTxn -&gt; userTxn.txnType.equals("WITHDRAW")).map(UserTxn::getAmount).reduce(0, Integer::sum);
+              var totalAmount = depositAmount-withdrawAmount;
+              return UserTxn.builder()
+                  .hash(hashEntrySet.getKey())
+                  .walletId(withdrawEntrySet.getKey())
+                  .txnType(totalAmount &gt; 0 ? "DEPOSIT": "WITHDRAW")
+                  .amount(totalAmount)
+                  .build();
+            }
+        ));
+</code></pre>
+    <p>My question is, How can I do this in one stream. Like by somehow groupingBy withdrawId and depositId is one grouping.</p>
+    <p>something like</p>
+    <pre><code>res = txnList.stream()
+        .collect(Collectors.groupingBy(Txn::getHash,
+            LinkedHashMap::new,
+            Collectors.groupingBy(Txn::getWithdrawId &amp;&amp; Txn::getDepositId,
+                LinkedHashMap::new, Collectors.toList())))
+        .entrySet().stream().flatMap(hashEntrySet -&gt; hashEntrySet.getValue().entrySet().stream()
+            .map(walletEntrySet -&gt;
+                {
+                  var totalAmount = walletEntrySet.getValue().stream().map(
+                      txn -&gt; Objects.equals(txn.getDepositId(), walletEntrySet.getKey())
+                          ? txn.getAmount() : (-txn.getAmount())).reduce(0, Integer::sum);
+                  return UserTxn.builder()
+                      .hash(hashEntrySet.getKey())
+                      .walletId(walletEntrySet.getKey())
+                      .txnType("WITHDRAW")
+                      .amount(totalAmount)
+                      .build();
+                }
+            ));
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">hashmap</span><span class="tag">java-stream</span><span class="tag">collectors</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>How about creating a <a href="https://stackoverflow.com/help/minimal-reproducible-example">minimal-reproducible-example</a>?</span> <span> - </span> <span class="display-name">steffen</span> <span> </span> <span class="date">3 Dec 2022 at 21:38</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I have added a minimal-reproducible-example</span> <span> - </span> <span class="display-name">Mohit Kumar</span> <span> </span> <span class="date">3 Dec 2022 at 22:06</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ronmeir</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Dec 2022 at 22:19</span>
+     </div>
+    </div>
+    <div>
+     <p>I wouldn’t use this in my code because I think it’s not readable and will be very hard to change and manage in the future(SOLID). But in case you still want this-</p>
+     <p>If I got your design right hash is unique per user and transaction will only have deposit or withdrawal, if so, this will work-</p>
+     <p>You could triple groupBy via collectors chaining like you did in your example. You can create the <code>Txn</code> type via simple map function just check which id is null.</p>
+     <pre><code>Map&lt;String, Map&lt;String, Map&lt;String, List&lt;Txn&gt;&gt;&gt;&gt; groupBy = 
+      txnList.stream()
+             .collect(Collectors.groupingBy(Txn::getHash, LinkedHashMap::new,
+                       Collectors.groupingBy(Txn::getDepositId, LinkedHashMap::new,
+                         Collectors.groupingBy(Txn::getWithdrawId, LinkedHashMap::new, Collectors.toList()))));
+</code></pre>
+     <p>then use the logic from your example on this stream.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alexander Ivanchenko</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Dec 2022 at 22:33</span>
+     </div>
+    </div>
+    <div>
+     <h3>TL;DR</h3>
+     <p>For those who didn't understand the question, OP wants to generate from each <code>Txn</code> instance (<code>Txn</code> probably stands for transaction) <strong>two</strong> peaces of data: <code>hash</code> and <code>withdrawId</code> + aggregated amount, and <code>hash</code> and <code>depositId</code> + aggregated amount.</p>
+     <p>And then they want to merge the two parts together (for that reason they were creating the two streams, and then concatenating them).</p>
+     <p><em><strong>Note:</strong> it seems like there's a logical flow in the original code: the same amount gets associated with <code>withdrawId</code> and <code>depositId</code>. Which doesn't reflect that this amount has been taken from one account and transferred to another. Hence, it would make sense if for <code>depositId</code> amount would be used as is, and for <code>withdrawId</code> - negated (i.e. <code>-1 * amount</code>).</em></p>
+     <h1><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/stream/Collectors.html#teeing(java.util.stream.Collector,java.util.stream.Collector,java.util.function.BiFunction)" rel="nofollow noreferrer"><code>Collectors.teeing()</code></a></h1>
+     <p>You can make use of the Java 12 Collector <code>teeing()</code> and internally group stream elements into two distinct Maps:</p>
+     <ul>
+      <li>
+       <p>the first one by grouping the stream data by <code>withdrawId</code> and <code>hash</code>.</p></li>
+      <li>
+       <p>and another one by grouping the data <code>depositId</code> and <code>hash</code>.</p></li>
+     </ul>
+     <p>Teeing expects three arguments: 2 downstream Collectors and a Function combining the results produced by collectors.</p>
+     <p>As the downstream of <code>teeing()</code> we can use a combination of Collectors <code>groupingBy()</code> and <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/stream/Collectors.html#summingInt(java.util.function.ToIntFunction)" rel="nofollow noreferrer"><code>summingInt()</code></a>, the second one is needed to accumulate integer <code>amount</code> of the transaction.</p>
+     <p><strong>Note</strong> that there's no need in using nested Collector <code>groupingBy()</code> instead we can create a custom type that would hold <code>id</code> and <code>hash</code> (<em>and its <code>equals/hashCode</code> should be implemented based on the wrapped id and hash</em>). <a href="https://docs.oracle.com/en/java/javase/16/language/records.html" rel="nofollow noreferrer">Java 16 <code>record</code></a> fits into this role perfectly well:</p>
+     <pre><code>public record HashWalletId(String hash, String walletId) {}
+</code></pre>
+     <p>Instances of <code>HashWalletId</code> would be used as Keys in both intermediate Maps.</p>
+     <p>The <em>finisher function</em> of <code>teeing()</code> would merge the results of the two Maps together.</p>
+     <p>The only thing left is to generate instances of <code>UserTxn</code> out of map entries.</p>
+     <pre><code>List&lt;Txn&gt; txnList = // initializing the list
+        
+List&lt;UserTxn&gt; result = txnList.stream()
+    .collect(Collectors.teeing(
+        Collectors.groupingBy(
+            txn -&gt; new HashWalletId(txn.getHash(), txn.getWithdrawId()),
+            Collectors.summingInt(txn -&gt; -1 * txn.getAmount())), // because amount has been withdrawn
+        Collectors.groupingBy(
+            txn -&gt; new HashWalletId(txn.getHash(), txn.getDepositId()),
+            Collectors.summingInt(Txn::getAmount)),
+        (map1, map2) -&gt; {
+            map2.forEach((k, v) -&gt; map1.merge(k, v, Integer::sum));
+            return map1;
+        }
+    ))
+    .entrySet().stream()
+    .map(entry -&gt; UserTxn.builder()
+        .hash(entry.getKey().hash())
+        .walletId(entry.getKey().walletId())
+        .txnType(entry.getValue() &gt; 0 ? "DEPOSIT" : "WITHDRAW")
+        .amount(entry.getValue())
+        .build()
+    )
+    .toList(); // remove the terminal operation if your goal is to produce a Stream
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

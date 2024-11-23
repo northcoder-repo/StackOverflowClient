@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Underscores in Thymeleaf Text Literals</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Underscores in Thymeleaf Text Literals</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>andrewJames</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Oct 2020 at 18:35</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64307689/underscores-in-thymeleaf-text-literals">source</a>
+    </div>
+   </div>
+   <div>
+    <p><strong>Question: How to escape multiple consecutive underscores in text literals?</strong></p>
+    <p>I am using the standard Thymeleaf dialect for HTML (I am <strong>not</strong> using Spring or SpEL here).</p>
+    <p>In Thymeleaf, I can create an underscore as a <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#text-literals" rel="nofollow noreferrer">text literal</a> as follows:</p>
+    <pre><code>&lt;div th:text="'_'"&gt;&lt;/div&gt;
+</code></pre>
+    <p>This renders as:</p>
+    <pre><code>&lt;div&gt;_&lt;/div&gt;
+</code></pre>
+    <p>I can create literals with 2 and 3 underscores in the same way:</p>
+    <pre><code>&lt;div th:text="'__'"&gt;&lt;/div&gt;
+&lt;div th:text="'___'"&gt;&lt;/div&gt;
+</code></pre>
+    <p>But for 4 underscores, I get an error:</p>
+    <blockquote>
+     <p><em>org.thymeleaf.exceptions.TemplateProcessingException: Could not parse as expression: ""</em></p>
+    </blockquote>
+    <p>I assume (<em><strong>maybe incorrectly</strong></em>) this is because two pairs of underscores (<code>__</code> followed by <code>__</code>) are the markers used by Thymeleaf for the <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#preprocessing" rel="nofollow noreferrer">expression preprocessor</a>. And when these are removed, I am left with an empty expression - hence the error.</p>
+    <p>I can escape the underscores using the backslash (<code>\</code>) escape character. The following all give the required results:</p>
+    <pre><code>&lt;div th:text="'\_\___'"&gt;&lt;/div&gt;
+&lt;div th:text="'\_\_\_\__'"&gt;&lt;/div&gt;
+&lt;div th:text="'\_\_\_\___'"&gt;&lt;/div&gt;
+&lt;div th:text="'_\_\_\_\___'"&gt;&lt;/div&gt;
+&lt;div th:text="'\_\_\_\_\_\___'"&gt;&lt;/div&gt;
+</code></pre>
+    <p>But I can't just escape <em>every</em> underscore.</p>
+    <p>This displays a stray backslash:</p>
+    <pre><code>&lt;div th:text="'\_\_\_\_\_'"&gt;&lt;/div&gt;
+</code></pre>
+    <p>The result is:</p>
+    <pre><code>&lt;div&gt;____\_&lt;/div&gt;
+</code></pre>
+    <p>So:</p>
+    <ol>
+     <li>
+      <p>What are the rules for escaping underscores in text literals?</p></li>
+     <li>
+      <p>Is it really the preprocessor which is causing this behavior (<em>inside text literals</em>) - or is it something else?</p></li>
+    </ol>
+   </div>
+   <div class="tags">
+    <span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Metroids</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Oct 2020 at 23:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Yeah, this is definitely part of the preprocessor.</p>
+     <p><a href="https://github.com/thymeleaf/thymeleaf/blob/bb2fd0e9005f8aab0de0a3f9f3897edea8084b88/src/main/java/org/thymeleaf/standard/expression/StandardExpressionPreprocessor.java#L113" rel="nofollow noreferrer">It looks to me</a> like the preprocessor only replaces an exact match of <code>\_\_</code> with <code>__</code>. In any case where you have an odd number of <code>\_</code>'s, you will get the output <code>\_</code> -- because it's not treating <code>\_</code> as a real escape and instead only looking for <code>\_\_</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>RiZKiT</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Nov 2022 at 11:33</span>
+     </div>
+    </div>
+    <div>
+     <p>I stumbled upon the same issue while providing underscore as placeholder for a code input field and found the following workarounds:</p>
+     <p><strong>1. Insert zero width space as seperator</strong></p>
+     <p>In the first example ('<em>​_​_​_​_​</em>') the zero witdh space is unescaped, but you can copy paste the string into your IDE of choice.</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;div th:text="${'_​_​_​_​_​_'}"&gt;&lt;/div&gt;
+&lt;div th:text="${'_&amp;#8203;_&amp;#8203;_&amp;#8203;_&amp;#8203;_&amp;#8203;_'}"&gt;&lt;/div&gt;
+&lt;div th:text="${'_&amp;#x200B;_&amp;#x200B;_&amp;#x200B;_&amp;#x200B;_&amp;#x200B;_'}"&gt;&lt;/div&gt;
+&lt;div th:text="${'_&amp;ZeroWidthSpace;_&amp;ZeroWidthSpace;_&amp;ZeroWidthSpace;_&amp;ZeroWidthSpace;_&amp;ZeroWidthSpace;_'}"&gt;&lt;/div&gt;
+</code></pre>
+     <p><strong>2. Use string replace</strong></p>
+     <p>Surprisingly, this also seems to work. You can use any character, but no underscores in the original string, I chose "......". You can also use it with a string of unknown length by specifying a variable instead of a fixed string.</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;div th:text="${#strings.replace('......', '.', '_')}"&gt;&lt;/div&gt;
+&lt;div th:text="${#strings.replace('......', '.', '&amp;#95;')}"&gt;&lt;/div&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

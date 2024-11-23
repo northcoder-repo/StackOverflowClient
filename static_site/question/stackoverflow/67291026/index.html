@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java - Export to CSV using Super CSV, entity with properties</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java - Export to CSV using Super CSV, entity with properties</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Mauro M</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Apr 2021 at 21:39</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67291026/java-export-to-csv-using-super-csv-entity-with-properties">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I need help to convert a simple query result into a CSV file, I query my database for the Car entity which have a join relation with another entity Tyres:</p>
+    <pre><code>public class Car {
+
+private Integer id;
+private String desc;
+private Tyres tyres;
+
+//getters and setters;
+
+}
+
+public class Tyres {
+
+private Integer id;
+private String model;
+
+//getters and setters
+}
+</code></pre>
+    <p>I managed to get the id and desc properties of the class Car fine, but I can't for the life of me understand how do I get the model of the Tyre, using Super CSV:</p>
+    <pre><code>        response.setContentType("text/csv");
+        DateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
+        String currentDateTime = dateFormatter.format(new Date());
+         
+        String headerKey = "Content-Disposition";
+        String headerValue = "attachment; filename=cars_" + currentDateTime + ".csv";
+        response.setHeader(headerKey, headerValue);
+        //result of the query here: 
+        List&lt;Car&gt; listCars = service.listAll();
+ 
+        ICsvBeanWriter csvWriter = new CsvBeanWriter(response.getWriter(), CsvPreference.STANDARD_PREFERENCE);
+        String[] csvHeader = {"ID", "DESC", "Tyre Model"};
+        String[] nameMapping = {"id", "desc", ???};
+         
+        csvWriter.writeHeader(csvHeader);
+         
+        for (Car car : listCars) {
+            csvWriter.write(car, nameMapping);
+        }
+         
+        csvWriter.close();
+</code></pre>
+    <p>If I write tyres.model in the nameMapping it results in a error saying it can't find this property. I read all the documentation in the Super CSV docs but still I am clueless.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">export-to-csv</span><span class="tag">supercsv</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>The code in this question appears to have some typos in it. For example, you have a class called <code>Car</code> but you also refer to <code>List&lt;Cars&gt;</code>. Also you have <code>listCars</code> and <code>listCarss</code>. Can you double-check that the code you are showing us is valid?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Apr 2021 at 00:02</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Apr 2021 at 00:53</span>
+     </div>
+    </div>
+    <div>
+     <p>To make use of nested properties, you are using the right syntax (<code>"tyres.model"</code>) - but you need to use it with SuperCSV together with the <a href="http://super-csv.github.io/super-csv/dozer.html" rel="nofollow noreferrer">Dozer extension</a>.</p>
+     <p>If you are using Maven you can add this extension to your project with the following dependency:</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;net.sf.supercsv&lt;/groupId&gt;
+    &lt;artifactId&gt;super-csv-dozer&lt;/artifactId&gt;
+    &lt;version&gt;2.4.0&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>Then you can use it as follows:</p>
+     <p>The imports:</p>
+     <pre class="lang-java prettyprint-override"><code>import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
+import org.supercsv.io.dozer.CsvDozerBeanWriter;
+import org.supercsv.io.dozer.ICsvDozerBeanWriter;
+import org.supercsv.prefs.CsvPreference;
+</code></pre>
+     <p>Some basic test data:</p>
+     <pre class="lang-java prettyprint-override"><code>Tyres tyres = new Tyres();
+tyres.setId(9123);
+tyres.setModel("Michelin");
+Car car1 = new Car();
+car1.setId(101);
+car1.setDesc("A blue car");
+car1.setTyres(tyres);
+Car car2 = new Car();
+car2.setId(202);
+car2.setDesc("A red car");
+car2.setTyres(tyres);
+
+final List&lt;Car&gt; cars = Arrays.asList(car1, car2);
+</code></pre>
+     <p>Generating the file:</p>
+     <p><em>(In my case, I am just providing an example which generates a file on my filesystem. In your case it looks like you are sending the data as a response to a HTTP request. The use of SuperCSV and Dozer to read nested fields is the same in both cases.)</em></p>
+     <pre class="lang-java prettyprint-override"><code>try (ICsvDozerBeanWriter beanWriter = new CsvDozerBeanWriter(
+        new FileWriter("writeWithCsvBeanWriter.csv", StandardCharsets.UTF_8),
+        CsvPreference.STANDARD_PREFERENCE)) {
+    String[] csvHeader = {"ID", "DESC", "Tyre Model"};
+    String[] fieldMappings = { "id", "desc", "tyres.model" };
+
+    beanWriter.configureBeanMapping(Car.class, fieldMappings);
+
+    beanWriter.writeHeader(csvHeader);
+    for (Car car : cars) {
+        beanWriter.write(car);
+    }
+}
+</code></pre>
+     <p>I am using the Dozer-extended bean writer <code>CsvDozerBeanWriter</code> and the mapped field values: <code>"id", "desc", "tyres.model"</code>.</p>
+     <p>This generates the following output file:</p>
+     <pre><code>ID,DESC,Tyre Model
+101,A blue car,Michelin
+202,A red car,Michelin
+</code></pre>
+     <p>Note that I am ensuring the file is written using the UTF-8 encoding <code>StandardCharsets.UTF_8</code>. And I am using a <a href="https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html" rel="nofollow noreferrer">try-with-resource</a> statement which ensures the resources are automatically closed at the end of my processing, so I do not need <code>csvWriter.close();</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

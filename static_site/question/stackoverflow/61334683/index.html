@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Convert CSV file into objects in a generic way</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Convert CSV file into objects in a generic way</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>valentine george</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Apr 2020 at 01:44</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61334683/convert-csv-file-into-objects-in-a-generic-way">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Ok, so i want to create a generic reading function in Java without using any other libraries(except for opencsv). (I've asked a bit about it a few hours before, and thought i sorted it out but turns out it didnt work.)</p>
+    <pre><code>public class Read {
+
+    void Reader(String fileName) {
+
+        Map&lt;String, String&gt; mapping = new
+                HashMap&lt;String, String&gt;();
+        //mapping.put("Name", "Name");
+        //mapping.put("Price", "Price");
+
+        HeaderColumnNameTranslateMappingStrategy&lt;Product&gt; strategy = new HeaderColumnNameTranslateMappingStrategy&lt;&gt;();
+        strategy.setType(Product.class);
+        strategy.setColumnMapping(mapping);
+        ...
+
+    }
+}
+</code></pre>
+    <p>This works. The problem is i need to make it generic, as i'd like to use it for different kinds of csv's. My generic skills are not exactly the best though. If i change it to</p>
+    <pre><code>void &lt;T&gt; Reader(T Obj,...)
+...
+</code></pre>
+    <p>and i pass a product Obj, im not sure what to put instead of</p>
+    <pre><code>#...&lt;Product&gt; strategy
+#and strategy.setType(Product.class)
+</code></pre>
+    <p>I've tried adding the relative path, or using Obj.class, but i keep getting cannot convert errors. Any ideas?</p>
+    <p><em>The mappings are just an example, i've tried parsing the CSV to get the object tags for any object and it works.</em></p>
+    <p>More info: Tried trampering with these:</p>
+    <pre><code>public static &lt;T&gt; void Read(T Obj,String fileName) {
+...
+HeaderColumnNameTranslateMappingStrategy&lt;T&gt; strategy = new HeaderColumnNameTranslateMappingStrategy&lt;&gt;();
+strategy.setType(Obj.getClass());
+
+</code></pre>
+    <pre><code>error:incompatible types: java.lang.Class&lt;capture#1 of ? extends java.lang.Object&gt; cannot be converted to java.lang.Class&lt;? extends T&gt;
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>can you put the error message you got when trying to do it in the generic way</span> <span> - </span> <span class="display-name">Rahal Kanishka</span> <span> </span> <span class="date">21 Apr 2020 at 03:07</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@RahalKanishka added now</span> <span> - </span> <span class="display-name">valentine george</span> <span> </span> <span class="date">21 Apr 2020 at 12:37</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Apr 2020 at 19:17</span>
+     </div>
+    </div>
+    <div>
+     <p>The following approach aims to:</p>
+     <p>1) Provide a generic method for reading CSV data to different beans.</p>
+     <p>2) Avoid the need for casting to those different beans.</p>
+     <p>3) Provide some flexibility for different CSV structures/formats.</p>
+     <p>My example uses a <code>HeaderColumnNameMappingStrategy</code>, rather than the <code>HeaderColumnNameTranslateMappingStrategy</code> in the question - but you can change that, as you see fit. I have a slight preference for the former, as it lets me use annotations in the beans.</p>
+     <h2>Source CSV Data:</h2>
+     <p>The products.csv file:</p>
+     <pre><code>Product ID,Product Name,Product Price
+100125,Product One,123.45
+100347,Product Two,3456.78
+</code></pre>
+     <p>The customers.csv file:</p>
+     <pre><code>Customer ID,Customer Name
+4544678,John Smith
+4544679,"Acme Warehouse, Inc."
+</code></pre>
+     <h2>The Beans</h2>
+     <p>These use the <code>com.opencsv.bean.CsvBindByName</code> annotation for my <code>HeaderColumnNameMappingStrategy</code>:</p>
+     <pre><code>public class Product {
+
+    @CsvBindByName(column = "Product ID")
+    private long id;
+
+    @CsvBindByName(column = "Product Name")
+    private String name;
+
+    @CsvBindByName(column = "Product Price")
+    private double price;
+
+    // getters and setters not shown
+}
+</code></pre>
+     <p>and:</p>
+     <pre><code>public class Customer {
+
+    @CsvBindByName(column = "Customer ID")
+    private String id;
+
+    @CsvBindByName(column = "Customer Name")
+    private String name;
+
+    // getters and setters not shown
+}
+</code></pre>
+     <h2>The Generic Method</h2>
+     <p>This relies on the fact that <a href="http://opencsv.sourceforge.net/apidocs/com/opencsv/bean/CsvToBean.html" rel="nofollow noreferrer"><code>CsvToBean</code></a> is a generic method. By passing a list of the required type into this method, we can avoid needing to cast the results in the calling methods:</p>
+     <pre><code>private &lt;T&gt; List&lt;T&gt; readCsvToBeanList(Path path, Class clazz, List&lt;T&gt; list) throws Exception {
+    HeaderColumnNameMappingStrategy ms = new HeaderColumnNameMappingStrategy();
+    ms.setType(clazz);
+
+    try (Reader reader = Files.newBufferedReader(path)) {
+        CsvToBean cb = new CsvToBeanBuilder(reader)
+                .withType(clazz)
+                .withMappingStrategy(ms)
+                .build();
+
+         list = cb.parse();
+    }
+    return list;
+}
+</code></pre>
+     <p>The above method can be called for the two objects as follows:</p>
+     <pre><code>Path path = Paths.get(ClassLoader.getSystemResource("csv/products.csv").toURI());
+List&lt;Product&gt; products = new ArrayList();
+products = readCsvToBeanList(path, Product.class, products);
+for (Product p : products) {
+    System.out.println(p.getId()+ " - " + p.getName() + " - " + p.getPrice());
+}
+</code></pre>
+     <p>And similarly for customers:</p>
+     <pre><code>Path path = Paths.get(ClassLoader.getSystemResource("csv/customers.csv").toURI());
+List&lt;Customer&gt; customers = new ArrayList();
+customers = readCsvToBeanList(path, Customer.class, customers);
+for (Customer c : customers) {
+    System.out.println(c.getId()+ " - " + c.getName());
+}
+</code></pre>
+     <p>The output from the above examples is as follows:</p>
+     <pre><code>100125 - Product One - 123.45
+100347 - Product Two - 3456.78
+
+4544678 - John Smith
+4544679 - Acme Warehouse, Inc.
+</code></pre>
+     <p><strong>Final notes</strong>:</p>
+     <p>This assumes we always have CSV files of a certain type - namely using comma separators, with a heading row, no empty lines, etc. So, it is brittle. Also, there is no error handling at this point. You can either pass additional parameters into the <code>readCsvToBeanList</code> method - for example a separator value:</p>
+     <pre><code>CsvToBean cb = new CsvToBeanBuilder(reader)
+            .withType(clazz)
+            .withMappingStrategy(ms)
+            .withSeparator('\t') // or whatever char you provide
+            .build();
+</code></pre>
+     <p>Or you can build a set of <code>CsvToBean</code> objects using different pre-defined builder configurations.</p>
+     <p>This gives you a lot of flexibility, overall.</p>
+     <p>Hope this helps and can be adapted to your specific situation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

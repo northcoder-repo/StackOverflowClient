@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>how to add to an array in appscript without resetting the array</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>how to add to an array in appscript without resetting the array</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Ahmed Rahmi</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>30 May 2021 at 15:01</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67762636/how-to-add-to-an-array-in-appscript-without-resetting-the-array">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to add to an array when a dropdown button is pressed but app-script seems to redeclare the array everytime an event is triggered. is there a way to stop this?</p>
+    <p>the code in question looks like this:</p>
+    <pre><code>let by = [];
+function addToArray (name = 'hello') {
+  by.push(name.replace(/\s[\s\S]*/, '').toLowerCase());
+  console.log(by.join(', '))
+}
+
+//  ...
+
+// function called every dropdown buttonclick
+function handelAdd () {
+  const response = DocumentApp.getUi().prompt('Name:'); // prompt that gets name of item added
+  if (response.getSelectedButton() == DocumentApp.getUi().Button.OK) {
+    add(response.getResponseText());
+  }
+}
+
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">google-apps-script</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 May 2021 at 16:00</span>
+     </div>
+    </div>
+    <div>
+     <p>I am going to assume that the following line in the question, here:</p>
+     <pre><code>add(response.getResponseText()); // incorrect?
+</code></pre>
+     <p>Should actually be this:</p>
+     <pre><code>addToArray(response.getResponseText()); // correct?
+</code></pre>
+     <hr>
+     <p>Whenever your script finishes execution, any state it had saved (for example the value of the array in <code>let by = [];</code>) is lost.</p>
+     <p>This is to be expected. The script has finished. It exits. The document is still open, but the script has completed its work. It will run again the next time there is a relevant button click event.</p>
+     <p>To save state between multiple runs of the script, you can use <a href="https://developers.google.com/apps-script/reference/properties/properties-service#getUserProperties()" rel="nofollow noreferrer">Properties Services</a>. This allows you to store a variable associated with the specific document (and user of that document). You can save your list to this storage, and retrieve it when you need to add a new item to it.</p>
+     <p>But you also need to store your array of data as a string in this storage - so in my example below I will convert the <code>[...]</code> array to a JSON string representation of the array, using <code>JSON.stringify()</code>. And I will convert back from JSON to an array using <code>JSON.parse()</code>:</p>
+     <pre class="lang-js prettyprint-override"><code>let by = [];
+
+let byList = 'BY_LIST';
+
+function addToArray (name = 'hello') {
+  let userProps = PropertiesService.getUserProperties();
+  // retrieve stored list and convert back from JSON to array:
+  by = JSON.parse(userProps.getProperty(byList));
+  console.log(by);
+  by.push(name.replace(/\s[\s\S]*/, '').toLowerCase());
+  userProps.setProperty(byList, JSON.stringify(by));
+  console.log(by.join(', '))
+}
+
+//  ...
+
+// function called every dropdown buttonclick
+function handelAdd() {
+  const response = DocumentApp.getUi().prompt('Name:'); // prompt that gets name of item added
+  if (response.getSelectedButton() == DocumentApp.getUi().Button.OK) {
+    addToArray(response.getResponseText());
+  }
+}
+
+// used for my testing:
+//function testMe() {
+//  handelAdd();
+//}
+
+function onOpen(e) {
+  // whenever the doc is re-opened, set the list to be 
+  // empty, and store it in userProperties as a JSON string:
+  let userProps = PropertiesService.getUserProperties();
+  userProps.setProperty(byList, JSON.stringify( [] ));
+}
+</code></pre>
+     <p>The <code>onOpen()</code> trigger ensures that each time the document is opened, we start with a new empty list.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

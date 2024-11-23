@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to select fields in different levels of a jsonfile with jsonPath?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to select fields in different levels of a jsonfile with jsonPath?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Voß</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 May 2020 at 13:47</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61753408/how-to-select-fields-in-different-levels-of-a-jsonfile-with-jsonpath">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to convert jsonobjcts into csv files. Wy (working) attempt so far is to load the json file as a JSONObject (from the googlecode.josn-simple library), then converting them with jsonPath into a string array which is then used to build the csv rows. However I am facing a problem with jsonPath. From the given example json...</p>
+    <pre><code>{
+"issues": [
+    {
+        "key": "abc",
+        "fields": {
+            "issuetype": {
+                "name": "Bug",
+                "id": "1",
+                "subtask": false
+            },
+            "priority": {
+                "name": "Major",
+                "id": "3"
+            },
+            "created": "2020-5-11",
+            "status": {
+                "name": "OPEN"
+            }
+        }
+    },
+    {
+        "key": "def",
+        "fields": {
+            "issuetype": {
+                "name": "Info",
+                "id": "5",
+                "subtask": false
+            },
+            "priority": {
+                "name": "Minor",
+                "id": "2"
+            },
+            "created": "2020-5-8",
+            "status": {
+                "name": "DONE"
+            }
+        }
+    }
+]}
+</code></pre>
+    <p>I want to select the following:</p>
+    <pre><code>[
+    "abc",
+    "Bug",
+    "Major",
+    "2020-5-11",
+    "OPEN",
+    "def",
+    "Info",
+    "Minor",
+    "2020-5-8",
+    "DONE"
+]
+</code></pre>
+    <p>The csv should look like that:</p>
+    <pre><code>abc,Bug,Major,2020-5-11,OPEN
+def,Info,Minor,2020-5-8,DONE
+</code></pre>
+    <p>I tried <code>$.issues.[*].[key,fields]</code> and I get</p>
+    <pre><code>  "abc",
+  {
+    "issuetype": {
+      "name": "Bug",
+      "id": "1",
+      "subtask": false
+    },
+    "priority": {
+      "name": "Major",
+      "id": "3"
+    },
+    "created": "2020-5-11",
+    "status": {
+      "name": "OPEN"
+    }
+  },
+  "def",
+  {
+    "issuetype": {
+      "name": "Info",
+      "id": "5",
+      "subtask": false
+    },
+    "priority": {
+      "name": "Minor",
+      "id": "2"
+    },
+    "created": "2020-5-8",
+    "status": {
+      "name": "DONE"
+    }
+  }
+]
+</code></pre>
+    <p>But when I want to select e.g. only "created" <code>$.issues.[*].[key,fields.[created]</code></p>
+    <pre><code>[
+  "2020-5-11",
+  "2020-5-8"
+]
+</code></pre>
+    <p>This is the result.</p>
+    <p>But I just do not get how to select "key" and e.g. "name" in the field issuetype. How do I do that with jsonPath or is there a better way to filter a jsonfile and then convert it into a csv?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">csv</span><span class="tag">jsonpath</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 May 2020 at 21:52</span>
+     </div>
+    </div>
+    <div>
+     <p>I recommend what I believe is a better way - which is to create a set of Java classes which represent the structure of your JSON data. When you read the JSON into these classes, you can manipulate the data using standard Java.</p>
+     <p>I also recommend a different JSON parser - in this case Jackson, but there are others. Why? Mainly, familiarity - see later on for more notes on that.</p>
+     <p>Starting with the end result: Assuming I have a class called <code>Container</code> which contains all the issues listed in the JSON file, I can then populate it with the following:</p>
+     <pre><code>//import com.fasterxml.jackson.databind.ObjectMapper;
+
+String jsonString = "{...}" // your JSON data as a string, for this demo.
+ObjectMapper objectMapper = new ObjectMapper();
+Container container = objectMapper.readValue(jsonString, Container.class);
+</code></pre>
+     <p>Now I can print out all the issues in the CSV format you want as follows:</p>
+     <pre><code>container.getIssues().forEach((issue) -&gt; {
+    printCsvRow(issue);
+});
+</code></pre>
+     <p>Here, the <code>printCsvRow()</code> method looks like this:</p>
+     <pre><code>private void printCsvRow(Issue issue) {
+    String key = issue.getKey();
+    Fields fields = issue.getFields();
+    String type = fields.getIssuetype().getName();
+    String priority = fields.getPriority().getName();
+    String created = fields.getCreated();
+    String status = fields.getStatus().getName();
+    System.out.println(String.join(",", key, type, priority, created, status));
+}
+</code></pre>
+     <p>In reality, I would use a CSV library to ensure records are formatted correctly - the above is just for illustration, to show how the JSON data can be accessed.</p>
+     <p>The following is printed:</p>
+     <pre><code>abc,Bug,Major,2020-5-11,OPEN
+def,Info,Minor,2020-5-8,DONE
+</code></pre>
+     <p>And to filter only OPEN records, I can do something like this:</p>
+     <pre><code>container.getIssues()
+        .stream()
+        .filter(issue -&gt; issue.getFields().getStatus().getName().equals("OPEN"))
+        .forEach((issue) -&gt; {
+    printCsvRow(issue);
+});
+</code></pre>
+     <p>The following is printed:</p>
+     <pre><code>abc,Bug,Major,2020-5-11,OPEN
+</code></pre>
+     <p>To enable Jackson, I use Maven with the following dependency:</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;com.fasterxml.jackson.core&lt;/groupId&gt;
+    &lt;artifactId&gt;jackson-databind&lt;/artifactId&gt;
+    &lt;version&gt;2.10.3&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>In case you don't use Maven, this gives me 3 JARs: <code>jackson-databind</code>, <code>jackson-annotations</code>, and <code>jackson-core</code>.</p>
+     <p>To create the nested Java classes I need (to mirror the structure of the JSON), I use a tool which generates them for me using your sample JSON.</p>
+     <p>In my case, I used <a href="http://www.jsonschema2pojo.org/" rel="nofollow noreferrer">this tool</a>, but there are others.</p>
+     <p>I chose "Container" as the name of the root Java class; a source type of JSON; and selected Jackson 2.x annotations. I also requested getters and setters.</p>
+     <p>I added the generated classes (Fields, Issue, Issuetype, Priority, Status, and Container) to my project.</p>
+     <p><em>WARNING</em>: The completeness of these Java classes is only as good as the sample JSON. But you can, of course, enhance these classes to more accurately reflect the actual JSON you need to handle.</p>
+     <p>The Jackson <code>ObjectMapper</code> takes care of loading the JSON into the class structure.</p>
+     <p>I chose to use Jackson instead of JsonPath, simply because of familiarity. JsonPath appears to have very similar object mapping capabilities - but I have never used those features of JsonPath.</p>
+     <p>Final note: You can use xpath style predicates in JsonPath to access individual data items and groups of items - as you describe in your question. But (in my experience) it is almost always worth the extra effort to create Java classes, if you want to process all your data in more flexible ways - especially if that involves transforming the JSON input into different output structures.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Wow thank you! Right now I am going to sleep but I will give it a try tomorrow. One question tho. Is this also the prefered way when dealing with many different jsons? In my application I gather information from various sources via their rest APIs, converting them to csv so I can work with the data.</span> <span> - </span> <span class="display-name">Voß</span> <span> </span> <span class="date">12 May 2020 at 22:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It may depend on "how many?" and "how different?" (structurally). You can load arbitrary JSON to "generic" Java structures. See <a href="https://stackoverflow.com/questions/60329302/parsing-an-array-of-non-homogeneous-json-objects-with-jackson">here</a> and <a href="https://stackoverflow.com/questions/60329302/parsing-an-array-of-non-homogeneous-json-objects-with-jackson">here</a> for some possible leads. Personally, I would create specific Java objects for each JSON payload; and I would not try to build complex parsers.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">12 May 2020 at 23:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

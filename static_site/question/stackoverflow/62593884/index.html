@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene fails to add multiple fields with the same FieldType</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene fails to add multiple fields with the same FieldType</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Alb</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Jun 2020 at 11:35</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62593884/lucene-fails-to-add-multiple-fields-with-the-same-fieldtype">source</a>
+    </div>
+   </div>
+   <div>
+    <p>While upgrading some legacy code from lucene 3.0.0 to 8.5.2 I've come across a problem with adding fields to an existing doc using a custom FieldType. The snippet below demonstrates the problem:</p>
+    <pre class="lang-java prettyprint-override"><code>    import java.io.IOException;
+    import java.nio.file.Path;
+    
+    import org.apache.lucene.analysis.en.EnglishAnalyzer;
+    import org.apache.lucene.document.Document;
+    import org.apache.lucene.document.Field;
+    import org.apache.lucene.document.FieldType;
+    import org.apache.lucene.index.DirectoryReader;
+    import org.apache.lucene.index.IndexOptions;
+    import org.apache.lucene.index.IndexWriter;
+    import org.apache.lucene.index.IndexWriterConfig;
+    import org.apache.lucene.search.IndexSearcher;
+    import org.apache.lucene.store.Directory;
+    import org.apache.lucene.store.MMapDirectory;
+    
+    public class LuceneTest {
+        
+        private static FieldType FIELD_TYPE = new FieldType();
+
+        static {
+            FIELD_TYPE.setStored(true);
+            FIELD_TYPE.setTokenized(true);
+            FIELD_TYPE.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS);
+            FIELD_TYPE.setStoreTermVectors(true);
+            FIELD_TYPE.setStoreTermVectorPayloads(true);
+            FIELD_TYPE.setStoreTermVectorPositions(true);
+            FIELD_TYPE.setStoreTermVectorOffsets(true);
+            FIELD_TYPE.freeze();
+        }
+        
+        public static void main(String[] args) throws IOException {
+            testLucene();
+        }       
+            
+        public static void testLucene() throws IOException {
+            Document doc = new Document();
+            doc.add(new Field("f1", "foo", FIELD_TYPE));
+            writeDoc(doc);        
+            IndexSearcher searcher = new IndexSearcher(DirectoryReader.open(getDirectory()));
+            doc = searcher.doc(0);      
+            
+            doc.add(new Field("f1", "bar", FIELD_TYPE));
+            writeDoc(doc);
+        }
+    
+        private static void writeDoc(Document doc)
+                throws IOException {
+            Directory directory = getDirectory();
+            IndexWriterConfig conf = new IndexWriterConfig(new EnglishAnalyzer());
+            IndexWriter writer = new IndexWriter(directory , conf);
+            writer.addDocument(doc);
+            writer.flush();
+            writer.close();
+        }
+    
+        private static Directory getDirectory() throws IOException {
+            return new MMapDirectory(Path.of("lucenttest"));
+        }
+    }
+</code></pre>
+    <p>and results in the following exception:</p>
+    <pre class="lang-java prettyprint-override"><code>java.lang.IllegalArgumentException: all instances of a given field name must have the same term vectors settings (storeTermVectorPositions changed for field="f1")
+    at org.apache.lucene.index.TermVectorsConsumerPerField.start(TermVectorsConsumerPerField.java:166)
+    at org.apache.lucene.index.TermsHashPerField.start(TermsHashPerField.java:294)
+    at org.apache.lucene.index.FreqProxTermsWriterPerField.start(FreqProxTermsWriterPerField.java:72)
+    at org.apache.lucene.index.DefaultIndexingChain$PerField.invert(DefaultIndexingChain.java:810)
+    at org.apache.lucene.index.DefaultIndexingChain.processField(DefaultIndexingChain.java:442)
+    at org.apache.lucene.index.DefaultIndexingChain.processDocument(DefaultIndexingChain.java:406)
+    at org.apache.lucene.index.DocumentsWriterPerThread.updateDocument(DocumentsWriterPerThread.java:250)
+    at org.apache.lucene.index.DocumentsWriter.updateDocument(DocumentsWriter.java:495)
+    at org.apache.lucene.index.IndexWriter.updateDocument(IndexWriter.java:1594)
+    at org.apache.lucene.index.IndexWriter.addDocument(IndexWriter.java:1213)
+    at com.profium.sir.LuceneTest.writeDoc(LuceneTest.java:66)
+    at com.profium.sir.LuceneTest.testLucene(LuceneTest.java:58)
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.base/java.lang.reflect.Method.invoke(Method.java:567)
+    at junit.framework.TestCase.runTest(TestCase.java:154)
+    at junit.framework.TestCase.runBare(TestCase.java:127)
+    at junit.framework.TestResult$1.protect(TestResult.java:106)
+    at junit.framework.TestResult.runProtected(TestResult.java:124)
+    at junit.framework.TestResult.run(TestResult.java:109)
+    at junit.framework.TestCase.run(TestCase.java:118)
+    at org.eclipse.jdt.internal.junit.runner.junit3.JUnit3TestReference.run(JUnit3TestReference.java:126)
+    at org.eclipse.jdt.internal.junit.runner.TestExecution.run(TestExecution.java:41)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:542)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.runTests(RemoteTestRunner.java:770)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.run(RemoteTestRunner.java:464)
+    at org.eclipse.jdt.internal.junit.runner.RemoteTestRunner.main(RemoteTestRunner.java:210)
+</code></pre>
+    <p>If the following part is removed from the FieldType it works ok, but removing this from my legacy code causes many tests that depend on positions and offsets to fail.</p>
+    <pre class="lang-java prettyprint-override"><code>        FIELD_TYPE.setStoreTermVectorPayloads(true);
+        FIELD_TYPE.setStoreTermVectorPositions(true);
+        FIELD_TYPE.setStoreTermVectorOffsets(true);
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jun 2020 at 18:15</span>
+     </div>
+    </div>
+    <div>
+     <p>The example in the question looks odd because it does the following:</p>
+     <ol>
+      <li>
+       <p>It adds a field to the document.</p></li>
+      <li>
+       <p>It then indexes the document.</p></li>
+      <li>
+       <p>It then adds a <em>second</em> field to the original document, where that second field has the same name as the first field (which in and of itself is not a problem).</p></li>
+      <li>
+       <p>It then indexes <em>that same document again</em> using that second field (using the same field type as the first field).</p></li>
+     </ol>
+     <p>Looking at the <a href="https://lucene.apache.org/core/8_5_2/core/org/apache/lucene/document/Document.html#add-org.apache.lucene.index.IndexableField-" rel="nofollow noreferrer">javadoc</a> for <code>Field</code>'s <code>add()</code> methods, it states:</p>
+     <blockquote>
+      <p><em>Several fields may be added with the same name. In this case, if the fields are indexed, their text is treated as though appended for the purposes of search.</em></p>
+     </blockquote>
+     <p>This means you have not actually added a new field. The new data is appended to the original field's data.</p>
+     <p>The javadoc goes on to say:</p>
+     <blockquote>
+      <p><em>Note that add methods only makes sense prior to adding a document to an index. These methods cannot be used to change the content of an existing index! In order to achieve this, a document has to be deleted from an index and a new changed version of that document has to be added.</em></p>
+     </blockquote>
+     <p>The example code adds this second field after the document has been indexed.</p>
+     <p>Depending on the purpose of these fields, there may be 2 (or more) possibilities:</p>
+     <ol>
+      <li>
+       <p>The second field should have been given a different name (<code>f2</code>) from the first field.</p></li>
+      <li>
+       <p>The second field should have been added to a different document (<code>doc2</code>).</p></li>
+     </ol>
+     <p>If you re-arrange the example code for either of these two cases (and to set up all fields prior to indexing a doc), then you will no longer see that error.</p>
+     <p>I am less familiar with using term vector payloads, positions, and offsets - but I can imagine how adding a second field with the same name on an already indexed document could cause such data to become invalid (hence the error). But I am speculating.</p>
+     <p>It's possible that earlier versions of Lucene (e.g. 3.0.0) did not handle this situation so well (but that's more speculation).</p>
+     <p>Here is one of the possible code re-arrangements:</p>
+     <pre><code>    public static void testLucene() throws IOException {
+        Document doc = new Document();
+        doc.add(new Field("f1", "foo", FIELD_TYPE));
+        //writeDoc(doc);
+
+        //Document doc2 = new Document();
+        doc.add(new Field("f1", "bar", FIELD_TYPE));
+        writeDoc(doc);
+        
+        IndexSearcher searcher = new IndexSearcher(DirectoryReader.open(getDirectory()));
+        Document foundDoc = searcher.doc(0);
+    }
+</code></pre>
+     <p>Looking at the resulting index data using Luke shows the following:</p>
+     <p><a href="https://i.stack.imgur.com/hFElq.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/hFElq.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Not Working Update input values inside responsive datatables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Not Working Update input values inside responsive datatables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Poria</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Nov 2020 at 19:41</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64935879/not-working-update-input-values-inside-responsive-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <p>After multiplying two numbers, if Responsive Datatables it does not show <a href="https://i.stack.imgur.com/pZCUw.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/pZCUw.png" alt="enter image description here"></a> <a href="https://i.stack.imgur.com/0wEfq.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/0wEfq.png" alt="enter image description here"></a></p>
+    <p>My Code :</p>
+    <pre><code>[enter link description here][3]   
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span><a href="https://jsfiddle.net/dishlame/dmjxac1L/5/" rel="nofollow noreferrer">jsfiddle.net/dishlame/dmjxac1L/5</a></span> <span> - </span> <span class="display-name">Poria</span> <span> </span> <span class="date">20 Nov 2020 at 19:44</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Nov 2020 at 22:05</span>
+     </div>
+    </div>
+    <div>
+     <p>This is happening because you are writing the calculated value to the DOM (i.e. into the HTML <code>&lt;td&gt;</code> cell), inside the <code>&lt;input&gt;</code> element.</p>
+     <p>You can see the value displayed in the browser - but the DataTables object, which manages the HTML table for you, does not know anything about this new value.</p>
+     <p>Therefore when DataTables re-draws the table (for the "responsive" event), the value disappears.</p>
+     <p>To work around this, you can change your <code>calculate()</code> function:</p>
+     <pre class="lang-js prettyprint-override"><code>function calculate(idx){
+  var inttemp=ex_normalNum($("#mm_" + idx).val());
+  var zarb=separateNum($("#nn_" + idx).val() * inttemp);
+
+  //$("#result_" + idx).val(zarb); // DELETE THIS LINE
+
+  // populate the value in DataTables:
+  var resultsCell = $('#example').dataTable().api().cell(idx -1, 2);   
+  resultsCell.data(zarb).draw();
+
+  // re-position the cursor after the re-draw:
+  $("#mm_" + idx).focus();
+}
+</code></pre>
+     <p>This line:</p>
+     <pre><code>var resultsCell = $('#example').dataTable().api().cell(idx -1, 2);
+</code></pre>
+     <p>selects the relevant DataTable cell in your table. Note that row and column offsets start at zero - hence <code>idx -1</code> means the relevant row, and <code>2</code> means the 3rd column.</p>
+     <p>Then, this line:</p>
+     <pre><code>resultsCell.data(zarb).draw();
+</code></pre>
+     <p>writes the calculated value into the cell, inside DataTables - and then re-draws the table so that the value is visible.</p>
+     <p><strong>Note</strong> - the cell containing the calculated value will no longer be an <code>&lt;input&gt;</code> field - it will just be a regular <code>&lt;td&gt;</code> cell. I would recommend this, because you don't actually have the ability to override the calculated value.</p>
+     <p>Here is my test table:</p>
+     <p><a href="https://i.stack.imgur.com/PuQXf.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/PuQXf.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Poria</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Nov 2020 at 10:06</span>
+     </div>
+    </div>
+    <div>
+     <p>Thank you verrry much :)))</p>
+     <p>Now I have a problem with this change, and that is the total sum. I updated jsfiddle : jsfiddle.net/dishlame/dmjxac1L/14/</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I think you intended to write this as a comment, not an answer - so you should probably delete your answer. I recommend you create a brand new question for this (so more people will see it, not just me!). But before you do that, you can (a) take a look at <a href="https://datatables.net/plug-ins/api/sum()" rel="nofollow noreferrer">this solution</a> and see if you can adapt it to your needs; and (b) research existing questions on Stack Overflow - I am sure someone has asked a similar question already - and there are probably some good answers.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Nov 2020 at 14:25</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

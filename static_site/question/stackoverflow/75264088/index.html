@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>XSSFWorkbook make part of cell content to bold using apache poi</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>XSSFWorkbook make part of cell content to bold using apache poi</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>prathibha </span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Jan 2023 at 22:51</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75264088/xssfworkbook-make-part-of-cell-content-to-bold-using-apache-poi">source</a>
+    </div>
+   </div>
+   <div>
+    <p>My project need is to make part of a string bold leaving any OR and AND like the below example.</p>
+    <p><strong>TOWING PACK 11</strong> OR <strong>TOWING PACK 13</strong> AND <strong>TOWING PACK 14</strong> OR <strong>TOWING PACK 15</strong></p>
+    <p>I tried to follow the reverse approach.</p>
+    <ol>
+     <li>I tried to make the entire cell BOLD // This works</li>
+     <li>Then using RichTextString make "OR" and "AND" to normal Italics. //The issue - After the first "OR" all the rest of the string is formatted to normal format.</li>
+    </ol>
+    <p>Output I am getting:</p>
+    <p><strong>TOWING PACK 11</strong> <em>OR</em> TOWING PACK 13 AND TOWING PACK 14 OR TOWING PACK 15</p>
+    <p>I am using poi 5.2.3 and below is the code sample. Can anyone point out what is wrong here.</p>
+    <pre><code>   CreationHelper creationHelper = workbook.getCreationHelper();
+    XSSFFont fontBold = workbook.createFont();
+    fontBold.setBold(true);
+    XSSFFont fontItalic = workbook.createFont();
+    fontItalic.setItalic(true);
+    fontItalic.setBold(false);
+
+    XSSFCellStyle boldstyle = workbook.createCellStyle();
+    boldstyle.setFont(fontBold);
+    int startrow = 2;
+    Iterator&lt;Row&gt; boldrowIterator = spreadsheet.iterator();
+    while (boldrowIterator.hasNext()) {
+        Row boldrow = boldrowIterator.next();
+        if (boldrow.getRowNum()==startrow) {
+        out.println(boldrow.getCell(9));
+        Cell boldcell = boldrow.getCell(9);
+        boldcell.setCellStyle(boldstyle);
+    startrow = startrow+1;
+
+            String Featuredescription = boldrow.getCell(9).getStringCellValue();
+            if (Featuredescription.contains("OR")) {
+                RichTextString richTextString = creationHelper.createRichTextString(Featuredescription);
+                String word = " OR ";
+                int startIndex = Featuredescription.indexOf(word);
+                int endIndex = startIndex + word.length();
+                out.println("Featuredescription: " + Featuredescription + startIndex + endIndex);
+                richTextString.applyFont(startIndex, endIndex, fontItalic);
+                boldcell.setCellValue(richTextString);
+            }
+        } }
+</code></pre>
+    <p><em><strong>EDIT</strong></em></p>
+    <pre><code>        XSSFCellStyle linstyle = workbook.createCellStyle();
+        Font linfont = workbook.createFont();
+        linfont.setColor(IndexedColors.ORANGE.getIndex());
+        linstyle.setFont(linfont);
+        Iterator&lt;Row&gt; linrowIterator = spreadsheet.iterator();
+        while (linrowIterator.hasNext())
+        {
+            Row linrow = linrowIterator.next();
+            Iterator &lt;Cell&gt; lincellIterator = linrow.cellIterator();
+            if (linrow.getRowNum()==linrowcount) {
+                if (linrow.getCell(13).getStringCellValue().contains("LIN")) {
+                    while (lincellIterator.hasNext())
+                    {
+                        Cell lincell = lincellIterator.next();
+                        lincell.setCellStyle(linstyle);
+                    } } linrowcount = linrowcount+1; }
+        }
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">apache-poi</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jan 2023 at 02:36</span>
+     </div>
+    </div>
+    <div>
+     <p>I would recommend using a simple regular expression to find all the occurrences of <code>AND</code> and <code>OR</code> (note the spaces included in these strings). Doing this lets you easily determine the location of each occurrence within the overall string (the indexes of where each word starts and ends). You can use this to set everything to bold (like you are already doing) and then set each <code>OR</code> and <code>AND</code> to normal.</p>
+     <p>My code assumes your test text is in cell A1 - and that is the only cell I test. You can add back your looping logic to handle more cells.</p>
+     <p>You will also need:</p>
+     <pre class="lang-java prettyprint-override"><code>import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+</code></pre>
+     <p>I have added comments to the code to explain specific lines:</p>
+     <pre class="lang-java prettyprint-override"><code>FileInputStream file = new FileInputStream(new File("C:/temp/poi/rich_formatting_in.xlsx"));
+Workbook wb = new XSSFWorkbook(file);
+Sheet sheet = wb.getSheet("Sheet1");
+CreationHelper creationHelper = wb.getCreationHelper();
+
+Row row = sheet.getRow(0);
+Cell cell = row.getCell(0);
+String content = cell.getStringCellValue();
+
+Font bold = wb.createFont();
+bold.setBold(true);
+
+Font normal = wb.createFont();
+normal.setBold(false);
+//normal.setItalic(true); // uncomment, if you need italics, as well.
+
+RichTextString richStr = creationHelper.createRichTextString(content);
+richStr.applyFont(bold); // set everything to bold
+
+String regex = "( AND | OR )"; // note the spaces in the strings
+
+Pattern pattern = Pattern.compile(regex, Pattern.MULTILINE);
+Matcher matcher = pattern.matcher(content);
+
+while (matcher.find()) {
+    // process each found group (one group for each AND and OR):
+    for (int i = 1; i &lt;= matcher.groupCount(); i++) {
+        // matcher.start(i) finds where the start of the match is
+        // matcher.end(i) finds the position of the end of the match
+        // we can use these start and end positions to set that text to normal:
+        richStr.applyFont(matcher.start(i), matcher.end(i), normal);
+    }
+}
+
+// write the final string to the spreadsheet:
+cell.setCellValue(richStr);
+
+// write the spreadsheet to a file so we can see the results:
+try (FileOutputStream out = new FileOutputStream(new File("C:/temp/poi/rich_formatting_out.xlsx"))) {
+    wb.write(out);
+}
+</code></pre>
+     <p>The results are:</p>
+     <p><a href="https://i.stack.imgur.com/hvclb.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/hvclb.png" alt="enter image description here"></a></p>
+     <hr>
+     <p>The regex <code>( AND | OR )</code> is very basic - it assumes every occurrence of the words <code>AND</code> and <code>OR</code> surrounded by spaces are what need to be adjusted.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>More generally, you can take a look at more topics in the <a href="https://stackoverflow.com/help">help center</a> for additional guidance on how to get the most out of this site. @prathibha</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">28 Jan 2023 at 18:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am trying to incorporate this logic to the above code in Edit section but only one style is working, the cell either has Orange color or the bold logic. Can you please let me know how I can combine both the logics. @andrewJames</span> <span> - </span> <span class="display-name">prathibha </span> <span> </span> <span class="date">30 Jan 2023 at 18:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Orange was not mentioned in your original question. I think you are <i>asking</i> a brand new question - so you should <i>create</i> a brand new question for that.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">30 Jan 2023 at 19:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>sure, created the below question. <a href="https://stackoverflow.com/questions/75289315/xssfworkbook-make-part-of-cell-content-to-bold-using-apache-poi-with-cell-color" title="xssfworkbook make part of cell content to bold using apache poi with cell color">stackoverflow.com/questions/75289315/…</a> - @andrewJames</span> <span> - </span> <span class="display-name">prathibha </span> <span> </span> <span class="date">30 Jan 2023 at 19:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Please also look (again) at the topics in the <a href="https://stackoverflow.com/help">help center</a> to gain a better understanding of how Stack Overflow works.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">30 Jan 2023 at 19:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Am I missing something in the new question, let me know if I have to add more details to the question. Can you please help on whats wrong with the code posted in my new question.- @andrewJames</span> <span> - </span> <span class="display-name">prathibha </span> <span> </span> <span class="date">31 Jan 2023 at 13:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Be patient. I expect someone will help you.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">31 Jan 2023 at 13:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

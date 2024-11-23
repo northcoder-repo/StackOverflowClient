@@ -1,0 +1,1584 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>PreparedStatement IN clause alternatives?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>PreparedStatement IN clause alternatives?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>388</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Chris Mazzola</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Oct 2008 at 13:41</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/178479/preparedstatement-in-clause-alternatives">source</a>
+    </div>
+   </div>
+   <div>
+    <p>What are the best workarounds for using a SQL <code>IN</code> clause with instances of <code>java.sql.PreparedStatement</code>, which is not supported for multiple values due to SQL injection attack security issues: One <code>?</code> placeholder represents one value, rather than a list of values.</p>
+    <p>Consider the following SQL statement:</p>
+    <pre><code>SELECT my_column FROM my_table where search_column IN (?)
+</code></pre>
+    <p>Using <code>preparedStatement.setString( 1, "'A', 'B', 'C'" );</code> is essentially a non-working attempt at a workaround of the reasons for using <code>?</code> in the first place.</p>
+    <p>What workarounds are available?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">security</span><span class="tag">jdbc</span><span class="tag">prepared-statement</span><span class="tag">in-clause</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>Oscar, I think the dynamic generation of (?,?,....) is the simplest workaround if you need an IN clause, but I left it to individual calls since performance was sufficient in my specific case.</span> <span> - </span> <span class="display-name">Chris Mazzola</span> <span> </span> <span class="date">8 Jul 2009 at 21:51</span></td>
+      </tr>
+      <tr>
+       <td>7</td>
+       <td><span>One of advantages of prepared statements is that sohuld can be compiled once for efficiency. By making the in clause dynamic this effectively negates the prepared statement.</span> <span> - </span> <span class="display-name">user246585</span> <span> </span> <span class="date">8 Jan 2010 at 17:29</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Actually, this works for MySQL (using setObject to set an array of String as the parameter value). What DB are you using?</span> <span> - </span> <span class="display-name">Frans</span> <span> </span> <span class="date">17 Jul 2012 at 13:40</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Here's an <a href="http://stackoverflow.com/a/15302767/4265">Oracle specific answer</a></span> <span> - </span> <span class="display-name">Peter Hart</span> <span> </span> <span class="date">8 Mar 2013 at 20:32</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Here's a related question: <a href="http://stackoverflow.com/q/6956025/521799">stackoverflow.com/q/6956025/521799</a></span> <span> - </span> <span class="display-name">Lukas Eder</span> <span> </span> <span class="date">11 Nov 2013 at 15:37</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Frans it's not working for me. It executes the query, but always has no results.</span> <span> - </span> <span class="display-name">Jayen</span> <span> </span> <span class="date">22 Sep 2016 at 06:55</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>MSSQL specific question by SO founders: <a href="https://stackoverflow.com/questions/337704/parameterize-an-sql-in-clause" title="parameterize an sql in clause">stackoverflow.com/questions/337704/…</a></span> <span> - </span> <span class="display-name">Vadzim</span> <span> </span> <span class="date">29 Apr 2019 at 22:29</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>221</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dónal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Oct 2008 at 22:13</span>
+     </div>
+    </div>
+    <div>
+     <p>An analysis of the various options available, and the pros and cons of each is available in Jeanne Boyarsky's <em><a href="http://www.javaranch.com/journal/200510/Journal200510.jsp#a2" rel="noreferrer">Batching Select Statements in JDBC</a></em> entry on JavaRanch Journal.</p>
+     <p>The suggested options are:</p>
+     <ul>
+      <li>Prepare <code>SELECT my_column FROM my_table WHERE search_column = ?</code>, execute it for each value and UNION the results client-side. Requires only one prepared statement. Slow and painful.</li>
+      <li>Prepare <code>SELECT my_column FROM my_table WHERE search_column IN (?,?,?)</code> and execute it. Requires one prepared statement per size-of-IN-list. Fast and obvious.</li>
+      <li>Prepare <code>SELECT my_column FROM my_table WHERE search_column = ? ; SELECT my_column FROM my_table WHERE search_column = ? ; ...</code> and execute it. [Or use <code>UNION ALL</code> in place of those semicolons. --ed] Requires one prepared statement per size-of-IN-list. Stupidly slow, strictly worse than <code>WHERE search_column IN (?,?,?)</code>, so I don't know why the blogger even suggested it.</li>
+      <li>Use a stored procedure to construct the result set.</li>
+      <li>Prepare N different size-of-IN-list queries; say, with 2, 10, and 50 values. To search for an IN-list with 6 different values, populate the size-10 query so that it looks like <code>SELECT my_column FROM my_table WHERE search_column IN (1,2,3,4,5,6,6,6,6,6)</code>. Any decent server will optimize out the duplicate values before running the query.</li>
+     </ul>
+     <p>None of these options are ideal.</p>
+     <p>The best option if you are using JDBC4 and a server that supports <code>x = ANY(y)</code>, is to use <code>PreparedStatement.setArray</code> as described in <a href="https://stackoverflow.com/questions/178479/preparedstatement-in-clause-alternatives/10240302#10240302">Boris's anwser</a>.</p>
+     <p>There doesn't seem to be any way to make <code>setArray</code> work with IN-lists, though.</p>
+     <hr>
+     <p>Sometimes SQL statements are loaded at runtime (e.g., from a properties file) but require a variable number of parameters. In such cases, first define the query:</p>
+     <pre class="lang-none prettyprint-override"><code>query=SELECT * FROM table t WHERE t.column IN (?)
+</code></pre>
+     <p>Next, load the query. Then determine the number of parameters prior to running it. Once the parameter count is known, run:</p>
+     <pre class="lang-java prettyprint-override"><code>sql = any( sql, count );
+</code></pre>
+     <p>For example:</p>
+     <pre class="lang-java prettyprint-override"><code>/**
+ * Converts a SQL statement containing exactly one IN clause to an IN clause
+ * using multiple comma-delimited parameters.
+ *
+ * @param sql The SQL statement string with one IN clause.
+ * @param params The number of parameters the SQL statement requires.
+ * @return The SQL statement with (?) replaced with multiple parameter
+ * placeholders.
+ */
+public static String any(String sql, final int params) {
+    // Create a comma-delimited list based on the number of parameters.
+    final StringBuilder sb = new StringBuilder(
+        String.join(", ", Collections.nCopies(possibleValue.size(), "?")));
+
+    // For more than 1 parameter, replace the single parameter with
+    // multiple parameter placeholders.
+    if (sb.length() &gt; 1) {
+        sql = sql.replace("(?)", "(" + sb + ")");
+    }
+
+    // Return the modified comma-delimited list of parameters.
+    return sql;
+}
+</code></pre>
+     <p>For certain databases where passing an array via the JDBC 4 specification is unsupported, this method can facilitate transforming the slow <code>= ?</code> into the faster <code>IN (?)</code> clause condition, which can then be expanded by calling the <code>any</code> method.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Another option, if the size of the list changes infrequently -- <b>prepare and cache one statement for the last size</b> of the input list. On each subsequent query, if the size is the same, re-use the prepared statement, otherwise, close it and create another.</span> <span> - </span> <span class="display-name">Andy Thomas</span> <span> </span> <span class="date">28 May 2021 at 16:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>140</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Boris</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Apr 2012 at 04:32</span>
+     </div>
+    </div>
+    <div>
+     <p>Solution for PostgreSQL:</p>
+     <pre><code>final PreparedStatement statement = connection.prepareStatement(
+        "SELECT my_column FROM my_table where search_column = ANY (?)"
+);
+final String[] values = getValues();
+statement.setArray(1, connection.createArrayOf("text", values));
+
+try (ResultSet rs = statement.executeQuery()) {
+    while(rs.next()) {
+        // do some...
+    }
+}
+</code></pre>
+     <p>or</p>
+     <pre><code>final PreparedStatement statement = connection.prepareStatement(
+        "SELECT my_column FROM my_table " + 
+        "where search_column IN (SELECT * FROM unnest(?))"
+);
+final String[] values = getValues();
+statement.setArray(1, connection.createArrayOf("text", values));
+
+try (ResultSet rs = statement.executeQuery()) {
+    while(rs.next()) {
+        // do some...
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>looks good. what part of this code is PostreSQL specific? the "where search_column = ANY(?)"? or the connection.createArrayOf? or something else?</span> <span> - </span> <span class="display-name">David Portabella</span> <span> </span> <span class="date">4 Jun 2012 at 09:53</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I think it is more JDBC4-specific than PostgreSQL-specific, because of the <code>.createArrayOf()</code> part, but I am not sure the strict semantics for user's <code>Array</code>s are defined by JDBC specification.</span> <span> - </span> <span class="display-name">lvella</span> <span> </span> <span class="date">19 Jul 2012 at 14:01</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>If <code>.createArrayOf</code> doesn't work, you can do your own manual creation of array literal like <code>String arrayLiteral = "{A,\"B \", C,D}"</code> <i>(note that "B " has a space while C doesn't)</i> and then <code>statement.setString(1,arrayLiteral)</code> where the prepared statement is <code>... IN (SELECT UNNEST(?::VARCHAR[]))</code> or <code>... IN (SELECT UNNEST(CAST(? AS VARCHAR[])))</code>. (PS: I don't think <code>ANY</code> works with a <code>SELECT</code>.)</span> <span> - </span> <span class="display-name">ADTC</span> <span> </span> <span class="date">1 Aug 2013 at 03:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Great solution! Really saved the day for me. For integer array I used "int" in the first parameter of createArrayOf() and it's looking good. That first parameter appears DB-specific, based on the documentation though.</span> <span> - </span> <span class="display-name">Emmanuel Touzery</span> <span> </span> <span class="date">26 Aug 2013 at 07:11</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>This seems the cleanest solution. If anyone is looking for the HSQLDB specific syntax: I managed to get this to work with IN(UNNEST(?))</span> <span> - </span> <span class="display-name">aureianimus</span> <span> </span> <span class="date">4 Mar 2014 at 07:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>A pity the JDBC feature doesn't have a wide support in DB drivers. Neither of the drivers for MSSQL I tried had it implemented. Still, I like it, if I ever make a PGSQL-specific code, this looks neat.</span> <span> - </span> <span class="display-name">Vlasec</span> <span> </span> <span class="date">30 Jan 2015 at 09:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>When I implement this, I get: ERROR: argument of IN must not return a set</span> <span> - </span> <span class="display-name">artis3n</span> <span> </span> <span class="date">9 Nov 2015 at 03:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Ivella If I understand the solution, what is PostgreSQL specific is the possibility of using the array parameter as a list of values. Generally array parameters are used for sql array types as shown here <a href="https://docs.oracle.com/javase/tutorial/jdbc/basics/array.html" rel="nofollow noreferrer">docs.oracle.com/javase/tutorial/jdbc/basics/array.html</a></span> <span> - </span> <span class="display-name">cquezel</span> <span> </span> <span class="date">20 Jan 2016 at 17:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I used the jdbcTemplate with this ANY format. Only thing I had to tune abit to get it to work was to convert the list/array of values going in as the argument into a String with comma seperated individual values. I Also needed to put { in front of the String and end it with the }. Within the ANY(?) I then put ANY( :theCommaSeparatedValuesString :: long[]). Maybe there would be even an easier and more neat way of doing that, but I ended up with that since I got it working. I created a delete method using this.</span> <span> - </span> <span class="display-name">ghoulfolk</span> <span> </span> <span class="date">30 Apr 2019 at 06:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>20</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vladimir Dyuzhev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Oct 2008 at 21:52</span>
+     </div>
+    </div>
+    <div>
+     <p>No simple way AFAIK. If the target is to keep statement cache ratio high (i.e to not create a statement per every parameter count), you may do the following:</p>
+     <ol>
+      <li>
+       <p>create a statement with a few (e.g. 10) parameters:</p>
+       <p>... WHERE A IN (?,?,?,?,?,?,?,?,?,?) ...</p></li>
+      <li>
+       <p>Bind all actuall parameters</p>
+       <p>setString(1,"foo"); setString(2,"bar");</p></li>
+      <li>
+       <p>Bind the rest as NULL</p>
+       <p>setNull(3,Types.VARCHAR) ... setNull(10,Types.VARCHAR)</p></li>
+     </ol>
+     <p>NULL never matches anything, so it gets optimized out by the SQL plan builder.</p>
+     <p>The logic is easy to automate when you pass a List into a DAO function:</p>
+     <pre><code>while( i &lt; param.size() ) {
+  ps.setString(i+1,param.get(i));
+  i++;
+}
+
+while( i &lt; MAX_PARAMS ) {
+  ps.setNull(i+1,Types.VARCHAR);
+  i++;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>"NULL never matches anything" — Would <code>NULL</code> in the query match a <code>NULL</code> value in the database?</span> <span> - </span> <span class="display-name">Craig McQueen</span> <span> </span> <span class="date">14 Oct 2013 at 02:11</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@CraigMcQueen No it wouldn't. Null doesn't even match null, according to the ANSI standard.</span> <span> - </span> <span class="display-name">Dawood ibn Kareem on strike</span> <span> </span> <span class="date">11 Feb 2014 at 21:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You can match NULL by using the IS NULL keyword. A nice way to detect rows which do not exist in the joined table is to use a LEFT JOIN together with the IS NULL. 'SELECT a.URL, b.URL FROM TABLE_A a LEFT JOIN TABLE_B b ON a_A.URL = b_B.URL WHERE b.URL IS NULL' This will show all the rows in table A that have no match in table B.</span> <span> - </span> <span class="display-name">Jens Tandstad</span> <span> </span> <span class="date">10 Nov 2014 at 16:25</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>Be careful with this though. <code>NOT IN</code> and <code>IN</code> do not handle nulls the same way. Run this and see what happens: <code>select 'Matched' as did_it_match where 1 not in (5, null);</code> Then remove the <code>null</code> and watch the magic.</span> <span> - </span> <span class="display-name">Brandon</span> <span> </span> <span class="date">9 Jun 2016 at 21:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Or you can set all extra params to value of any previous param. Any decent DB engine will filter them out. So <code>a IN (1,2,3,3,3,3,3)</code> is the same as <code>a IN (1,2,3)</code>. It also works with <code>NOT IN</code> unlike <code>a NOT IN (1,2,3,null,null,null,null)</code> (which always returns no rows as <code>any_value != NULL</code> is always false).</span> <span> - </span> <span class="display-name">Ruslan Stelmachenko</span> <span> </span> <span class="date">7 Aug 2018 at 16:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Gurwinder Singh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Apr 2018 at 09:33</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use <code>Collections.nCopies</code> to generate a collection of placeholders and join them using <code>String.join</code>:</p>
+     <pre><code>List&lt;String&gt; params = getParams();
+String placeHolders = String.join(",", Collections.nCopies(params.size(), "?"));
+String sql = "select * from your_table where some_column in (" + placeHolders + ")";
+try (   Connection connection = getConnection();
+        PreparedStatement ps = connection.prepareStatement(sql)) {
+    int i = 1;
+    for (String param : params) {
+        ps.setString(i++, param);
+    }
+    /*
+     * Execute query/do stuff
+     */
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Seems to be the best solution so far when using Oracle JDBC...</span> <span> - </span> <span class="display-name">jansohn</span> <span> </span> <span class="date">6 Mar 2020 at 13:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If you're going to generate a new SQL statement specific to one set of parameters, why use placeholders at all?</span> <span> - </span> <span class="display-name">Andy Thomas</span> <span> </span> <span class="date">28 May 2021 at 16:13</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@AndyThomas to avoid SQL injection</span> <span> - </span> <span class="display-name">Gurwinder Singh</span> <span> </span> <span class="date">29 May 2021 at 03:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@GurwinderSingh - Ah, good point. Thanks for the lesson!</span> <span> - </span> <span class="display-name">Andy Thomas</span> <span> </span> <span class="date">29 May 2021 at 16:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I was trying to ps.close();, heard it is necessary; but sorry not finding way to do that, can you tell please?</span> <span> - </span> <span class="display-name">static void main</span> <span> </span> <span class="date">6 Aug 2021 at 21:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@staticvoidmain you don't need it if you are using try-with-resources like in the answer</span> <span> - </span> <span class="display-name">Gurwinder Singh</span> <span> </span> <span class="date">7 Aug 2021 at 00:35</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>James Schek</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Oct 2008 at 23:49</span>
+     </div>
+    </div>
+    <div>
+     <p>An unpleasant work-around, but certainly feasible is to use a nested query. Create a temporary table MYVALUES with a column in it. Insert your list of values into the MYVALUES table. Then execute</p>
+     <pre><code>select my_column from my_table where search_column in ( SELECT value FROM MYVALUES )
+</code></pre>
+     <p>Ugly, but a viable alternative if your list of values is very large.</p>
+     <p>This technique has the added advantage of potentially better query plans from the optimizer (check a page for multiple values, tablescan only once instead once per value, etc) may save on overhead if your database doesn't cache prepared statements. Your "INSERTS" would need to be done in batch and the MYVALUES table may need to be tweaked to have minimal locking or other high-overhead protections.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>What advantages would that have over querying my_table one value at a time?</span> <span> - </span> <span class="display-name">Paul Tomblin</span> <span> </span> <span class="date">9 Oct 2008 at 17:43</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>The query optimizer can reduce I/O load by retrieving all possible matches from a loaded page. Tablescans or index scans may be performed once instead of once per value. Overhead for inserting values can be reduced with batch operations and may be less than several queries.</span> <span> - </span> <span class="display-name">James Schek</span> <span> </span> <span class="date">9 Oct 2008 at 21:34</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>it looks good, but there could be problems with concurrency. does jdbc specification containt a way to create a temporal anonymous table in memory? or something like that, if possible not jdbc-vendor specific?</span> <span> - </span> <span class="display-name">David Portabella</span> <span> </span> <span class="date">4 Jun 2012 at 11:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DavidPortabella Hey it's been 11 years but temporary tables are only visible to the current connection, so as long as you are only using a single connection for a single (logical) transaction, you should be okay. You might want to <code>DROP TABLE myvalues IF EXISTS</code> and <code>CREATE TEMPORARY TABLE myvalues</code> each time to be completely safe.</span> <span> - </span> <span class="display-name">Christopher Schultz</span> <span> </span> <span class="date">26 May 2023 at 20:16</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Gee Bee</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Feb 2016 at 14:44</span>
+     </div>
+    </div>
+    <div>
+     <h2>Limitations of the in() operator is the root of all evil.</h2>
+     <p>It works for trivial cases, and you can extend it with "automatic generation of the prepared statement" however it is always having its limits.</p>
+     <ul>
+      <li>if you're creating a statement with variable number of parameters, that will make an sql parse overhead at each call</li>
+      <li>on many platforms, the number of parameters of in() operator are limited</li>
+      <li>on all platforms, total SQL text size is limited, making impossible for sending down 2000 placeholders for the in params</li>
+      <li>sending down bind variables of 1000-10k is not possible, as the JDBC driver is having its limitations</li>
+     </ul>
+     <p>The in() approach can be good enough for some cases, but not rocket proof :)</p>
+     <p>The rocket-proof solution is to pass the arbitrary number of parameters in a separate call (by passing a clob of params, for example), and then have a view (or any other way) to represent them in SQL and use in your where criteria.</p>
+     <p>A brute-force variant is here <a href="http://tkyte.blogspot.hu/2006/06/varying-in-lists.html" rel="noreferrer">http://tkyte.blogspot.hu/2006/06/varying-in-lists.html</a></p>
+     <p>However if you can use PL/SQL, this mess can become pretty neat.</p>
+     <pre><code>function getCustomers(in_customerIdList clob) return sys_refcursor is 
+begin
+    aux_in_list.parse(in_customerIdList);
+    open res for
+        select * 
+        from   customer c,
+               in_list v
+        where  c.customer_id=v.token;
+    return res;
+end;
+</code></pre>
+     <p>Then you can pass arbitrary number of comma separated customer ids in the parameter, and:</p>
+     <ul>
+      <li>will get no parse delay, as the SQL for select is stable</li>
+      <li>no pipelined functions complexity - it is just one query</li>
+      <li>the SQL is using a simple join, instead of an IN operator, which is quite fast</li>
+      <li>after all, it is a good rule of thumb of <em>not</em> hitting the database with any plain select or DML, since it is Oracle, which offers lightyears of more than MySQL or similar simple database engines. PL/SQL allows you to hide the storage model from your application domain model in an effective way.</li>
+     </ul>
+     <p>The trick here is:</p>
+     <ul>
+      <li>we need a call which accepts the long string, and store somewhere where the db session can access to it (e.g. simple package variable, or dbms_session.set_context)</li>
+      <li>then we need a view which can parse this to rows</li>
+      <li>and then you have a view which contains the ids you're querying, so all you need is a simple join to the table queried.</li>
+     </ul>
+     <p>The view looks like:</p>
+     <pre><code>create or replace view in_list
+as
+select
+    trim( substr (txt,
+          instr (txt, ',', 1, level  ) + 1,
+          instr (txt, ',', 1, level+1)
+             - instr (txt, ',', 1, level) -1 ) ) as token
+    from (select ','||aux_in_list.getpayload||',' txt from dual)
+connect by level &lt;= length(aux_in_list.getpayload)-length(replace(aux_in_list.getpayload,',',''))+1
+</code></pre>
+     <p>where aux_in_list.getpayload refers to the original input string.</p>
+     <hr>
+     <p>A possible approach would be to pass pl/sql arrays (supported by Oracle only), however you can't use those in pure SQL, therefore a conversion step is always needed. The conversion can not be done in SQL, so after all, passing a clob with all parameters in string and converting it witin a view is the most efficient solution.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>m.sabouri</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Apr 2016 at 05:06</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's how I solved it in my own application. Ideally, you should use a StringBuilder instead of using + for Strings.</p>
+     <pre><code>    String inParenthesis = "(?";
+    for(int i = 1;i &lt; myList.size();i++) {
+      inParenthesis += ", ?";
+    }
+    inParenthesis += ")";
+
+    try(PreparedStatement statement = SQLite.connection.prepareStatement(
+        String.format("UPDATE table SET value='WINNER' WHERE startTime=? AND name=? AND traderIdx=? AND someValue IN %s", inParenthesis))) {
+      int x = 1;
+      statement.setLong(x++, race.startTime);
+      statement.setString(x++, race.name);
+      statement.setInt(x++, traderIdx);
+
+      for(String str : race.betFair.winners) {
+        statement.setString(x++, str);
+      }
+
+      int effected = statement.executeUpdate();
+    }
+</code></pre>
+     <p>Using a variable like x above instead of concrete numbers helps a lot if you decide to change the query at a later time.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Paul Tomblin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Oct 2008 at 13:45</span>
+     </div>
+    </div>
+    <div>
+     <p>I've never tried it, but would .setArray() do what you're looking for?</p>
+     <p><strong>Update</strong>: Evidently not. setArray only seems to work with a java.sql.Array that comes from an ARRAY column that you've retrieved from a previous query, or a subquery with an ARRAY column.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>Doesn't work with all databases, but it's the "correct" approach.</span> <span> - </span> <span class="display-name">skaffman</span> <span> </span> <span class="date">7 Oct 2008 at 13:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You mean all drivers. Some drivers have proprietary equivalents of this years old (last century?) standard. Another way is to bung a batch of values into a temporary table, but not all databases support that...</span> <span> - </span> <span class="display-name">Tom Hawtin - tackline</span> <span> </span> <span class="date">7 Oct 2008 at 14:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><a href="http://java.sun.com/j2se/1.3/docs/guide/jdbc/getstart/mapping.html#996857" rel="nofollow noreferrer">java.sun.com/j2se/1.3/docs/guide/jdbc/getstart/…</a> According to Sun, Array content [typically] remains on the server side and is pulled as needed. PreparedStatement.setArray() can send back an Array from a previous ResultSet, not create a new Array on the client side.</span> <span> - </span> <span class="display-name">Chris Mazzola</span> <span> </span> <span class="date">9 Oct 2008 at 16:21</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Javier Ibanez</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Feb 2011 at 12:44</span>
+     </div>
+    </div>
+    <div>
+     <p>My workaround is:</p>
+     <pre><code>create or replace type split_tbl as table of varchar(32767);
+/
+
+create or replace function split
+(
+  p_list varchar2,
+  p_del varchar2 := ','
+) return split_tbl pipelined
+is
+  l_idx    pls_integer;
+  l_list    varchar2(32767) := p_list;
+  l_value    varchar2(32767);
+begin
+  loop
+    l_idx := instr(l_list,p_del);
+    if l_idx &gt; 0 then
+      pipe row(substr(l_list,1,l_idx-1));
+      l_list := substr(l_list,l_idx+length(p_del));
+    else
+      pipe row(l_list);
+      exit;
+    end if;
+  end loop;
+  return;
+end split;
+/
+</code></pre>
+     <p>Now you can use one variable to obtain some values in a table:</p>
+     <pre><code>select * from table(split('one,two,three'))
+  one
+  two
+  three
+
+select * from TABLE1 where COL1 in (select * from table(split('value1,value2')))
+  value1 AAA
+  value2 BBB
+</code></pre>
+     <p>So, the prepared statement could be:</p>
+     <pre><code>  "select * from TABLE where COL in (select * from table(split(?)))"
+</code></pre>
+     <p>Regards,</p>
+     <p>Javier Ibanez</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is PL/SQL, yes. It wonát work in other databases. Note that this implementation has a limitation of input params - total length is limited to 32k chars -, as well as a performance limitation since the call to the pipelined function makes a context switch between PL/SQL and SQL engines of Oracle.</span> <span> - </span> <span class="display-name">Gee Bee</span> <span> </span> <span class="date">6 Feb 2018 at 19:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Adam Bellaire</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Oct 2008 at 13:47</span>
+     </div>
+    </div>
+    <div>
+     <p>I suppose you could (using basic string manipulation) generate the query string in the <code>PreparedStatement</code> to have a number of <code>?</code>'s matching the number of items in your list.</p>
+     <p>Of course if you're doing that you're just a step away from generating a giant chained <code>OR</code> in your query, but without having the right number of <code>?</code> in the query string, I don't see how else you can work around this.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Not really a solution for me since I want to send in a different number of ? each time I call the ps. But don't think I hadn't considered it. :P</span> <span> - </span> <span class="display-name">Chris Mazzola</span> <span> </span> <span class="date">7 Oct 2008 at 15:28</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>Another hack: you can use a large number of parameter placeholders -- as many as the longest list of values you'll have -- and if your list of values is shorter, you can repeat values: ...WHERE searchfield IN (?, ?, ?, ?, ?, ?, ?, ?) and then provide values: A, B, C, D, A, B, C, D</span> <span> - </span> <span class="display-name">Bill Karwin</span> <span> </span> <span class="date">7 Oct 2008 at 16:08</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>But overall I favor Adam's solution: generate the SQL dynamically, and concatenate ? placeholders to match the number of values you have to pass.</span> <span> - </span> <span class="display-name">Bill Karwin</span> <span> </span> <span class="date">7 Oct 2008 at 16:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Bill, that solution is workable if I don't want to reuse the PreparedStatement. Another solution is to make the single param call multiple times and accumulate the results on the client side. Likely it would be more efficient to build/execute a new Statement with custom number of ? each time though.</span> <span> - </span> <span class="display-name">Chris Mazzola</span> <span> </span> <span class="date">9 Oct 2008 at 16:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dr. Hans-Peter Störr</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jun 2015 at 12:18</span>
+     </div>
+    </div>
+    <div>
+     <p>Spring allows <a href="http://docs.spring.io/spring/docs/4.2.x/spring-framework-reference/html/jdbc.html#jdbc-in-clause" rel="nofollow">passing java.util.Lists to NamedParameterJdbcTemplate</a> , which automates the generation of (?, ?, ?, ..., ?), as appropriate for the number of arguments.</p>
+     <p>For Oracle, <a href="https://blogs.itemis.de/kloss/2009/03/05/arrays-preparedstatements-jdbc-and-oracle/" rel="nofollow">this blog posting</a> discusses the use of oracle.sql.ARRAY (Connection.createArrayOf doesn't work with Oracle). For this you have to modify your SQL statement:</p>
+     <pre><code>SELECT my_column FROM my_table where search_column IN (select COLUMN_VALUE from table(?))
+</code></pre>
+     <p>The <a href="http://stevenfeuersteinonplsql.blogspot.de/2015/04/table-functions-introduction-and.html" rel="nofollow">oracle table function</a> transforms the passed array into a table like value usable in the <code>IN</code> statement.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Panky031</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jun 2016 at 19:34</span>
+     </div>
+    </div>
+    <div>
+     <p>You could use setArray method as mentioned in <a href="http://docs.oracle.com/javase/6/docs/api/java/sql/PreparedStatement.html#setArray(int,%20java.sql.Array)" rel="nofollow">this javadoc</a>:</p>
+     <pre><code>PreparedStatement statement = connection.prepareStatement("Select * from emp where field in (?)");
+Array array = statement.getConnection().createArrayOf("VARCHAR", new Object[]{"E1", "E2","E3"});
+statement.setArray(1, array);
+ResultSet rs = statement.executeQuery();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>this is not supported by all drivers, if the feature is not supported you will get SQLFeatureNotSupportedException</span> <span> - </span> <span class="display-name">unnamed</span> <span> </span> <span class="date">25 Oct 2017 at 16:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Unfortunately my driver doesn't support it</span> <span> - </span> <span class="display-name">EdXX</span> <span> </span> <span class="date">13 Jan 2018 at 15:38</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>dwjohnston</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Apr 2015 at 04:46</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's a complete solution in Java to create the prepared statement for you:</p>
+     <pre><code>/*usage:
+
+Util u = new Util(500); //500 items per bracket. 
+String sqlBefore  = "select * from myTable where (";
+List&lt;Integer&gt; values = new ArrayList&lt;Integer&gt;(Arrays.asList(1,2,4,5)); 
+string sqlAfter = ") and foo = 'bar'"; 
+
+PreparedStatement ps = u.prepareStatements(sqlBefore, values, sqlAfter, connection, "someId");
+*/
+
+
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Util {
+
+    private int numValuesInClause;
+
+    public Util(int numValuesInClause) {
+        super();
+        this.numValuesInClause = numValuesInClause;
+    }
+
+    public int getNumValuesInClause() {
+        return numValuesInClause;
+    }
+
+    public void setNumValuesInClause(int numValuesInClause) {
+        this.numValuesInClause = numValuesInClause;
+    }
+
+    /** Split a given list into a list of lists for the given size of numValuesInClause*/
+    public List&lt;List&lt;Integer&gt;&gt; splitList(
+            List&lt;Integer&gt; values) {
+
+
+        List&lt;List&lt;Integer&gt;&gt; newList = new ArrayList&lt;List&lt;Integer&gt;&gt;(); 
+        while (values.size() &gt; numValuesInClause) {
+            List&lt;Integer&gt; sublist = values.subList(0,numValuesInClause);
+            List&lt;Integer&gt; values2 = values.subList(numValuesInClause, values.size());   
+            values = values2; 
+
+            newList.add( sublist);
+        }
+        newList.add(values);
+
+        return newList;
+    }
+
+    /**
+     * Generates a series of split out in clause statements. 
+     * @param sqlBefore ""select * from dual where ("
+     * @param values [1,2,3,4,5,6,7,8,9,10]
+     * @param "sqlAfter ) and id = 5"
+     * @return "select * from dual where (id in (1,2,3) or id in (4,5,6) or id in (7,8,9) or id in (10)"
+     */
+    public String genInClauseSql(String sqlBefore, List&lt;Integer&gt; values,
+            String sqlAfter, String identifier) 
+    {
+        List&lt;List&lt;Integer&gt;&gt; newLists = splitList(values);
+        String stmt = sqlBefore;
+
+        /* now generate the in clause for each list */
+        int j = 0; /* keep track of list:newLists index */
+        for (List&lt;Integer&gt; list : newLists) {
+            stmt = stmt + identifier +" in (";
+            StringBuilder innerBuilder = new StringBuilder();
+
+            for (int i = 0; i &lt; list.size(); i++) {
+                innerBuilder.append("?,");
+            }
+
+
+
+            String inClause = innerBuilder.deleteCharAt(
+                    innerBuilder.length() - 1).toString();
+
+            stmt = stmt + inClause;
+            stmt = stmt + ")";
+
+
+            if (++j &lt; newLists.size()) {
+                stmt = stmt + " OR ";
+            }
+
+        }
+
+        stmt = stmt + sqlAfter;
+        return stmt;
+    }
+
+    /**
+     * Method to convert your SQL and a list of ID into a safe prepared
+     * statements
+     * 
+     * @throws SQLException
+     */
+    public PreparedStatement prepareStatements(String sqlBefore,
+            ArrayList&lt;Integer&gt; values, String sqlAfter, Connection c, String identifier)
+            throws SQLException {
+
+        /* First split our potentially big list into lots of lists */
+        String stmt = genInClauseSql(sqlBefore, values, sqlAfter, identifier);
+        PreparedStatement ps = c.prepareStatement(stmt);
+
+        int i = 1;
+        for (int val : values)
+        {
+
+            ps.setInt(i++, val);
+
+        }
+        return ps;
+
+    }
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>stjohnroe</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Oct 2008 at 14:13</span>
+     </div>
+    </div>
+    <div>
+     <p>try using the instr function?</p>
+     <pre><code>select my_column from my_table where  instr(?, ','||search_column||',') &gt; 0
+</code></pre>
+     <p>then</p>
+     <pre><code>ps.setString(1, ",A,B,C,"); 
+</code></pre>
+     <p>Admittedly this is a bit of a dirty hack, but it does reduce the opportunities for sql injection. Works in oracle anyway.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Oh, and I am aware that it will not utilise indexes</span> <span> - </span> <span class="display-name">stjohnroe</span> <span> </span> <span class="date">7 Oct 2008 at 16:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>it wouldn't work for some strings, for instance, if the string contains a ','.</span> <span> - </span> <span class="display-name">David Portabella</span> <span> </span> <span class="date">4 Jun 2012 at 11:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>neu242</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Dec 2009 at 12:42</span>
+     </div>
+    </div>
+    <div>
+     <p>Generate the query string in the PreparedStatement to have a number of ?'s matching the number of items in your list. Here's an example:</p>
+     <pre><code>public void myQuery(List&lt;String&gt; items, int other) {
+  ...
+  String q4in = generateQsForIn(items.size());
+  String sql = "select * from stuff where foo in ( " + q4in + " ) and bar = ?";
+  PreparedStatement ps = connection.prepareStatement(sql);
+  int i = 1;
+  for (String item : items) {
+    ps.setString(i++, item);
+  }
+  ps.setInt(i++, other);
+  ResultSet rs = ps.executeQuery();
+  ...
+}
+
+private String generateQsForIn(int numQs) {
+    String items = "";
+    for (int i = 0; i &lt; numQs; i++) {
+        if (i != 0) items += ", ";
+        items += "?";
+    }
+    return items;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>There's no need to use StringBuilder anymore. The compiler converts the + signs to StringBuilder.append() anyway, so there is no performance hit. Try yourself :)</span> <span> - </span> <span class="display-name">neu242</span> <span> </span> <span class="date">18 Dec 2009 at 11:03</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@neu242: Oh yes, the compiler uses <code>StringBuilder</code>. But not in the way you think. Decompiling <code>generateQsForIn</code> you can see that per loop iteration <b>two</b> new <code>StringBuilder</code> are allocated and <code>toString</code> is called on each. The <code>StringBuilder</code> optimization only catches stuff like <code>"x" + i+ "y" + j</code> but does not extend beyond one expression.</span> <span> - </span> <span class="display-name">A.H.</span> <span> </span> <span class="date">29 Nov 2012 at 15:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@neu242 Can't you use <code>ps.setObject(1,items)</code> instead of iterating over the list and then setting the <code>paramteres</code>?</span> <span> - </span> <span class="display-name">Neha Choudhary</span> <span> </span> <span class="date">16 Jul 2013 at 17:02</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jeff Miller</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Nov 2011 at 19:30</span>
+     </div>
+    </div>
+    <div>
+     <p><a href="http://www.sormula.org/" rel="nofollow">Sormula</a> supports SQL IN operator by allowing you to supply a java.util.Collection object as a parameter. It creates a prepared statement with a ? for each of the elements the collection. See <a href="http://www.sormula.org/example4/" rel="nofollow">Example 4</a> (SQL in example is a comment to clarify what is created but is not used by Sormula).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>kapil das</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Aug 2013 at 19:29</span>
+     </div>
+    </div>
+    <div>
+     <p>instead of using</p>
+     <pre><code>SELECT my_column FROM my_table where search_column IN (?)
+</code></pre>
+     <p>use the Sql Statement as</p>
+     <pre><code>select id, name from users where id in (?, ?, ?)
+</code></pre>
+     <p>and</p>
+     <pre><code>preparedStatement.setString( 1, 'A');
+preparedStatement.setString( 2,'B');
+preparedStatement.setString( 3, 'C');
+</code></pre>
+     <p>or use a stored procedure this would be the best solution, since the sql statements will be compiled and stored in DataBase server</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alexander</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Sep 2013 at 07:21</span>
+     </div>
+    </div>
+    <div>
+     <p>I came across a number of limitations related to prepared statement:</p>
+     <ol>
+      <li>The prepared statements are cached only inside the same session (Postgres), so it will really work only with connection pooling</li>
+      <li>A lot of different prepared statements as proposed by @BalusC may cause the cache to overfill and previously cached statements will be dropped</li>
+      <li>The query has to be optimized and use indices. Sounds obvious, however e.g. the ANY(ARRAY...) statement proposed by @Boris in one of the top answers cannot use indices and query will be slow despite caching</li>
+      <li>The prepared statement caches the query plan as well and the actual values of any parameters specified in the statement are unavailable.</li>
+     </ol>
+     <p>Among the proposed solutions I would choose the one that doesn't decrease the query performance and makes the less number of queries. This will be the #4 (batching few queries) from the @Don link or specifying NULL values for unneeded '?' marks as proposed by @Vladimir Dyuzhev</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Raheel</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Feb 2018 at 17:55</span>
+     </div>
+    </div>
+    <div>
+     <p>SetArray is the best solution but its not available for many older drivers. The following workaround can be used in java8</p>
+     <pre><code>String baseQuery ="SELECT my_column FROM my_table where search_column IN (%s)"
+
+String markersString = inputArray.stream().map(e -&gt; "?").collect(joining(","));
+String sqlQuery = String.format(baseSQL, markersString);
+
+//Now create Prepared Statement and use loop to Set entries
+int index=1;
+
+for (String input : inputArray) {
+     preparedStatement.setString(index++, input);
+}
+</code></pre>
+     <p>This solution is better than other ugly while loop solutions where the query string is built by manual iterations</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>.map(e -&gt; "?").collect(Collectors.joining(", ")</span> <span> - </span> <span class="display-name">static void main</span> <span> </span> <span class="date">6 Aug 2021 at 23:03</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Joel Fouse</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Jan 2019 at 03:44</span>
+     </div>
+    </div>
+    <div>
+     <p>I just worked out a PostgreSQL-specific option for this. It's a bit of a hack, and comes with its own pros and cons and limitations, but it seems to work and isn't limited to a specific development language, platform, or PG driver.</p>
+     <p>The trick of course is to find a way to pass an arbitrary length collection of values as a single parameter, and have the db recognize it as multiple values. The solution I have working is to construct a delimited string from the values in the collection, pass that string as a single parameter, and use string_to_array() with the requisite casting for PostgreSQL to properly make use of it.</p>
+     <p>So if you want to search for "foo", "blah", and "abc", you might concatenate them together into a single string as: 'foo,blah,abc'. Here's the straight SQL:</p>
+     <pre><code>select column from table
+where search_column = any (string_to_array('foo,blah,abc', ',')::text[]);
+</code></pre>
+     <p>You would obviously change the explicit cast to whatever you wanted your resulting value array to be -- int, text, uuid, etc. And because the function is taking a single string value (or two I suppose, if you want to customize the delimiter as well), you can pass it as a parameter in a prepared statement:</p>
+     <pre><code>select column from table
+where search_column = any (string_to_array($1, ',')::text[]);
+</code></pre>
+     <p>This is even flexible enough to support things like LIKE comparisons:</p>
+     <pre><code>select column from table
+where search_column like any (string_to_array('foo%,blah%,abc%', ',')::text[]);
+</code></pre>
+     <p>Again, no question it's a hack, but it works and allows you to still use pre-compiled prepared statements that take <em>*ahem*</em> discrete parameters, with the accompanying security and (maybe) performance benefits. Is it advisable and actually performant? Naturally, it depends, as you've got string parsing and possibly casting going on before your query even runs. If you're expecting to send three, five, a few dozen values, sure, it's probably fine. A few thousand? Yeah, maybe not so much. YMMV, limitations and exclusions apply, no warranty express or implied.</p>
+     <p>But it works.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span> <span class="arrow"> <a href="#answer_22">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Lukas Eder</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Apr 2021 at 08:29</span>
+     </div>
+    </div>
+    <div>
+     <p>No one else seems to have suggested using an off-the-shelf query builder yet, like <a href="https://www.jooq.org" rel="nofollow noreferrer">jOOQ</a> or <a href="http://www.querydsl.com" rel="nofollow noreferrer">QueryDSL</a> or even <a href="https://www.baeldung.com/hibernate-criteria-queries" rel="nofollow noreferrer">Criteria Query</a> that manage <a href="https://www.jooq.org/doc/latest/manual/sql-building/conditional-expressions/in-predicate/" rel="nofollow noreferrer">dynamic <code>IN</code> lists</a> out of the box, possibly including the management of all edge cases that may arise, such as:</p>
+     <ul>
+      <li>Running into Oracle's maximum of 1000 elements per <code>IN</code> list (irrespective of the number of bind values)</li>
+      <li>Running into any driver's maximum number of bind values, <a href="https://stackoverflow.com/a/54149292/521799">which I've documented in this answer</a></li>
+      <li>Running into cursor cache contention problems because too many distinct SQL strings are "hard parsed" and execution plans cannot be cached anymore (jOOQ and since recently also Hibernate work around this by offering <a href="https://www.jooq.org/doc/latest/manual/sql-building/dsl-context/custom-settings/settings-in-list-padding/" rel="nofollow noreferrer"><code>IN</code> list padding</a>)</li>
+     </ul>
+     <p>(Disclaimer: I work for the company behind jOOQ)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_22"><span>Answer 22</span> <span class="arrow"> <a href="#answer_21">↑</a> </span> <span class="arrow"> <a href="#answer_23">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Carl Smotricz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Oct 2008 at 14:15</span>
+     </div>
+    </div>
+    <div>
+     <p>Just for completeness: So long as the set of values is not too large, you <em>could</em> also simply string-construct a statement like</p>
+     <pre><code>... WHERE tab.col = ? OR tab.col = ? OR tab.col = ?
+</code></pre>
+     <p>which you could then pass to prepare(), and then use setXXX() in a loop to set all the values. This looks yucky, but many "big" commercial systems routinely do this kind of thing until they hit DB-specific limits, such as 32 KB (I think it is) for statements in Oracle.</p>
+     <p>Of course you need to ensure that the set will never be unreasonably large, or do error trapping in the event that it is.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Yes, you're right. My goal in this case was to reuse the PreparedStatement with different numbers of items each time.</span> <span> - </span> <span class="display-name">Chris Mazzola</span> <span> </span> <span class="date">9 Oct 2008 at 16:24</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>Using "OR" would obfuscate the intent. Stick with "IN" as its easier to read and the intent is more clear. The only reason to switch is if the query plans were different.</span> <span> - </span> <span class="display-name">James Schek</span> <span> </span> <span class="date">9 Oct 2008 at 21:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_23"><span>Answer 23</span> <span class="arrow"> <a href="#answer_22">↑</a> </span> <span class="arrow"> <a href="#answer_24">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Yorch</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Oct 2008 at 15:49</span>
+     </div>
+    </div>
+    <div>
+     <p>Following Adam's idea. Make your prepared statement sort of select my_column from my_table where search_column in (#) Create a String x and fill it with a number of "?,?,?" depending on your list of values Then just change the # in the query for your new String x an populate</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_24"><span>Answer 24</span> <span class="arrow"> <a href="#answer_23">↑</a> </span> <span class="arrow"> <a href="#answer_25">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pankaj</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jan 2014 at 09:32</span>
+     </div>
+    </div>
+    <div>
+     <p>There are different alternative approaches that we can use for IN clause in PreparedStatement.</p>
+     <ol>
+      <li>Using Single Queries - slowest performance and resource intensive</li>
+      <li>Using StoredProcedure - Fastest but database specific</li>
+      <li>Creating dynamic query for PreparedStatement - Good Performance but doesn't get benefit of caching and PreparedStatement is recompiled every time.</li>
+      <li>
+       <p>Use NULL in PreparedStatement queries - Optimal performance, works great when you know the limit of IN clause arguments. If there is no limit, then you can execute queries in batch. Sample code snippet is;</p>
+       <pre><code>    int i = 1;
+    for(; i &lt;=ids.length; i++){
+        ps.setInt(i, ids[i-1]);
+    }
+
+    //set null for remaining ones
+    for(; i&lt;=PARAM_SIZE;i++){
+        ps.setNull(i, java.sql.Types.INTEGER);
+    }
+</code></pre></li>
+     </ol>
+     <p>You can check more details about these alternative approaches <a href="http://www.journaldev.com/2521/jdbc-preparedstatement-in-clause-alternative-approaches" rel="nofollow">here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>"Creating dynamic query for PreparedStatement - Good Performance but doesn't get benefit of caching and PreparedStatement is recompiled every time." caching and avoiding recompiles is what makes a prepared statement perform well. Therefore, I don't agree with your claim. This will, however, prevent SQL injection since you are limiting the concatenated / dynamic input to a comma.</span> <span> - </span> <span class="display-name">Brandon</span> <span> </span> <span class="date">10 Jul 2014 at 23:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I agree with you, however "Good Performance" here is for this specific scenario. It's better performing than approach 1, however approach 2 is fastest.</span> <span> - </span> <span class="display-name">Pankaj</span> <span> </span> <span class="date">11 Jul 2014 at 07:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_25"><span>Answer 25</span> <span class="arrow"> <a href="#answer_24">↑</a> </span> <span class="arrow"> <a href="#answer_26">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vasili</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jan 2015 at 06:23</span>
+     </div>
+    </div>
+    <div>
+     <p>For some situations regexp might help. Here is an example I've checked on Oracle, and it works.</p>
+     <pre><code>select * from my_table where REGEXP_LIKE (search_column, 'value1|value2')
+</code></pre>
+     <p>But there is a number of drawbacks with it:</p>
+     <ol>
+      <li>Any column it applied should be converted to varchar/char, at least implicitly.</li>
+      <li>Need to be careful with special characters.</li>
+      <li>It can slow down performance - in my case IN version uses index and range scan, and REGEXP version do full scan.</li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_26"><span>Answer 26</span> <span class="arrow"> <a href="#answer_25">↑</a> </span> <span class="arrow"> <a href="#answer_27">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>bnsk</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Mar 2015 at 14:56</span>
+     </div>
+    </div>
+    <div>
+     <p>After examining various solutions in different forums and not finding a good solution, I feel the below hack I came up with, is the easiest to follow and code:</p>
+     <p>Example: Suppose you have multiple parameters to pass in the 'IN' clause. Just put a dummy String inside the 'IN' clause, say, "PARAM" do denote the list of parameters that will be coming in the place of this dummy String.</p>
+     <pre><code>    select * from TABLE_A where ATTR IN (PARAM);
+</code></pre>
+     <p>You can collect all the parameters into a single String variable in your Java code. This can be done as follows:</p>
+     <pre><code>    String param1 = "X";
+    String param2 = "Y";
+    String param1 = param1.append(",").append(param2);
+</code></pre>
+     <p>You can append all your parameters separated by commas into a single String variable, 'param1', in our case.</p>
+     <p>After collecting all the parameters into a single String you can just replace the dummy text in your query, i.e., "PARAM" in this case, with the parameter String, i.e., param1. Here is what you need to do:</p>
+     <pre><code>    String query = query.replaceFirst("PARAM",param1); where we have the value of query as 
+
+    query = "select * from TABLE_A where ATTR IN (PARAM)";
+</code></pre>
+     <p>You can now execute your query using the executeQuery() method. Just make sure that you don't have the word "PARAM" in your query anywhere. You can use a combination of special characters and alphabets instead of the word "PARAM" in order to make sure that there is no possibility of such a word coming in the query. Hope you got the solution.</p>
+     <p>Note: Though this is not a prepared query, it does the work that I wanted my code to do.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_27"><span>Answer 27</span> <span class="arrow"> <a href="#answer_26">↑</a> </span> <span class="arrow"> <a href="#answer_28">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>epeleg</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Apr 2015 at 18:12</span>
+     </div>
+    </div>
+    <div>
+     <p>Just for completeness and because I did not see anyone else suggest it:</p>
+     <p>Before implementing any of the complicated suggestions above consider if SQL injection is indeed a problem in your scenario.</p>
+     <p>In many cases the value provided to IN (...) is a list of ids that have been generated in a way that you can be sure that no injection is possible... (e.g. the results of a previous select some_id from some_table where some_condition.)</p>
+     <p>If that is the case you might just concatenate this value and not use the services or the prepared statement for it or use them for other parameters of this query.</p>
+     <pre><code>query="select f1,f2 from t1 where f3=? and f2 in (" + sListOfIds + ");";
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_28"><span>Answer 28</span> <span class="arrow"> <a href="#answer_27">↑</a> </span> <span class="arrow"> <a href="#answer_29">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>pedram bashiri</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jun 2017 at 21:05</span>
+     </div>
+    </div>
+    <div>
+     <p>PreparedStatement doesn't provide any good way to deal with SQL IN clause. Per <a href="http://www.javaranch.com/journal/200510/Journal200510.jsp#a2" rel="nofollow noreferrer">http://www.javaranch.com/journal/200510/Journal200510.jsp#a2</a> "You can't substitute things that are meant to become part of the SQL statement. This is necessary because if the SQL itself can change, the driver can't precompile the statement. It also has the nice side effect of preventing SQL injection attacks." I ended up using following approach:</p>
+     <pre><code>String query = "SELECT my_column FROM my_table where search_column IN ($searchColumns)";
+query = query.replace("$searchColumns", "'A', 'B', 'C'");
+Statement stmt = connection.createStatement();
+boolean hasResults = stmt.execute(query);
+do {
+    if (hasResults)
+        return stmt.getResultSet();
+
+    hasResults = stmt.getMoreResults();
+
+} while (hasResults || stmt.getUpdateCount() != -1);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_29"><span>Answer 29</span> <span class="arrow"> <a href="#answer_28">↑</a> </span> <span class="arrow"> <a href="#answer_30">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rod Meyer</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Aug 2021 at 19:16</span>
+     </div>
+    </div>
+    <div>
+     <p>OK, so I couldn't remember exactly how (or where) I did this before so I came to stack overflow to quickly find the answer. I was surprised I couldn't.</p>
+     <p>So, how I got around the IN problem a long time ago was with a statement like this:</p>
+     <p><strong>where myColumn in ( select regexp_substr(:myList,'[^,]+', 1, level) from dual connect by regexp_substr(:myList, '[^,]+', 1, level) is not null)</strong></p>
+     <p>set the myList parameter as a comma delimited string: A,B,C,D...</p>
+     <p>Note: You have to set the parameter twice!</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_30"><span>Answer 30</span> <span class="arrow"> <a href="#answer_29">↑</a> </span> <span class="arrow"> <a href="#answer_31">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Kris Khairallah</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Dec 2022 at 08:13</span>
+     </div>
+    </div>
+    <div>
+     <p>This is not the ideal practice, yet it's simple and works well for me most of the time.</p>
+     <pre><code>where ? like concat( "%|", TABLE_ID , "|%" ) 
+</code></pre>
+     <p>Then you pass through ? the IDs in this way: |1|,|2|,|3|,...|</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_31"><span>Answer 31</span> <span class="arrow"> <a href="#answer_30">↑</a> </span> <span class="arrow"> <a href="#answer_32">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Akash</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Dec 2022 at 12:41</span>
+     </div>
+    </div>
+    <div>
+     <p>You can just use setArray() method of PreparedStatement</p>
+     <pre><code>PreparedStatement statement = connection.prepareStatement("Select * from emp where field in (?)");
+statement.setArray(1, Arrays.asList(1,2,3,4,5));
+ResultSet rs = statement.executeQuery();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_32"><span>Answer 32</span> <span class="arrow"> <a href="#answer_31">↑</a> </span> <span class="arrow"> <a href="#answer_33">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nikita Shah</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Jan 2020 at 07:19</span>
+     </div>
+    </div>
+    <div>
+     <p>This worked for me (psuedocode):</p>
+     <pre><code>public class SqlHelper
+{
+    public static final ArrayList&lt;String&gt;platformList = new ArrayList&lt;&gt;(Arrays.asList("iOS","Android","Windows","Mac"));
+
+    public static final String testQuery = "select * from devices where platform_nm in (:PLATFORM_NAME)";
+}
+</code></pre>
+     <p>specicify binding :</p>
+     <pre><code>public class Test extends NamedParameterJdbcDaoSupport
+public List&lt;SampleModelClass&gt; runQuery()
+{
+    //define rowMapper to insert in object of SampleClass
+    final Map&lt;String,Object&gt; map = new HashMap&lt;&gt;();
+    map.put("PLATFORM_LIST",DeviceDataSyncQueryConstants.platformList);
+    return getNamedParameterJdbcTemplate().query(SqlHelper.testQuery, map, rowMapper)
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_33"><span>Answer 33</span> <span class="arrow"> <a href="#answer_32">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>smooth_smoothie</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Feb 2017 at 19:28</span>
+     </div>
+    </div>
+    <div>
+     <p>My workaround (JavaScript)</p>
+     <pre><code>    var s1 = " SELECT "
+
+ + "FROM   table t "
+
+ + "  where t.field in ";
+
+  var s3 = '(';
+
+  for(var i =0;i&lt;searchTerms.length;i++)
+  {
+    if(i+1 == searchTerms.length)
+    {
+     s3  = s3+'?)';
+    }
+    else
+    {
+        s3  = s3+'?, ' ;
+    }
+   }
+    var query = s1+s3;
+
+    var pstmt = connection.prepareStatement(query);
+
+     for(var i =0;i&lt;searchTerms.length;i++)
+    {
+        pstmt.setString(i+1, searchTerms[i]);
+    }
+</code></pre>
+     <p><code>SearchTerms</code> is the array which contains your input/keys/fields etc</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

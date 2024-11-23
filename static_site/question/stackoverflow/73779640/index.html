@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How does the CLDR define its rules for month abbreviations - specifically for en_CA?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How does the CLDR define its rules for month abbreviations - specifically for en_CA?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>andrewJames</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Sep 2022 at 21:49</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73779640/how-does-the-cldr-define-its-rules-for-month-abbreviations-specifically-for-en">source</a>
+    </div>
+   </div>
+   <div>
+    <p>The <a href="https://cldr.unicode.org/" rel="nofollow noreferrer">CLDR</a> provides a repository of locale data. In Java, you can access a list of CLDR month abbreviations for a given locale, as follows:</p>
+    <pre class="lang-java prettyprint-override"><code>String[] usMonthAbbrevs = new DateFormatSymbols(Locale.US).getShortMonths();
+System.out.println(usMonthAbbrevs[0]);
+</code></pre>
+    <p>The above (in Java 17, using the default CLDR provider) prints <code>Jan</code>.</p>
+    <p>I have been assuming (maybe wrongly) that this list of abbreviations is defined in the relevant CLDR XML file for the <code>en</code> locale:</p>
+    <p><code>cldr</code> &gt; <code>common</code> &gt; <code>main</code> &gt; <a href="https://github.com/unicode-org/cldr/blob/release-41/common/main/en.xml#L2167" rel="nofollow noreferrer"><code>en.xml</code></a> &gt; <code>&lt;month type="1"&gt;Jan&lt;/month&gt;</code></p>
+    <p>But for Canadian English, the same month abbreviations all have periods at the end:</p>
+    <pre class="lang-java prettyprint-override"><code>String[] canMonthAbbrevs = new DateFormatSymbols(Locale.CANADA).getShortMonths();
+System.out.println(canMonthAbbrevs[0]);
+</code></pre>
+    <p>The above prints <code>Jan.</code> - note that period at the end.</p>
+    <hr>
+    <p><strong>Question: Where is the CLDR list, or rule, which specifies this extra period for the <code>en_CA</code> locale?</strong></p>
+    <p>I did not see anything obvious in the <a href="https://github.com/unicode-org/cldr/blob/release-41/common/main/en_CA.xml" rel="nofollow noreferrer"><code>en_CA.xml</code></a> file. Maybe I missed it, or I did not understand what I was looking at.</p>
+    <hr>
+    <p>To research this, I tried to trace the code back through Java's resource bundle classes.</p>
+    <p>This led me to the following class:</p>
+    <pre><code>sun.text.resources.cldr.ext.FormatData_en_CA
+</code></pre>
+    <p>I found this class in my Java installation in <code>jmods/jdk.localedata.jmod</code>. After unzipping that <code>jmod</code> file, I opened the following class file:</p>
+    <pre><code>classes/sun/text/resources/cldr/ext/FormatData_en_CA.class
+</code></pre>
+    <p>In there, I saw bytecode which contains the month abbreviations with periods - for example:</p>
+    <pre><code>* 7: ldc           #9                  // String Jan.
+</code></pre>
+    <p>My guess is that all the classes in <code>jdk.localedata.jmod</code> are pre-built (presumably from CLDR data/rules). But I was not able to see how that process happens. Maybe a tool which is part of the JDK build process?</p>
+    <p>So, my question remains: Where is the CLDR list, or rule, which specifies this extra period for the <code>en_CA</code> locale's month abbreviations?</p>
+    <p><sup>Why am I asking? Just because I got curious about this, after noticing the difference between the US and Canadian abbreviations.</sup></p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">localization</span><span class="tag">cldr</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sweeper</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2022 at 23:54</span>
+     </div>
+    </div>
+    <div>
+     <p>You got the wrong version. <a href="https://bugs.openjdk.org/browse/JDK-8258794" rel="nofollow noreferrer">Java 17 supports CLDR 39</a>, not 41. If you look at the version-39 <a href="https://github.com/unicode-org/cldr/blob/release-39/common/main/en_CA.xml#L1623" rel="nofollow noreferrer">en_CA.xml</a> file, you can clearly see them all laid out there:</p>
+     <pre><code>&lt;monthWidth type="abbreviated"&gt;
+    &lt;month type="1"&gt;Jan.&lt;/month&gt;
+    &lt;month type="2"&gt;Feb.&lt;/month&gt;
+    &lt;month type="3"&gt;Mar.&lt;/month&gt;
+    &lt;month type="4"&gt;Apr.&lt;/month&gt;
+    &lt;month type="5"&gt;May&lt;/month&gt;
+    &lt;month type="6"&gt;Jun.&lt;/month&gt;
+    &lt;month type="7"&gt;Jul.&lt;/month&gt;
+    &lt;month type="8"&gt;Aug.&lt;/month&gt;
+    &lt;month type="9"&gt;Sep.&lt;/month&gt;
+    &lt;month type="10"&gt;Oct.&lt;/month&gt;
+    &lt;month type="11"&gt;Nov.&lt;/month&gt;
+    &lt;month type="12"&gt;Dec.&lt;/month&gt;
+&lt;/monthWidth&gt;
+</code></pre>
+     <p>Evidently, in newer versions, this trailing dot is removed :)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>That was it - thank you. The change happened in CLDR v40 - <a href="https://github.com/unicode-org/cldr/pull/1391/files#diff-cfce2160284601fa135a8ab8b93b3a936d4b21549399ad7d69eb09ef70918d4a" rel="nofollow noreferrer">here is the commit</a>. I did not see any specific notes explaining the removal of the periods.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Sep 2022 at 01:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

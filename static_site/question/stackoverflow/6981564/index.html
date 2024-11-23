@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why must the JDBC driver be put in TOMCAT_HOME/lib folder?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why must the JDBC driver be put in TOMCAT_HOME/lib folder?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>47</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>zjffdu</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Aug 2011 at 11:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/6981564/why-must-the-jdbc-driver-be-put-in-tomcat-home-lib-folder">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a weird problem where two web apps with Oracle JDBC driver will conflict with each other. I have to put the JDBC driver JAR in the common folder <em>TOMCAT_HOME/lib</em>. What is the reason for this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">tomcat</span><span class="tag">jdbc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>What do you mean will conflict with each other? What exactly is the conflict? And are you using JNDI or direct JDBC access?</span> <span> - </span> <span class="display-name">ziggy</span> <span> </span> <span class="date">8 Aug 2011 at 11:47</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>92</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Philipp Reichart</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Aug 2011 at 22:41</span>
+     </div>
+    </div>
+    <div>
+     <p>JDBC drivers register themselves in the JVM-wide singleton <a href="http://download.oracle.com/javase/6/docs/api/java/sql/DriverManager.html" rel="noreferrer"><code>DriverManager</code></a> which is shared by <em>all</em> web apps. If you have the same (as in class name) JDBC driver register twice from two different web apps, this might cause your problem. This is even more problematic if your web apps use different versions of the same JDBC driver.</p>
+     <p>Also, putting JDBC drivers into Tomcat's lib folder will help prevent memory leaks when you redeploy your web app without restarting Tomcat, e.g. if you just put a new WAR file into Tomcat's webapps folder:</p>
+     <p>The class <code>DriverManager</code> gets loaded by the bootstrap classloader and thereby "lives" globally in the JVM, while Tomcat loads all web apps in their own classloaders. So if a JDBC driver from a web app's WEB-INF/lib folder registers itself in <code>DriverManager</code>, it pins that web app's classloader in memory (and thereby all the classes of that web app), preventing its garbage collection.</p>
+     <p>If instead both <code>DriverManager</code> and JDBC drivers come from non-web app classloaders, you can freely redeploy your web apps without any web app classes pinning themselves in classes loaded from other classloaders.</p>
+     <p>Current versions of Tomcat (probably 6.x and definitely 7.x) will log warnings on undeployment of a web app if a memory leak is detected, among other things by JDBC drivers.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>placing the sql jar inside lib folder of tomcat "apache-tomcat-7.0.37\lib" will solve the issue?</span> <span> - </span> <span class="display-name">greenhorn</span> <span> </span> <span class="date">23 Apr 2015 at 06:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Yes, if you put a single JDBC driver JAR into Tomcat's lib/ (instead of your web app's lib/), this will avoid conflicts like described by the original poster. Of course, all your apps have to be able to work with the same JDBC driver version then.</span> <span> - </span> <span class="display-name">Philipp Reichart</span> <span> </span> <span class="date">23 Apr 2015 at 17:34</span></td>
+       </tr>
+       <tr>
+        <td>25</td>
+        <td><span>Is it just me, or does a "JVM-wide singleton DriverManager" seem like a major bug in the design of JDBC?</span> <span> - </span> <span class="display-name">James Newman</span> <span> </span> <span class="date">28 Sep 2015 at 19:57</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@PhilippReichart is this still a reality in most recent versions of the plugin? I have a similar issue <a href="https://stackoverflow.com/questions/45621073/where-to-put-c3p0-dependency-in-tomcat-container" title="where to put c3p0 dependency in tomcat container">stackoverflow.com/questions/45621073/…</a> and am struggling to know the correct place to put the postgres driver in - especially in the case of using different versions of the driver for different applications.</span> <span> - </span> <span class="display-name">mmalmeida</span> <span> </span> <span class="date">14 Aug 2017 at 16:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I placed my SQL jar inside the tomcat lib, and changed my dependency in maven to <code>provided</code>, and I'm still getting this error</span> <span> - </span> <span class="display-name">Ammar Samater</span> <span> </span> <span class="date">13 Mar 2018 at 12:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>is TOMCAT_HOME/lib better than TOMCAT_HOME/shared? What is the best practice?</span> <span> - </span> <span class="display-name">David Brossard</span> <span> </span> <span class="date">13 Apr 2018 at 12:49</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@DavidBrossard There is no "shared" folder by default any more in recent versions of Tomcat such as 9. By default, the "Server", "Shared", and "Common" class loaders all load classes and jars from the same pair of places: a <code>lib</code> folder found in Tomcat/Catalina "home" folder, and a <code>lib</code> folder in Tomcat/Catalina "base" folder. See the <code>catalina.properties</code> file for explanations in the comments, and edit that file if you want a different configuration.</span> <span> - </span> <span class="display-name">Basil Bourque</span> <span> </span> <span class="date">15 Oct 2019 at 23:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Is this issue the same when using different tomcats and users but the same java installation on a unix server? So basically 2 different jvm instances?</span> <span> - </span> <span class="display-name">Pwnstar</span> <span> </span> <span class="date">28 Nov 2019 at 10:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

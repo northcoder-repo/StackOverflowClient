@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Add sheet to excel output of Jquery datatables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Add sheet to excel output of Jquery datatables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Cody Maxie</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Apr 2021 at 21:42</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67066081/add-sheet-to-excel-output-of-jquery-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <h3>Edit - Solution:</h3>
+    <p>Okay so the solution to my issue was very simple. If you look in my <code>workbook.xml.rels</code> output you'll notice that rId2 is already in use by the workbook's styles. The solution was very simple: <strong>Don't use rId2 for any new sheet</strong>. After that simple change my excel output loaded just fine.</p>
+    <p>I've added some comments to my function to reflect this.</p>
+    <p>Big thanks to @andrewjames as his solution helped me find this bug.</p>
+    <h1>Problem:</h1>
+    <p>I am using jquery datatables to render a report. When a user outputs the report to excel, I'd like append N sheets to the output using a custom function (generate_excel_sheet).</p>
+    <h1>Current Solution:</h1>
+    <p>I have a function that should allow me to dynamically add new sheets to my excel output:</p>
+    <pre><code>/**
+ * Builds a new excel sheet and attaches it to the current workbook
+ * @param {Object} xlsx - The excel workbook
+ * @param {Number} id   - The id to be associated with the new sheet
+ * @param {string} name - The name to be associated with the new sheet
+ * @param {Array}  data - The data to be inserted into the new sheet
+ */ 
+let generate_excel_sheet = (xlsx, id, name, data) =&gt; {
+
+  // helper function for generating column identifier letters (A, AA, AB, etc)
+  function colName(n) {
+    var ordA = 'a'.charCodeAt(0);
+    var ordZ = 'z'.charCodeAt(0);
+    var len = ordZ - ordA + 1;
+    var s = "";
+    while(n &gt;= 0) {
+      s = String.fromCharCode(n % len + ordA) + s;
+      n = Math.floor(n / len) - 1;
+    }
+    return s.toUpperCase();
+  }
+
+  // Add sheet to [Content_Types].xml =&gt; &lt;Types&gt;
+  var source = xlsx['[Content_Types].xml'].getElementsByTagName('Override')[1];
+  var clone = source.cloneNode(true);
+  clone.setAttribute('PartName',`/xl/worksheets/${name}.xml`);
+  xlsx['[Content_Types].xml'].getElementsByTagName('Types')[0].appendChild(clone);
+  
+  // Add sheet relationship to xl/_rels/workbook.xml.rels =&gt; Relationships
+  var source = xlsx.xl._rels['workbook.xml.rels'].getElementsByTagName('Relationship')[0];
+  var clone = source.cloneNode(true);
+  clone.setAttribute('Id',`rId${id}`); // CANNOT USE rId2, see solution
+  clone.setAttribute('Target',`worksheets/${name}.xml`);
+  xlsx.xl._rels['workbook.xml.rels'].getElementsByTagName('Relationships')[0].appendChild(clone);
+  
+  // Add new sheet to xl/workbook.xml =&gt; &lt;workbook&gt;&lt;sheets&gt;
+  var source = xlsx.xl['workbook.xml'].getElementsByTagName('sheet')[0];
+  var clone = source.cloneNode(true);
+  clone.setAttribute('name',name);
+  clone.setAttribute('sheetId',`${id}`);
+  clone.setAttribute('r:id',`rId${id}`); // CANNOT USE rId2, see solution
+  xlsx.xl['workbook.xml'].getElementsByTagName('sheets')[0].appendChild(clone);
+
+  // build out the following from data:
+  // * &lt;row&gt; for each row
+  // * &lt;c&gt;   for each item in each row 
+  var body = '';
+  for (i = 0; i &lt; data.length; i++) {
+    body += `&lt;row  r="${i+1}"&gt;`;
+    for (j = 0; j &lt; data[i].length; j++) {
+      body += 
+        `&lt;c r="${colName(j)}${i+1}" t="inlineStr"&gt;` +
+          `&lt;is&gt;` +
+            `&lt;t&gt;${data[i][j]}&lt;/t&gt;` +
+          `&lt;/is&gt;` +
+        `&lt;/c&gt;`
+    }
+    body += `&lt;/row&gt;`;
+  }
+
+  // build &lt;col&gt; elements for each column in data
+  var columns = '';
+  for (i = 0; i &lt; data[0].length; i++) {
+    columns += `&lt;col customWidth="1" width="14.850000000000001" min="${i+1}" max="${i+1}" /&gt;`;
+  }
+
+  // build the sheet to be appended to the workbook
+  var newSheet = 
+    '&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;'+
+    '&lt;worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" mc:Ignorable="x14ac"&gt;'+
+      '&lt;cols&gt;' +
+        columns +
+      '&lt;/cols&gt;' +
+      '&lt;sheetData&gt;' +
+        body +
+      '&lt;/sheetData&gt;' +
+    '&lt;/worksheet&gt;';
+
+  // Add sheet to xl/worksheets
+  xlsx.xl.worksheets[`${name}.xml`] = $.parseXML(newSheet);
+}
+</code></pre>
+    <p>Then when I build my datatable I am using the following code to build my excel button:</p>
+    <pre><code>        buttons: [
+          'copy',
+          {
+            extend: 'excelHtml5',
+            title: rpt_title, 
+            messageTop: rpt_message,
+            customize: function(xlsx) {
+              generate_excel_sheet(xlsx, 2, "test", [
+                ["test1", 123],
+                ["test2", 456],
+                ["test3", 789],
+              ]);
+            }
+          }
+        ],
+</code></pre>
+    <h1>Output/Errors:</h1>
+    <p>Here is the output of various xml files within the xlsx file:</p>
+    <p>[Content_Types].xml</p>
+    <pre><code>&lt;?xml version="1.0" encoding="UTF-8" standalone="true"?&gt;
+&lt;Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"&gt;
+  &lt;Default ContentType="application/xml" Extension="xml"/&gt;
+  &lt;Default ContentType="application/vnd.openxmlformats-package.relationships+xml" Extension="rels"/&gt;
+  &lt;Default ContentType="image/jpeg" Extension="jpeg"/&gt;
+  &lt;Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" PartName="/xl/workbook.xml"/&gt;
+  &lt;Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" PartName="/xl/worksheets/sheet1.xml"/&gt;
+  &lt;Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml" PartName="/xl/styles.xml"/&gt;
+  &lt;Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" PartName="/xl/worksheets/test.xml"/&gt;
+&lt;/Types&gt;
+</code></pre>
+    <p>workbook.xml.rels</p>
+    <pre><code>&lt;?xml version="1.0" encoding="UTF-8" standalone="true"?&gt;
+&lt;Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"&gt;
+  &lt;Relationship Target="worksheets/sheet1.xml" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Id="rId1"/&gt;
+  &lt;Relationship Target="styles.xml" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Id="rId2"/&gt;
+  &lt;Relationship Target="worksheets/test.xml" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Id="rId2"/&gt;
+&lt;/Relationships&gt;
+</code></pre>
+    <p>workbook.xml</p>
+    <pre><code>&lt;?xml version="1.0" encoding="UTF-8" standalone="true"?&gt;
+&lt;workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"&gt;
+  &lt;fileVersion rupBuild="24816" lowestEdited="5" lastEdited="5" appName="xl"/&gt;
+  &lt;workbookPr autoCompressPictures="0" showInkAnnotation="0"/&gt;
+  &lt;bookViews&gt;
+    &lt;workbookView tabRatio="500" windowHeight="19020" windowWidth="25600" yWindow="0" xWindow="0"/&gt;
+  &lt;/bookViews&gt;
+  &lt;sheets&gt;
+    &lt;sheet r:id="rId1" sheetId="1" name="Sheet1"/&gt;
+    &lt;sheet r:id="rId2" sheetId="2" name="test"/&gt;
+  &lt;/sheets&gt;
+  &lt;definedNames/&gt;
+&lt;/workbook&gt;
+</code></pre>
+    <p>test.xml</p>
+    <pre><code>&lt;?xml version="1.0"?&gt;
+&lt;worksheet mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"&gt;
+  &lt;cols&gt;
+    &lt;col max="1" min="1" width="14.850000000000001" customWidth="1"/&gt;
+    &lt;col max="2" min="2" width="14.850000000000001" customWidth="1"/&gt;
+  &lt;/cols&gt;
+  &lt;sheetData&gt;
+    &lt;row r="1"&gt;
+      &lt;c r="A1" t="inlineStr"&gt;
+        &lt;is&gt;
+          &lt;t&gt;test1&lt;/t&gt;
+        &lt;/is&gt;
+      &lt;/c&gt;
+      &lt;c r="B1" t="inlineStr"&gt;
+        &lt;is&gt;
+          &lt;t&gt;123&lt;/t&gt;
+        &lt;/is&gt;
+      &lt;/c&gt;
+    &lt;/row&gt;
+    &lt;row r="2"&gt;
+      &lt;c r="A2" t="inlineStr"&gt;
+        &lt;is&gt;
+          &lt;t&gt;test2&lt;/t&gt;
+        &lt;/is&gt;
+      &lt;/c&gt;
+      &lt;c r="B2" t="inlineStr"&gt;
+        &lt;is&gt;
+          &lt;t&gt;456&lt;/t&gt;
+        &lt;/is&gt;
+      &lt;/c&gt;
+    &lt;/row&gt;
+    &lt;row r="3"&gt;
+      &lt;c r="A3" t="inlineStr"&gt;
+        &lt;is&gt;
+          &lt;t&gt;test3&lt;/t&gt;
+        &lt;/is&gt;
+      &lt;/c&gt;
+      &lt;c r="B3" t="inlineStr"&gt;
+        &lt;is&gt;
+          &lt;t&gt;789&lt;/t&gt;
+        &lt;/is&gt;
+      &lt;/c&gt;
+    &lt;/row&gt;
+  &lt;/sheetData&gt;
+&lt;/worksheet&gt;
+</code></pre>
+    <p>From here excel gives and error saying that the workbook needs to be repaired. When the repairs are finished sheet test is blank (no data) and the following message and log file is generated:</p>
+    <p>"Excel completed file level validation and repair. Some parts of this workbook may have been repaired or discarded. Removed Records: Worksheet properties from /xl/workbook.xml part (Workbook)"</p>
+    <pre><code>&lt;?xml version="1.0" encoding="UTF-8" standalone="true"?&gt;
+&lt;recoveryLog xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"&gt;
+  &lt;logFileName&gt;error087400_01.xml&lt;/logFileName&gt;
+  &lt;summary&gt;Errors were detected in file 'C:\Users\cmaxie\Downloads\Transaction Detail Drill Report (25).xlsx'&lt;/summary&gt;
+  &lt;additionalInfo&gt;
+    &lt;info&gt;Excel completed file level validation and repair. Some parts of this workbook may have been repaired or discarded.&lt;/info&gt;
+  &lt;/additionalInfo&gt;
+  &lt;removedRecords&gt;
+  &lt;removedRecord&gt;Removed Records: Worksheet properties from /xl/workbook.xml part (Workbook)&lt;/removedRecord&gt;
+  &lt;/removedRecords&gt;
+&lt;/recoveryLog&gt;
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">excel</span><span class="tag">xml</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Although I personally don't, you might find <a href="https://datatables.net/reference/button/csv" rel="nofollow noreferrer">this</a> and <a href="https://www.copytrans.net/support/how-to-open-a-csv-file-in-excel/" rel="nofollow noreferrer">this</a> interesting.</span> <span> - </span> <span class="display-name">StackSlave</span> <span> </span> <span class="date">12 Apr 2021 at 22:29</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@StackSlave thanks for the tip. Couldn't use CSV for this as the output would need to be easy to use for our end users. I ended up solving the problem, you can see the solution in my edits to the question.</span> <span> - </span> <span class="display-name">Cody Maxie</span> <span> </span> <span class="date">13 Apr 2021 at 15:31</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Apr 2021 at 23:41</span>
+     </div>
+    </div>
+    <div>
+     <p>It looks like you may be basing your approach on <a href="http://live.datatables.net/kuyayeto/9/edit" rel="nofollow noreferrer">this example</a>.</p>
+     <p>I took that code and made a minimal set of changes to it, to process your test data. So, whereas the original demo processed data from multiple different DataTables (and loaded each table into its own sheet), now my approach takes the "extra" data from a simple array of arrays, such as:</p>
+     <pre><code>var data = [ ["test1", 123], ["test2", 456], ["test3", 789] ];
+</code></pre>
+     <p>Some other notes:</p>
+     <ul>
+      <li>I re-arranged the parameters in the main call to <code>addSheet()</code>.</li>
+      <li>I assumed you never have a "title" row in each sheet - so that parameter is now <code>null</code>.</li>
+      <li>because you are not reading data from other tables, there are no column headings to be processed.</li>
+     </ul>
+     <p>Here is the full page, which you can copy/paste into a stand-alone web page and run it for yourself, to test/verify.</p>
+     <p>It may have a couple of extra Buttons-related resources in the header that you don't need (such as PDF handling) because it's taken from another testing template I have.</p>
+     <p>You can obviously remove these - and remove any of the extra custom Excel code which you no longer need (but which I left in place, or just commented out).</p>
+     <p>Final point: This code only handles one extra sheet. But now that is working, it's simple to add as many as you need.</p>
+     <pre><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+
+  &lt;script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.23/css/jquery.dataTables.min.css"/&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/1.6.5/css/buttons.dataTables.min.css"/&gt; 
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/dataTables.buttons.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.colVis.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.flash.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.html5.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.print.min.js"&gt;&lt;/script&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office&lt;/th&gt;
+                &lt;th&gt;Age&lt;/th&gt;
+                &lt;th&gt;Start date&lt;/th&gt;
+                &lt;th&gt;Salary&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Tiger Nixon&lt;/td&gt;
+                &lt;td&gt;System Architect&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;2011/04/25&lt;/td&gt;
+                &lt;td&gt;$320,800&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Garrett Winters&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;63&lt;/td&gt;
+                &lt;td&gt;2011/07/25&lt;/td&gt;
+                &lt;td&gt;$170,750&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Ashton Cox&lt;/td&gt;
+                &lt;td&gt;Junior Technical Author&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;66&lt;/td&gt;
+                &lt;td&gt;2009/01/12&lt;/td&gt;
+                &lt;td&gt;$86,000&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;script&gt;
+
+$(document).ready(function() {
+
+  function buildCols(data) {
+    // Builds cols XML.
+    //To do: deifne widths for each column.
+    //Params:
+    //  data: row data.
+    //Returns:
+    //  String of XML formatted column widths.
+    
+    var cols = '&lt;cols&gt;';
+    
+    for (i=0; i&lt;data.length; i++) {
+      colNum = i + 1;
+      cols += '&lt;col min="' + colNum + '" max="' + colNum + '" width="20" customWidth="1"/&gt;';
+    }
+    
+    cols += '&lt;/cols&gt;';
+    
+    return cols;
+  }
+  
+  function buildRow(data, rowNum, styleNum) {
+    // Builds row XML.
+    //Params:
+    //  data: Row data.
+    //  rowNum: Excel row number.
+    //  styleNum: style number or empty string for no style.
+    //Returns:
+    //  String of XML formatted row.
+    
+    var style = styleNum ? ' s="' + styleNum + '"' : '';
+    
+    var row = '&lt;row r="' + rowNum + '"&gt;';
+
+    for (i=0; i&lt;data.length; i++) {
+      colNum = (i + 10).toString(36).toUpperCase();  // Convert to alpha
+      
+      var cr = colNum + rowNum;
+      
+      row += '&lt;c t="inlineStr" r="' + cr + '"' + style + '&gt;' +
+              '&lt;is&gt;' +
+                '&lt;t&gt;' + data[i] + '&lt;/t&gt;' +
+              '&lt;/is&gt;' +
+            '&lt;/c&gt;';
+    }
+      
+    row += '&lt;/row&gt;';
+        
+    return row;
+  }
+  
+  function getTableData(data, title) {
+    // Processes Datatable row data to build sheet.
+    //Params:
+    //  data: data for new sheet.
+    //  title: Title displayed at top of SS or empty str for no title.
+    //Returns:
+    //  String of XML formatted worksheet.
+    
+    //var header = getHeaderNames(table);
+    //var table = $(table).DataTable();
+    var rowNum = 1;
+    var mergeCells = '';
+    var ws = '';
+    
+    //ws += buildCols(header);
+    ws += '&lt;sheetData&gt;';
+    
+    //if (title.length &gt; 0) {
+    //  ws += buildRow([title], rowNum, 51);
+    //  rowNum++;
+    //  
+    //  mergeCol = ((header.length - 1) + 10).toString(36).toUpperCase();
+    //  
+    //  mergeCells = '&lt;mergeCells count="1"&gt;'+
+    //    '&lt;mergeCell ref="A1:' + mergeCol + '1"/&gt;' +
+    //               '&lt;/mergeCells&gt;';
+    //}
+                      
+    //ws += buildRow(header, rowNum, 2);
+    //rowNum++;
+    
+    // Loop through each row to append to sheet.    
+    //table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+    data.forEach(function (item, index) {
+      var rowData = item;
+      
+      // If data is object based then it needs to be converted 
+      // to an array before sending to buildRow()
+      ws += buildRow(rowData, rowNum, '');
+      
+      rowNum++;
+    } );
+    
+    ws += '&lt;/sheetData&gt;' + mergeCells;
+        
+    return ws;
+
+  }
+  
+  function setSheetName(xlsx, name) {
+    // Changes tab title for sheet.
+    //Params:
+    //  xlsx: xlxs worksheet object.
+    //  name: name for sheet.
+    
+    if (name.length &gt; 0) {
+      var source = xlsx.xl['workbook.xml'].getElementsByTagName('sheet')[0];
+      source.setAttribute('name', name);
+    }
+  }
+  
+  function addSheet(xlsx, data, title, name, sheetId) {
+    //Clones sheet from Sheet1 to build new sheet.
+    //Params:
+    //  xlsx: xlsx object.
+    //  data: data for new shet.
+    //  title: Title for top row or blank if no title.
+    //  name: Name of new sheet.
+    //  sheetId: string containing sheetId for new sheet.
+    //Returns:
+    //  Updated sheet object.
+    
+    //Add sheet2 to [Content_Types].xml =&gt; &lt;Types&gt;
+    //============================================
+    var source = xlsx['[Content_Types].xml'].getElementsByTagName('Override')[1];
+    var clone = source.cloneNode(true);
+    clone.setAttribute('PartName','/xl/worksheets/sheet' + sheetId + '.xml');
+    xlsx['[Content_Types].xml'].getElementsByTagName('Types')[0].appendChild(clone);
+    
+    //Add sheet relationship to xl/_rels/workbook.xml.rels =&gt; Relationships
+    //=====================================================================
+    var source = xlsx.xl._rels['workbook.xml.rels'].getElementsByTagName('Relationship')[0];
+    var clone = source.cloneNode(true);
+    clone.setAttribute('Id','rId'+sheetId+1);
+    clone.setAttribute('Target','worksheets/sheet' + sheetId + '.xml');
+    xlsx.xl._rels['workbook.xml.rels'].getElementsByTagName('Relationships')[0].appendChild(clone);
+    
+    //Add second sheet to xl/workbook.xml =&gt; &lt;workbook&gt;&lt;sheets&gt;
+    //=========================================================
+    var source = xlsx.xl['workbook.xml'].getElementsByTagName('sheet')[0];
+    var clone = source.cloneNode(true);
+    clone.setAttribute('name', name);
+    clone.setAttribute('sheetId', sheetId);
+    clone.setAttribute('r:id','rId'+sheetId+1);
+    xlsx.xl['workbook.xml'].getElementsByTagName('sheets')[0].appendChild(clone);
+    
+    //Add sheet2.xml to xl/worksheets
+    //===============================
+    var newSheet = '&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;'+
+      '&lt;worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" mc:Ignorable="x14ac"&gt;'+
+      getTableData(data, title) +
+      
+      '&lt;/worksheet&gt;';
+
+    xlsx.xl.worksheets['sheet' + sheetId + '.xml'] = $.parseXML(newSheet);
+    
+  }
+
+
+  var table = $('#example').DataTable( {
+    dom: 'Brftip',
+    buttons: [
+      {
+        extend: 'excelHtml5',
+        text: 'Excel',
+        customize: function( xlsx ) {
+          //setSheetName(xlsx, 'Calls');
+          
+          // Add more of these 2 lines, to add more sheets, as needed:
+          var data = [ ["test1", 123], ["test2", 456], ["test3", 789] ];
+          addSheet(xlsx, data, null, 'TabName2', '2');
+        }
+          
+      }
+    ]
+  } );
+  
+} );
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks! I tested your solution and it worked perfectly. I reviewed my solution after testing yours and noticed that in your output the <code>r:id</code> was set differently. When I reviewed my code I noticed that I was using <code>rId2</code>, which was already in use. This one change got my code working. I made an edit to the original question to reflect this solution.</span> <span> - </span> <span class="display-name">Cody Maxie</span> <span> </span> <span class="date">13 Apr 2021 at 15:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to extract object properties from a JSON response</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to extract object properties from a JSON response</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Gilles Gisseleire</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>31 May 2021 at 14:58</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67776124/how-to-extract-object-properties-from-a-json-response">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a large amount of books and I want to build a database to manage them. My idea is to scan all their barcodes, put them in Google Sheets then use OpenLibrary API to retrieve the corresponding meta data (title, authors etc.) to avoid typing it all in.</p>
+    <p>The API structure is simple enough and I'm able to retrieve the information by passing over the barcode (ISBN number):</p>
+    <pre><code>var url = "https://openlibrary.org/api/books?bibkeys=ISBN:" + numisbn +"&amp;jscmd=data&amp;format=json";
+var response = UrlFetchApp.fetch(url);
+</code></pre>
+    <p>But the JSON structure of the response gives me trouble:</p>
+    <pre><code>{
+    "ISBN:9782505061373": {
+        "url": "https://openlibrary.org/books/OL32231855M/Undertaker_-_Tome_1_-_Le_Mangeur_d'or",
+        "key": "/books/OL32231855M",
+        "title": "Undertaker - Tome 1 - Le Mangeur d'or",
+        "authors": [
+            {
+                "url": "https://openlibrary.org/authors/OL8653266A/Xavier_Dorison",
+                "name": "Xavier Dorison"
+            },
+            {
+                "url": "https://openlibrary.org/authors/OL9159488A/Ralph_Meyer",
+                "name": "Ralph Meyer"
+            }
+        ],
+        "number_of_pages": 56,
+        "identifiers": {
+            "isbn_10": [
+                "2505061378"
+            ],
+            "isbn_13": [
+                "9782505061373"
+            ],
+            "openlibrary": [
+                "OL32231855M"
+            ]
+        },
+        "publishers": [
+            {
+                "name": "DARGAUD"
+            }
+        ],
+        "publish_date": "Jan 30, 2015",
+        "notes": "Source title: Undertaker - Tome 1 - Le Mangeur d'or (Undertaker, 1) (French Edition)",
+        "cover": {
+            "small": "https://covers.openlibrary.org/b/id/10867977-S.jpg",
+            "medium": "https://covers.openlibrary.org/b/id/10867977-M.jpg",
+            "large": "https://covers.openlibrary.org/b/id/10867977-L.jpg"
+        }
+    }
+}
+</code></pre>
+    <p>What would be the right syntax to retrieve the properties of the first object without (ISBN:...) without having to hard code it, since it's changing dynamically for each query.</p>
+    <p>If I'm retrieving the title, for instance, I'll use</p>
+    <pre><code>results["ISBN:9782505061373"]["title"]; 
+</code></pre>
+    <p>But what can I do to automatically retrieve that "ISBN:..." part of the object?</p>
+    <p>My goal is then to write the values of the selected properties as an array in the sheet.</p>
+    <p>I'm adapting the code from a snippet I found online that was written for the Google Books API. But I find that many of my books are missing from Google Books and I'd like to use OpenLibrary instead.</p>
+    <p>The full snippet, partially adapted is here below. I'm trying to adapt the portion with the properties to match what OpenLibrary provides and what is relevant to me. If you have any other suggestions, I'm all ears :-)</p>
+    <p>Thanks a lot for your support.</p>
+    <pre><code>s = SpreadsheetApp.getActiveSheet();
+
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu('ISBN')
+      .addItem('Chercher par ISBN', 'getBookDetails')
+      .addToUi();
+}
+
+function getBookDetails(numisbn) {
+  
+  // Query the book database by ISBN code.
+  activeCell = s.getActiveCell();
+  value = activeCell.getValue();
+  numisbn = numisbn || value.toString(); 
+ 
+  // Not a valid ISBN if not 13 or 10 digits long.
+  if(numisbn.match(/(\d{13}|\d{10})/) == null){
+    throw new Error( "Not a valid ISBN: " + numisbn);
+  }
+  var url = "https://openlibrary.org/api/books?bibkeys=ISBN:" + numisbn +"&amp;jscmd=data&amp;format=json";
+  var results = UrlFetchApp.fetch(url);
+  
+  if (results.totalItems) {
+
+    // There'll be only 1 book per ISBN
+    var book = results.items[0];
+
+    var title = (book["volumeInfo"]["title"]);
+    var subtitle = (book["volumeInfo"]["subtitle"]);
+    var authors = (book["volumeInfo"]["authors"]);
+    var printType = (book["volumeInfo"]["printType"]);
+    var pageCount = (book["volumeInfo"]["pageCount"]);
+    var publisher = (book["volumeInfo"]["publisher"]);
+    var publishedDate = (book["volumeInfo"]["publishedDate"]);
+    var webReaderLink = (book["accessInfo"]["webReaderLink"]);
+  }
+    s.getRange(activeCell.getRow(), activeCell.getColumn() + 1, 1, results[0].length).setValues(results);
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">json</span><span class="tag">google-apps-script</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>CMB</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 May 2021 at 16:18</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Solution:</strong></p>
+     <p>Since you have a variable for the ISBN that you pass to the API, you can use the same variable to compute the property name and use it as reference:</p>
+     <pre><code>results["ISBN:" + numisbn]["title"];
+</code></pre>
+     <p>This is possible since ES6 JavaScript.</p>
+     <p><strong>Reference:</strong></p>
+     <p><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Object_initializer#computed_property_names" rel="nofollow noreferrer">Computed Property Names</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 May 2021 at 16:21</span>
+     </div>
+    </div>
+    <div>
+     <p>I will assume we are starting with these lines:</p>
+     <pre class="lang-js prettyprint-override"><code>var url = "https://openlibrary.org/api/books?bibkeys=ISBN:" + numisbn +"&amp;jscmd=data&amp;format=json";
+var response = UrlFetchApp.fetch(url);
+</code></pre>
+     <p>And I will assume that the JSON you receive looks like this:</p>
+     <pre class="lang-js prettyprint-override"><code>{
+    "ISBN:9782505061373": {
+        "url": "https://openlibrary.org/books/OL32231855M/Undertaker_-_Tome_1_-_Le_Mangeur_d'or",
+        "key": "/books/OL32231855M",
+        "title": "Undertaker - Tome 1 - Le Mangeur d'or",
+        "authors": [{
+            "url": "https://openlibrary.org/authors/OL8653266A/Xavier_Dorison",
+            "name": "Xavier Dorison"
+        }, {
+            "url": "https://openlibrary.org/authors/OL9159488A/Ralph_Meyer",
+            "name": "Ralph Meyer"
+        }],
+        "number_of_pages": 56,
+        "identifiers": {
+            "isbn_10": ["2505061378"],
+            "isbn_13": ["9782505061373"],
+            "openlibrary": ["OL32231855M"]
+        },
+        "publishers": [{
+            "name": "DARGAUD"
+        }],
+        "publish_date": "Jan 30, 2015",
+        "notes": "Source title: Undertaker - Tome 1 - Le Mangeur d'or (Undertaker, 1) (French Edition)",
+        "cover": {
+            "small": "https://covers.openlibrary.org/b/id/10867977-S.jpg",
+            "medium": "https://covers.openlibrary.org/b/id/10867977-M.jpg",
+            "large": "https://covers.openlibrary.org/b/id/10867977-L.jpg"
+        }
+    }
+}
+</code></pre>
+     <p>From there, you can access the JSON payload of the HTTP response object as follows:</p>
+     <pre class="lang-js prettyprint-override"><code>var results = JSON.parse(response.getContentText());
+</code></pre>
+     <p>The above line reads the response into a string containing the JSON data, and then parses that into a JavaScript object.</p>
+     <p>You need to get the name used for the key of embedded object <code>"ISBN:9782505061373"</code>. To do this, use the following:</p>
+     <pre class="lang-js prettyprint-override"><code>let isbnKey = Object.keys(results)[0];
+</code></pre>
+     <p>The <code>Object.keys()</code> function gets all the provided keys - but in our case, we assume there is always exactly one such key.</p>
+     <p>Now we have <code>isbnKey</code> containing the string <code>ISBN:9782505061373</code>.</p>
+     <p>We can use this as follows to drill down into the details:</p>
+     <pre class="lang-js prettyprint-override"><code>let isbnUrl = results[isbnKey].url;
+let title = results[isbnKey].title;
+</code></pre>
+     <p>... and so on.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mike Steelson</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jun 2021 at 00:27</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a solution for retrieving all datas in the json. Hope that it will fit your needs</p>
+     <pre><code>let resultat = []; 
+
+/**
+ * Permet d'explorer un json.
+ * Retourne attribut ou objet / valeur 
+ *
+ * @param {texte ou cellule} url url du site hébergeant le json ou cellule de la feuille contenant le json
+ * @customfunction
+ */
+function getISBNInfos(url) {
+  var data = JSON.parse(UrlFetchApp.fetch(url).getContentText())
+  resultat.push(['niveau','champs','valeurs']);
+  getData(1,eval(data),'data')
+  return resultat
+}
+function getData(niv,obj,id) {
+  const regex = new RegExp('[^0-9]+');
+  for (let p in obj) {
+    var newid = (regex.test(p)) ? id + '.' + p : id + '[' + p + ']';
+    if (obj[p]!=null){
+      if (typeof obj[p] != 'object' &amp;&amp; typeof obj[p] != 'function'){
+        resultat.push([niv,  p, obj[p]]);
+      }
+      if (typeof obj[p] == 'object') {
+        if (obj[p].length){
+          resultat.push([niv,  p + '[0-' +(obj[p].length-1)+ ']', '']);
+        }else{
+          resultat.push([niv,  p, '']);
+        }
+        niv+=1;
+        getData(niv, obj[p], newid );
+        niv-=1
+      }
+    }
+  }
+}
+</code></pre>
+     <p>Take a copy ... <a href="https://docs.google.com/spreadsheets/d/1I8wog8ZSCQW1oTSsUCBnt1D2vZZHGb3hBGb5Yz2k42Y/copy" rel="nofollow noreferrer">https://docs.google.com/spreadsheets/d/1I8wog8ZSCQW1oTSsUCBnt1D2vZZHGb3hBGb5Yz2k42Y/copy</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Apache Lucene 8.4.1 How to get indexed fields and term list?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Apache Lucene 8.4.1 How to get indexed fields and term list?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>sunone5</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Feb 2020 at 07:42</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60371411/apache-lucene-8-4-1-how-to-get-indexed-fields-and-term-list">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'am new to Apache Lucene, I'm using Apache Lucene 8.4.1, I can do Lucene Indexing and Searching but don't know how to read and list index / print index using java. How to get indexed fields and term list ? .</p>
+    <p>I was able to get Fileds list by using following function grabbed from Other Stackoverflow article.</p>
+    <pre><code>public static String[] getFieldNames(IndexReader reader) {
+    List&lt;String&gt; fieldNames = new ArrayList&lt;String&gt;();
+    //For a simple reader over only one index, reader.leaves() should only  return one LeafReaderContext
+    for (LeafReaderContext readerCtx : reader.leaves()) {
+        FieldInfos fields = readerCtx.reader().getFieldInfos();
+        for (FieldInfo field : fields) {
+            //Check whether the field is indexed and searchable, perhaps?
+            fieldNames.add(field.name);            
+        }
+    }
+    return fieldNames.toArray(new String[fieldNames.size()]); 
+}
+</code></pre>
+    <p>Thanks</p>
+   </div>
+   <div class="tags">
+    <span class="tag">indexing</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>If you just want to inspect an index, then Luke is the tool to use. Download the Lucene source release from <a href="https://lucene.apache.org/core/downloads.html" rel="nofollow noreferrer">here</a>. There is a <code>Luke</code> directory containing the stand-alone executable. It will let you explore every facet of your index, and comes with its own GUI.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">24 Feb 2020 at 13:38</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>If, after using Luke, you still want to access the data programmatically, then can you provide an example of what you expect, for clarification? Also, bear in mind answers such as <a href="https://stackoverflow.com/questions/51585052/get-all-stored-fields-from-lucene-index-using-java">this</a>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">24 Feb 2020 at 13:39</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I found the way to list documents &amp; terms list . complete example will be available on git-hub for anyone reference. <a href="https://github.com/sunone5/lucene-ramdirectory-index" rel="nofollow noreferrer">github.com/sunone5/lucene-ramdirectory-index</a></span> <span> - </span> <span class="display-name">sunone5</span> <span> </span> <span class="date">27 Feb 2020 at 04:00</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sunone5</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Feb 2020 at 03:58</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>package com.lucene.ram;
+
+import java.io.IOException;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.document.TextField;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.IndexWriterConfig.OpenMode;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.store.RAMDirectory;
+
+/**
+ * 
+ * @author W.P.Roshan
+ * @email  sunone5 at gmail.com
+ * 
+ * The RAMDirector is deprecated instead you can use 
+ * 
+ * import org.apache.lucene.index.memory.MemoryIndex;
+ *
+ */
+
+public class RAMDirectoryExample {
+
+    public RAMDirectoryExample() {
+        // TODO Auto-generated constructor stub
+    }
+
+    static void writeIndex(RAMDirectory ramDir, Analyzer analyzer) {
+        try {
+            // IndexWriter Configuration
+            IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
+            iwc.setOpenMode(OpenMode.CREATE);
+
+            // IndexWriter writes new index files to the directory
+            IndexWriter writer = new IndexWriter(ramDir, iwc);
+
+            // Create some docs with name and content
+            indexDoc(writer, "document-1", "hello world");
+            indexDoc(writer, "document-2", "hello happy world");
+            indexDoc(writer, "document-3", "hello happy world");
+            indexDoc(writer, "document-4", "hello hello world");
+
+            // don't forget to close the writer
+            writer.close();
+        } catch (IOException e) {
+            // Any error goes here
+            e.printStackTrace();
+        }
+    }
+
+    static void indexDoc(IndexWriter writer, String name, String content) throws IOException {
+        Document doc = new Document();
+        doc.add(new TextField("name", name, Store.YES));
+        doc.add(new TextField("content", content, Store.YES));
+        writer.addDocument(doc);
+    }
+
+    static void searchIndex(RAMDirectory ramDir, Analyzer analyzer) {
+        IndexReader reader = null;
+        try {
+            // Create Reader
+            reader = DirectoryReader.open(ramDir);
+
+            // Create index searcher
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            // Build query
+            QueryParser qp = new QueryParser("content", analyzer);
+            Query query = qp.parse("happy");
+
+            // Search the index
+            TopDocs foundDocs = searcher.search(query, 10);
+
+            // Total found documents
+            System.out.println("Total Results :: " + foundDocs.totalHits);
+
+            // Let's print found doc names and their content along with score
+            for (ScoreDoc sd : foundDocs.scoreDocs) {
+                Document d = searcher.doc(sd.doc);
+                System.out.println("Document Number : " + sd.doc + " :: Document Name : " + d.get("name")
+                        + "  :: Content : " + d.get("content") + "  :: Score : " + sd.score);
+            }
+            System.out.println("");
+
+            // don't forget to close the reader
+            reader.close();
+        } catch (IOException e) {
+            // Any error goes here
+            e.printStackTrace();
+        } catch (ParseException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    static void readIndex_Get_Documents(RAMDirectory ramDir) {
+        IndexReader reader = null;
+        try {
+            // Create Reader
+            reader = DirectoryReader.open(ramDir);
+
+            // Create index searcher
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            System.out.println("-----------------------Document List-----------------------");
+            int maxDoc = reader.maxDoc();
+            for (int i = 0; i &lt; maxDoc; i++) {
+                Document d = reader.document(i);
+
+                /**
+                 * There are three types of method to retrieve indexed document name list
+                 */
+
+                /**
+                 * Method 1 for get document name list
+                 */
+                // System.out.println(""+d.getFields().iterator().next().stringValue());
+
+                /**
+                 * Method 2 for get document name list
+                 */
+                // System.out.println(""+d.iterator().next().stringValue());
+
+                /**
+                 * Method 3 for get document name list
+                 */
+                String[] vls = d.getValues("name");
+                for (int j = 0; j &lt; vls.length; j++) {
+                    System.out.println("" + vls[j].toString());
+                }
+            }
+
+            // don't forget to close the reader
+            reader.close();
+        } catch (IOException e) {
+            // Any error goes here
+            e.printStackTrace();
+        }
+    }
+
+    static void readIndex_Get_Terms(RAMDirectory ramDir) {
+        IndexReader reader = null;
+        try {
+            // Create Reader
+            reader = DirectoryReader.open(ramDir);
+
+            // Create index searcher
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            System.out.println("");
+            System.out.println("--------------------------Term List------------------------");
+            int maxDoc = reader.maxDoc();
+            for (int i = 0; i &lt; maxDoc; i++) {
+                Document d = reader.document(i);
+
+                /**
+                 * There are three types of methods to retrieve indexed term list
+                 */
+
+                /**
+                 * Method 1 for retrieve terms list
+                 */
+                // System.out.println(""+d.get("content").toString());
+
+                /**
+                 * Method 2 for retrieve terms list
+                 */
+                // System.out.println(""+d.getField("content").stringValue());
+
+                /**
+                 * Method 3 for retrieve terms list
+                 */
+                String[] vl = searcher.doc(i).getValues("content");
+                for (int k = 0; k &lt; vl.length; k++) {
+                    System.out.println("" + vl[k].toString());
+                }
+            }
+            // don't forget to close the reader
+            reader.close();
+        } catch (IOException e) {
+            // Any error goes here
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        // Create RAMDirectory instance
+        RAMDirectory ramDir = new RAMDirectory();
+
+        // Builds an analyzer with the default stop words
+        Analyzer analyzer = new StandardAnalyzer();
+
+        // Write some docs to RAMDirectory
+        writeIndex(ramDir, analyzer);
+
+        // Search indexed docs in RAMDirectory
+        searchIndex(ramDir, analyzer);
+
+        // read Index get indexed document list
+        readIndex_Get_Documents(ramDir);
+
+        // read Index get indexed terms list
+        readIndex_Get_Terms(ramDir);
+    }
+
+}
+</code></pre>
+     <p>I found the way to list documents &amp; terms list . complete example will be available on git-hub for anyone reference. <a href="https://github.com/sunone5/lucene-ramdirectory-index" rel="nofollow noreferrer">https://github.com/sunone5/lucene-ramdirectory-index</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

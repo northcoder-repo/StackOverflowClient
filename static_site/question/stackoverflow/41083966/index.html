@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lambda capturing instance variable</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lambda capturing instance variable</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>4</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jim Garrison</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Dec 2016 at 07:33</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/41083966/lambda-capturing-instance-variable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>From reading the JLS after a frustrating debugging session I find that lambdas will capture the <em>value</em> of effectively-final local variables, but if you refer to an instance variable it captures a reference to the variable, which has serious implications for multi-threaded code.</p>
+    <p>For example, the following is an MCVE distilled from a much larger program:</p>
+    <pre><code>public class LambdaCapture
+{
+    public static void main(String[] args) throws Exception
+    {
+        Launcher i1 = new Launcher();
+        i1.launchAsynchTask();
+    }
+
+    public static class Launcher
+    {
+        private int value = 10;
+
+        public void launchAsynchTask() throws Exception
+        {
+            System.out.printf("In launchAsynchTask value is %s\n",value);
+            Thread t = new Thread(()-&gt;doSomething(value));
+            t.start();
+            value = -1;
+            t.join();
+        }
+
+        public void doSomething(int value)
+        {
+            System.out.printf("In asynch task, value is %s\n",value);
+        }
+    }
+}
+</code></pre>
+    <p>I found the output surprising. It is</p>
+    <pre><code>In launchAsynchTask value is 10
+In asynch task, value is -1
+</code></pre>
+    <p>since I initially (prior to JLS research) and intuitively expected the lambda to capture the <em>value</em> of the variable <code>value</code> instead of a reference to it.</p>
+    <p>If I have to guarantee that the current <em>value</em> is captured instead of a reference the obvious solution is to create a local final temporary:</p>
+    <pre><code>        final int capture = this.value;
+        Thread t = new Thread(()-&gt;doSomething(capture));
+</code></pre>
+    <p>My question: Is this the accepted idiomatic way to force value capture, or is there some other more natural way to do it?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lambda</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Stephen C</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Dec 2016 at 07:44</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>I ... intuitively expected the lambda to capture the value of the variable value instead of a reference to it.</p>
+     </blockquote>
+     <p>That (capturing the value) is what happens with local variables.</p>
+     <p>With fields, what is actually happening is that you are capturing a reference to the instance of the object that the field belongs to. In your case, it is a reference to the <code>Launcher.this</code> object. (The same thing happens when you declare an inner class.)</p>
+     <blockquote>
+      <p>My question: Is this the accepted idiomatic way to force value capture, or is there some other more natural way to do it?</p>
+     </blockquote>
+     <p>I can't think of a better way.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>One <i>could</i> argue that the "accepted idiomatic way" to prevent the problem presented here, is to make the class immutable. That way the <i>field</i> <code>value</code> is also "effectively final". Of course, one would have to be a dedicated functional programmer to make that argument. <i>(I'm not one of them)</i></span> <span> - </span> <span class="display-name">Andreas</span> <span> </span> <span class="date">11 Dec 2016 at 08:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>And implementing <i>that</i> in Java would have such a fundamentally disruptive effect that lambdas would be dead in the water ... in the minds of most Java programmers.</span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">8 May 2018 at 13:25</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Andreas</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Dec 2016 at 08:24</span>
+     </div>
+    </div>
+    <div>
+     <p>Because you're using shorthand syntax, it's not as obvious what is going on.</p>
+     <p>When you write <code>value</code> to access the <em>field</em>, it implicitly means <code>this.value</code>.</p>
+     <p>The lambda expression is capturing the absolutely final "local variable" <code>this</code> that is implicit to all non-static methods.</p>
+     <p>The lambda expression</p>
+     <pre><code>()-&gt;doSomething(value)
+</code></pre>
+     <p>is <em>logically</em> equivalent to</p>
+     <pre><code>new Lambda$1(this)
+</code></pre>
+     <p>where <code>Lambda$1</code> is declared like this <em>(using arbitrary names)</em>:</p>
+     <pre><code>private static final class Lambda$1 implements Runnable {
+    private final Launcher ref;
+    Lambda$1(Launcher ref) {
+        this.ref = ref;
+    }
+    @Override
+    public void run() {
+        this.ref.doSomething(this.ref.value);
+    }
+}
+</code></pre>
+     <p>As you can see, the lambda expression <code>()-&gt;doSomething(value)</code> is not actually capturing <code>value</code>. The unqualified field access is obscuring what is actually happening.</p>
+     <hr>
+     <p><em>FYI:</em> Hiding field <code>value</code> behind parameter <code>value</code> in the <code>doSomething()</code> method is a bad idea. The name conflict makes the code very vulnerable to misinterpretation by programmers, and good IDEs will warn you about it <em>(unless you disabled that warning)</em>.</p>
+     <p>Hopefully that just happened by mistake here when creating an MCVE, and you wouldn't do that in real code. :-)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>tcernaj</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Dec 2016 at 19:06</span>
+     </div>
+    </div>
+    <div>
+     <p>What I normally like to do is to minimize code parts that access fields directly, so you could wrap the part starting the thread in a function like this:</p>
+     <pre class="lang-java prettyprint-override"><code>public void launchAsynchTask() throws Exception
+{
+    System.out.printf("In launchAsynchTask value is %s\n", this.value);
+    Thread t = launchAsynchTaskWithValue(this.value);
+    this.value = -1;
+    t.join();
+}
+
+public Thread launchAsynchTaskWithValue(int launchValue) throws Exception
+{
+    Thread t = new Thread(()-&gt;doSomething(launchValue));
+    t.start();
+    return t;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

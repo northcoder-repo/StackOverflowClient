@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Custom Styling in Exported Excel file</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Custom Styling in Exported Excel file</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>john</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Jul 2020 at 09:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62978470/custom-styling-in-exported-excel-file">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to exported excel file from Datatable with custom style. I want to make first row background color blue with font color white. The code below makes background color blue but font color white is not getting applied.</p>
+    <pre><code>function(xlsx) {
+                                             
+  var styles = xlsx.xl['styles.xml'];
+  
+  f1 = '&lt;font&gt;&lt;sz val=\"12\" /&gt;&lt;name val=\"Calibri\"/&gt;&lt;color rgb=\"ffffff\"/&gt;&lt;/font&gt;';
+  s1 = '&lt;fill&gt;&lt;patternFill patternType=\"solid\"&gt;&lt;fgColor rgb=\"213e82\" /&gt;&lt;/patternFill&gt;&lt;/fill&gt;';
+  s2 = '&lt;xf numFmtId=\"168\" fontId=\"0\" fillId=\"6\" borderId=\"1\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" xfId=\"0\" applyAlignment=\"1\"&gt;&lt;alignment horizontal=\"center\"/&gt;&lt;/xf&gt;';
+
+  styles.childNodes[0].childNodes[1].innerHTML += f1;
+  styles.childNodes[0].childNodes[2].innerHTML += s1 + f1;
+  styles.childNodes[0].childNodes[5].innerHTML += s2;
+
+             var sheet = xlsx.xl.worksheets['sheet1.xml'];
+             
+             // first row
+             $('row:eq(0) c', sheet).attr( 's', 67);
+
+            //row with totals
+            $('row:eq(-1) c', sheet).attr( 's', '2' );  //bold
+            
+    }
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">xml</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jul 2020 at 15:08</span>
+     </div>
+    </div>
+    <div>
+     <p>In your <code>&lt;xf&gt;</code> tag definition, in the variable <code>s2</code>, change the font ID index from 0 to 1: <code>fontId="1"</code>.</p>
+     <p>Then it will refer to your newly added font from <code>f1</code>. This assumes you end up with 2 fonts in the style sheet, of course. You may need to adjust the index, if there are more.</p>
+     <p><strong>Update - Borders:</strong></p>
+     <p>Here is an example border entry in the style sheet, in the <code>&lt;borders&gt;</code> section:</p>
+     <pre><code>&lt;border diagonalUp="false" diagonalDown="false"&gt;
+    &lt;left style="thin"&gt;
+        &lt;color auto="1"/&gt;
+    &lt;/left&gt;
+    &lt;right style="thin"&gt;
+        &lt;color auto="1"/&gt;
+    &lt;/right&gt;
+    &lt;top style="thin"&gt;
+        &lt;color auto="1"/&gt;
+    &lt;/top&gt;
+    &lt;bottom style="thin"&gt;
+        &lt;color auto="1"/&gt;
+    &lt;/bottom&gt;
+    &lt;diagonal/&gt;
+&lt;/border&gt;
+</code></pre>
+     <p><strong>Update 2 - Controlling Exported Rows and Cols</strong></p>
+     <p>You can use the <code>exportOptions</code> feature to handle exporting only the 2nd data row onwards, and the 2nd column onwards:</p>
+     <pre><code>    exportOptions: {
+        rows: function ( idx, data, node ) {
+            if (idx &gt; 0) {
+              return data;
+            }
+        },
+        columns: function ( idx, data, node ) {
+            if (idx &gt; 0) {
+              return data;
+            }
+          }
+    },
+
+    customize: function ( xlsx ) { ...},
+</code></pre>
+     <p>This needs to be nested at the same level as your existing <code>customize</code> section. It uses a function to check the index of each row and column.</p>
+     <p>There is actually another shorter way to do this, where you explicitly list the row indexes and column indexes you need:</p>
+     <pre><code>exportOptions: {
+  rows: [ 1, 2, 3, 4, 5 ],
+  columns: [ 1, 2, 3, 4, 5 ]
+}
+</code></pre>
+     <p>But since you want "everything to the end", the function is better.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks a ton. I spent so many hours figuring it out, later this solution made me crazy, it was so stupid mistake I made. Can you help me in applying border on each cell?</span> <span> - </span> <span class="display-name">john</span> <span> </span> <span class="date">19 Jul 2020 at 15:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>No problem - we have all been there (and will be again). Borders are similar entries to fonts. I will add an example to my answer - should be sufficient to point you in the right direction.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Jul 2020 at 15:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Got it - $('row c', sheet).attr('s', '25'); Last desire I have - Is it possible to copy data from cell B2 instead of A1?</span> <span> - </span> <span class="display-name">john</span> <span> </span> <span class="date">19 Jul 2020 at 15:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><i>copy data from cell B2</i> - not sure what you mean. Do you mean export data from the HTML table, but ignoring the first data row and the first data column?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Jul 2020 at 15:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sorry for not being clear in my previous comment. Yes this is what I meant "export data from the HTML table, but ignoring the first data row and the first data column"</span> <span> - </span> <span class="display-name">john</span> <span> </span> <span class="date">19 Jul 2020 at 15:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes, possible - I'll have to remind myself - been a while. Will get back to you.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Jul 2020 at 15:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you. Would be a great help!</span> <span> - </span> <span class="display-name">john</span> <span> </span> <span class="date">19 Jul 2020 at 15:37</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

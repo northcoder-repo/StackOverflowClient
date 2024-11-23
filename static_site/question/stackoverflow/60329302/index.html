@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Parsing an array of non-homogeneous JSON Objects with Jackson</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Parsing an array of non-homogeneous JSON Objects with Jackson</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Karlson</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Feb 2020 at 22:13</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60329302/parsing-an-array-of-non-homogeneous-json-objects-with-jackson">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a situation where I need to parse an array of JSON objects that are not identical.</p>
+    <p>So for example:</p>
+    <pre><code>[ 
+ { "type": "type1", ..... type1 contents .... }, 
+ { "type": "type2", ..... type2 contents .... },
+ ....
+ { "type": "type1", ..... type1 contents .... }
+]
+</code></pre>
+    <p>The number of types is limited and the contents of each type are well can be defined but it is not possible to define a single type of object that will hold the contents.</p>
+    <p>Is there a way to parse them with Jackson?</p>
+    <p>P.S. I am trying to avoid writing a custom parser if I can help it.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">jackson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Try using bean to bean mapping using Dozer(DozerBeanMapper). More info @ <a href="http://dozer.sourceforge.net/" rel="nofollow noreferrer">dozer.sourceforge.net</a></span> <span> - </span> <span class="display-name">Kumar Ashutosh</span> <span> </span> <span class="date">20 Feb 2020 at 22:28</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I must be missing something. How does that apply?</span> <span> - </span> <span class="display-name">Karlson</span> <span> </span> <span class="date">20 Feb 2020 at 22:51</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>This answer looks similar: <a href="https://stackoverflow.com/a/12459070/3080094">stackoverflow.com/a/12459070/3080094</a> Replace "dimensions" with "type" and you might be halfway there.</span> <span> - </span> <span class="display-name">vanOekel</span> <span> </span> <span class="date">11 Mar 2020 at 22:57</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Check similar answers <a href="https://stackoverflow.com/questions/44122782/jackson-deserialize-based-on-type" title="jackson deserialize based on type">stackoverflow.com/questions/44122782/…</a></span> <span> - </span> <span class="display-name">Ori Marko</span> <span> </span> <span class="date">12 Mar 2020 at 08:19</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nonika</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Mar 2020 at 18:07</span>
+     </div>
+    </div>
+    <div>
+     <p>I would use</p>
+     <p><code>com.fasterxml.jackson.databind.JsonNode</code>.</p>
+     <pre><code>JsonNode parsed = objectMapper
+                   .readValue("[{\"name\": \"a\"},{\"type\":\"b\"}]", JsonNode.class);
+</code></pre>
+     <p>This class has tons of utility methods to work with.</p>
+     <p>Or specific for arrays you can use:</p>
+     <p><code>com.fasterxml.jackson.databind.node.ArrayNode</code></p>
+     <pre><code>ArrayNode value = objectMapper
+                   .readValue("[{\"name\": \"a\"},{\"type\":\"b\"}]", ArrayNode.class);
+</code></pre>
+     <p><strong>EDIT</strong></p>
+     <p>Sorry, I have misread your question, you can use <code>@JsonTypeInfo</code> for polymorphic serialization/deserialization:</p>
+     <pre><code>public static void main(String args[]) throws JsonProcessingException {
+
+    //language=JSON
+    String data = "[{\"type\":\"type1\", \"type1Specific\":\"this is type1\"},{\"type\":\"type2\", \"type2Specific\":\"this is type2\"}]";
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    List&lt;BaseType&gt; parsed = objectMapper.readValue(data, new TypeReference&lt;List&lt;BaseType&gt;&gt;() {});
+    System.out.println(parsed);
+}
+
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", include = JsonTypeInfo.As.PROPERTY)
+@JsonSubTypes(value = {
+        @JsonSubTypes.Type(value = Type1.class, name = "type1"),
+        @JsonSubTypes.Type(value = Type2.class, name = "type2")
+})
+static public abstract class BaseType {
+    public String type;
+}
+static public class Type1 extends BaseType {
+    public String type1Specific;
+    @Override
+    public String toString() {
+        return "Type1{" +
+                "type1Specific='" + type1Specific + '\'' +
+                '}';
+    }
+}
+static public class Type2 extends BaseType {
+    public String type2Specific;
+
+    @Override
+    public String toString() {
+        return "Type2{" +
+                "type2Specific='" + type2Specific + '\'' +
+                '}';
+    }
+}
+</code></pre>
+     <p>Here are the docs:</p>
+     <p><a href="https://github.com/FasterXML/jackson-docs/wiki/JacksonPolymorphicDeserialization" rel="nofollow noreferrer">https://github.com/FasterXML/jackson-docs/wiki/JacksonPolymorphicDeserialization</a></p>
+     <p>Hope this helps.</p>
+     <p>And the result would be:</p>
+     <pre><code>[Type1{type1Specific='this is type1'}, Type2{type2Specific='this is type2'}]
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Still basically a custom parser. What I was looking for is something similar to: <a href="https://stackoverflow.com/a/50028671/975797">stackoverflow.com/a/50028671/975797</a> Creating a JsonNode and then figuring out what's the contents I've already done. I was looking for a method of creating POJO array without having to write my own code to parse it.</span> <span> - </span> <span class="display-name">Karlson</span> <span> </span> <span class="date">14 Mar 2020 at 16:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Karlson I have edited my answer. I hope this is will work for you.</span> <span> - </span> <span class="display-name">Nonika</span> <span> </span> <span class="date">14 Mar 2020 at 17:56</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ravi Sharma</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Mar 2020 at 17:56</span>
+     </div>
+    </div>
+    <div>
+     <p>We can use List.class to map this JSON Array with different types of objects that hold the content. It will return the List of LinkedHashMaps. Different content will be mapped to LinkedHashMap.</p>
+     <pre><code>@Test
+public void testLoadCustom() {
+    String json = "[{\"a\":\"A\" } , {\"b\":\"B\" , \"c\":\"C\" } , {\"d\":\"D\" } ]";
+    try {
+        List custom = objectMapper.readValue(json, List.class);
+        System.out.println(custom);
+    } catch (Exception ex) {
+        ex.getStackTrace();
+    }
+}
+
+
+ // Output [{a=A}, {b=B, c=C}, {d=D}] 
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>You misunderstand the problem. The objects are not entirely different and the type of object in the list is determined based on tag type.</span> <span> - </span> <span class="display-name">Karlson</span> <span> </span> <span class="date">13 Mar 2020 at 14:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

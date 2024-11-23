@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Best way on how to solve/debug JVM crash (SIGSEGV)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Best way on how to solve/debug JVM crash (SIGSEGV)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>13</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Philipp</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Mar 2016 at 01:34</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/36109313/best-way-on-how-to-solve-debug-jvm-crash-sigsegv">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm really lost and I don't know how to face and solve my problem. I have a piece of simple Java Code, which leads to a JVM crash:</p>
+    <pre><code>#
+# A fatal error has been detected by the Java Runtime Environment:
+#
+#  SIGSEGV (0xb) at pc=0x00000001057ce9d4, pid=10727, tid=18947
+#
+# JRE version: Java(TM) SE Runtime Environment (8.0_73-b02) (build 1.8.0_73-b02)
+# Java VM: Java HotSpot(TM) 64-Bit Server VM (25.73-b02 mixed mode bsd-amd64 compressed oops)
+# Problematic frame:
+# V  [libjvm.dylib+0x3ce9d4]  PhaseIdealLoop::idom_no_update(Node*) const+0x12
+#
+# Failed to write core dump. Core dumps have been disabled. To enable core dumping, try "ulimit -c unlimited" before starting Java again
+#
+# If you would like to submit a bug report, please visit:
+#   http://bugreport.java.com/bugreport/crash.jsp
+#
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x00007feeef003800):  JavaThread "C2 CompilerThread0" daemon [_thread_in_native, id=18947, stack(0x0000700000ec4000,0x0000700000fc4000)]
+
+siginfo: si_signo: 11 (SIGSEGV), si_code: 1 (SEGV_MAPERR), si_addr: 0x0000000000000008
+</code></pre>
+    <p>I have no idea on how to solve the problem. The program is pretty simple, it receives a message through Kafka and triggers tasks based on the message received. If I add two different tasks, the program crashes after 900 - 1,500 messages. All of the messages are the same and the program does not use any JNI stuff (the used 3rd party libraries don't use any JNI as well, as far as I'm informed).</p>
+    <p>I never faced this problem, but I'd love/need to find a way on how to figure out what the problem is. I already used other versions of the JVM (Java 8.0_66, 8.0_73-b02, and 8.0_74-b02). So what can I do? Thank you so much!</p>
+    <p>EDIT (1): Sometimes I also get the following error/info:</p>
+    <pre><code>...
+# JRE version: Java(TM) SE Runtime Environment (8.0_73-b02) (build 1.8.0_73-b02)
+# Java VM: Java HotSpot(TM) 64-Bit Server VM (25.73-b02 mixed mode bsd-amd64 compressed oops)
+# Problematic frame:
+# V  [libjvm.dylib+0x3ce9d4]
+...
+</code></pre>
+    <p>EDIT (2): I updated my Java version to 8.0_74. The error is still there :(.</p>
+    <pre><code>#
+# A fatal error has been detected by the Java Runtime Environment:
+#
+#  SIGSEGV (0xb) at pc=0x00000001073cdef8, pid=11227, tid=19715
+#
+# JRE version: Java(TM) SE Runtime Environment (8.0_74-b02) (build 1.8.0_74-b02)
+# Java VM: Java HotSpot(TM) 64-Bit Server VM (25.74-b02 mixed mode bsd-amd64 compressed oops)
+# Problematic frame:
+# V  [libjvm.dylib+0x3cdef8]  PhaseIdealLoop::idom_no_update(Node*) const+0x12
+#
+# Failed to write core dump. Core dumps have been disabled. To enable core dumping, try "ulimit -c unlimited" before starting Java again
+#
+# If you would like to submit a bug report, please visit:
+#   http://bugreport.java.com/bugreport/crash.jsp
+#
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x00007f89e481c800):  JavaThread "C2 CompilerThread1" daemon [_thread_in_native, id=19715, stack(0x000070000104a000,0x000070000114a000)]
+
+siginfo: si_signo: 11 (SIGSEGV), si_code: 1 (SEGV_MAPERR), si_addr: 0x0000000000000008
+</code></pre>
+    <p>EDIT (3): Core Dump</p>
+    <p>So finally I created a core dump and loaded it into Java VisualVM (I could not use the solution presented by DROY because calling jmap lead to another error: "Error attaching to core file: Can't attach to the core file"). The threaddump created with VisualVM results in:</p>
+    <pre><code>Thread 30239 "Keep-Alive-Timer": (state = BLOCKED)
+    at java.lang.Thread.sleep(Native Method)
+    at sun.net.www.http.KeepAliveCache.run(KeepAliveCache.java:172)
+    at java.lang.Thread.run(Thread.java:745)
+
+Thread 29699 "threadDeathWatcher-4-1": (state = BLOCKED)
+    at java.lang.Thread.sleep(Native Method)
+    at io.netty.util.ThreadDeathWatcher$Watcher.run(ThreadDeathWatcher.java:137)
+    at io.netty.util.concurrent.DefaultThreadFactory$DefaultRunnableDecorator.run(DefaultThreadFactory.java:137)
+    at java.lang.Thread.run(Thread.java:745)
+
+Thread 26635 "nioEventLoopGroup-3-1": (state = IN_NATIVE)
+    at sun.nio.ch.KQueueArrayWrapper.kevent0(Native Method)
+    at sun.nio.ch.KQueueArrayWrapper.poll(KQueueArrayWrapper.java:198)
+    at sun.nio.ch.KQueueSelectorImpl.doSelect(KQueueSelectorImpl.java:117)
+    at sun.nio.ch.SelectorImpl.lockAndDoSelect(SelectorImpl.java:86)
+    - locked &lt;0x00000006c049ec98&gt; (a io.netty.channel.nio.SelectedSelectionKeySet)
+    - locked &lt;0x00000006c049ec88&gt; (a java.util.Collections$UnmodifiableSet)
+    - locked &lt;0x00000006c049ecb8&gt; (a sun.nio.ch.KQueueSelectorImpl)
+    at sun.nio.ch.SelectorImpl.select(SelectorImpl.java:97)
+    at io.netty.channel.nio.NioEventLoop.select(NioEventLoop.java:622)
+    at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:310)
+    at io.netty.util.concurrent.SingleThreadEventExecutor$2.run(SingleThreadEventExecutor.java:110)
+    at io.netty.util.concurrent.DefaultThreadFactory$DefaultRunnableDecorator.run(DefaultThreadFactory.java:137)
+    at java.lang.Thread.run(Thread.java:745)
+
+Thread 29187 "pool-3-thread-1": (state = BLOCKED)
+    at sun.misc.Unsafe.park(Native Method)
+    at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+    at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+    at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+    at kafka.consumer.ConsumerIterator.makeNext(ConsumerIterator.scala:63)
+    at kafka.consumer.ConsumerIterator.makeNext(ConsumerIterator.scala:33)
+    at kafka.utils.IteratorTemplate.maybeComputeNext(IteratorTemplate.scala:66)
+    at kafka.utils.IteratorTemplate.hasNext(IteratorTemplate.scala:58)
+    at com.sosse.common.messaging.DefaultHandler.doRun(DefaultHandler.java:22)
+    at com.sosse.common.concurrency.DefaultRunnable.run(DefaultRunnable.java:11)
+    at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+    at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+    at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+    at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+    at java.lang.Thread.run(Thread.java:745)
+
+Thread 28675 "pool-4-thread-1": (state = BLOCKED)
+    at java.lang.Thread.sleep(Native Method)
+    at io.netty.util.HashedWheelTimer$Worker.waitForNextTick(HashedWheelTimer.java:461)
+    at io.netty.util.HashedWheelTimer$Worker.run(HashedWheelTimer.java:360)
+    at java.lang.Thread.run(Thread.java:745)
+
+Thread 28163 "ConsumerFetcherThread-analytics-group_Philipp.local-1458441725398-581eabc3-0-0": (state = IN_NATIVE)
+    at sun.nio.ch.Net.poll(Native Method)
+    at sun.nio.ch.SocketChannelImpl.poll(SocketChannelImpl.java:954)
+    - locked &lt;0x00000006c056d538&gt; (a java.lang.Object)
+    at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:204)
+    - locked &lt;0x00000006c056d5b8&gt; (a java.lang.Object)
+    at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+    - locked &lt;0x00000006c056d5f8&gt; (a sun.nio.ch.SocketAdaptor$SocketInputStream)
+    at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+    - locked &lt;0x00000006c056d618&gt; (a java.lang.Object)
+    at kafka.utils.Utils$.read(Utils.scala:380)
+    at kafka.network.BoundedByteBufferReceive.readFrom(BoundedByteBufferReceive.scala:54)
+    at kafka.network.Receive$class.readCompletely(Transmission.scala:56)
+    at kafka.network.BoundedByteBufferReceive.readCompletely(BoundedByteBufferReceive.scala:29)
+    at kafka.network.BlockingChannel.receive(BlockingChannel.scala:111)
+    at kafka.consumer.SimpleConsumer.liftedTree1$1(SimpleConsumer.scala:71)
+    at kafka.consumer.SimpleConsumer.kafka$consumer$SimpleConsumer$$sendRequest(SimpleConsumer.scala:68)
+    - locked &lt;0x00000006c056d6e0&gt; (a java.lang.Object)
+    at kafka.consumer.SimpleConsumer$$anonfun$fetch$1$$anonfun$apply$mcV$sp$1.apply$mcV$sp(SimpleConsumer.scala:112)
+    at kafka.consumer.SimpleConsumer$$anonfun$fetch$1$$anonfun$apply$mcV$sp$1.apply(SimpleConsumer.scala:112)
+    at kafka.consumer.SimpleConsumer$$anonfun$fetch$1$$anonfun$apply$mcV$sp$1.apply(SimpleConsumer.scala:112)
+    at kafka.metrics.KafkaTimer.time(KafkaTimer.scala:33)
+    at kafka.consumer.SimpleConsumer$$anonfun$fetch$1.apply$mcV$sp(SimpleConsumer.scala:111)
+    at kafka.consumer.SimpleConsumer$$anonfun$fetch$1.apply(SimpleConsumer.scala:111)
+    at kafka.consumer.SimpleConsumer$$anonfun$fetch$1.apply(SimpleConsumer.scala:111)
+    at kafka.metrics.KafkaTimer.time(KafkaTimer.scala:33)
+    at kafka.consumer.SimpleConsumer.fetch(SimpleConsumer.scala:110)
+    at kafka.server.AbstractFetcherThread.processFetchRequest(AbstractFetcherThread.scala:94)
+    at kafka.server.AbstractFetcherThread.doWork(AbstractFetcherThread.scala:86)
+    at kafka.utils.ShutdownableThread.run(ShutdownableThread.scala:60)
+
+Thread 27651 "analytics-group_Philipp.local-1458441725398-581eabc3-leader-finder-thread": (state = BLOCKED)
+    at sun.misc.Unsafe.park(Native Method)
+    at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+    at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+    at kafka.consumer.ConsumerFetcherManager$LeaderFinderThread.doWork(ConsumerFetcherManager.scala:61)
+    at kafka.utils.ShutdownableThread.run(ShutdownableThread.scala:60)
+
+Thread 27139 "analytics-group_Philipp.local-1458441725398-581eabc3_watcher_executor": (state = BLOCKED)
+    at sun.misc.Unsafe.park(Native Method)
+    at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:215)
+    at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2163)
+    at kafka.consumer.ZookeeperConsumerConnector$ZKRebalancerListener$$anon$1.run(ZookeeperConsumerConnector.scala:544)
+
+Thread 26115 "kafka-consumer-scheduler-0": (state = BLOCKED)
+    at sun.misc.Unsafe.park(Native Method)
+    at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:215)
+    at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:2078)
+    at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1093)
+    at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:809)
+    at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1067)
+    at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1127)
+    at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+    at java.lang.Thread.run(Thread.java:745)
+
+Thread 25603 "main-EventThread": (state = BLOCKED)
+    at sun.misc.Unsafe.park(Native Method)
+    at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+    at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+    at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+    at org.apache.zookeeper.ClientCnxn$EventThread.run(ClientCnxn.java:494)
+
+Thread 25091 "main-SendThread(localhost:2181)": (state = IN_NATIVE)
+    at sun.nio.ch.KQueueArrayWrapper.kevent0(Native Method)
+    at sun.nio.ch.KQueueArrayWrapper.poll(KQueueArrayWrapper.java:198)
+    at sun.nio.ch.KQueueSelectorImpl.doSelect(KQueueSelectorImpl.java:117)
+    at sun.nio.ch.SelectorImpl.lockAndDoSelect(SelectorImpl.java:86)
+    - locked &lt;0x00000006c0022c50&gt; (a sun.nio.ch.Util$2)
+    - locked &lt;0x00000006c0022c60&gt; (a java.util.Collections$UnmodifiableSet)
+    - locked &lt;0x00000006c0022c00&gt; (a sun.nio.ch.KQueueSelectorImpl)
+    at sun.nio.ch.SelectorImpl.select(SelectorImpl.java:97)
+    at org.apache.zookeeper.ClientCnxnSocketNIO.doTransport(ClientCnxnSocketNIO.java:349)
+    at org.apache.zookeeper.ClientCnxn$SendThread.run(ClientCnxn.java:1081)
+
+Thread 24579 "ZkClient-EventThread-16-localhost:2181": (state = BLOCKED)
+    at sun.misc.Unsafe.park(Native Method)
+    at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+    at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+    at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+    at org.I0Itec.zkclient.ZkEventThread.run(ZkEventThread.java:67)
+
+Thread 24067 "metrics-meter-tick-thread-2": (state = BLOCKED)
+    at sun.misc.Unsafe.park(Native Method)
+    at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+    at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+    at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1088)
+    at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:809)
+    at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1067)
+    at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1127)
+    at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+    at java.lang.Thread.run(Thread.java:745)
+
+Thread 23555 "metrics-meter-tick-thread-1": (state = BLOCKED)
+    at sun.misc.Unsafe.park(Native Method)
+    at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:215)
+    at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:2078)
+    at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1093)
+    at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:809)
+    at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1067)
+    at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1127)
+    at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+    at java.lang.Thread.run(Thread.java:745)
+
+Thread 23303 "pool-1-thread-1": (state = BLOCKED)
+    at sun.misc.Unsafe.park(Native Method)
+    at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:215)
+    at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:2078)
+    at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1093)
+    at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:809)
+    at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1067)
+    at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1127)
+    at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+    at java.lang.Thread.run(Thread.java:745)
+
+VM Thread 20995 "Service Thread": (state = BLOCKED)
+
+VM Thread 20483 "C1 CompilerThread3": (state = BLOCKED)
+
+VM Thread 19971 "C2 CompilerThread2": (state = IN_NATIVE)
+
+VM Thread 19459 "C2 CompilerThread1": (state = IN_NATIVE)
+
+VM Thread 18947 "C2 CompilerThread0": (state = IN_NATIVE)
+
+Thread 15887 "Signal Dispatcher": (state = BLOCKED)
+
+Thread 14339 "Finalizer": (state = BLOCKED)
+    at java.lang.Object.wait(Native Method)
+    - waiting on &lt;0x00000006c005fa88&gt; (a java.lang.ref.ReferenceQueue$Lock)
+    at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:143)
+    - locked &lt;0x00000006c005fa88&gt; (a java.lang.ref.ReferenceQueue$Lock)
+    at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:164)
+    at java.lang.ref.Finalizer$FinalizerThread.run(Finalizer.java:209)
+
+Thread 13827 "Reference Handler": (state = BLOCKED)
+    at java.lang.Object.wait(Native Method)
+    - waiting on &lt;0x00000006c0029358&gt; (a java.lang.ref.Reference$Lock)
+    at java.lang.Object.wait(Object.java:502)
+    at java.lang.ref.Reference.tryHandlePending(Reference.java:191)
+    - locked &lt;0x00000006c0029358&gt; (a java.lang.ref.Reference$Lock)
+    at java.lang.ref.Reference$ReferenceHandler.run(Reference.java:153)
+
+Thread 2823 "main": (state = BLOCKED)
+    at java.lang.Thread.sleep(Native Method)
+    at com.sosse.analytics.ActivityProducer.sleep(ActivityProducer.java:110)
+    at com.sosse.analytics.DemoMain$1.startApplication(DemoMain.java:37)
+    at com.sosse.common.application.DefaultApplication.start(DefaultApplication.java:166)
+    - locked &lt;0x00000006c00e6080&gt; (a java.lang.Thread)
+    at com.sosse.common.application.DefaultApplication.start(DefaultApplication.java:118)
+    at com.sosse.analytics.DemoMain.main(DemoMain.java:48)
+</code></pre>
+    <p>EDIT (4): Source Code Deserializer</p>
+    <pre><code>public static Object[] deserialize(final JsonElement jsonElement, final JsonDeserializationContext context, final BiFunction&lt;Class&lt;?&gt;, JsonElement, Serializable[]&gt; timeSeriesDeserializer) {
+    final JsonObject jsonObject = jsonElement.getAsJsonObject();
+
+    // get the important classes
+    final Class&lt;?&gt; bucketContent = resolveClass("bucketContent", jsonObject, context);
+
+    // configuration
+    final TimeUnit timeUnit = context.deserialize(jsonObject.get("timeUnit"), TimeUnit.class);
+    final int bucketSize = context.deserialize(jsonObject.get("bucketSize"), int.class);
+    final boolean fillNumberWithZero = context.deserialize(jsonObject.get("fillNumberWithZero"), boolean.class);
+
+    // the values
+    final Long now = context.deserialize(jsonObject.get("now"), Long.class);
+    final Serializable[] timeSeries = timeSeriesDeserializer.apply(bucketContent, jsonObject.get("timeSeries"));
+
+    @SuppressWarnings("unchecked")
+    final BucketTimeSeriesConfig config = new BucketTimeSeriesConfig(bucketContent, timeUnit, timeSeries.length, bucketSize, fillNumberWithZero);
+    return new Object[]{config, timeSeries, now};
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jvm</span><span class="tag">segmentation-fault</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Could you please provide complete <code>hs_err_pid.log</code>?</span> <span> - </span> <span class="display-name">apangin</span> <span> </span> <span class="date">20 Mar 2016 at 12:43</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I pasted the hs_err_pid and replay_pid here: <a href="http://pastebin.com/sCAvSMp9" rel="nofollow noreferrer">pastebin.com/sCAvSMp9</a> and <a href="http://pastebin.com/eUrvzt5f" rel="nofollow noreferrer">pastebin.com/eUrvzt5f</a></span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">21 Mar 2016 at 03:22</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>apangin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Mar 2016 at 18:58</span>
+     </div>
+    </div>
+    <div>
+     <p>The crash report tells the error has happened in JIT compiler thread:</p>
+     <pre><code>Current thread (0x00007f89e481c800):  JavaThread "C2 CompilerThread1"
+</code></pre>
+     <p>Take the following steps do diagnose compiler problems:</p>
+     <ol>
+      <li>
+       <p>Try the most recent JVM build available in JDK 9 EA: <a href="https://jdk9.java.net/download/" rel="noreferrer">https://jdk9.java.net/download/</a></p>
+       <p>If the problem disappears, you can either stay with this version or try to locate the exact commit that solves the issue and then backport it to JDK 8. How to backport fixes and how to build HotSpot yourself - it's a separate topic, but I can tell if you're interested.</p></li>
+      <li>
+       <p>If the problem persists, try to find a problematic method and exclude it from compilation.</p>
+       <pre><code>Current CompileTask: C2: 114667 5303 4 com.sosse.time.timeseries.gson.TypeConverterHelper::deserialize (157 bytes)
+</code></pre>
+       <p>Looks like in your case it fails compiling <code>TypeConverterHelper.deserialize()</code>. Add the following JVM option to exclude this particular method:</p>
+       <pre><code>-XX:CompileCommand=exclude,com.sosse.time.timeseries.gson.TypeConverterHelper::deserialize
+</code></pre></li>
+      <li>
+       <p>If it does not help, try to exclude more methods by providing multiple <code>-XX:CompileCommand</code>. To find candidates to exclude use <code>-XX:+PrintCompilation</code> and look at the bottom of the printed list. You can also exclude the whole classes and packages from compilation, e.g.</p>
+       <pre><code>-XX:CompileCommand=exclude,com.sosse.time.timeseries.gson.*::*
+</code></pre></li>
+      <li>
+       <p>Try to disable certain compiler optimizations one by one. Some options to try are:</p>
+       <pre><code>-XX:-DoEscapeAnalysis
+-XX:LoopUnrollLimit=0
+-XX:-PartialPeelLoop
+-XX:-UseLoopPredicate
+-XX:-LoopUnswitching
+-XX:-ReassociateInvariants
+-XX:MaxInlineLevel=1
+-XX:-IncrementalInline
+-XX:-RangeCheckElimination
+-XX:-EliminateAllocations
+-XX:-UseTypeProfile
+-XX:AliasLevel=0
+</code></pre></li>
+      <li>
+       <p>Whether the problematic method/optimization is found or not, run JVM again with</p>
+       <pre><code>-XX:+UnlockDiagnosticVMOptions -XX:+LogCompilation
+</code></pre>
+       <p>This will create <code>hotspot_pid1234.log</code> file in the current directory with detailed compilation log.</p></li>
+      <li>
+       <p>Submit the bug report at <a href="http://bugreport.java.com/" rel="noreferrer">bugreport.java.com</a>. Select</p>
+       <pre><code>Product/Category: HotSpot Virtual Machine (errors)
+Subcategory:      J2SE Server Compiler
+</code></pre>
+       <p>Make sure to include full <code>hs_err_pid.log</code> and <code>hotspot_pid.log</code> from step 5. It would be very helpful if you could provide a reduced self-contained example that demonstrates the problem.</p>
+       <p>For a faster reaction you may also post a message to <a href="http://mail.openjdk.java.net/mailman/listinfo/hotspot-compiler-dev" rel="noreferrer">hotspot-compiler-dev</a> mailing list.</p></li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Excluding the method helped, the JVM does not crash anymore! Thanks for that hint. Trying to get the application to run with Java 9 next to see if the error still appears. I'll keep you updated.</span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">21 Mar 2016 at 01:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I was not able to run the application with Java 9 according to this bug: <a href="https://bugs.openjdk.java.net/browse/JDK-8152161" rel="nofollow noreferrer">bugs.openjdk.java.net/browse/JDK-8152161</a></span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">21 Mar 2016 at 02:17</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Currently working on a simplified version of the application. Kind of difficult though, because if I remove some loop the crash disappears. I keep you updated.</span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">21 Mar 2016 at 03:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Stephen C</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Mar 2016 at 01:57</span>
+     </div>
+    </div>
+    <div>
+     <p>It looks like JDK bug <a href="https://bugs.openjdk.java.net/browse/JDK-6675699" rel="nofollow">JDK-6675699</a>. According to the bug report, the fix for that bug has been backported to 8u74, 8u81 and 8u82.</p>
+     <p>Note that (as of right now) the end-user focused <a href="https://java.com/en/download/" rel="nofollow">Java Download Site</a> offers 8u73 as the latest version. You can get 8u74 from the <a href="http://www.oracle.com/technetwork/java/javase/downloads/index.html" rel="nofollow">Java Developer Download Site</a>.</p>
+     <hr>
+     <p>If updating to 8u74 doesn't solve the problem, then you should submit this to Oracle as a bug report. The likely diagnosis is that you are running code that is causing the JIT code compiler to crash when it attempt to compile / optimize it. That's what <code>PhaseIdealLoop::idom_no_update</code> is indicating.</p>
+     <p>JDK-6675699 is for a specific JIT compiler bug. There could well be other JIT compiler bugs that have not been diagnosed. If you submit a new bug report, it could help the maintainers to track down those bugs. However, a bug report will only be useful to them if you can provide enough information to allow them to reproduce your bug.</p>
+     <p>(Of course, it is also possible that the root cause is something completely different; e.g. something in your code 3rd party code that is corrupting JVM data structures that is causing the compiler to crash. But it would a huge coincidence for the corruptions to repeatably break the compiler ... and only the compiler.)</p>
+     <hr>
+     <p><strong>UPDATE</strong> - According to these <a href="http://www.oracle.com/technetwork/java/javaseproducts/documentation/8u74-revision-builds-relnotes-2879027.html" rel="nofollow">Release Notes</a>, the version you actually need is Java SE 8u74-b32.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for the reply! I appreciate it a lot, because I'm working on this for over a week now. The 8u74 didn't fix the problem, the JVM still crashes.</span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">20 Mar 2016 at 02:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Is there any way to use a different type of compiler? Just to limit the possible reasons. Any idea what I could try to have at least a workaround? Once more thanks a lot for any help!</span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">20 Mar 2016 at 03:20</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>You could turn off the JIT compiler entirely using "-Cint". There are a whole bunch of other options that might help ... if used appropriately. <a href="http://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html" rel="nofollow noreferrer">docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html</a></span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">20 Mar 2016 at 03:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>When I turn off the JIT Compiler using -Xint the crash does not happen anymore! So does that mean that the problem is related to an Oracle Bug or can I somehow make sure that the JIT Compiler can still be used without crashing the VM. I'm working on figuring out what the problem might be :(.</span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">20 Mar 2016 at 03:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>1) It doesn't necessarily mean that. But is does suggest that may be the case. 2) Try tweaking some of the relevant -XX parameters; e.g. those to do with inlining and loop unrolling. Or maybe use -XX:CompileCommand=exclude,... to stop the compiler from compiling certain problematic methods.</span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">20 Mar 2016 at 03:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If you had an Oracle Java support contract, you could ask them for advice. Hint to your manager.</span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">20 Mar 2016 at 03:59</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>The Roy</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Mar 2016 at 02:03</span>
+     </div>
+    </div>
+    <div>
+     <p>I think you should spend some time in analyzing the core.</p>
+     <p><strong>Segmentation fault</strong></p>
+     <p>There are several possible reasons for this. There could be a bug in the JVM itself, or in a package (some of these are written in C or C++). It could also be due to a misconfiguration where incompatible components are used together.</p>
+     <p>From experience, a JVM bug is the least likely of these. Although @Stephen thinks that is the likely case here.</p>
+     <p>If you capture the stack trace at the point of the crash, this might give you some clues as to where exactly the crash is occurring.</p>
+     <p>Firstly, I see that you need to confgure ulimit -c unlimited so that you can store the core file to disk.</p>
+     <p><strong>Analyze Core file</strong><br>
+       Once you do that, you should analyze the core using the following method.</p>
+     <p>To convert the file use the commandline tool jmap.</p>
+     <pre><code>jmap -dump:format=b,file=dump.hprof /usr/bin/java core_file
+</code></pre>
+     <p>where:</p>
+     <p>dump.hprof is the name of the hprof file you wish to create</p>
+     <p>/usr/bin/java is the path to the version of the java binary that generated the core dump</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks! I'm working on getting the core dump and come back to you! Thanks for the quick reply and help!</span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">20 Mar 2016 at 02:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Great. Please post your findings here. I am keen to see what sort of issues you faced using Kafka.</span> <span> - </span> <span class="display-name">The Roy</span> <span> </span> <span class="date">20 Mar 2016 at 02:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi DROY! So I created the core dump, which doesn't really help me to figure out where the problem is. I added the threaddump in the post, does that help you to determine where I should look next?</span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">20 Mar 2016 at 03:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The name of the class and method that cause the crash can be found in the crash report (hs_err_pidxxxx.log) right above the <code>--------------- P R O C E S S ---------------</code> . The hs_err_pid log file When a fatal error occurs in the JVM, it produces an error log file called hs_err_pidXXXX.log, normally in the working directory of the process or in the temporary directory for the operating system. The top of this file contains the cause of the crash and the "problematic frame". For example, mine shows:</span> <span> - </span> <span class="display-name">The Roy</span> <span> </span> <span class="date">20 Mar 2016 at 03:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>right above the process line I have: <code>Current CompileTask: C2: 114667 5303 4 com.sosse.time.timeseries.gson.TypeConverterHelper::deserial‌​ize (157 bytes)</code> and I found <code>Current thread (0x00007fc61500a000): JavaThread "C2 CompilerThread1" daemon [_thread_in_native, id=19715, stack(0x000070000104a000,0x000070000114a000)]</code> on top of the file. But in the threaddump this thread does not have any stack :(.</span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">20 Mar 2016 at 03:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Not sure. I think it is a reportable event. I could not find the source code for com.sosse.time.timeseries.gson package. It is happening in the deserialize routine. May be try reporting with apache kafka as well as in the JIT compiler bug. Although I think it is to do with former than the later. Looks like a deserialize related aspect while trying to process a gson input</span> <span> - </span> <span class="display-name">The Roy</span> <span> </span> <span class="date">20 Mar 2016 at 03:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The deserialization is gson based and is performed for each message the same way (so the first 900 - 1,500 messages are all processed the same way). I added the code of the deserializer in the main post.</span> <span> - </span> <span class="display-name">Philipp</span> <span> </span> <span class="date">20 Mar 2016 at 03:59</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>One more thing that you may want to try is using the flag ` -XX:-PartialPeelLoop` as there are similar errors reported and that flag is supposed to "skip" the problematic compiler code.</span> <span> - </span> <span class="display-name">The Roy</span> <span> </span> <span class="date">20 Mar 2016 at 04:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

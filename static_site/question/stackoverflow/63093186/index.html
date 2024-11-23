@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to call Ajax datatables with parameter ASP.NET MVC?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to call Ajax datatables with parameter ASP.NET MVC?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Truong Hoang</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Jul 2020 at 20:20</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63093186/how-to-call-ajax-datatables-with-parameter-asp-net-mvc">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to send parameter when clicking a tag to controller but always null. How can I get parameters when using datatable ajax? Please help me.</p>
+    <p>My code in controller:</p>
+    <pre><code>public JsonResult Getdata(string isvk)
+{
+        var orders = from o in db.Orders
+                     select o;
+
+        if (isvk == null)
+        {
+            return Json(new { data = orders }, JsonRequestBehavior.AllowGet);
+        }
+
+        switch (isvk)
+        {
+            case "canceled":
+                orders = db.Orders.Where(o =&gt; o.Status == -1 || o.Status == -2);
+                break;
+
+            case "pending":
+                orders = db.Orders.Where(o =&gt; o.Status == 0);
+                break;
+
+            case "approved":
+                orders = db.Orders.Where(o =&gt; o.Status == 1);
+                break;
+
+            case "delivered":
+                orders = db.Orders.Where(o =&gt; o.Status == 2);
+                break;
+
+            default:
+                orders = db.Orders;
+                break;
+        }
+
+        return Json(new { data = orders.ToList() }, JsonRequestBehavior.AllowGet);
+}
+</code></pre>
+    <p>Tag <code>&lt;a&gt;</code> is outside the table:</p>
+    <pre><code>&lt;a href="@Url.Action("Index","Cart", new {isvk = "pending" })"&gt;peding&lt;/a&gt;
+</code></pre>
+    <p>My Script:</p>
+    <pre><code>var datatable = $("#myTable").DataTable({
+        ajax: {
+            type: "GET",
+            url: "@Url.Action("Getdata","Cart")",
+
+    },
+    columns: [
+        { data: "CodeOrder"},
+        { data: "FullName"},
+        { data: "Email"},
+        { data: "Phone" },
+    ]
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">c#</span><span class="tag">asp.net-mvc</span><span class="tag">razor</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jul 2020 at 17:07</span>
+     </div>
+    </div>
+    <div>
+     <p>To send data from DataTables to the server (i.e. to your controller), you use the <code>data</code> option of the <code>ajax</code> function. So, first of all, add that:</p>
+     <pre><code>ajax: {
+  type: "GET",
+  url: "@Url.Action("Getdata","Cart")",
+  data: function() {
+    return dataToSend;
+  }
+},
+</code></pre>
+     <p>You declare <code>dataToSend</code> as an empty JavaScript object at the start of the <code>document.ready</code> function:</p>
+     <pre><code>var dataToSend = {};
+</code></pre>
+     <p>Here is my simplified version of your <code>&lt;a&gt;</code> tag:</p>
+     <pre><code>&lt;a id="linkOne" linkData="pending" href="#"&gt;submit&lt;/a&gt;
+</code></pre>
+     <p>Following the <code>dataToSend</code> declaration, I added the following click handler for the <code>&lt;a&gt;</code> tag:</p>
+     <pre><code>$("a#linkOne").on('click', function() {
+  event.preventDefault();
+  var linkDataValue = $( this ).attr( 'linkData' )
+  dataToSend = { "linkData": linkDataValue };
+  //console.log( dataToSend );
+  table.ajax.reload();
+});
+</code></pre>
+     <p>This code extracts the "pending" text from <code>linkData="pending"</code> in the <code>&lt;a&gt;</code> tag and adds it to the <code>dataToSend</code> object.</p>
+     <p>Finally, I trigger the DataTable ajax call using <code>reload()</code>.</p>
+     <p>In the controller, this data will be received as a standard URL query parameter (because you are using <code>GET</code>):</p>
+     <pre><code>linkData=pending
+</code></pre>
+     <p>So you can access that in the usual way and format your response accordingly.</p>
+     <p>In your case, you need to replace my <code>dataToSend</code> logic with your required logic, for your specific <code>&lt;a&gt;</code> tag.</p>
+     <p>An important point here is that you need to create your <code>dataToSend</code> object correctly.</p>
+     <p>For one value, it is created as this, as in the above example:</p>
+     <pre><code>{ "linkData": "pending" }
+</code></pre>
+     <p>If you need to send multiple values (e.g. if you are processing a form) then you would build a JavaScript object like this:</p>
+     <pre><code>[
+  {
+    "name": "fieldOne",
+    "value": "x"
+  },
+  {
+    "name": "fieldTwo",
+    "value": "y"
+  }
+]
+</code></pre>
+     <p>In this case, the object is an array of key-pair values.</p>
+     <p>For simple forms, the JavaScript <code>serializeArray()</code> function can assist with that - for example:</p>
+     <pre><code>$( "#formOne" ).on( "submit", function( event ) {
+  event.preventDefault();
+  dataToSend = $( "#formOne" ).serializeArray();
+  //console.log( dataToSend );
+  table.ajax.reload();
+});
+</code></pre>
+     <p><strong>UPDATE</strong></p>
+     <p>In case it helps, here is the full HTML page for my test code.</p>
+     <pre><code>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Personnel&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.min.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.min.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+&lt;table id="example" class="display" style="width:100%"&gt;
+    &lt;thead&gt;
+        &lt;tr&gt;
+            &lt;th&gt;ID&lt;/th&gt;
+            &lt;th&gt;First Name&lt;/th&gt;
+            &lt;th&gt;Name&lt;/th&gt;
+            &lt;th&gt;Phone&lt;/th&gt;
+        &lt;/tr&gt;
+    &lt;/thead&gt;
+&lt;/table&gt;
+
+&lt;br&gt;
+&lt;form id ="formOne"&gt;
+    &lt;input id="fieldOne" type="text" name="fieldOne"&gt;&lt;/input&gt;
+    &lt;input id="fieldTwo" type="text" name="fieldTwo"&gt;&lt;/input&gt;
+    &lt;input type="submit" value="Submit"&gt;
+&lt;/form&gt;
+&lt;br&gt;
+&lt;a id="linkOne" linkData="pending" href="#"&gt;submit&lt;/a&gt;
+
+&lt;/div&gt;
+
+&lt;script type="text/javascript"&gt;
+
+  $(document).ready(function() {
+
+    var dataToSend = {};
+
+    $( "#formOne" ).on( "submit", function( event ) {
+      event.preventDefault();
+      dataToSend = $( "#formOne" ).serializeArray();
+      //console.log( dataToSend );
+      table.ajax.reload();
+    });
+
+    $("a#linkOne").on('click', function() {
+      event.preventDefault();
+      var linkDataValue = $( this ).attr( 'linkData' )
+      dataToSend = { linkData: linkDataValue };
+      //console.log( dataToSend );
+      table.ajax.reload();
+    });
+
+    var table = $('#example').DataTable( {
+      ajax: {
+        url: "http://localhost:7000/personnel",
+        method: "POST",
+        data: function( ) {
+          return dataToSend;
+        },
+        dataSrc: ''
+      },
+      "columns": [
+        { "data": "id" },
+        { "data": "firstname" },
+        { "data": "name" },
+        { "data": "phone" }
+      ]
+
+    } );
+
+  } );
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+
+&lt;/html&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Oh, that so cool, I sent the parameter to the controller and the data returned the same parameter, but datatable.ajax.reload did not work. noti error: Uncaught TypeError: Cannot read property 'length' of undefined</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">26 Jul 2020 at 18:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I used breakpoint on both browser and visual, I noticed that datatable.ajax.reload () was called before the parameter sent to the controller.</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">26 Jul 2020 at 18:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Just to check - in my test code, I used this: <code>var table = $('#example').DataTable( {...});</code>. It looks like you are using <code>var datatable</code> instead. I assume you updated my code samples to account for that.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Jul 2020 at 18:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I added my full client-side code in case the overall structure helps you.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Jul 2020 at 18:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I also updated my code, can you check it for me? i tried it, but still not working.</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">26 Jul 2020 at 19:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What do you want this line to select: <code>var linkDataValue = $(this).data('id');</code>? Currently it is undefined. <code>$(this).data('id')</code> does not select any value.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Jul 2020 at 19:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Should it be this: <code>$(this).attr('id')</code>? That will select the value of the ID: "linkOne".</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Jul 2020 at 19:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have tried with your code, and my controller side didn't get the parameter. I also changed the parameter on the controller = string linkData but it displayed the same error as above.</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">26 Jul 2020 at 19:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Unfortunately I am not able to recreate your error. You can use the browser console to see whether the ajax call is sending <code>isvk=pending</code> to the server. If it is not appending that to the URL, then I cannot explain that. If it is appending that to the URL,then your server-side code needs to be changed, to extract the query parameter data from the request URL.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Jul 2020 at 20:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I'm sure it has been appending to the URL. Can you add controller on the answer? I want to try again with your code.</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">26 Jul 2020 at 20:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Or can you send me your project? I really want to try them.</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">26 Jul 2020 at 20:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sorry - no. I can't do that.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Jul 2020 at 20:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you so much for helping me, i will try it again, and find a solution.</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">26 Jul 2020 at 20:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This is crazy, I just lack <code>dataSrc</code>, add it, my code worked, thank you so much.</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">27 Jul 2020 at 05:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ben Sampica</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jul 2020 at 03:25</span>
+     </div>
+    </div>
+    <div>
+     <p>Welcome to StackOverflow!</p>
+     <p>You're already very close and the snippets you provided are helpful. What you're missing is that you want the data to update <em>without leaving the page</em>. Using an anchor tag the way you are will direct you to that page. Also, you controller action is returning a <code>JsonResult</code>, which won't return any type of view (but is correct in this case).</p>
+     <p>You need to add a page event that triggers on clicking the button and refreshes the data source.</p>
+     <p>There's a few approaches you can take for this, but here's one of them:</p>
+     <pre><code>&lt;button class="filter-datatable" data-url="@Url.Action("Index","Cart", new {isvk = "pending" })"&gt;
+</code></pre>
+     <pre><code>// pageScript.js
+// jquery, initialization, etc...
+
+$('.filter-datatable').on('click', function() {
+    var newSource = $(this).data('url');
+    datatable.ajax.url(newSource).load();
+}
+
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Ty for help me ! But when I tried your way, it not working and an error occurred <a href="http://datatables.net/tn/1" rel="nofollow noreferrer">datatables.net/tn/1</a>. I don't know how to fix that, sorry for the first time I used datatables.</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">26 Jul 2020 at 05:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I realized that when I clicked on the button, I couldn't send parameters ("pendding") to Action Getdata, I didn't know how to send parameters when using load data = ajax.</span> <span> - </span> <span class="display-name">Truong Hoang</span> <span> </span> <span class="date">26 Jul 2020 at 16:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Truong Hoang</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jul 2020 at 19:27</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Update Script</strong></p>
+     <pre><code>$(document).ready(function () {
+        //test
+        var dataToSend = {};
+        $("a#linkOne").on('click', function () {
+            event.preventDefault();
+            var linkDataValue = $(this).data('id')
+            var linkurl = $(this).data('url')
+            dataToSend = { isvk: linkDataValue };
+            datatable.ajax.reload();
+        });
+        var datatable = $("#myTable").DataTable({
+            ajax: {
+                type: "GET",
+                url: "@Url.Action("Getdata","Cart")",
+                data: function () {
+                    return dataToSend;
+                }
+            },
+            columns: [
+                { data: "CodeOrder" },
+                { data: "FullName" },
+                { data: "Email" },
+                { data: "Phone" },
+                
+            ],
+          
+        });
+    });
+</code></pre>
+     <p>tag <code>&lt;a&gt;</code>:</p>
+     <pre><code>&lt;a id="linkOne" data-id="pending" href="#"&gt;submit&lt;/a&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

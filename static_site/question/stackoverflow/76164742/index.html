@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>how is connection injected into the inline function of jdbctemplate.query?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>how is connection injected into the inline function of jdbctemplate.query?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>CCNA</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>3 May 2023 at 13:58</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76164742/how-is-connection-injected-into-the-inline-function-of-jdbctemplate-query">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I saw code as the following,</p>
+    <pre><code>List&lt;UploadedDocument&gt; docs = jdbcTemplate.query(
+                connection -&gt; {
+                PreparedStatement stmt = connection.prepareStatement(sql);
+                stmt.setString(1, userName);
+                return stmt;
+            },
+            this::getDocumentsFromResultSet
+    );
+</code></pre>
+    <p>I knew connection should database connection but could not find how it's created. It's not declared in the method or anywhere in the class.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">spring-boot</span><span class="tag">jdbc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 May 2023 at 16:35</span>
+     </div>
+    </div>
+    <div>
+     <p>It's basically no different from other <code>JdbcTemplate</code> methods where a query is executed without you explicitly needing to create or acquire a connection: Spring handles the creation/acquisition of the connection for you; it's made available to JdbcTemplate by Spring.</p>
+     <p>(The connection may have been created as part of a DB connection pool, when your app starts. But either way, all you have to provide are the connection properties.)</p>
+     <hr>
+     <p>Looking more closely at your specific example, there <em>is</em> actually an explicit mention of a <code>connection</code> instance.</p>
+     <p>So, why is that?</p>
+     <p>It's because of the lambda expression used in the example.</p>
+     <p>The specific query method in the question is:</p>
+     <pre><code>query(PreparedStatementCreator psc,  ResultSetExtractor&lt;T&gt; rse)
+</code></pre>
+     <p><a href="https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/jdbc/core/JdbcTemplate.html#query(org.springframework.jdbc.core.PreparedStatementCreator,org.springframework.jdbc.core.RowMapper)" rel="nofollow noreferrer">Reference</a>.</p>
+     <p>(At least, I think that's a <code>ResultSetExtractor</code> - I can't see the implementation of <code>this::getDocumentsFromResultSet</code>. But that is not relevant here.)</p>
+     <p>Ignoring the <code>ResultSetExtractor</code>, if we look at <a href="https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/jdbc/core/PreparedStatementCreator.html" rel="nofollow noreferrer"><code>PreparedStatementCreator</code></a>, we see that is a functional interface - which is why we can use the lambda expression shown in the question.</p>
+     <p>The specific method is for this functional interface is:</p>
+     <pre><code>createPreparedStatement(Connection con)
+</code></pre>
+     <p><strong>That is where the connection object is provided</strong> (by Spring):</p>
+     <p>The Javadoc states:</p>
+     <blockquote>
+      <p>This interface creates a PreparedStatement given a connection, provided by the JdbcTemplate class.</p>
+     </blockquote>
+     <p>You get to <em>see</em> that reference - but you don't <em>create</em> it. You just <em>make use</em> of it to build your <code>PreparedStatement</code>.</p>
+     <hr>
+     <p>It's possible the <code>JdbcTemplate</code> was <a href="https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/jdbc/core/JdbcTemplate.html#%3Cinit%3E(javax.sql.DataSource)" rel="nofollow noreferrer">constructed using a <code>DataSource</code></a> "<em>to obtain connections from</em>".</p>
+     <p>But again, you would not see any code in the <code>JdbcTemplate</code> relating to the creation of any connections, or acquiring a connection from the pool (if you are using a pool)&gt;</p>
+     <hr>
+     <p><strong>Extra Note</strong></p>
+     <p>Looking in the source code for <code>JdbcTemplate</code>, you can see where instances of that class acquire their database connection. Here is one example:</p>
+     <pre class="lang-java prettyprint-override"><code>Connection con = DataSourceUtils.getConnection(obtainDataSource());
+</code></pre>
+     <p>See <a href="https://github.com/spring-projects/spring-framework/blob/7d2047cdbd6f440cd2ce638947795c81c537db28/spring-jdbc/src/main/java/org/springframework/jdbc/core/JdbcTemplate.java#L646" rel="nofollow noreferrer">here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

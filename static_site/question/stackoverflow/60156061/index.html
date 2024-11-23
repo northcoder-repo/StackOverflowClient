@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Will Lucene index help speed up to count occurrence?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Will Lucene index help speed up to count occurrence?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>ling</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>10 Feb 2020 at 18:09</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60156061/will-lucene-index-help-speed-up-to-count-occurrence">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a big text file from which I want to count the occurrences of known phrases. I currently read the whole text file line by line into memory and use the 'find' function to check whether a particular phrase exists in the text file or not:</p>
+    <pre><code>found = txt.find(phrase) 
+</code></pre>
+    <p>This is very slow for large file. To build an index of all possible phrases and store them in a dict will help, but the problem is it's challenging to create all meaningful phrases myself. I know that Lucene search engine supports phrase search. In using Lucene to create an index for a text set, do I need to come up with my own tokenization method, especially for my phrase search purpose above? Or Lucene has an efficient way to automatically create an index for all possible phrases without the need for me to worry about how to create the phrases?</p>
+    <p>My main purpose is to find a good way to count occurrences in a big text.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">python</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Feb 2020 at 03:47</span>
+     </div>
+    </div>
+    <div>
+     <p><strong><em>Summary: Lucene will take care of allocating higher matching scores to indexed text which more closely match your input phrases, without you having to "create all meaningful phrases" yourself.</em></strong></p>
+     <h2>Start Simple</h2>
+     <p>I recommend you start with a basic Lucene analyzer, and see what effect that has. There is a reasonably good chance that it will meet your needs.</p>
+     <p>If that does not give you satisfactory results, then you can certainly investigate more specific/targeted analyzers/tokenizers/filters (for example if you need to analyze non-Latin character sets).</p>
+     <p>It is hard to be more specific without looking at the source data and the phrase matching requirements in more detail.</p>
+     <p>But, having said that, here are two examples (and I am assuming you have basic familiarity with how to create a Lucene index, and then query it).</p>
+     <p>All of the code is based on Lucene 8.4.</p>
+     <p><strong><em>CAVEAT - I am not familiar with Python implementations of Lucene. So, with apologies, my examples are in Java - not Python (as your question is tagged). I would imagine that the concepts are somewhat translatable. Apologies if that's a showstopper for you.</em></strong></p>
+     <h2>A Basic Multi-Purpose Analyzer</h2>
+     <p>Here is a basic analyzer - using the Lucene "service provider interface" syntax and a <a href="https://lucene.apache.org/core/8_4_1/analyzers-common/org/apache/lucene/analysis/custom/CustomAnalyzer.html" rel="nofollow noreferrer">CustomAnalyzer</a>:</p>
+     <pre><code>import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.custom.CustomAnalyzer;
+...
+Analyzer analyzer = CustomAnalyzer.builder()
+        .withTokenizer("icu")
+        .addTokenFilter("lowercase")
+        .addTokenFilter("asciiFolding")
+        .build();
+</code></pre>
+     <p>The above analyzer tokenizes your input text using Unicode whitespace rules, as encoded into the <a href="http://site.icu-project.org/home" rel="nofollow noreferrer">ICU libraries</a>. It then standardizes on lowercase, and maps accents/diacritics/etc. to their ASCII equivalents.</p>
+     <h2>An Example Using Shingles</h2>
+     <p>If the above approach proves to be weak for your specific phrase matching needs (i.e. false positives scoring too highly), then one technique you can try is to use shingles as your tokens. Read more about shingles <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-shingle-tokenfilter.html" rel="nofollow noreferrer">here</a> (Elasticsearch has great documentation).</p>
+     <p>Here is an example analyzer using shingles, and using the more "traditional" syntax:</p>
+     <pre><code>import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.LowerCaseFilter;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.standard.StandardTokenizer;
+import org.apache.lucene.analysis.StopwordAnalyzerBase;
+import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter;
+import org.apache.lucene.analysis.shingle.ShingleFilter;
+...
+StopwordAnalyzerBase.TokenStreamComponents createComponents(String fieldName) {        
+    final Tokenizer source = new StandardTokenizer();
+    TokenStream tokenStream = source;
+    tokenStream = new LowerCaseFilter(tokenStream);
+    tokenStream = new ASCIIFoldingFilter(tokenStream);
+    // default shingle size is 2:
+    tokenStream = new ShingleFilter(tokenStream);
+    return new Analyzer.TokenStreamComponents(source, tokenStream);
+}
+</code></pre>
+     <p>In this example, the default shingle size is 2 (two words per shingle) - which is a good place to start.</p>
+     <h2>Finally...</h2>
+     <p>Even if you think this is a one-time exercise, it is probably still worth going to the trouble to build some Lucene indexes in a repeatable/automated way (which may take a while depending on the amount of data you have).</p>
+     <p>That way, it will be fast to run your set of known phrases against the index, to see how effective each index is.</p>
+     <p>I have deliberately not said anything about your ultimate objective ("<strong><em>to count occurrences</em></strong>"), because that part should be relatively straightforward, assuming you really do want to find exact matches for known phrases. It's possible I have misinterpreted your question - but at a high level I think this is what you need.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

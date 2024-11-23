@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Are Java records intended to eventually become value types?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Are Java records intended to eventually become value types?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>69</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>sprinter</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Aug 2020 at 05:44</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63352151/are-java-records-intended-to-eventually-become-value-types">source</a>
+    </div>
+   </div>
+   <div>
+    <p>The <code>record</code> preview feature (JEP 384) introduced in JDK 14 are a great innovation. They make it much easier to create simple immutable classes that are a pure collection of values without the loss of context inherent in the generic tuple classes in various libraries.</p>
+    <p>The description of the JEP, written by Brian Goetz (<a href="https://openjdk.java.net/jeps/384" rel="noreferrer">https://openjdk.java.net/jeps/384</a>) explains the intent very well. However I was expecting a closer association with the eventual introduction of value types. The original aims of value types were quite extensive: essentially allowing potentially significant performance improvements for objects whose <em>value</em> is all that matters by removing all the overhead not required for these types of object (e.g. reference indirection, synchronisation). Plus it could provide syntactical niceties such as <code>myPosition != yourPosition</code> instead of <code>!myPosition.equals(yourPosition)</code>.</p>
+    <p>It seems as though the restrictions of records are very close to the types of restrictions that would be required on a potential value type. Yet the JEP makes no reference to these aims in the motivation. I tried unsuccessfully to find any public records on these deliberations.</p>
+    <p>So my question is: are records intended to be part of a possible move towards value types or are these completely unrelated concepts and future value types may look completely different?</p>
+    <p>My motivation for asking the question: if records become a permanent part of the language it would be an added incentive to adopt them in code if there is the possibility of significant performance benefits in a future release.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">java-14</span><span class="tag">java-record</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>100</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Brian Goetz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2020 at 19:35</span>
+     </div>
+    </div>
+    <div>
+     <p>Records and primitive classes (the new name for value types) have a lot in common -- they are implicitly final and shallowly immutable. So it is understandable that the two might be seen as the same thing. In reality, they are different, and there is room for both of them to co-exist, but they can also work together.</p>
+     <p>Both of these new kinds of classes involve some sort of restriction, in exchange for certain benefits. (Just like <code>enum</code>, where you give up control over instantiation, and are rewarded with a more streamlined declaration, support in <code>switch</code>, etc.)</p>
+     <p>A <code>record</code> requires you to give up on extension, mutability, and the ability to decouple the representation from the API. In return, you get implementations of constructors, accessors, <code>equals</code>, <code>hashCode</code>, and more.</p>
+     <p>A <code>primitive class</code> requires you to give up on identity, which includes giving up on extension and mutability, as well as some other things (e.g., synchronization). In return, you get a different set of benefits -- flattened representation, optimized calling sequences, and state-based <code>equals</code> and <code>hashCode</code>.</p>
+     <p>If you are willing to make both compromises, you can get <em>both</em> sets of benefits -- this would be a <code>primitive record</code>. There are lots of use cases for primitive records, so classes that are records today could be primitive records tomorrow, and would just get faster.</p>
+     <p>But, we don't want to force all records to be primitive or for all primitives to be records. There are primitive classes that want to use encapsulation, and records that want identity (so they can organize into trees or graphs), and this is fine.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>Thanks that makes perfect sense. I can see how keeping the two concepts separate gives a lot of power. Looking forward to seeing <code>inline</code> in the language!</span> <span> - </span> <span class="display-name">sprinter</span> <span> </span> <span class="date">11 Aug 2020 at 21:34</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@BrianGoetz Will pattern matching only work with records or will it be supported for value types as well? I haven't seen any information about that so far and I am just curious ;-)</span> <span> - </span> <span class="display-name">mmirwaldt</span> <span> </span> <span class="date">16 Mar 2021 at 22:35</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>@mmirwaldt It will be built-in for records; other classes (primitive or identity) will be able to declare explicit <i>deconstruction patterns</i>. (Just as constructors are built in for records, but other classes have to declare them.)</span> <span> - </span> <span class="display-name">Brian Goetz</span> <span> </span> <span class="date">16 Mar 2021 at 22:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BrianGoetz That's good news. I can imagine many developers will like pattern matching as much as lambdas/stream API and use it very often. It would really be a pity if you can only use pattern matching with records.</span> <span> - </span> <span class="display-name">mmirwaldt</span> <span> </span> <span class="date">16 Mar 2021 at 22:57</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>mmirwaldt</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Mar 2021 at 00:58</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Disclaimer:</strong> This answer only extends the other answers by summarizing some implications and giving some examples. You should not make any decisions relying on this information because pattern matching and value types are still subjects of change.</p>
+     <p>There are two interesting documents about data classes aka records vs value types: The older version from February 2018<br><a href="http://cr.openjdk.java.net/%7Ebriangoetz/amber/datum_2.html#are-data-classes-the-same-as-value-types" rel="nofollow noreferrer">http://cr.openjdk.java.net/~briangoetz/amber/datum_2.html#are-data-classes-the-same-as-value-types</a><br>
+       and the newer version from February 2019<br><a href="https://cr.openjdk.java.net/%7Ebriangoetz/amber/datum.html#are-records-the-same-as-value-types" rel="nofollow noreferrer">https://cr.openjdk.java.net/~briangoetz/amber/datum.html#are-records-the-same-as-value-types</a></p>
+     <p>Each document includes a paragraph about differences between records and value types. The older version says</p>
+     <blockquote>
+      <p>The lack of layout polymorphism means we have to give up something else: self-reference. A value type V cannot refer, directly or indirectly, to another V.</p>
+     </blockquote>
+     <p>Moreover,</p>
+     <blockquote>
+      <p>Unlike value types, data classes are well suited to representing tree and graph nodes.</p>
+     </blockquote>
+     <p>However,</p>
+     <blockquote>
+      <p>But value classes need not give up any encapsulation, and in fact encapsulation is essential for some applications of value types</p>
+     </blockquote>
+     <p><strong>Let's clarify that:</strong></p>
+     <p>You won't be able to implement node-based composited data structures like linked lists or hierarchical trees with value types. However, you can use the value types for the elements of those data structures. Moreover, value types support some forms of encapsulation in opposite to records which don't at all. This means you can have additional fields in value types which you haven't defined in the class header and which are hidden to the user of the value type. Records can't do that because their representation is restricted to their API, i.e. all their fields are declared in the class header (and only there!).</p>
+     <p><strong>Let's have some examples to illustrate all that.</strong></p>
+     <p>E.g. you will be able to create composited logical expressions with records but not with value types:</p>
+     <pre><code>sealed interface LogExpr { boolean eval(); } 
+
+record Val(boolean value) implements LogExpr {}
+record Not(LogExpr logExpr) implements LogExpr {}
+record And(LogExpr left, LogExpr right) implements LogExpr {}
+record Or(LogExpr left, LogExpr right) implements LogExpr {}
+</code></pre>
+     <p>This will not work with value types because this demands the ability of self-references of the same value type. You want to be able to create expressions like "Not(Not(Val(true)))".</p>
+     <p>E.g. you can also use records to define the class <em>Fraction</em>:</p>
+     <pre><code>record Fraction(int numerator, int denominator) { 
+    Fraction(int numerator, int denominator) {
+        if (denominator == 0) {
+            throw new IllegalArgumentException("Denominator cannot be 0!");
+        }
+    }
+    public double asFloatingPoint() { return ((double) numerator) / denominator; }
+    // operations like add, sub, mult or div
+}
+</code></pre>
+     <p>What about calculating the floating point value of that fraction? You can add a method <em>asFloatingPoint()</em> to the record <em>Fraction</em>. And it will always calculate (and recalculate) the same floating point value each time it is invoked. (Records and value types are immutable by default). However, you cannot precalculate and store the floating point value inside this record in a way hidden to the user. And you won't like to explicitly declare the floating point value as a third parameter in the class header. Luckily, value types can do that:</p>
+     <pre><code>inline class Fraction(int numerator, int denominator) { 
+    private final double floatingPoint;
+    Fraction(int numerator, int denominator) {
+        if (denominator == 0) {
+            throw new IllegalArgumentException("Denominator cannot be 0!");
+        }
+        floatingPoint = ((double) numerator) / denominator;
+    }
+    public double asFloatingPoint() { return floatingPoint; }
+    // operations like add, sub, mult or div
+}
+</code></pre>
+     <p>Of course, hidden fields can be one reason why you want to use value types. They are only one aspect and probably a minor one though. If you create many instances of <em>Fraction</em> and maybe store them in collections, you will benefit a lot from the flattened memory layout. That's definitely a more important reason to prefer value types to records.</p>
+     <p>There are some situations where you want to benefit from both records and value types.<br>
+       E.g. you might want to develop a game in which you move your piece through a map. You saved a history of moves in a list some time ago where every move stores a number of steps into one direction. And you want to compute the next position dependending on that list of moves now.<br>
+       If your class <em>Move</em> is a value type, then the list can use the flattened memory layout.<br>
+       And if your class <em>Move</em> also is a record at the same time you can use pattern matching without the need of defining an explicit deconstruction pattern.<br>
+       Your code can look like that:</p>
+     <pre><code>enum Direction { LEFT, RIGHT, UP, DOWN }´
+record Position(int x, int y) {  } 
+inline record Move(int steps, Direction dir) {  }
+
+public Position move(Position position, List&lt;Move&gt; moves) {
+    int x = position.x();
+    int y = position.y();
+
+    for(Move move : moves) {
+        x = x + switch(move) {
+            case Move(var s, LEFT) -&gt; -s;
+            case Move(var s, RIGHT) -&gt; +s;
+            case Move(var s, UP) -&gt; 0;
+            case Move(var s, DOWN) -&gt; 0;
+        }
+        y = y + switch(move) {
+            case Move(var s, LEFT) -&gt; 0;
+            case Move(var s, RIGHT) -&gt; 0;
+            case Move(var s, UP) -&gt; -s;
+            case Move(var s, DOWN) -&gt; +s;
+        }
+    }
+
+    return new Position(x, y);
+}
+</code></pre>
+     <p>Of course, there are many other ways to implement the same behavior. However, records and value types give you some more options for implementations which can be very useful.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>miiiii</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2020 at 07:02</span>
+     </div>
+    </div>
+    <div>
+     <p>Note: I might not be so correct as this is about future motivations in Java or the intent of the community about <strong>value types</strong>. The answer is based on my personal knowledge and the information available openly on the internet.</p>
+     <p>We all know that the Java Community is so big and mature enough that they do not (and could not) add any random feature for experiments until &amp; unless stated otherwise. Keeping this in mind, I remember <a href="http://cr.openjdk.java.net/%7Ejrose/values/values-0.html" rel="nofollow noreferrer">this article</a> on the OpenJDK website which briefly describes the idea of <code>value types</code> in Java. One thing to notice here is that it is written/updated in April 2014 while the <code>record</code> first came out in Java 14 in March 2020.</p>
+     <p>But in the above article itself, they did give the example of <code>record</code> while explaining the value types. Most of its description does match to the current <code>record</code> as well.</p>
+     <blockquote>
+      <p>The JVM type system is almost entirely nominal as opposed to structural. Likewise, components of value types should be identified by names, not just their element number. (This makes value types more like records than tuples.)</p>
+     </blockquote>
+     <p>And with no surprise, Brian Goetz was also a co-author of this article.</p>
+     <p>But there are other places in the universe where the <code>record</code> is also represented as <code>data classes</code>. See <a href="https://cr.openjdk.java.net/%7Ebriangoetz/amber/datum.html" rel="nofollow noreferrer">this article</a>, it's also written/updated by Brain. The interesting part <a href="https://cr.openjdk.java.net/%7Ebriangoetz/amber/datum.html#meet-the-elephant" rel="nofollow noreferrer">is here</a>.</p>
+     <blockquote>
+      <p>Values Victor will say "a data class is really just a more transparent value type."</p>
+     </blockquote>
+     <p>Now, considering all these steps together, it does look like <code>record</code> is a feature motivated by (or for) tuples, data classes, value types, etc... etc... but they are not a substitute for each other.</p>
+     <p>As Brain mentioned in the comments:-</p>
+     <blockquote>
+      <p>A better way to interpret the documents cited here that tuple-like types are one possible use for value types, but by far not the only one. And it is possible to have record types that need an identity. So the two will commonly work together, but neither subsumes the other -- each brings something unique to the table.</p>
+     </blockquote>
+     <p>Coming to your concern about performance increase, here is <a href="https://jstobigdata.com/java/java-14-records-to-rescue-a-preview-feature/" rel="nofollow noreferrer">an article</a> that compared the performance of Java 14 records (preview) vs traditional class. You might find it interesting. I did not see any significant improvements in the performance from the results of the above link.</p>
+     <p>As far as I know, the stack is significantly faster than that of the heap. So due to the fact that <code>record</code> is actually a special class only, which then goes to the heap than to the stack (value type/primitive type should live in the stack like the <code>int</code>, remember Brian “Codes like a class, works like an int!” ). By the way, this is my personal view, I might be wrong for my statements on stack and heap here. I'll be more than happy to see if anyone corrects me or supports me on this.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Thanks for your contribution and for the links you provided - they were very helpful. I wouldn't expect performance to improve at this point as implementing value types would require significant changes at the JVM level which haven't happened yet.</span> <span> - </span> <span class="display-name">sprinter</span> <span> </span> <span class="date">11 Aug 2020 at 10:42</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@sprinter Project Valhalla (which is where value types (now called primitive classes) are coming from) is indeed making deep cuts to the VM; primitive class instances are flattened into objects and arrays.</span> <span> - </span> <span class="display-name">Brian Goetz</span> <span> </span> <span class="date">18 Mar 2021 at 13:06</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>A better way to interpret the documents you cite are that tuple-like types are <i>one possible</i> use for value types, but by far not the only one. And it is possible to have record types that need identity. So the two will commonly work together, but neither subsumes the other -- each brings something unique to the table.</span> <span> - </span> <span class="display-name">Brian Goetz</span> <span> </span> <span class="date">18 Mar 2021 at 13:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks, @BrianGoetz for pointing that out. I made the correction to avoid confusion.</span> <span> - </span> <span class="display-name">miiiii</span> <span> </span> <span class="date">18 Mar 2021 at 18:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

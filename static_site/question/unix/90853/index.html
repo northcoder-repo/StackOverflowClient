@@ -1,0 +1,1115 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How can I run ssh-add automatically, without a password prompt?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How can I run ssh-add automatically, without a password prompt?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>343</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>zdun8</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Sep 2013 at 10:31</span>
+    </div>
+    <div>
+     <a href="https://unix.stackexchange.com/questions/90853/how-can-i-run-ssh-add-automatically-without-a-password-prompt">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to communicate between several computers on my network (static Ethernet), through SSH. In order to do that I need to run <a href="https://man.archlinux.org/man/ssh-add.1.en" rel="noreferrer"><code>ssh-add</code></a> every time I log in on a specific machine.</p>
+    <p>What can I do so it's set up once and it doesn't ask me for the passphrase every time I log in or reboot my machine?</p>
+    <p>I know that there is a way where you add some lines to the <code>bash_profile</code> file, but I still need to type the password every time I reboot/log in to a specific machine.</p>
+    <pre><code>if [ -z "$SSH_AUTH_SOCK" ] ; then
+    eval `ssh-agent -s`
+    ssh-add
+fi
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">ssh</span><span class="tag">ssh-agent</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>similar to this question <a href="http://stackoverflow.com/questions/18880024/start-ssh-agent-on-login" title="start ssh agent on login">stackoverflow.com/questions/18880024/start-ssh-agent-on-logi‌​n</a></span> <span> - </span> <span class="display-name">steampowered</span> <span> </span> <span class="date">9 May 2016 at 16:33</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span><a href="https://stackoverflow.com/a/52671286/217408">stackoverflow.com/a/52671286/217408</a> solved it for me to pass the passphrase from bitwarden</span> <span> - </span> <span class="display-name">zoechi</span> <span> </span> <span class="date">9 Apr 2020 at 15:41</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@steampowered yes - but I think the top answer given here is better and Unix SE is a more appropriate place for this question</span> <span> - </span> <span class="display-name">icc97</span> <span> </span> <span class="date">14 Jan 2021 at 11:43</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>468</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Thomas Nyman</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Sep 2013 at 12:21</span>
+     </div>
+    </div>
+    <div>
+     <p>This is a typical example of a trade-off between security and convenience. Luckily, there are a number of options. The most appropriate solution depends on the usage scenario and desired level of security.</p>
+     <p><strong>ssh-key with passphrase, no</strong> <code>ssh-agent</code></p>
+     <p>Now the passphrase has to be entered every time the key is used for authentication. While this is the best option from a security standpoint, it offers the worst usability. This may also lead to a weak passphrase being chosen in order to lessen the burden of entering it repeatedly.</p>
+     <p><strong>ssh-key with passphrase, with</strong> <code>ssh-agent</code></p>
+     <p>Adding the following to <code>~/.bash_profile</code> will automatically start <code>ssh-agent</code> and load the ssh-key(s) on login:</p>
+     <pre><code>if [ -z "$SSH_AUTH_SOCK" ] ; then
+  eval `ssh-agent -s`
+  ssh-add
+fi
+</code></pre>
+     <p>Now the passphrase must be entered upon every login. While slightly better from a usability perspective, this has the drawback that <code>ssh-agent</code> prompts for the passphrase regardless whether the key is to be used or not during the login session. Each new login also spawns a distinct <code>ssh-agent</code> instance which remains running with the added keys in memory even after logout, unless explicitly killed.</p>
+     <p>To kill <code>ssh_agent</code> on logout, add the following to <code>~/.bash_logout</code></p>
+     <pre><code>if [ -n "$SSH_AUTH_SOCK" ] ; then
+  eval `/usr/bin/ssh-agent -k`
+fi
+</code></pre>
+     <p>or the following to <code>~/.bash_profile</code></p>
+     <pre><code>trap 'test -n "$SSH_AUTH_SOCK" &amp;&amp; eval `/usr/bin/ssh-agent -k`' 0
+</code></pre>
+     <p>Creating multiple <code>ssh-agent</code> instances can be avoided by creating a persistent communication socket to the agent at a fixed location in the file system, such as in <a href="https://unix.stackexchange.com/a/217223/43779" title="How can I run ssh-add automatically, without password prompt?">Collin Anderson's answer</a>. This is an improvement over spawning multiple agents instances. However, unless explicitly killed, the decrypted key still remains in memory after logout.</p>
+     <p>On desktops, ssh-agents included with the desktop environment, such as the <a href="https://wiki.gnome.org/Projects/GnomeKeyring/Ssh" rel="noreferrer" title="Gnome Keyring SSH Agent on Gnome Wiki">Gnome Keyring SSH Agent</a>, can be a better approach as they typically can be made to prompt for the passphrase the first time the ssh-key is used during a login session and store the decrypted private key in memory until the end of the session.</p>
+     <p><strong>ssh-key with passphrase, with</strong> <code>ssh-ident</code></p>
+     <p><a href="https://github.com/ccontavalli/ssh-ident" rel="noreferrer" title="ssh-ident on GitHub"><code>ssh-ident</code></a> is a utility that can manage <code>ssh-agent</code> on your behalf and load identities as necessary. It adds keys only once they are needed, regardless of how many terminals, SSH or login sessions require access to an <code>ssh-agent</code>. It can also add and use a different agent and different set of keys depending on the host you are connected to, or the directory <code>ssh</code> is invoked from. This allows for isolating keys when using agent forwarding with different hosts. It also allows using multiple accounts on sites like GitHub.</p>
+     <p>To enable <code>ssh-ident</code>, install it and add the following alias to your <code>~/.bash_profile</code>:</p>
+     <pre><code>alias ssh='/path/to/ssh-ident'
+</code></pre>
+     <p><strong>ssh-key with passphrase, with</strong> <code>keychain</code></p>
+     <p><a href="https://github.com/funtoo/keychain" rel="noreferrer" title="keychain on GitHub"><code>keychain</code></a> is a small utility which manages <code>ssh-agent</code> on your behalf and allows the <code>ssh-agent</code> to remain running when the login session ends. On subsequent logins, <code>keychain</code> will connect to the existing <code>ssh-agent</code> instance. In practice, this means that the passphrase must be be entered only during the first login after a reboot. On subsequent logins, the unencrypted key from the existing <code>ssh-agent</code> instance is used. This can also be useful for allowing passwordless RSA/DSA authentication in <code>cron</code> jobs without passwordless ssh-keys.</p>
+     <p>To enable <code>keychain</code>, install it and add something like the following to <code>~/.bash_profile</code>:</p>
+     <pre><code>eval `keychain --agents ssh --eval id_rsa`
+</code></pre>
+     <p>From a security point of view, <code>ssh-ident</code> and <code>keychain</code> are worse than <code>ssh-agent</code> instances limited to the lifetime of a particular session, but they offer a high level of convenience. To improve the security of <code>keychain</code>, some people add the <code>--clear</code> option to their <code>~/.bash_profile</code> keychain invocation. By doing this, passphrases must be re-entered on login as above, but <code>cron</code> jobs will still have access to the unencrypted keys after the user logs out. The <code>keychain</code> <a href="https://www.funtoo.org/Funtoo:Keychain" rel="noreferrer" title="Keychain Official Project Page">wiki page</a> has more information and examples.</p>
+     <p><strong>ssh-key without passphrase</strong></p>
+     <p>From a security standpoint, this is the worst option since the private key is entirely unprotected in case it is exposed. This is, however, the only way to make sure that the passphrase need not be re-entered after a reboot.</p>
+     <p><strong>ssh-key with passphrase, with</strong> <code>ssh-agent</code>, <strong>passing passphrase to</strong> <code>ssh-add</code> <strong>from script</strong></p>
+     <p>While it might seem like a straightforward idea to pass the passphrase to <code>ssh-add</code> from a script, e.g. <code>echo "passphrase\n" |&nbsp;ssh-add</code>, this is not as straightforward as it seems as <code>ssh-add</code> <a href="https://superuser.com/questions/569432/why-can-i-see-password-prompts-through-redirecting-output" title="Why can I see password prompts through redirecting output?">does not read the passphrase from <code>stdin</code>, but opens <code>/dev/tty</code> directly for reading</a>.</p>
+     <p>This can be <a href="https://stackoverflow.com/questions/459182/using-expect-to-pass-a-password-to-ssh" title="Using expect to pass a password to ssh">worked around</a> with <a href="https://core.tcl-lang.org/expect/index" rel="noreferrer" title="The Expect Home Page"><code>expect</code></a>, a tool for automating interactive applications. Below is an example of a script which adds a ssh-key using a passphrase stored in the script:</p>
+     <pre><code>#!/usr/bin/expect -f
+spawn ssh-add /home/user/.ssh/id_rsa
+expect "Enter passphrase for /home/user/.ssh/id_rsa:"
+send "passphrase\n";
+expect "Identity added: /home/user/.ssh/id_rsa (/home/user/.ssh/id_rsa)"
+interact
+</code></pre>
+     <p>Note that as the passphrase is stored in plaintext in the script, from a security perspective, this is hardly better than having a passwordless ssh-key. If this approach is to be used, it is important to make sure that the <code>expect</code> script containing the passphrase has proper permissions set to it, making it readable, writable, and runnable only by the key owner.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Okay, but when I put your code to ~/.bash_profile I have to type in password every time I login, I don't want that either. I am not concerned about security at all. echo "pass\n" | ssh-add doesn't work</span> <span> - </span> <span class="display-name">zdun8</span> <span> </span> <span class="date">17 Sep 2013 at 12:59</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@user1607072 Yeah, that is how the <code>ssh-agent</code> snippet in <code>~/.bash_profile</code> behaves as explained in the answer. You might want to look at the <code>keychain</code> utility. With <code>keychain</code> you need to enter the password on first login after reboot, but on subsequent logins <code>keychain</code> will connect to an existing <code>ssh-agent</code> instance with the decrypted key in memory. Apart from that there's the option of generating a ssh-key without a passphrase, but this is of course not recommended.</span> <span> - </span> <span class="display-name">Thomas Nyman</span> <span> </span> <span class="date">17 Sep 2013 at 13:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>So there is no other way to do it than to leave my passphrase empty? Hmm that is sad. Anyway thanks a lot for your answer, it's the most comprehensive answer I've ever received!</span> <span> - </span> <span class="display-name">zdun8</span> <span> </span> <span class="date">17 Sep 2013 at 15:43</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@user1607072 While I would strongly suggest one of the more secure approaches, there is a way to pass the passphrase to <code>ssh-add</code> from a script. The reason <code>echo "pass\n" | ssh-add</code> does not work is that <code>ssh-add</code> does not read the password from <code>stdin</code>, but opens <code>/dev/tty</code> directly for reading. Updated the answer to include a workaround for this, using an utility called <code>expect</code>.</span> <span> - </span> <span class="display-name">Thomas Nyman</span> <span> </span> <span class="date">17 Sep 2013 at 18:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks I will try that. I know that it's not secure, but I don't see any other way. I need to communicate with my computers on static network through ssh and I don't want to type in password every time I reboot my network.</span> <span> - </span> <span class="display-name">zdun8</span> <span> </span> <span class="date">18 Sep 2013 at 11:36</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@user1607072 It might be a bit overkill for your use case, but <a href="http://en.wikipedia.org/wiki/Kerberos_(protocol)" rel="nofollow noreferrer">Kerberos</a> in combination with ssh <a href="http://en.wikipedia.org/wiki/Generic_Security_Services_Application_Program_Interface" rel="nofollow noreferrer">GSSAPI</a> support can also be used for passwordless ssh logins. The corresponding authentication method in ssh is called <code>gssapi-with-mic</code>. This is usually used in larger networks, but of course if you have interest in this it might be worth looking into.</span> <span> - </span> <span class="display-name">Thomas Nyman</span> <span> </span> <span class="date">18 Sep 2013 at 11:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am running zsh with Prezto and would like to start ssh-agent every time I open terminal. I do have a ssh password. Is it possible?</span> <span> - </span> <span class="display-name">Bartłomiej Szałach</span> <span> </span> <span class="date">30 Mar 2015 at 00:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@onegrz Typically you'd want only one instance of ssh-agent running. The <code>$SSH_AUTH_SOCK</code> environment variable will point each of your shells to that agent instance. As to how to configure it via Prezto, that sounds like <a href="https://unix.stackexchange.com/questions/ask">a new question</a>. The snippet in the original Q does apply to <code>zsh</code> as well, although you'd want to put it in either <code>.profile</code> or a <code>zsh</code> specific configuration file.</span> <span> - </span> <span class="display-name">Thomas Nyman</span> <span> </span> <span class="date">30 Mar 2015 at 05:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sorry, a bit late, what about those GUI tools like <code>Password and Keys</code> in Ubuntu or OS X's <code>Keychain Access</code>, only the very first time I login into a SSH server they ask me the passphrase and to check something like "<i>Automatically unlock this key on subsequent logins</i>". I check it, login into the server, then I reboot, login with my account's password (no passphrase is asked) and this time when I open the SSH connection no passphrase is needed. How do these tools manage this? Does the passphrase become bounded with my account's password so that when I login the key is automatically decrypted?</span> <span> - </span> <span class="display-name">user3019105</span> <span> </span> <span class="date">16 Aug 2015 at 09:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>is there a way to run "expect" somehow from command line without leaving a file around with the passphrase?</span> <span> - </span> <span class="display-name">tofutim</span> <span> </span> <span class="date">23 Sep 2016 at 16:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@tofutim I'd take the password as an argument to the expect script, or possibly pass in as an environment variable. @Thomas Nyman: Excellent <code>expect</code> snippet there. I would however add <code>expect "Identity added: /home/user/.ssh/id_rsa (/home/user/.ssh/id_rsa)"</code> before the interact, otherwise it would fail in some circumstances.</span> <span> - </span> <span class="display-name">Asfand Qazi</span> <span> </span> <span class="date">23 Nov 2016 at 12:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>keychain requires additional parameters <a href="http://www.funtoo.org/Keychain" rel="nofollow noreferrer">funtoo.org/Keychain</a></span> <span> - </span> <span class="display-name">Dmitriy Dokshin</span> <span> </span> <span class="date">21 Mar 2017 at 07:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DmitriyDokshin Can you be more specific? <code>eval `keychain --eval id_rsa`</code> is a valid usage example also listed on the wiki page you referred to, assuming your private key is in <code>~/.ssh/id_rsa</code>.</span> <span> - </span> <span class="display-name">Thomas Nyman</span> <span> </span> <span class="date">22 Mar 2017 at 11:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ThomasNyman I'm using <code>eval 'keychain --eval --agents ssh --inherit any ~/.ssh/my_rsa'</code></span> <span> - </span> <span class="display-name">Dmitriy Dokshin</span> <span> </span> <span class="date">22 Mar 2017 at 16:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I'm curious about making use of systemd to accomplish this and how would that fit into your response? Also, his is perhaps the most complete answer I've come across! Thank you for spending the time writing it.</span> <span> - </span> <span class="display-name">Erick Brown</span> <span> </span> <span class="date">19 Jul 2018 at 13:31</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ErickBrown: Already answered <a href="https://unix.stackexchange.com/a/390631/43779">here</a>. The SSH Agent unit should be stopped on logout if you have user lingering disabled in the <a href="https://www.freedesktop.org/software/systemd/man/loginctl.html" rel="nofollow noreferrer">systemd login manager</a>. If user lingering is enabled, the systemd user instance and the SSH Agent unit are kept running even after the last login session is closed.</span> <span> - </span> <span class="display-name">Thomas Nyman</span> <span> </span> <span class="date">25 Jul 2018 at 08:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@cmc I reject your edit, but find it meaningfull, you should add it as an answer of it's own.</span> <span> - </span> <span class="display-name">Archemar</span> <span> </span> <span class="date">25 Feb 2019 at 15:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Regarding @Collin Anderson's answer you linked-to, you stated: "However, unless explicitly killed, the decrypted key still remains in memory after logout." This is a security consideration in making decisions (which I think is the point you're trying to make), but this is also the <i>intended behavior</i> of his answer, no? I believe the <i>goal</i> of his answer is to make the key persistent until reboot, regardless of logged-in status.</span> <span> - </span> <span class="display-name">Gabriel Staples</span> <span> </span> <span class="date">3 Jan 2022 at 18:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Consider rephrasing that line to say, "The convenience advantage, but also security concern, is that unless explicitly killed, the decrypted key remains in memory even after logout, and is not cleared until reboot."</span> <span> - </span> <span class="display-name">Gabriel Staples</span> <span> </span> <span class="date">3 Jan 2022 at 18:31</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>147</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Collin Anderson</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Jul 2015 at 16:48</span>
+     </div>
+    </div>
+    <div>
+     <p>Add this to your <code>~/.bashrc</code>, then log out and back in to take effect.</p>
+     <pre class="lang-bash prettyprint-override"><code>if [ ! -S ~/.ssh/ssh_auth_sock ]; then
+  eval `ssh-agent`
+  ln -sf "$SSH_AUTH_SOCK" ~/.ssh/ssh_auth_sock
+fi
+export SSH_AUTH_SOCK=~/.ssh/ssh_auth_sock
+ssh-add -l &gt; /dev/null || ssh-add
+</code></pre>
+     <p>This should only prompt for a password the first time you log in after each reboot. It will keep reusing the same <code>ssh-agent</code> as long as it's running.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>very neat, this way you only have one ssh-agent running (: Multiple agents as in @thomasNyman's second solution seems a security risk to me...</span> <span> - </span> <span class="display-name">drevicko</span> <span> </span> <span class="date">10 Feb 2016 at 11:54</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>After researching in various sites and reading various solutions, this one here seems to be the clearest, straight to the point. Very nice. +1</span> <span> - </span> <span class="display-name">DrBeco</span> <span> </span> <span class="date">18 Jul 2016 at 00:40</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>better to do this: `alias ssh=ssh-check-agent", and have the check-agent version do the above. that way: a) you only get one agent and b) you only get the agent if you need it</span> <span> - </span> <span class="display-name">Erik Aronesty</span> <span> </span> <span class="date">26 Jul 2016 at 20:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What is the reason you aren't starting the ssh-agent in the background with the <code>-s</code> param? Just curious, I'm still a newbie with Linux (and in my case Debian).</span> <span> - </span> <span class="display-name">Jelmer</span> <span> </span> <span class="date">20 Nov 2016 at 16:37</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>I think -s is the default, so we're already doing that.</span> <span> - </span> <span class="display-name">Collin Anderson</span> <span> </span> <span class="date">22 Nov 2016 at 16:25</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span><code>ssh-add -l</code> returns an exit code of 0 when the agent has identities and 1 when it does not so you can cut grep out of the last command and use <code>ssh-add -l &gt; '/dev/null' || ssh-add</code></span> <span> - </span> <span class="display-name">Grant Humphries</span> <span> </span> <span class="date">20 Dec 2016 at 02:21</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This is a good answer, however users would be wise to use the <code>-t</code> switch of <code>ssh-agent</code>. There will be a lifetime on all the keys you loaded into the agent.</span> <span> - </span> <span class="display-name">Edgar Klerks</span> <span> </span> <span class="date">18 Jan 2018 at 12:29</span></td>
+       </tr>
+       <tr>
+        <td>13</td>
+        <td><span>Note that <code>ssh-add</code> without arguments adds <code>~/.ssh/id_rsa</code>. You might want to pass <code>ssh-add</code> arguments if your private keys are in another file.</span> <span> - </span> <span class="display-name">Matthias Braun</span> <span> </span> <span class="date">1 Nov 2019 at 13:54</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>How do you automatically get rid of the symlink at <code>~/.ssh/ssh_auth_sock</code> across reboots? I rebooted my machine, <code>~/.ssh/ssh_auth_sock</code> still existed, so the if-statement was false, and as a result <code>ssh-agent</code> wasn't started. This was on Git Bash on Windows though, so it could have to do with Windows' meagre support for symlinks.</span> <span> - </span> <span class="display-name">tjalling</span> <span> </span> <span class="date">12 Oct 2020 at 08:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@tjalling <code>/tmp</code> gets wiped on reboot (assuming it's in memory) so the socket file gets removed, therefore, <code>test -S</code> fails because link doesn't point to the socket any more, also <code>ln -f</code> forces creation of a new link.</span> <span> - </span> <span class="display-name">cprn</span> <span> </span> <span class="date">17 Nov 2020 at 19:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It's an older answer sir, but it checks out. Many thanks. Exactly what I was looking for.</span> <span> - </span> <span class="display-name">Sobrique</span> <span> </span> <span class="date">1 Dec 2020 at 10:42</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@cprn Ah, so the assumption is that <code>/tmp</code> is in memory. That explains. On Git Bash on Windows, <code>/tmp</code> is mapped to <code>C:\Users\&lt;username&gt;\AppData\Local\Temp</code> which is a location on disk (afaik) and the socket is not deleted. I've since added <code>ps | grep ssh-agent &gt; /dev/null || rm ~/.ssh/ssh_auth_sock &gt; /dev/null 2&gt;&amp;1</code> to my <code>~/.bashrc</code> to remove the symlink. Sounds like I still/instead should clean up the socket file itself then.</span> <span> - </span> <span class="display-name">tjalling</span> <span> </span> <span class="date">16 Dec 2020 at 08:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@tjalling I'm guessing you added that before the script in the answer</span> <span> - </span> <span class="display-name">CervEd</span> <span> </span> <span class="date">21 Apr 2021 at 08:43</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@CervEd cleanup of the old files should come before the <code>if [ ! -S ~/.ssh/ssh_auth_sock ];</code>, indeed.</span> <span> - </span> <span class="display-name">tjalling</span> <span> </span> <span class="date">21 Apr 2021 at 10:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks for this excellent answer. I added a modified version of it to <a href="https://github.com/ElectricRCAircraftGuy/eRCaGuy_dotfiles/tree/master/home/.ssh#auto-starting-the-the-ssh-agent-on-a-remote-ssh-based-development-machine" rel="nofollow noreferrer">my personal ssh documentation here</a>. Among my changes are print statements to explain what's going on, and an <code>if</code> statement version of this line to make it more clear what's really happening: <code>ssh-add -l &gt; /dev/null || ssh-add</code>.</span> <span> - </span> <span class="display-name">Gabriel Staples</span> <span> </span> <span class="date">5 Jan 2022 at 04:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>For a <code>.bashrc</code> script that works in Git Bash and WSL, see <a href="https://unix.stackexchange.com/a/338514/472652">this answer</a>.</span> <span> - </span> <span class="display-name">Arad Alvand</span> <span> </span> <span class="date">27 Jun 2022 at 19:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>32</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Guilherme Salazar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Oct 2016 at 06:26</span>
+     </div>
+    </div>
+    <div>
+     <p>Not closely related to the OP's question, but it might be useful to others: <a href="https://www.openssh.com/txt/release-7.2" rel="nofollow noreferrer">since 7.2.0</a>, <code>ssh</code> has an option that allows adding a key to <code>ssh-agent</code> upon first authentication; the option is <code>AddKeysToAgent</code> and can be set to <code>yes</code>, <code>no</code>, <code>ask</code>, or <code>confirm</code>, system-wide or in your personal <code>.ssh/config</code> file.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>Applicable to those who are new to the <code>.ssh/config</code> file: this applies to <code>ssh</code> and anything that uses <code>ssh</code> behind it, for example <code>scp</code>, and can be done on a per-host basis.</span> <span> - </span> <span class="display-name">SEoF</span> <span> </span> <span class="date">25 Sep 2017 at 14:32</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>It still asks me for password each time I login and try to git pull for example.</span> <span> - </span> <span class="display-name">trainoasis</span> <span> </span> <span class="date">7 Aug 2019 at 10:15</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@trainosis The issue is that you probably do not have an ssh-agent instance running to hold the decrypted key(s) in memory for future use. You should only need to enter the password for a given key once per login session when using ssh-agent.</span> <span> - </span> <span class="display-name">eestrada</span> <span> </span> <span class="date">13 Aug 2019 at 20:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>also note that this can be applied in conjunction with other answers like <a href="https://unix.stackexchange.com/a/217223/355088">unix.stackexchange.com/a/217223/355088</a> by just removing the <code>ssh-add</code> part</span> <span> - </span> <span class="display-name">CervEd</span> <span> </span> <span class="date">3 Feb 2023 at 08:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>umläute</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Sep 2013 at 11:08</span>
+     </div>
+    </div>
+    <div>
+     <p><code>ssh-agent</code> caches various unlocked ssh-keys, so you can have ssh-keys protected by passwords, but without having to type them every single time.</p>
+     <p>In order to cache unlocked keys, it obviously needs to unlock those keys. For unlocking keys that are locked with a passphrase, it obviously needs to know these passphrases.</p>
+     <p>Any method that does not require authorization from a human being (e.g. "typing in a password") will not only make your system insecure; it will also render the entire purpose of the ssh-agent meaningless.</p>
+     <p>Having said all this, you can simply use ssh-keys that are not password protected (hit <kbd>Enter</kbd> when asked for a password during key-generation). Since there isn't any password, <code>ssh-agent</code> doesn't need to ask you for one in order to (not) cache it.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>I agree, as long as your keys are properly user-only-permissioned, there is little advantage to ssh-agent over permissionless keys. i like to ssh into a login server, and then, that server has a bunch of permssionless keys, each of which can only be used to unlock one other server. the login server does nothing else, so it's much harder to hack/spoof, etc... the other servers have no password access, are key-only.</span> <span> - </span> <span class="display-name">Erik Aronesty</span> <span> </span> <span class="date">26 Jul 2016 at 20:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>kenorb</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Oct 2015 at 12:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a workaround to automate your SSH passphrase.</p>
+     <ol>
+      <li>
+       <p>Create a one-liner script which prints your passphrase to standard output, e.g.:</p>
+       <pre><code> echo 'echo MY_SSH_PASSWORD' &gt; ~/.print_ssh_password &amp;&amp; chmod 700 ~/.print_ssh_password
+</code></pre>
+       <p><strong>Important: Ensure you copy the leading space to <a href="https://stackoverflow.com/q/6475524/55075">prevent storing your password to your history</a>.</strong></p></li>
+     </ol>
+     <p>And use one of the below methods.</p>
+     <ul>
+      <li>
+       <p>using a standard input approach:</p>
+       <pre><code>cat ~/.ssh/id_rsa | SSH_ASKPASS=~/.print_ssh_password ssh-add -
+</code></pre></li>
+      <li>
+       <p>or <a href="https://en.wikipedia.org/wiki/Named_pipe" rel="noreferrer">named pipe</a> approach:</p>
+       <ol>
+        <li>
+         <p>Create a <a href="https://en.wikipedia.org/wiki/Named_pipe" rel="noreferrer">named pipe</a> (you could also try a <a href="https://unix.stackexchange.com/q/235290/21471">process substitution</a>):</p>
+         <pre><code>mkfifo --mode 0600 ~/.ssh_fifo
+</code></pre></li>
+        <li>
+         <p>Run <code>ssh-add</code> by specifying the program used for the authentication:</p>
+         <pre><code>cat ~/.ssh/id_rsa &gt;~/.ssh_fifo | SSH_ASKPASS=~/.print_ssh_password ssh-add ~/.ssh_fifo
+</code></pre></li>
+       </ol>
+       <p>See: <a href="https://docs.oracle.com/cd/E19683-01/816-0210/6m6nb7mlq/index.html" rel="noreferrer"><code>man ssh-add</code></a> to read more about <code>SSH_ASKPASS</code>.</p></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>The <code>echo my_passphrase</code> is a big security hole. First after you have typed it, the password is in clear text in the history file of what ever shell you use. And second command line arguments are world readable on Unix (<code>ps -ef</code>). <b>Never put passwords in command line arguments!</b></span> <span> - </span> <span class="display-name">ceving</span> <span> </span> <span class="date">24 Aug 2016 at 09:03</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@ceving Adding extra leading space solves the problem with the history file. Added extra info.</span> <span> - </span> <span class="display-name">kenorb</span> <span> </span> <span class="date">24 Aug 2016 at 09:25</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@kenorb: That doesn't solve the bigger problem of the password visible in <code>ps</code> output. The history file is typically only readable by the owning user anyway, but the command lines are readable by all users on a system.</span> <span> - </span> <span class="display-name">Thomas Nyman</span> <span> </span> <span class="date">23 Nov 2016 at 14:37</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Johnny Wong</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Feb 2015 at 03:34</span>
+     </div>
+    </div>
+    <div>
+     <p>I won't recommend you ssh-add (which need to open a ssh-agent) at login. This is because you can't control when the ssh-agent section ends, and can create security risk when you need not use the keyfiles at one login section.</p>
+     <p>Rather, I recommend to write a script which opens a ssh-agent's section sub-shell, with all keyfiles auto added, and be called when needed to use ssh. If you could adopt so, read on.</p>
+     <p>You would have two choices:</p>
+     <ol>
+      <li>
+       <p>Remove all passphrases for your keys, which have <strong>weak security</strong> if your key files are stolen. (thus <em>not recommended</em>)</p></li>
+      <li>
+       <p>Use the same passphrase for your keys. Then when you <code>ssh-add keyfile1 keyfile2 ...</code>, you will only need to type the passphrase once, per section.</p></li>
+     </ol>
+     <p>In both cases, you could write such script file "ssh_keys_section.sh" as below:</p>
+     <pre><code>#!/bin/bash
+# This script run a ssh-agent on a sub-shell and automatically ssh-add all keyfiles at once.
+# This agent ends when you type `exit` to close the sub-shell.
+exec ssh-agent bash -c "ssh-add /path/to/keyfile1 /path/to/keyfile2 ...; exec bash"
+</code></pre>
+     <p>Remarks:</p>
+     <ul>
+      <li>Command to change or delete passphrase: <code>ssh-keygen -p -f keyfile</code></li>
+      <li>Within the sub-shell, you might even fork more terminals which share the same unlocked keys, by using maybe a command like <code>/path/to/yourterminal &amp;</code> (depends on OS)</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>E.g. On Windows within Cygwin, <code>/path/to/yourterminal &amp;</code> ==&gt; <code>mintty &amp;</code></span> <span> - </span> <span class="display-name">Johnny Wong</span> <span> </span> <span class="date">25 Mar 2019 at 09:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Remark: after use, close the session with <code>ctrl-d</code> or <code>exit</code>, just like you have invoked a nested <code>bash</code> shell and need to close it.</span> <span> - </span> <span class="display-name">Johnny Wong</span> <span> </span> <span class="date">1 Nov 2019 at 08:44</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>rmc</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jul 2016 at 07:16</span>
+     </div>
+    </div>
+    <div>
+     <p>I used to use the script mentioned by steampowered, I've made the below one now, because it doesn't leave files lying around.</p>
+     <p><strong>Working on <code>zsh</code> shell only.</strong></p>
+     <pre><code>#!/usr/bin/env zsh
+
+AGENT_BIN=`which ssh-agent`
+AGENT_ADD_BIN=`which ssh-add`
+AGENT_PID=`ps -fe | grep ${AGENT_BIN} | awk -vuser=$USER -vcmd="$AGENT_BIN" '$1==user &amp;&amp; $8==cmd{print $2;exit;}'`
+if [ -z "$AGENT_BIN" ]; then
+    echo "no ssh agent found!";
+    return
+fi
+if [ "" -eq "$AGENT_PID" ]; then
+    if read -sq "YN?Do you want to unlock your ssh keys?"; then
+        echo ""
+        output=`$AGENT_BIN | sed 's/echo/#echo/g'`
+        eval $output
+        $AGENT_ADD_BIN
+    fi
+else
+    for f in "/proc/"*
+    do
+        cmdline=`cat "$f/cmdline"`
+        if [ "${AGENT_BIN}" -ef "${cmdline}" ]; then
+            export SSH_AUTH_SOCK=`cat $f/net/unix | grep --binary-file=text -oP '((/[^/]*?)+/ssh-[^/]+/agent\.\d+$)'`
+            export SSH_AGENT_PID=${f##*/}
+            break;
+        fi
+    done
+fi
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>enconn</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Dec 2016 at 16:25</span>
+     </div>
+    </div>
+    <div>
+     <p><strong><em>If you are running seahorse as your password manager</em></strong> ... Which you probably are ;D</p>
+     <p>Another solution that achieves the goal you are looking for is simply adding the ssh keys to seahorse for automatic unlock upon login. The major benefit to this is that you never have to enter a password for the keys after you login through gdm, or whatever your loging in with even if the keys have a password. This REQUIRES both the private key and the public key. They also MUST follow a naming convention for seahorse. The default is acceptable (id_rsa for private key and id_rsa.pub for public key... Really anything that is <em>privatekeyname</em> and <em>privatekeyname.pub</em>)</p>
+     <p>To add you ssh key to seahorse for automatic unlock upon login; (on fedora25, I'm not sure where the path is on other distros though its most likely very similar)</p>
+     <pre><code>/lib64/seahorse/seahorse-ssh-askpass /path/to/keys/here
+</code></pre>
+     <p>For me, it was</p>
+     <pre><code>/lib64/seahorse/seahorse-ssh-askpass ~/.ssh/id_rsa
+</code></pre>
+     <p>(seahorse will automatically assume that the public key in my case was id_rsa.pub)</p>
+     <p>After executing the command, seahorse will pop open a cute little gtk password field to enter the password for the private key into. or just leave it blank if you generated the key without a password.</p>
+     <p>Seahorse won't prompt you if everything went okay. You will need to attempt to ssh into the target machine. Then seahorse will prompt you to unlock the key with a password graphically (THIS WILL ONLY HAPPEN ONCE) again but it should look a little different this time ;P (this is also the part where seahorse does some seahorse to ssh-add magic I believe), and offer the <strong><em>OPTION</em></strong> to unlock the key upon login, you must check this option to achieve your goal.</p>
+     <p>Just because I didn't read all the answers, I would recommend undoing what everyone told you to do with ssh-add before attempting this answer. Doing so otherwise might result in something bad happening to your keys, idk.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Diego Roberto Dos Santos</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Nov 2017 at 21:36</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>if [ ! -S ${HOME}/.ssh/ssh_auth_sock ]; then
+  eval $(ssh-agent)
+  ln -sf "${SSH_AUTH_SOCK}" ${HOME}/.ssh/ssh_auth_sock
+fi
+export SSH_AUTH_SOCK=${HOME}/.ssh/ssh_auth_sock
+
+ssh_keys=$(find -E ~/.ssh -type f -regex '.*(rsa$|pem)')
+ssh_agent_keys=$(ssh-add -l | awk '{key=NF-1; print $key}')
+
+for k in "${ssh_keys}"; do
+    for l in "${ssh_agent_keys}"; do
+        if [[ ! "${k}" = "${l}" ]]; then
+            ssh-add "${k}" &gt; /dev/null 2&gt;&amp;1
+        fi
+    done
+done
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Description is encouraged</span> <span> - </span> <span class="display-name">CervEd</span> <span> </span> <span class="date">27 Jan 2023 at 10:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Arad Alvand</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Jun 2022 at 19:49</span>
+     </div>
+    </div>
+    <div>
+     <p>Inspired by <a href="https://unix.stackexchange.com/a/217223/">Collin Anderson's answer</a>, I wrote an alternative script (that needs to be put inside of your <code>.bashrc</code> file) which unlike his, actually works in an environment like WSL (where the <code>/tmp</code> directory doesn't get cleared, which is what his solution relies on):</p>
+     <pre class="lang-bash prettyprint-override"><code>source ~/.ssh/agent_out &amp;&gt; /dev/null
+if ! ps -p $SSH_AGENT_PID &amp;&gt; /dev/null
+then
+  ssh-agent &gt; ~/.ssh/agent_out
+  source ~/ssh/agent_out &amp;&gt; /dev/null
+fi
+</code></pre>
+     <p>To understand what this script is actually doing, let’s consider what it would do the first time it’s run:</p>
+     <ol>
+      <li>It spins up an SSH agent, stores the output of the <code>ssh-agent</code> command inside a file called <code>agent_out</code> in the user’s <code>.ssh</code> directory for later use. The output of the <code>ssh-agent</code> command contains statements to assign the right values to environment variables like <code>SSH_AUTH_SOCK</code> and <code>SSH_AGENT_PID</code>.</li>
+      <li>For every new shell session, it first executes the output of the last <code>ssh-agent</code> command which was stored in the <code>~/.ssh/agent_out</code> file, and then checks whether the process with the ID included in <code>SSH_AGENT_PID</code> actually exists or not. If it doesn’t, it performs the first step.</li>
+     </ol>
+     <p>This, coupled with the new SSH config option <code>AddKeysToAgent</code> — see <a href="https://manpages.ubuntu.com/manpages/kinetic/en/man5/ssh_config.5.html" rel="nofollow noreferrer">the manual</a> —, would yield a nice user experience, and eliminate the need for third-party tools like <code>keychain</code> and <code>ssh-ident</code> for the most part:</p>
+     <p><code>~/.ssh/config</code>:</p>
+     <pre><code>AddKeysToAgent yes
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>What if the PID is taken by another process that is not ssh-agent?</span> <span> - </span> <span class="display-name">trallnag</span> <span> </span> <span class="date">5 Aug 2022 at 14:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>steampowered</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 May 2016 at 16:35</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>SSH_ENV="$HOME/.ssh/environment"
+
+function start_agent {
+     echo "Initialising new SSH agent..."
+     /usr/bin/ssh-agent | sed 's/^echo/#echo/' &gt; "${SSH_ENV}"
+     echo succeeded
+     chmod 600 "${SSH_ENV}"
+     . "${SSH_ENV}" &gt; /dev/null
+     /usr/bin/ssh-add;
+}
+
+# Source SSH settings, if applicable
+
+if [ -f "${SSH_ENV}" ]; then
+     . "${SSH_ENV}" &gt; /dev/null
+     #ps ${SSH_AGENT_PID} doesn't work under cywgin
+     ps -ef | grep ${SSH_AGENT_PID} | grep ssh-agent$ &gt; /dev/null || {
+         start_agent;
+     }
+else
+     start_agent;
+fi
+</code></pre>
+     <p>Giving credit here: <a href="https://www.cygwin.com/ml/cygwin/2001-06/msg00537.html" rel="nofollow">https://www.cygwin.com/ml/cygwin/2001-06/msg00537.html</a></p>
+     <p>This solution is also endorsed here: <a href="http://mah.everybody.org/docs/ssh" rel="nofollow">http://mah.everybody.org/docs/ssh</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Michael</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Aug 2017 at 22:57</span>
+     </div>
+    </div>
+    <div>
+     <p>Single sign on solution for SSH could lead me to <a href="https://linux.die.net/man/8/pam_ssh" rel="nofollow noreferrer"><code>pam_ssh</code></a>.</p>
+     <p>According to <a href="https://wiki.sabayon.org/index.php?title=HOWTO:_Passwordless_SSH_with_Single_Signon" rel="nofollow noreferrer">this article</a>, the concept is:</p>
+     <blockquote>
+      <p>If you work with multiple *nix-based machines via ssh, you are probably tired of constantly having to enter your password every time you want to access another box. There is a secure way to allow you to access every machine, that you have ssh access to, without having to enter another password (other than the one you signed on with originally.)</p>
+     </blockquote>
+     <hr>
+     <blockquote>
+      <p>This is actually quite simple to do, you basically just create a public/private key pair to authenticate yourself to your other machines, then have PAM spawn an agent to load your keys after you logon, providing a single signon solution to accessing all your remote machines. This guide will walk you through setting this up.</p>
+     </blockquote>
+     <p>I have not verified this would actually work.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Samuel Prevost</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Jul 2019 at 15:40</span>
+     </div>
+    </div>
+    <div>
+     <p>My setup on macOS is as follow (in <code>.zshrc</code>, or <code>.bash_profile</code> for bash folks):</p>
+     <pre><code># Kill then Load the ssh-agent and set the necessary env variables it outputs
+sshRestart() {
+    # if all else fails
+    # pkill -u $(whoami) ssh-agent;
+
+    if [ -n "$SSH_AUTH_SOCK" ] ; then
+        eval `/usr/bin/ssh-agent -k`
+    fi
+    eval `ssh-agent -s`
+    ssh-add ~/.ssh/YOUR_KEY_FILE
+    echo "Restarted SSH agent"
+}
+
+if [ -z "$SSH_AUTH_SOCK" ] || [[ $SSH_AUTH_SOCK == *"/private/tmp/"* ]] ; then
+    eval `ssh-agent -s` &gt; /dev/null 2&gt;&amp;1
+    ssh-add ~/.ssh/YOUR_KEY_FILE &gt; /dev/null 2&gt;&amp;1
+fi
+</code></pre>
+     <p>The <code>|| [[ $SSH_AUTH_SOCK == *"/private/tmp/"* ]]</code> part is necessary on macOS because the default value is <code>/private/tmp/com.apple.launchd.SOMETHINGHERE/Listeners</code>. Otherwise @Thomas Nyman comprehensive answer fails because <code>$SSH_AUTH_SOCK</code> is always set to something.</p>
+     <p>Then in <code>.zlogout</code> (or <code>.bash_logout</code> for bash folks):</p>
+     <pre><code>if [ -n "$SSH_AUTH_SOCK" ] ; then
+    eval `/usr/bin/ssh-agent -k`
+fi
+</code></pre>
+     <p>Tested on macOS Mojave 10.14.5</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hrishikesh Kadam</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Feb 2021 at 14:14</span>
+     </div>
+    </div>
+    <div>
+     <p>This has been very well explained by GitHub on <a href="https://docs.github.com/en/github/authenticating-to-github/working-with-ssh-key-passphrases#auto-launching-ssh-agent-on-git-for-windows" rel="nofollow noreferrer">Auto-launching ssh-agent on Git for Windows</a>, which in turn works for Linux also.</p>
+     <p>You can run <code>ssh-agent</code> automatically when you open bash or Git shell. Copy the following lines and paste them into your <code>~/.profile</code> or <code>~/.bashrc</code> file in Git shell:</p>
+     <pre class="lang-bash prettyprint-override"><code>env=~/.ssh/agent.env
+
+agent_load_env () { test -f "$env" &amp;&amp; . "$env" &gt;| /dev/null ; }
+
+agent_start () {
+    (umask 077; ssh-agent &gt;| "$env")
+    . "$env" &gt;| /dev/null ; }
+
+agent_load_env
+
+# agent_run_state: 0=agent running w/ key; 1=agent w/o key; 2= agent not running
+agent_run_state=$(ssh-add -l &gt;| /dev/null 2&gt;&amp;1; echo $?)
+
+if [ ! "$SSH_AUTH_SOCK" ] || [ $agent_run_state = 2 ]; then
+    agent_start
+    ssh-add
+elif [ "$SSH_AUTH_SOCK" ] &amp;&amp; [ $agent_run_state = 1 ]; then
+    ssh-add
+fi
+
+unset env
+</code></pre>
+     <p>If your private key is not stored in one of the default locations (like <code>~/.ssh/id_rsa</code>), you'll need to tell your SSH authentication agent where to find it. To add your key to ssh-agent, type <code>ssh-add ~/path/to/my_key</code>.</p>
+     <p><strong>Tip:</strong> If you want <code>ssh-agent</code> to forget your key after some time, you can configure it to do so by running <code>ssh-add -t &lt;seconds&gt;</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>questionto42</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Mar 2021 at 02:05</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>The easiest solution does not have to be bad.</strong></p>
+     <p>You need neither <code>ssh-agent</code> nor <code>ssh-add</code> when you use a passwordless private key, see <a href="https://stackoverflow.com/a/48290333/11154841">https://stackoverflow.com/a/48290333/11154841</a>.</p>
+     <p>That does not need to be insecure: you simply need to delete both keys of the key pair right after their usage. That means, you must delete the public key on the server and delete the private key on the client. It goes without saying: never use them again, do not even keep a backup somewhere.</p>
+     <p><em>Mind that you can create the public key from a private key, but not the other way round.</em> Normally, it should suffice to simply delete the public key from the registered keys on your Git portal, but they should better be both deleted, so that the same public key can never ever be used again. Even if someone had stolen your private key, it would be of no use if you simply never use its public key again.</p>
+     <p>With a passwordless private key, you can even use it in Docker to get around any password entries. You can clone a git repo without any password, the passwordless private key is all you need. See <a href="https://superuser.com/questions/1633085/dockerfile-clone-repo-with-passwordless-private-key-errors-authentication-ag">Dockerfile: clone repo with passwordless private key. Errors: “authentication agent” or “read_passphrase: can't open /dev/tty”</a> as an example.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I guess using a new key pair every time will be much more hassle than entering a password.</span> <span> - </span> <span class="display-name">EvgenKo423</span> <span> </span> <span class="date">7 Jul 2021 at 12:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@EvgenKo423 You are right, obviously. But if you are not allowed to use pw security, or if you use dockerfile which does not accept console entries when running, then this helps. There is also another approach to use a deployment token, then you do not need to upload your own private key, but you use just the command including the token, then. This is a once-off effort but not that secure anymore if that token gets spread.</span> <span> - </span> <span class="display-name">questionto42</span> <span> </span> <span class="date">7 Jul 2021 at 12:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>But using an ssh agent anyway has other advantages such as <i>agent forwarding</i></span> <span> - </span> <span class="display-name">Nephanth</span> <span> </span> <span class="date">30 Jun 2022 at 10:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Nephanth It might be the easiest solution here, but not the best. The only good use case is if you need to get docker to run through without any console action. in such cases, you would need a trick like this (linked above). Without Docker, you are better off with the ssh agent.</span> <span> - </span> <span class="display-name">questionto42</span> <span> </span> <span class="date">30 Jun 2022 at 16:22</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Gabriel Staples</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Jan 2022 at 19:06</span>
+     </div>
+    </div>
+    <div>
+     <p>I <a href="https://unix.stackexchange.com/a/217223/114401">really like this answer by @Collin Anderson</a>, and I upvoted it. I then added a modified version of it to <a href="https://github.com/ElectricRCAircraftGuy/eRCaGuy_dotfiles/tree/master/home/.ssh#auto-starting-the-the-ssh-agent-on-a-remote-ssh-based-development-machine" rel="nofollow noreferrer">my personal ssh documentation here</a>. Among my changes are print statements to explain what's going on, and an <code>if</code> statement to replace this line (<code>ssh-add -l &gt; /dev/null || ssh-add</code>) to make it more clear what's really happening.</p>
+     <p>Here is my version below.</p>
+     <h3>Description:</h3>
+     <p>Auto-start the ssh agent and add necessary keys once per reboot.</p>
+     <p>This is recommended to be added to your <code>~/.bash_aliases</code> (preferred) or <code>~/.bashrc</code> file on any remote ssh server development machine that you generally ssh into, and from which you must ssh into other machines or servers, such as to push code to GitHub over ssh. If you only graphically log into this machine, however, there is no need to do this, as Ubuntu's Gnome window manager, for instance, will automatically start and manage the <code>ssh-agent</code> for you instead.</p>
+     <h3>Code:</h3>
+     <pre class="lang-bsh prettyprint-override"><code>if [ ! -S ~/.ssh/ssh_auth_sock ]; then
+    echo "'ssh-agent' has not been started since the last reboot." \
+         "Starting 'ssh-agent' now."
+    eval "$(ssh-agent -s)"
+    ln -sf "$SSH_AUTH_SOCK" ~/.ssh/ssh_auth_sock
+fi
+export SSH_AUTH_SOCK=~/.ssh/ssh_auth_sock
+# see if any key files are already added to the ssh-agent, and if not, add them
+ssh-add -l &gt; /dev/null
+if [ "$?" -ne "0" ]; then
+    echo "No ssh keys have been added to your 'ssh-agent' since the last" \
+         "reboot. Adding default keys now."
+    ssh-add
+fi
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Brandon Stewart</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Nov 2022 at 23:59</span>
+     </div>
+    </div>
+    <div>
+     <p>Not recommend but you could just remove the password outright with:</p>
+     <pre><code>ssh-keygen -p
+</code></pre>
+     <p>Then leave the new password blank</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Abukamel</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Jan 2014 at 12:47</span>
+     </div>
+    </div>
+    <div>
+     <p>Add this to your <code>~/.bashrc</code> file:</p>
+     <pre><code>ssh-add -L|grep identities &gt; /dev/null &amp;&amp; ssh-add /path/to/ssh/private/key
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>I don't see how this relates to the question, which is about not being prompted for the password on subsequent logins.</span> <span> - </span> <span class="display-name">Chris Down</span> <span> </span> <span class="date">6 Jan 2014 at 13:23</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Keith Cascio</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Feb 2015 at 01:56</span>
+     </div>
+    </div>
+    <div>
+     <p>In order to add a (possibly passwordless) key and ensure that <code>ssh-add</code> will not prompt for a password, no matter what, even when running under <a href="https://en.wikipedia.org/wiki/X_Window_System" rel="nofollow">X</a>:</p>
+     <pre><code>DISPLAY= ssh-add -k /path/to/key &lt;/dev/null &amp;&gt;/dev/null
+</code></pre>
+     <p>Exit status indicates success or failure.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>cmc</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Feb 2019 at 13:40</span>
+     </div>
+    </div>
+    <div>
+     <p>The best way I am aware of is to use a PAM login script I adapted from previous work because I couldn't find a satisfying answer in this question.</p>
+     <p>Your passphrase gets stored encrypted with your system password and a heavy derivation function. At login, your system password is used to decrypt your passphrase and add it to the agent.</p>
+     <p><a href="https://github.com/capocasa/systemd-user-pam-ssh" rel="nofollow noreferrer">https://github.com/capocasa/systemd-user-pam-ssh</a></p>
+     <p>The advantage over every other solution presented is that it combines security equivalent to running ssh-add manually at boot with zero effort. It requires no extra tools and has one extra dependency that's already installed by default on most systems (OpenSSL).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pascal Andy</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jan 2017 at 02:40</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is the definitive script.</p>
+     <p>Update $PASSW, then copy-paste it in your Terminal</p>
+     <pre><code># &lt;sshpass&gt; via typinator
+# Updated: 2017-01-18_21h36
+#
+# apt-get update -y; apt-get install expect -qy
+
+# Pass this value to ssh-add
+PASSW="myfancypass123"
+
+# Define a name for this script
+THIS_SCRIPT="$(date +%Y-%m-%d_%H-%M-%S-%N)".sh
+
+# Create a fresh directory to work from / Clean up
+rm -rf ~/temp; mkdir -p ~/temp; cd ~/temp; ls -la
+
+
+# Output our bash script file - BEGIN
+cat &lt;&lt;&lt; '
+#!/bin/bash
+
+set -u     # Stop if an unbound variable is referenced
+set -e     # Stop on first error
+export HISTIGNORE="expect*";
+
+# Normal CMDs
+echo &amp;&amp; echo "The process should take about 10 seconds:" &amp;&amp; echo
+eval "$(ssh-agent -s)"; sleep 0.5;
+
+# Define VAR passed when this bash-script was launched
+password="$@"
+
+# Launch the expect magic
+expect -c "
+    spawn ssh-add /root/.ssh/id_rsa
+    expect "?assword:"
+    send \"$password\r\"
+    expect "?password:"
+    send \"$password\r\"
+    expect eof"
+
+export HISTIGNORE="";
+export password="";
+' &gt; $THIS_SCRIPT
+# Output our bash script file - END
+
+
+# Ensure we are in the right path
+cd ~/temp; ls -la; sleep 1;
+
+# Run the bash script
+chmod +x ./$THIS_SCRIPT; ./$THIS_SCRIPT "$PASSW"; unset password;
+
+# Clean up
+rm -rf ~/temp; mkdir -p ~/temp; cd ~/temp; ls -la
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

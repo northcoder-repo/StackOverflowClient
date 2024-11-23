@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>What should be in try-with-resources when dealing with databases</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>What should be in try-with-resources when dealing with databases</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Nemo </span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Jan 2023 at 09:17</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75039229/what-should-be-in-try-with-resources-when-dealing-with-databases">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have this small project and I need to connect my Java application to the database. I have succeeded. I have few questions though. I'm not sure how to handle resources. As of now, I defaulted to packing as much as I can into try-with-resources because, it is reliable option for closing them automatically. But I'm not 100% sure if I'm doing it right.</p>
+    <p>There are 2 cases:</p>
+    <ol>
+     <li>I use function <code>ResultSet executeQuery(String sql)</code></li>
+    </ol>
+    <pre class="lang-java prettyprint-override"><code>try 
+(
+    Connection connection = DriverManager.getConnection(url, user, password);
+    Statement statement = connection.createStatement();
+    ResultSet resultSet = statement.executeQuery(query)
+) 
+{
+    ResultSetMetaData rsmd = resultSet.getMetaData();
+    int columnsNumber = rsmd.getColumnCount();
+    String number = new String();
+
+    while (resultSet.next()) {
+        for (int i = 1; i &lt;= columnsNumber; i++) {
+            number = resultSet.getString(i);
+        }
+    }
+    retValue = Integer.parseInt(number);
+    …
+}
+</code></pre>
+    <ol start="2">
+     <li>I use function <code> int executeUpdate(String sql)</code></li>
+    </ol>
+    <pre class="lang-java prettyprint-override"><code>try 
+(
+    Connection connection = DriverManager.getConnection(url, user, password);
+    Statement statement = connection.createStatement()
+) 
+{
+    statement.executeUpdate(query);
+    …
+}
+</code></pre>
+    <p>From what I understand, Connection and ResultSet both need to be closed. In first case I am using result set later, so that's why I'm creating a variable in () of try. But in the second case executeUpdate cannot be put in (). I know that it returns int, but I am still unsure. Is this sufficient? Are connection and result set closed properly?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jdbc</span><span class="tag">try-with-resources</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>Yes, your DB resources will all be closed correctly. In the second case there is no <code>ResultSet</code> to close.</span> <span> - </span> <span class="display-name">tgdavies</span> <span> </span> <span class="date">7 Jan 2023 at 09:33</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Basil Bourque</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jan 2023 at 09:57</span>
+     </div>
+    </div>
+    <div>
+     <h1>Yes, correct</h1>
+     <p>Yes, you have correctly used try-with-resources syntax to close your JDBC resources appropriately.</p>
+     <p>You said:</p>
+     <blockquote>
+      <p>connection and reslutset both need to be closed</p>
+     </blockquote>
+     <p>Yes.</p>
+     <ul>
+      <li>Both <code>Connection</code> and <code>ResultSet</code> classes are documented as having a <code>close</code> method that releases resources. So you should close them as early as is practical.</li>
+      <li>Both classes are documented as implementing <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/AutoCloseable.html" rel="nofollow noreferrer"><code>AutoCloseable</code></a>. So you can use them with try-with-resources syntax.</li>
+     </ul>
+     <p>Ditto for <code>java.sql.Statement</code>.</p>
+     <p>In contrast, look at the <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.sql/java/sql/ResultSetMetaData.html" rel="nofollow noreferrer"><code>ResultSetMetaData</code></a> class. That class has no <code>close</code> method, and does not implement <code>AutoCloseable</code>. So that class, unlike a regular <code>ResultSet</code>, does not need to be closed, and cannot be used in try-with-resources syntax.</p>
+     <h1><code>AutoCloseable</code></h1>
+     <p>You said:</p>
+     <blockquote>
+      <p>But in the second case executeUpdate cannot be put in ().</p>
+     </blockquote>
+     <p>The <code>executeUpdate</code> method does not return an <code>AutoCloseable</code> object. So that method cannot be called with try-with-resources syntax.</p>
+     <p>That method <code>executeUpdate</code> returns a primitive <code>int</code> rather than a reference to an object. So there is no <code>close</code> method to call.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span><code>java.util.stream.Stream</code> also extends <code>java.lang.AutoCloseable</code> and thus has <code>#close</code> method. How often do you close streams in code?</span> <span> - </span> <span class="display-name">Andrey B. Panfilov</span> <span> </span> <span class="date">7 Jan 2023 at 10:09</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@AndreyB.Panfilov Only when the documentation says you need to (e.g., the <code>Stream</code> returned by <code>java.nio.file.Files.lines(...)</code>).</span> <span> - </span> <span class="display-name">Slaw</span> <span> </span> <span class="date">7 Jan 2023 at 10:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Doesn't it mean we have to close <code>java.lang.AutoCloseable</code> only when documentation explicitly tells us to do that or when it is a common practice for particular domain?</span> <span> - </span> <span class="display-name">Andrey B. Panfilov</span> <span> </span> <span class="date">7 Jan 2023 at 10:30</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@AndreyB.Panfilov In theory you should always close an <code>AutoCloseable</code>, in practice it isn't always necessary, so if you know it is safe not to do so, you can skip it. The documentation in <code>Stream</code> says <i>"Most stream instances do not actually need to be closed after use, as they are backed by collections, arrays, or generating functions, which require no special resource management. Generally, only streams whose source is an IO channel, such as those returned by Files.lines(Path), will require closing."</i>. This basically reverses the general advice for <code>AutoCloseable</code> to only close when needed.</span> <span> - </span> <span class="display-name">Mark Rotteveel</span> <span> </span> <span class="date">7 Jan 2023 at 11:58</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>And <code>AutoCloaseable</code> documents: <i>"It is possible, and in fact common, for a base class to implement AutoCloseable even though not all of its subclasses or instances will hold releasable resources. For code that must operate in complete generality, or when it is known that the AutoCloseable instance requires resource release, it is recommended to use try-with-resources constructions. However, when using facilities such as Stream that support both I/O-based and non-I/O-based forms, try-with-resources blocks are in general unnecessary when using non-I/O-based forms."</i></span> <span> - </span> <span class="display-name">Mark Rotteveel</span> <span> </span> <span class="date">7 Jan 2023 at 12:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

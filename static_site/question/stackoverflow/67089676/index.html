@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Jquery Datatables custom column searching</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Jquery Datatables custom column searching</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Matthew Lacey</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Apr 2021 at 10:07</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67089676/jquery-datatables-custom-column-searching">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I've been researching into this for a while and useful information is drying up without a solution.</p>
+    <p>I'm using Datatables, and in certain columns I am displaying a Chosen multi-select box to allow the user to edit their data after it is added by continuing to make selections.</p>
+    <p><a href="https://i.stack.imgur.com/C8HrP.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/C8HrP.png" alt="enter image description here"></a></p>
+    <p>I've got per-column search boxes working using initComplete, and they do filter the data in the column, but not in an acceptable way; they are matching on the options' text, but also on the select element's classes, and even on all the unselected options, such that it is useless.</p>
+    <pre><code>...,
+initComplete: function () {
+            // Apply the search
+            this.api().columns().every(function () {
+                var that = this;
+
+                $('input', this.footer()).on('keyup change clear', function () {
+                    if (that.search() !== this.value) {
+                        that
+                            .search(this.value)
+                            .draw();
+                    }
+                });
+            });
+        }
+</code></pre>
+    <p>I would like this to only match on the text of the selected options of the select boxes. Writing the function to get the array of text strings of a select box in a given row is easily done by me, but I'm struggling to find out where I can hook in such a custom function to the Datatables flow.</p>
+    <p>The Datatables documentation mentions that you can define a column filter function for orthogonal data, but gives no example of this and I'm struggling to find any online either. My attempt at this was adding the following to the DataTable initialisation, but it's not getting called:</p>
+    <pre><code>...,
+"columns": [          
+            {
+                filter: function (a,b,c) {
+                    console.log('called from column filter');
+                    console.log(arguments)
+                    return false;
+                }
+            },
+            {
+                filter: function (a,b,c) {
+                    console.log('called to column filter');
+                    console.log(arguments)                 
+                    return false;
+                }
+            },
+            null  
+        ]
+</code></pre>
+    <p>Thank you for your time.</p>
+    <p><strong>Update</strong></p>
+    <p>So I've found that I can push a function onto $.fn.dataTable.ext.search.push(...) which seems like it can do what I need. Following down this path, I've found that the column html that is passed in the parameters does not include the Chosen generated elements, which I need, just the pre-chosen .... I've tried using table.rows.invalidate.draw but this just removes the Chosen elements from the DOM instead of fixing this problem by making Datatables pass in the expected html data.</p>
+    <p>Example of the actual row html that I would expect to be passed in:</p>
+    <pre><code>&lt;td&gt;
+&lt;select class="myclasses form-control" multiple="" style="display: none;"&gt;                    
+    &lt;option value="..."&gt;Bahamas&lt;/option&gt;
+    ...
+&lt;/select&gt;
+&lt;div class="chosen-container chosen-container-multi" title="" style="width: 437px;"&gt;
+    &lt;ul class="chosen-choices"&gt;
+        &lt;li class="search-choice"&gt;
+            &lt;span&gt;Greece&lt;/span&gt;
+            &lt;a class="search-choice-close" data-option-array-index="4"&gt;&lt;/a&gt;
+        &lt;/li&gt;
+        &lt;li class="search-choice"&gt;
+            &lt;span&gt;Belgium&lt;/span&gt;
+            &lt;a class="search-choice-close" data-option-array-index="6"&gt;&lt;/a&gt;
+        &lt;/li&gt;
+        &lt;li class="search-choice"&gt;
+            &lt;span&gt;France&lt;/span&gt;
+            &lt;a class="search-choice-close" data-option-array-index="7"&gt;&lt;/a&gt;&lt;/li&gt;&lt;li class="search-field"&gt;
+            &lt;input class="chosen-search-input" type="text" autocomplete="off" value="Select some options" style="width: 25px;"&gt;
+        &lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;div class="chosen-drop"&gt;
+      &lt;ul class="chosen-results"&gt;&lt;/ul&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+&lt;/td&gt;
+</code></pre>
+    <p>The actual parameter data in the search call, which appears to be in the pre-chosen state. This is why I expected .invalidate() to fix this...</p>
+    <pre><code>&lt;select class="myclasses form-control" multiple&gt;                    
+    &lt;option value="..."&gt;Bahamas&lt;/option&gt;
+&lt;/select&gt;
+</code></pre>
+    <p>I'm now looking into generating the chosen html before I add the select html to the table. This may still have problems if a user makes changes to the select box options after they have been added to the table, but I'll see when I get there.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Apr 2021 at 17:35</span>
+     </div>
+    </div>
+    <div>
+     <p>I think your approach of using <code>$.fn.dataTable.ext.search</code> is the right way to go, because unlike the <code>search()</code> API function, this gives you the ability to access the DOM, where your user selections can be found (i.e. outside of the DataTables object).</p>
+     <p>However, because <code>$.fn.dataTable.ext.search</code> is not restricted to only one column, there is some extra work needed to ensure your combined searching across different columns still works correctly.</p>
+     <p>This is a somewhat basic example, but it shows one approach.</p>
+     <p>The only thing each <code>input</code> event does is to trigger a table re-draw. This re-draw is what, in turn, triggers the global search function:</p>
+     <pre class="lang-js prettyprint-override"><code>    initComplete: function () {
+      var api = this.api();
+      api.columns().each(function () {
+        $('input', this.footer()).on('keyup change clear', function () {
+          api.draw();
+        });
+      });
+    }
+</code></pre>
+     <p>The search function is as follows. The code could be streamlined - but it shows the basic approach:</p>
+     <pre class="lang-js prettyprint-override"><code>  $.fn.dataTable.ext.search.push(
+    function( settings, searchData, index, rowData, counter ) { 
+
+      var fromFilter = $( '#in_0' ).val();
+      var toFilter = $( '#in_1' ).val();
+
+      var trNode = table.row( [index] ).node();
+
+      var fromTdNode = $( "td:nth-child(1)", trNode );
+      var fromSelectedValNodes = $( "select option:selected", fromTdNode );   
+      var fromSelections = '';
+      fromSelectedValNodes.each(function() {
+        fromSelections += ( $( this ).val() + ', ' ); 
+      });
+
+      var toTdNode = $( "td:nth-child(2)", trNode );
+      var toSelectedValNodes = $( "select option:selected", toTdNode );   
+      var toSelections = '';
+      toSelectedValNodes.each(function() {
+        toSelections += ( $( this ).val() + ', ' ); 
+      });
+      
+      if ( fromSelections.trim().toLowerCase().includes( fromFilter.trim().toLowerCase() ) &amp;&amp;
+              toSelections.trim().toLowerCase().includes( toFilter.trim().toLowerCase() ) ) {
+        return true;
+      } else {
+          return false;
+      }
+    }
+  );
+</code></pre>
+     <p>We retrieve both of the user-provided search values, and save them in <code>fromFilter</code> and <code>toFilter</code>.</p>
+     <p>Then for each of our two columns containing multi-selects, we retrieve the text of the selected values. We use the DataTables API to get the related <code>node()</code> objects from each DataTables row.</p>
+     <p>Then we use jQuery selectors to collect the selected multi-select values into a string.</p>
+     <p>Finally we see if the search term is contained in the string we built. And we do this for each of the two columns separately, so that the overall table is filtered consistently.</p>
+     <p>This implementation assumes there are only 2 columns containing these Chosen multi-selects - and also that they are the first 2 columns.</p>
+     <p>I also remove the default global search input box from the DataTable using the <code>dom</code> option, since this would also cause <code>$.fn.dataTable.ext.search</code> to be invoked.</p>
+     <p>Final note: the way I am loading my data for my small demo appears to be different from your data loading - so, in case that may need changing, here is my full stand-alone demo:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+  &lt;!-- chosen select library --&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/chosen/1.8.7/chosen.min.css"&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/chosen/1.8.7/chosen.jquery.min.js"&gt;&lt;/script&gt;
+
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;From Country&lt;/th&gt;&lt;th&gt;To Country&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+        &lt;tfoot&gt;
+            &lt;tr&gt;
+                &lt;th&gt;&lt;/th&gt;&lt;th&gt;&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/tfoot&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;script&gt;
+
+$(document).ready(function() {
+
+  $('#example tfoot th').each( function ( idx ) {
+    var title = $(this).text();
+    $(this).html( '&lt;input id="in_' + idx + '" type="text" placeholder="Search ' + title + '"/&gt;' );
+  } );
+
+  var table = $('#example').DataTable( {
+
+    dom: 'lrtip', // removed "f" for "filter".
+
+    columnDefs: [
+      {
+        targets: [ 0, 1 ],
+        render: function ( data, type, row ) {
+          var select = $('&lt;select multiple class="chosen-select"&gt;&lt;option value=""&gt;&lt;/option&gt;&lt;/select&gt;');
+          select.append( '&lt;option value="Argentina"&gt;Argentina&lt;/option&gt;' );
+          select.append( '&lt;option value="Brazil"&gt;Brazil&lt;/option&gt;' );
+          select.append( '&lt;option value="Cuba"&gt;Cuba&lt;/option&gt;' );
+          select.append( '&lt;option value="Denmark"&gt;Denmark&lt;/option&gt;' );
+          select.append( '&lt;option value="Egypt"&gt;Egypt&lt;/option&gt;' );
+          return select[0].outerHTML;
+        }        
+      }
+    ],
+
+    initComplete: function () {
+      var api = this.api();
+      api.columns().each(function () {
+        $('input', this.footer()).on('keyup change clear', function () {
+          api.draw();
+        });
+      });
+    }
+  } );
+
+  $.fn.dataTable.ext.search.push(
+    function( settings, searchData, index, rowData, counter ) { 
+
+      var fromFilter = $( '#in_0' ).val();
+      var toFilter = $( '#in_1' ).val();
+
+      var trNode = table.row( [index] ).node();
+
+      var fromTdNode = $( "td:nth-child(1)", trNode );
+      var fromSelectedValNodes = $( "select option:selected", fromTdNode );   
+      var fromSelections = '';
+      fromSelectedValNodes.each(function() {
+        fromSelections += ( $( this ).val() + ', ' ); 
+      });
+
+      var toTdNode = $( "td:nth-child(2)", trNode );
+      var toSelectedValNodes = $( "select option:selected", toTdNode );   
+      var toSelections = '';
+      toSelectedValNodes.each(function() {
+        toSelections += ( $( this ).val() + ', ' ); 
+      });
+      
+      if ( fromSelections.trim().toLowerCase().includes( fromFilter.trim().toLowerCase() ) &amp;&amp;
+              toSelections.trim().toLowerCase().includes( toFilter.trim().toLowerCase() ) ) {
+        return true;
+      } else {
+          return false;
+      }
+    }
+  );
+
+  $(".chosen-select").chosen({
+    width: "75%"
+  });
+
+
+} );
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,1300 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Can I add jars to Maven 2 build classpath without installing them?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Can I add jars to Maven 2 build classpath without installing them?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>739</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>purple</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Dec 2008 at 20:57</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/364114/can-i-add-jars-to-maven-2-build-classpath-without-installing-them">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Maven 2 is driving me crazy during the experimentation / quick and dirty mock-up phase of development.</p>
+    <p>I have a <code>pom.xml</code> file that defines the dependencies for the web-app framework I want to use, and I can quickly generate starter projects from that file. However, sometimes I want to link to a 3rd party library that doesn't already have a <code>pom.xml</code> file defined, so rather than create the <code>pom.xml</code> file for the 3rd party lib by hand and install it, and add the dependency to my <code>pom.xml</code>, I would just like to tell Maven: "In addition to my defined dependencies, include any jars that are in <code>/lib</code> too."</p>
+    <p>It seems like this ought to be simple, but if it is, I am missing something.</p>
+    <p>Any pointers on how to do this are greatly appreciated. Short of that, if there is a simple way to point maven to a <code>/lib</code> directory and easily create a <code>pom.xml</code> with all the enclosed jars mapped to a single dependency which I could then name / install and link to in one fell swoop would also suffice.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">maven-2</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>If you're using Netbeans just follow these steps : [How do I install modules into the maven repository using Netbeans embedded Maven?][1] [1]: <a href="http://stackoverflow.com/a/339874/530153">stackoverflow.com/a/339874/530153</a></span> <span> - </span> <span class="display-name">Rajat Gupta</span> <span> </span> <span class="date">16 Dec 2012 at 05:10</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>I want to point out that this link <a href="http://stackoverflow.com/a/339874/530153">stackoverflow.com/a/339874/530153</a> appears to work for installing the jars one at a time.</span> <span> - </span> <span class="display-name">Paul</span> <span> </span> <span class="date">12 Feb 2014 at 15:55</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>634</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nikita Volkov</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Oct 2011 at 00:15</span>
+     </div>
+    </div>
+    <div>
+     <h1>Problems of popular approaches</h1>
+     <p>Most of the answers you'll find around the internet will suggest you to either install the dependency to your local repository or specify a "system" scope in the <code>pom</code> and distribute the dependency with the source of your project. But both of these solutions are actually flawed.</p>
+     <h2>Why you shouldn't apply the "Install to Local Repo" approach</h2>
+     <p>When you install a dependency to your local repository it remains there. Your distribution artifact will do fine as long as it has access to this repository. The problem is in most cases this repository will reside on your local machine, so there'll be no way to resolve this dependency on any other machine. Clearly making your artifact depend on a specific machine is not a way to handle things. Otherwise this dependency will have to be locally installed on every machine working with that project which is not any better.</p>
+     <h2>Why you shouldn't apply the "System Scope" approach</h2>
+     <p>The jars you depend on with the "System Scope" approach neither get installed to any repository or attached to your target packages. That's why your distribution package won't have a way to resolve that dependency when used. That I believe was the reason why the use of system scope even got deprecated. Anyway you don't want to rely on a deprecated feature.</p>
+     <h1>The static in-project repository solution</h1>
+     <p>After putting this in your <code>pom</code>:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;repository&gt;
+    &lt;id&gt;repo&lt;/id&gt;
+    &lt;releases&gt;
+        &lt;enabled&gt;true&lt;/enabled&gt;
+        &lt;checksumPolicy&gt;ignore&lt;/checksumPolicy&gt;
+    &lt;/releases&gt;
+    &lt;snapshots&gt;
+        &lt;enabled&gt;false&lt;/enabled&gt;
+    &lt;/snapshots&gt;
+    &lt;url&gt;file://${project.basedir}/repo&lt;/url&gt;
+&lt;/repository&gt;
+</code></pre>
+     <p>for each artifact with a group id of form <code>x.y.z</code> Maven will include the following location inside your project dir in its search for artifacts:</p>
+     <pre><code>repo/
+| - x/
+|   | - y/
+|   |   | - z/
+|   |   |   | - ${artifactId}/
+|   |   |   |   | - ${version}/
+|   |   |   |   |   | - ${artifactId}-${version}.jar
+</code></pre>
+     <p>To elaborate more on this you can read <a href="https://dub.podval.org/2010/01/28/maven-in-project-repository.html" rel="noreferrer">this blog post</a>.</p>
+     <h2>Use Maven to install to project repo</h2>
+     <p>Instead of creating this structure by hand I recommend to use a Maven plugin to install your jars as artifacts. So, to install an artifact to an in-project repository under <code>repo</code> folder execute:</p>
+     <pre><code>mvn install:install-file -DlocalRepositoryPath=repo -DcreateChecksum=true -Dpackaging=jar -Dfile=[your-jar] -DgroupId=[...] -DartifactId=[...] -Dversion=[...]
+</code></pre>
+     <p>If you'll choose this approach you'll be able to simplify the repository declaration in <code>pom</code> to:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;repository&gt;
+    &lt;id&gt;repo&lt;/id&gt;
+    &lt;url&gt;file://${project.basedir}/repo&lt;/url&gt;
+&lt;/repository&gt;
+</code></pre>
+     <h2>A helper script</h2>
+     <p>Since executing installation command for each lib is kinda annoying and definitely error prone, I've created a <a href="https://github.com/nikita-volkov/install-to-project-repo" rel="noreferrer">utility script</a> which automatically installs all the jars from a <code>lib</code> folder to a project repository, while automatically resolving all metadata (groupId, artifactId and etc.) from names of files. The script also prints out the dependencies xml for you to copy-paste in your <code>pom</code>.</p>
+     <h2>Include the dependencies in your target package</h2>
+     <p>When you'll have your in-project repository created you'll have solved a problem of distributing the dependencies of the project with its source, but since then your project's target artifact will depend on non-published jars, so when you'll install it to a repository it will have unresolvable dependencies.</p>
+     <p>To beat this problem I suggest to include these dependencies in your target package. This you can do with either the <a href="https://stackoverflow.com/a/1729094/485115">Assembly Plugin</a> or better with the <a href="http://code.google.com/p/onejar-maven-plugin/" rel="noreferrer">OneJar Plugin</a>. The official documentaion on OneJar is easy to grasp.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>I always assumed you could create a repository in the project, finally confirmed it, great!</span> <span> - </span> <span class="display-name">albfan</span> <span> </span> <span class="date">19 Feb 2012 at 10:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This option can be coupled with a "provided" scope in the dependency to build against a library .jar that will be made available inside the container. We've done this to link to JNI libraries that are deployed inside of Tomcat's own /lib/ folder.</span> <span> - </span> <span class="display-name">jricher</span> <span> </span> <span class="date">20 Jun 2012 at 16:02</span></td>
+       </tr>
+       <tr>
+        <td>19</td>
+        <td><span>Two things to note: 1) I recommend using "${project.baseUri}repo" instead of "file://${project.basedir}/repo" to get an RFC-compliant url also on Windows. 2) If you structure your project into submodules, this approach seems to fail because ${project.baseUri} gets resolved to the module's subdirectory. Any idea how to resolve this problem?</span> <span> - </span> <span class="display-name">Oliver Hanappi</span> <span> </span> <span class="date">17 Jan 2013 at 07:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Good, "Install to Local Repo" need everyone do 'local install', while this option only need one guy to do install and the others can share the installed.</span> <span> - </span> <span class="display-name">leef</span> <span> </span> <span class="date">19 Jan 2013 at 09:20</span></td>
+       </tr>
+       <tr>
+        <td>9</td>
+        <td><span>This nearly got me there - but Nikita's script tried to be too clever with the badly named JAR files I had. So I made a simplified version that does not do any guessing for the groupId: <a href="https://github.com/carchrae/install-to-project-repo" rel="nofollow noreferrer">github.com/carchrae/install-to-project-repo</a></span> <span> - </span> <span class="display-name">Tom Carchrae</span> <span> </span> <span class="date">8 Feb 2013 at 00:05</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>such a brilliant answer!! There are 2 ways of doing something, the right way and the way that works, you sir does it the right way!</span> <span> - </span> <span class="display-name">Panthro</span> <span> </span> <span class="date">17 May 2013 at 15:44</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>here you also find info how to automatically generate the artifact from your jar file: <a href="https://devcenter.heroku.com/articles/local-maven-dependencies" rel="nofollow noreferrer">devcenter.heroku.com/articles/local-maven-dependencies</a></span> <span> - </span> <span class="display-name">D-rk</span> <span> </span> <span class="date">24 Oct 2013 at 09:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Is there a way to do this from <code>classes/</code> instead of from <code>my.jar</code>? The project I want to turn into an <code>in-project respository</code> is very difficult to build as a single jar. E.g., something like <code>mvn install:install-file -DlocalRepositoryPath=repo -Dfile=target/classes/... [...]</code>?</span> <span> - </span> <span class="display-name">Alex Averbuch</span> <span> </span> <span class="date">5 Nov 2013 at 08:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@AlexAverbuch I don't know. Start a separate question.</span> <span> - </span> <span class="display-name">Nikita Volkov</span> <span> </span> <span class="date">5 Nov 2013 at 12:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you for taking the time to explain this. There's at least one other person who's just happy to go around adding "Don't do that you idiot!" comments on questions about this.</span> <span> - </span> <span class="display-name">duma</span> <span> </span> <span class="date">15 Jul 2014 at 04:07</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Static in project repository performs very poorly for projects with many dependencies. The first time you build it will check this local directory even for jars that should be found in central. Subsequent builds are fine.</span> <span> - </span> <span class="display-name">Pyrolistical</span> <span> </span> <span class="date">27 Aug 2014 at 22:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This works fine, but if I set <code>&lt;checksumPolicy&gt;ignore&lt;/checksumPolicy&gt;</code> and delete the hash files the local repo and returns error 409 when trying to resolve. Anyone got a solution for this?</span> <span> - </span> <span class="display-name">sydd</span> <span> </span> <span class="date">28 Aug 2014 at 12:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I would propose to use deploy:deploy-file along with -Durl=project::default::file:///path/to/repo for installing jars in this repository to create a proper repository structure. The local repository is not a full repository.</span> <span> - </span> <span class="display-name">languitar</span> <span> </span> <span class="date">3 Sep 2014 at 15:34</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>i wanted to try this approach so bad i went for it, though the jar files (slightly different versions) were already present in our Nexus. Love it. Thanks for a great and complete answer.</span> <span> - </span> <span class="display-name">Peter Perháč</span> <span> </span> <span class="date">26 Nov 2014 at 16:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I tried this solution but I got an error: maven complains that I have no pom for my jar. Any clues? I use maven 3.2.1</span> <span> - </span> <span class="display-name">Giorgio</span> <span> </span> <span class="date">27 Jan 2015 at 20:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>In-project local repo seems reasonable and is continuous-* compatible - but Maven makes everything to make it extremely difficult/impossible to use this idea transparently when you have submodules. There seems to be no property that always resolves to main module (typically parent) path. And then you have no way to point to the repo. Relatives path seem not to work. Enterprise pain at its best, delivered (again) by Maven and its lacking multi-module support. :-(</span> <span> - </span> <span class="display-name">virgo47</span> <span> </span> <span class="date">13 Oct 2015 at 15:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Remember this install:install-file approach works for multiple files, so you can do things like put the sources JAR in there too.</span> <span> - </span> <span class="display-name">Gregory R. Sudderth</span> <span> </span> <span class="date">27 Jul 2016 at 16:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The local filesystem repo is a brilliant solution. Saved me a load of heartache</span> <span> - </span> <span class="display-name">Lawrence Tierney</span> <span> </span> <span class="date">3 Feb 2017 at 09:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>As of version 2.5 of the maven-install-plugin, if the target jar file was built by maven then the install-file action will be able to introspect the groupId, artifactId, and version. <a href="https://maven.apache.org/guides/mini/guide-3rd-party-jars-local.html" rel="nofollow noreferrer">maven.apache.org/guides/mini/guide-3rd-party-jars-local.html</a></span> <span> - </span> <span class="display-name">lmsurprenant</span> <span> </span> <span class="date">16 Jun 2017 at 17:40</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>The static in-project repository solution is what I needed. Make sure to add the &lt;repositories&gt; tags around it. I put mine above the &lt;build&gt; tag and below the &lt;/parent&gt; tag.</span> <span> - </span> <span class="display-name">Kelly Bang</span> <span> </span> <span class="date">10 Oct 2018 at 02:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hello Please I'm stuck here. After following all the steps, <code>mvn package</code> still doesn't resolve the files</span> <span> - </span> <span class="display-name">Enoobong</span> <span> </span> <span class="date">24 Apr 2019 at 11:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I had to set the dependencies from the local file repo packages to optional <code>&lt;optional&gt;true&lt;/optional&gt;</code>. Otherwise maven could not resolve the <b>transitive</b> dependencies in my consumer project (couldn't find artifact). Additionally I had to turn of "Resolve dependecies from Workspace projects" <code>resolveWorkspaceProjects=false</code> in my consumer project, because Eclipse couln't find the local repo from the open parent project then.</span> <span> - </span> <span class="display-name">thomas.st</span> <span> </span> <span class="date">12 Jan 2021 at 09:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have tried the above solution and it worked but the external maven jar has its own dependent jars and they were not getting installed. I had to manually include these dependencies in my main project pom.xml. Anyway to get these instead of adding them manually?</span> <span> - </span> <span class="display-name">RRN</span> <span> </span> <span class="date">3 Jun 2021 at 22:52</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>506</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pyrolistical</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Dec 2008 at 21:21</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>For throw away code only</strong></p>
+     <p>set scope == system and just make up a groupId, artifactId, and version</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependency&gt;
+    &lt;groupId&gt;org.swinglabs&lt;/groupId&gt;
+    &lt;artifactId&gt;swingx&lt;/artifactId&gt;
+    &lt;version&gt;0.9.2&lt;/version&gt;
+    &lt;scope&gt;system&lt;/scope&gt;
+    &lt;systemPath&gt;${project.basedir}/lib/swingx-0.9.3.jar&lt;/systemPath&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>Note: system dependencies are not copied into resulted jar/war<br>
+       (see <a href="https://stackoverflow.com/questions/19065666/how-to-include-system-dependencies-in-war-built-using-maven">How to include system dependencies in war built using maven</a>)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>Thanks this is really close to what I want. Any way to add them all as a single entry? Say I have /lib with 10 jars, can I add them all somehow, for instance with /some/path/*.jar for the systemPath? or I still have to treat each as a known dependency? Still, really close to what I need, thanks!</span> <span> - </span> <span class="display-name">purple</span> <span> </span> <span class="date">12 Dec 2008 at 21:47</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I don't know of a way to do it by a group of jars, just do it this way, its more consistent</span> <span> - </span> <span class="display-name">Pyrolistical</span> <span> </span> <span class="date">12 Dec 2008 at 22:28</span></td>
+       </tr>
+       <tr>
+        <td>11</td>
+        <td><span>use a systemPath like this one: "&lt;systemPath&gt;${basedir}/lib/BrowserLauncher2-1_3.jar&lt;/system‌​Path&gt;" ${basedir} is pointing to your project's root.</span> <span> - </span> <span class="display-name">Frederic Morin</span> <span> </span> <span class="date">19 Apr 2009 at 07:40</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Scope system means that you must indicate to Maven2 where the library must be found (specified in systemPath), as the dependency will <i>not</i> be found in the local repository of Maven2. This can be usefull when the library is not present in any repository and you don't want to install it. However, the scope system is discouraged!</span> <span> - </span> <span class="display-name">Romain Linsolas</span> <span> </span> <span class="date">23 Sep 2009 at 08:15</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>It is better to use the project. prefix in your path like so: &lt;systemPath&gt;${project.basedir}/lib/AwesomeLib.jar&lt;/systemPat‌​h&gt;</span> <span> - </span> <span class="display-name">Matthew McCullough</span> <span> </span> <span class="date">25 Nov 2009 at 21:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Please note that the groupId &amp; artifactId need to be unique for this to work.</span> <span> - </span> <span class="display-name">Matthew Farwell</span> <span> </span> <span class="date">23 Apr 2010 at 20:34</span></td>
+       </tr>
+       <tr>
+        <td>78</td>
+        <td><span>While I understand that this is what the OP was asking for, I still want to underline that using a <code>system</code> scope is an horrible practice that is <b>strongly discouraged</b>. See <a href="http://docs.codehaus.org/display/MAVENUSER/Dependency+Scopes" rel="nofollow noreferrer">Dependency+Scopes</a>.</span> <span> - </span> <span class="display-name">Pascal Thivent</span> <span> </span> <span class="date">18 Sep 2010 at 19:47</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>How to make that .jar will be packaged during <code>mvn package</code> ?</span> <span> - </span> <span class="display-name">marioosh</span> <span> </span> <span class="date">23 Aug 2011 at 13:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The problem is the jar won't be packaged during mvn package for EAR or WAR files which is actually why I needed it.</span> <span> - </span> <span class="display-name">Archimedes Trajano</span> <span> </span> <span class="date">12 Oct 2011 at 23:50</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>@marioosh remember the original intent of the question was for quick experimentation. If you want to do a mvn package, install the jar into the repo.</span> <span> - </span> <span class="display-name">Pyrolistical</span> <span> </span> <span class="date">22 Oct 2011 at 05:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Downvoted because I think Nikita's answer is much more comprehensive. The local repo approach is definitely better and really takes no extra effort to set up (even if you don't use her script)</span> <span> - </span> <span class="display-name">BigMikeW</span> <span> </span> <span class="date">27 Aug 2014 at 21:40</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@BigMikeW Nikita is a male. This is common male name in Russia.</span> <span> - </span> <span class="display-name">ﾤ ﾡ</span> <span> </span> <span class="date">6 Dec 2014 at 12:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@PascalThivent 2 reasons to avoid system scope: 1. It's a lot less convenient: Every good maven project should allow: <code>git clone project; mvn package</code> and build completely. 2. It breaks the transitive dependency model. For "throw away code" this may be ok; but if you write a_useful_project that you want to reuse in project2, when you put a dependency on 'a_useful_project' into project2/pom.xml, maven won't be able to also grab the system scope dependency. This is not an edge case: It's very common for a project to download at least 3x more transitive dependencies than are listed in the pom</span> <span> - </span> <span class="display-name">Stan Kurdziel</span> <span> </span> <span class="date">28 Apr 2015 at 22:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@StanKurdziel What if you want to integrate a binary-only jar into your maven project which is <i>not</i> reachable from a maven repository? Then the only possibility to use the system scope and including the jar from <code>${project.build.path}/lib/...jar</code>. Instead of saying the ultimate truth, you should think a little bit more on some uncommon circumstances...</span> <span> - </span> <span class="display-name">peterh</span> <span> </span> <span class="date">17 Dec 2016 at 09:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@PascalThivent My previous comment is also for you.</span> <span> - </span> <span class="display-name">peterh</span> <span> </span> <span class="date">17 Dec 2016 at 09:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Peterh why don't you want to install the binary-only jar to a maven repository? Having system scoped dependencies creates fundamentally broken maven projects. One of the greatest attributes about maven is that once you get the hang of one+ project build(s), you should be quite familiar with almost any other maven project build. If system scoped dependencies works for your case, more power to you; However in my opinion, this is not something to encourage for normal usage.</span> <span> - </span> <span class="display-name">Stan Kurdziel</span> <span> </span> <span class="date">17 Dec 2016 at 09:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@StanKurdziel It is not a part of any maven repository. It is a binary-only thing, I have only a single jar file, without any maven repo. I have to produce a git tree, from which it is installable with a simple <code>mvn clean install</code>. The only meaningful solution is a system scope for that. Because you clearly show that you are perfectly incapable to understood others views, our talk here ends now.</span> <span> - </span> <span class="display-name">peterh</span> <span> </span> <span class="date">17 Dec 2016 at 10:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@peterh See <a href="https://maven.apache.org/guides/mini/guide-3rd-party-jars-local.html" rel="nofollow noreferrer">maven.apache.org/guides/mini/guide-3rd-party-jars-local.html</a> for how to install a binary-only jar to your local maven repository. ex: <code>mvn install:install-file -Dfile=./jar-without-source.jar -DgroupId=com.example -DartifactId=jar-without-source -Dpackaging=jar -Dversion=1.0</code> And then you can depend on it in your pom.xml using the groupId and artifactId as you would a published jar. Installing this jar could be a required step for any system to build the project - or if you have a organization internal shared repo (ex: Nexus), you can deploy it there</span> <span> - </span> <span class="display-name">Stan Kurdziel</span> <span> </span> <span class="date">30 Dec 2016 at 21:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@paterh (or anyone else) If you really don't want to replace all local jars with maven dependencies, then perhaps system scope works for you. It won't result in a "clean" maven project and should not be part of general recommendations. -- I believe it would also be possible to create a project that contains a jar and installs it to the local repo before depending on it, so that <code>git clone ...; mvn clean install</code> works; However, it's probably no better than system scope. When I use maven, I keep jars out of source control. I believe this is the intended best practice and has served me well</span> <span> - </span> <span class="display-name">Stan Kurdziel</span> <span> </span> <span class="date">30 Dec 2016 at 22:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Updated link to @PascalThivent 's documentation on <a href="https://web.archive.org/web/20150119194524/http://docs.codehaus.org:80/display/MAVENUSER/Dependency+Scopes" rel="nofollow noreferrer">Dependency Scopes</a></span> <span> - </span> <span class="display-name">Greg Chabala</span> <span> </span> <span class="date">13 Dec 2017 at 16:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>71</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dmytro Boichenko</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Oct 2012 at 13:01</span>
+     </div>
+    </div>
+    <div>
+     <p>You may create local repository on your project</p>
+     <p>For example if you have <code>libs</code> folder in project structure</p>
+     <ul>
+      <li>
+       <p>In <code>libs</code> folder you should create directory structure like: <code>/groupId/artifactId/version/artifactId-version.jar</code></p></li>
+      <li>
+       <p>In your pom.xml you should register repository</p>
+       <pre><code> &lt;repository&gt;
+     &lt;id&gt;ProjectRepo&lt;/id&gt;
+     &lt;name&gt;ProjectRepo&lt;/name&gt;
+     &lt;url&gt;file://${project.basedir}/libs&lt;/url&gt;
+ &lt;/repository&gt;
+</code></pre></li>
+      <li>
+       <p>and add dependency as usual</p>
+       <pre><code> &lt;dependency&gt;
+     &lt;groupId&gt;groupId&lt;/groupId&gt;
+     &lt;artifactId&gt;artifactId&lt;/artifactId&gt;
+     &lt;version&gt;version&lt;/version&gt;
+ &lt;/dependency&gt;
+</code></pre></li>
+     </ul>
+     <p>That is all.</p>
+     <p>For detailed information: <a href="https://web.archive.org/web/20130801071744/http://charlie.cu.cc/2012/06/how-add-external-libraries-maven/" rel="nofollow noreferrer">How to add external libraries in Maven</a> (archived)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>You answer is almost correct. The groupId should be splitted in serveral subdirectories.</span> <span> - </span> <span class="display-name">Peter Fortuin</span> <span> </span> <span class="date">15 Apr 2014 at 12:45</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>Of course if you have complex groupId like 'com.foo.bar' your directory structure should be /com/foo/bar/artifactId/version/artifactId-verion.jar</span> <span> - </span> <span class="display-name">Dmytro Boichenko</span> <span> </span> <span class="date">16 Apr 2014 at 11:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Is this significantly different from the <a href="http://stackoverflow.com/a/7623805/1281433">answer that is a year earlier</a>?</span> <span> - </span> <span class="display-name">Joshua Taylor</span> <span> </span> <span class="date">14 Apr 2015 at 21:55</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>In the last directory, where the jar file is located, you also need to add the related pom xml file.</span> <span> - </span> <span class="display-name">Federico</span> <span> </span> <span class="date">29 Mar 2017 at 13:42</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>31</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ed Brannin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Jan 2009 at 21:58</span>
+     </div>
+    </div>
+    <div>
+     <p>Note: When using the System scope (<a href="https://stackoverflow.com/questions/364114/can-i-add-jars-to-maven-2-build-classpath-without-installing-them#364188">as mentioned on this page</a>), Maven needs absolute paths.</p>
+     <p>If your jars are under your project's root, you'll want to prefix your systemPath values with ${basedir}.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Praneel PIDIKITI</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Feb 2011 at 14:38</span>
+     </div>
+    </div>
+    <div>
+     <p>This is how we add or install a local jar</p>
+     <pre class="lang-xml prettyprint-override"><code>    &lt;dependency&gt;
+        &lt;groupId&gt;org.example&lt;/groupId&gt;
+        &lt;artifactId&gt;iamajar&lt;/artifactId&gt;
+        &lt;version&gt;1.0&lt;/version&gt;
+        &lt;scope&gt;system&lt;/scope&gt;
+        &lt;systemPath&gt;${project.basedir}/lib/iamajar.jar&lt;/systemPath&gt;
+    &lt;/dependency&gt;
+</code></pre>
+     <p>i gave some default groupId and artifactId because they are mandatory :)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Archimedes Trajano</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Oct 2011 at 00:38</span>
+     </div>
+    </div>
+    <div>
+     <p>This is what I have done, it also works around the package issue and it works with checked out code.</p>
+     <p>I created a new folder in the project in my case I used <code>repo</code>, but feel free to use <code>src/repo</code></p>
+     <p>In my POM I had a dependency that is not in any public maven repositories</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependency&gt;
+    &lt;groupId&gt;com.dovetail&lt;/groupId&gt;
+    &lt;artifactId&gt;zoslog4j&lt;/artifactId&gt;
+    &lt;version&gt;1.0.1&lt;/version&gt;
+    &lt;scope&gt;runtime&lt;/scope&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>I then created the following directories <code>repo/com/dovetail/zoslog4j/1.0.1</code> and copied the JAR file into that folder.</p>
+     <p>I created the following POM file to represent the downloaded file (this step is optional, but it removes a WARNING) and helps the next guy figure out where I got the file to begin with.</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+    &lt;groupId&gt;com.dovetail&lt;/groupId&gt;
+    &lt;artifactId&gt;zoslog4j&lt;/artifactId&gt;
+    &lt;packaging&gt;jar&lt;/packaging&gt;
+    &lt;version&gt;1.0.1&lt;/version&gt;
+    &lt;name&gt;z/OS Log4J Appenders&lt;/name&gt;
+    &lt;url&gt;http://dovetail.com/downloads/misc/index.html&lt;/url&gt;
+    &lt;description&gt;Apache Log4j Appender for z/OS Logstreams, files, etc.&lt;/description&gt;
+&lt;/project&gt;
+</code></pre>
+     <p>Two optional files I create are the SHA1 checksums for the POM and the JAR to remove the missing checksum warnings.</p>
+     <pre><code>shasum -b &lt; repo/com/dovetail/zoslog4j/1.0.1/zoslog4j-1.0.1.jar \
+          &gt; repo/com/dovetail/zoslog4j/1.0.1/zoslog4j-1.0.1.jar.sha1
+
+shasum -b &lt; repo/com/dovetail/zoslog4j/1.0.1/zoslog4j-1.0.1.pom \
+          &gt; repo/com/dovetail/zoslog4j/1.0.1/zoslog4j-1.0.1.pom.sha1
+</code></pre>
+     <p>Finally I add the following fragment to my pom.xml that allows me to refer to the local repository</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;repositories&gt;
+    &lt;repository&gt;
+        &lt;id&gt;project&lt;/id&gt;
+        &lt;url&gt;file:///${basedir}/repo&lt;/url&gt;
+    &lt;/repository&gt;
+&lt;/repositories&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Hi, did you put the pom files in the local repository or next to your jar files?</span> <span> - </span> <span class="display-name">Peymankh</span> <span> </span> <span class="date">8 May 2012 at 11:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>In the above solution it was next to the JAR files. Mind you I don't like the solution above because it is too much work.</span> <span> - </span> <span class="display-name">Archimedes Trajano</span> <span> </span> <span class="date">8 May 2012 at 12:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I still prefer the solution I posted here <a href="http://stackoverflow.com/questions/2229757/maven-add-a-dependency-to-a-jar-by-relative-path/7908872#7908872" title="maven add a dependency to a jar by relative path">stackoverflow.com/questions/2229757/…</a></span> <span> - </span> <span class="display-name">Archimedes Trajano</span> <span> </span> <span class="date">8 May 2012 at 13:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I like this approach, although I used the <a href="https://maven.apache.org/plugins/maven-install-plugin/examples/specific-local-repo.html" rel="nofollow noreferrer">maven install plugin</a> to automate installing the jar into the local repo.</span> <span> - </span> <span class="display-name">Carl G</span> <span> </span> <span class="date">12 Jan 2016 at 11:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>13</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Brian Fox</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Apr 2009 at 02:16</span>
+     </div>
+    </div>
+    <div>
+     <p>You really ought to get a framework in place via a repository and identifying your dependencies up front. Using the system scope is a common mistake people use, because they "don't care about the dependency management." The trouble is that doing this you end up with a perverted maven build that will not show maven in a normal condition. You would be better off following an approach like <a href="http://www.sonatype.com/people/2009/04/how-to-convert-from-ant-to-maven-in-5-minutes/" rel="noreferrer">this</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>toad</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Jan 2009 at 22:23</span>
+     </div>
+    </div>
+    <div>
+     <p><a href="http://maven.apache.org/plugins/maven-install-plugin/usage.html" rel="nofollow noreferrer">Maven install plugin</a> has command line usage to install a jar into the local repository, POM is optional but you will have to specify the GroupId, ArtifactId, Version and Packaging (all the POM stuff).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>actually, what he ment is that you dont have to create a pom for the library you are importing into your local repository</span> <span> - </span> <span class="display-name">Frederic Morin</span> <span> </span> <span class="date">19 Apr 2009 at 07:42</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>-1, sometimes you just want to add a jar file without the trouble of installing it.</span> <span> - </span> <span class="display-name">Leonel</span> <span> </span> <span class="date">21 Sep 2009 at 14:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The question is about adding JAR files without installing and you give an answer with Maven Install Plugin...</span> <span> - </span> <span class="display-name">Alexandre V.</span> <span> </span> <span class="date">6 Oct 2020 at 16:16</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jesse Glick</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 May 2013 at 01:47</span>
+     </div>
+    </div>
+    <div>
+     <p>Using <code>&lt;scope&gt;system&lt;/scope&gt;</code> is a terrible idea for reasons explained by others, installing the file manually to your local repository makes the build unreproducible, and using <code>&lt;url&gt;file://${project.basedir}/repo&lt;/url&gt;</code> is not a good idea either because (1) that may not be a well-formed <code>file</code> URL (e.g. if the project is checked out in a directory with unusual characters), (2) the result is unusable if this project’s POM is used as a dependency of someone else’s project.</p>
+     <p>Assuming you are unwilling to upload the artifact to a public repository, Simeon’s suggestion of a helper module does the job. But there is an easier way now…</p>
+     <h2>The Recommendation</h2>
+     <p>Use <a href="https://github.com/stephenc/non-maven-jar-maven-plugin">non-maven-jar-maven-plugin</a>. Does exactly what you were asking for, with none of the drawbacks of the other approaches.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Also saw <a href="https://code.google.com/p/maven-external-dependency-plugin/" rel="nofollow noreferrer">maven-external-dependency-plugin</a> though non-maven-jar-maven-plugin seems more straightforward to use.</span> <span> - </span> <span class="display-name">Jesse Glick</span> <span> </span> <span class="date">10 Aug 2013 at 12:02</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>samxiao</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jun 2013 at 19:53</span>
+     </div>
+    </div>
+    <div>
+     <p>I found another way to do this, see here from a <a href="https://devcenter.heroku.com/articles/local-maven-dependencies#deploy-the-artifact-into-the-repo">Heroku post</a></p>
+     <p>To summarize (sorry about some copy &amp; paste)</p>
+     <ul>
+      <li>Create a <code>repo</code> directory under your root folder:</li>
+     </ul>
+     <pre>yourproject
++- pom.xml
++- src
++- repo
+</pre>
+     <ul>
+      <li>Run this to install the jar to your local repo directory</li>
+     </ul>
+     <pre>mvn deploy:deploy-file -Durl=file:///path/to/yourproject/repo/ -Dfile=mylib-1.0.jar -DgroupId=com.example -DartifactId=mylib -Dpackaging=jar -Dversion=1.0
+</pre>
+     <ul>
+      <li>Add this your <code>pom.xml</code>:</li>
+     </ul>
+     <blockquote>
+      <pre><code>&lt;repositories&gt;
+    &lt;!--other repositories if any--&gt;
+    &lt;repository&gt;
+        &lt;id&gt;project.local&lt;/id&gt;
+        &lt;name&gt;project&lt;/name&gt;
+        &lt;url&gt;file:${project.basedir}/repo&lt;/url&gt;
+    &lt;/repository&gt;
+&lt;/repositories&gt;
+
+
+&lt;dependency&gt;
+    &lt;groupId&gt;com.example&lt;/groupId&gt;
+    &lt;artifactId&gt;mylib&lt;/artifactId&gt;
+    &lt;version&gt;1.0&lt;/version&gt;  
+&lt;/dependency&gt;
+</code></pre>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>realgt</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Feb 2016 at 19:51</span>
+     </div>
+    </div>
+    <div>
+     <p>What seems simplest to me is just configure your maven-compiler-plugin to include your custom jars. This example will load any jar files in a lib directory.</p>
+     <pre><code>        &lt;plugin&gt;
+            &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+            &lt;artifactId&gt;maven-compiler-plugin&lt;/artifactId&gt;
+            &lt;configuration&gt;
+                &lt;includes&gt;
+                    &lt;include&gt;lib/*.jar&lt;/include&gt;
+                &lt;/includes&gt;
+            &lt;/configuration&gt;
+        &lt;/plugin&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>If I add this maven <code>says nothing to complile</code>!</span> <span> - </span> <span class="display-name">Ravi Parekh</span> <span> </span> <span class="date">19 Dec 2016 at 14:29</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>It's saying <code>all classes are up to date</code> <code>nothing to compile</code> because it won't look for <code>*.java</code> anymore. You can add them back using <code>&lt;include&gt;**/*.java&lt;/include&gt;</code>. Yet no success for me for the jars</span> <span> - </span> <span class="display-name">Michael Laffargue</span> <span> </span> <span class="date">6 Oct 2017 at 12:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Imiguelmh, any reason why this does not work for jars?</span> <span> - </span> <span class="display-name">kisna</span> <span> </span> <span class="date">27 Sep 2019 at 20:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Simeon Angelov</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jan 2013 at 10:46</span>
+     </div>
+    </div>
+    <div>
+     <p>After having really long discussion with CloudBees guys about properly maven packaging of such kind of JARs, they made an interesting good proposal for a solution:</p>
+     <p>Creation of a fake Maven project which attaches a pre-existing JAR as a primary artifact, running into belonged POM install:install-file execution. Here is an example of such kinf of POM:</p>
+     <pre class="lang-xml prettyprint-override"><code> &lt;build&gt;
+    &lt;plugins&gt;
+        &lt;plugin&gt;
+            &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+            &lt;artifactId&gt;maven-install-plugin&lt;/artifactId&gt;
+            &lt;version&gt;2.3.1&lt;/version&gt;
+            &lt;executions&gt;
+                &lt;execution&gt;
+                    &lt;id&gt;image-util-id&lt;/id&gt;
+                    &lt;phase&gt;install&lt;/phase&gt;
+                    &lt;goals&gt;
+                        &lt;goal&gt;install-file&lt;/goal&gt;
+                    &lt;/goals&gt;
+                    &lt;configuration&gt;
+                        &lt;file&gt;${basedir}/file-you-want-to-include.jar&lt;/file&gt;
+                        &lt;groupId&gt;${project.groupId}&lt;/groupId&gt;
+                        &lt;artifactId&gt;${project.artifactId}&lt;/artifactId&gt;
+                        &lt;version&gt;${project.version}&lt;/version&gt;
+                        &lt;packaging&gt;jar&lt;/packaging&gt;
+                    &lt;/configuration&gt;
+                &lt;/execution&gt;
+            &lt;/executions&gt;
+        &lt;/plugin&gt;
+    &lt;/plugins&gt;
+&lt;/build&gt;
+</code></pre>
+     <p>But in order to implement it, existing project structure should be changed. First, you should have in mind that for each such kind of JAR there should be created different fake Maven project (module). And there should be created a parent Maven project including all sub-modules which are : all JAR wrappers and existing main project. The structure could be :</p>
+     <blockquote>
+      <p>root project (this contains the parent POM file includes all sub-modules with <i>module</i> XML element) (POM packaging)</p>
+      <p>JAR 1 wrapper Maven child project (POM packaging)</p>
+      <p>JAR 2 wrapper Maven child project (POM packaging)</p>
+      <p>main existing Maven child project (WAR, JAR, EAR .... packaging)</p>
+     </blockquote>
+     <p>When parent running via mvn:install or mvn:packaging is forced and sub-modules will be executed. That could be concerned as a minus here, since project structure should be changed, but offers a non static solution at the end</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Just an observation, but I don't think you need to create a new POM for each JAR you want to add. It should be enough to create a single POM to add all of the JARs providing you have a execution block for <i>each</i> jar you want to add. You just need to make sure that each block has a unique id. The result is a single Maven module that will add all the JARs into the local repo. (Just make sure that the maven coordinates don't clash with anything that might already be there or might be added later!)</span> <span> - </span> <span class="display-name">Stormcloud</span> <span> </span> <span class="date">11 Feb 2014 at 10:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hero. This is EXACTLY what I wanted. Nice one fella. 2013 must have been a good year ;)</span> <span> - </span> <span class="display-name">ndtreviv</span> <span> </span> <span class="date">26 Jan 2016 at 13:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alex Lehmann</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Apr 2011 at 08:17</span>
+     </div>
+    </div>
+    <div>
+     <p>If you want a quick and dirty solution, you can do the following (though I do not recommend this for anything except test projects, maven will complain in length that this is not proper).</p>
+     <p>Add a dependency entry for each jar file you need, preferably with a perl script or something similar and copy/paste that into your pom file.</p>
+     <pre class="lang-perl prettyprint-override"><code>#! /usr/bin/perl
+
+foreach my $n (@ARGV) {
+
+    $n=~s@.*/@@;
+
+    print "&lt;dependency&gt;
+    &lt;groupId&gt;local.dummy&lt;/groupId&gt;
+    &lt;artifactId&gt;$n&lt;/artifactId&gt;
+    &lt;version&gt;0.0.1&lt;/version&gt;
+    &lt;scope&gt;system&lt;/scope&gt;
+    &lt;systemPath&gt;\${project.basedir}/lib/$n&lt;/systemPath&gt;
+&lt;/dependency&gt;
+";
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Yes this is exactly what I was looking for. A way to push it through for research test code. Nothing fancy. Yeah I know that that's what they all say :) The various maven plugin solutions seem to be overkill for my purposes. I have some jars that were given to me as 3rd party libs with a pom file. I want it to compile/run quickly. This solution which I trivially adapted to python worked wonders for me. Cut and pasted into my pom.</span> <span> - </span> <span class="display-name">Paul</span> <span> </span> <span class="date">12 Feb 2014 at 20:26</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Martín Schonaker</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Jul 2011 at 07:08</span>
+     </div>
+    </div>
+    <div>
+     <p>The problem with <code>systemPath</code> is that the dependencies' jars won't get distributed along your artifacts as transitive dependencies. Try what I've posted here: <a href="https://stackoverflow.com/questions/6571022/is-it-best-to-mavenize-your-project-jar-files-or-put-them-in-web-inf-lib/6592613#6592613">Is it best to Mavenize your project jar files or put them in WEB-INF/lib?</a></p>
+     <p>Then declare dependencies as usual.</p>
+     <p>And please read the footer note.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>lmiguelmh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 May 2016 at 01:15</span>
+     </div>
+    </div>
+    <div>
+     <p>A <em>quick&amp;dirty</em> batch solution (based on Alex's answer):</p>
+     <p><strong>libs.bat</strong></p>
+     <pre><code>@ECHO OFF
+FOR %%I IN (*.jar) DO (
+echo ^&lt;dependency^&gt;
+echo ^&lt;groupId^&gt;local.dummy^&lt;/groupId^&gt;
+echo ^&lt;artifactId^&gt;%%I^&lt;/artifactId^&gt;
+echo ^&lt;version^&gt;0.0.1^&lt;/version^&gt;
+echo ^&lt;scope^&gt;system^&lt;/scope^&gt;
+echo ^&lt;systemPath^&gt;${project.basedir}/lib/%%I^&lt;/systemPath^&gt;
+echo ^&lt;/dependency^&gt;
+)
+</code></pre>
+     <p>Execute it like this: <code>libs.bat &gt; libs.txt</code>. Then open <code>libs.txt</code> and copy its content as dependencies.</p>
+     <p>In my case, I only needed the libraries to compile my code, and this solution was the best for that purpose.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>atr</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Oct 2016 at 20:43</span>
+     </div>
+    </div>
+    <div>
+     <p>To install the 3rd party jar which is not in maven repository use maven-install-plugin.</p>
+     <p>Below are steps:</p>
+     <ol>
+      <li>Download the jar file manually from the source (website)</li>
+      <li>Create a folder and place your jar file in it</li>
+      <li>Run the below command to install the 3rd party jar in your local maven repository</li>
+     </ol>
+     <blockquote>
+      <p>mvn install:install-file -Dfile= -DgroupId= -DartifactId= -Dversion= -Dpackaging=</p>
+     </blockquote>
+     <p>Below is the e.g one I used it for simonsite log4j</p>
+     <blockquote>
+      <p>mvn install:install-file -Dfile=/Users/athanka/git/MyProject/repo/log4j-rolling-appender.jar -DgroupId=uk.org.simonsite -DartifactId=log4j-rolling-appender -Dversion=20150607-2059 -Dpackaging=jar</p>
+     </blockquote>
+     <ol start="4">
+      <li>
+       <p>In the pom.xml include the dependency as below</p>
+       <blockquote>
+        <pre><code>  &lt;dependency&gt; 
+        &lt;groupId&gt;uk.org.simonsite&lt;/groupId&gt;
+        &lt;artifactId&gt;log4j-rolling-appender&lt;/artifactId&gt;
+        &lt;version&gt;20150607-2059&lt;/version&gt; 
+  &lt;/dependency&gt;
+</code></pre>
+       </blockquote></li>
+      <li>
+       <p>Run the mvn clean install command to create your packaging</p></li>
+     </ol>
+     <p>Below is the reference link:</p>
+     <p><a href="https://maven.apache.org/guides/mini/guide-3rd-party-jars-local.html" rel="noreferrer">https://maven.apache.org/guides/mini/guide-3rd-party-jars-local.html</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is a borderline <a href="//meta.stackexchange.com/q/8231">link-only answer</a>. You should expand your answer to include as much information here, and use the link only for reference.</span> <span> - </span> <span class="display-name">Blue</span> <span> </span> <span class="date">6 Oct 2016 at 21:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Balint Pato</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Sep 2010 at 10:29</span>
+     </div>
+    </div>
+    <div>
+     <p>A strange solution I found:</p>
+     <p>using Eclipse</p>
+     <ul>
+      <li>create simple (non-maven) java project</li>
+      <li>add a Main class</li>
+      <li>add all the jars to the classpath</li>
+      <li>export Runnable JAR (it's important, because no other way here to do it)</li>
+      <li>select Extract required libraries into generated JAR</li>
+      <li>decide the licence issues</li>
+      <li>tadammm...install the generated jar to your m2repo</li>
+      <li>add this single dependency to your other projects.</li>
+     </ul>
+     <p>cheers, Balint</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Cephalopod</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Sep 2010 at 19:40</span>
+     </div>
+    </div>
+    <div>
+     <p>Even though it does not exactly fit to your problem, I'll drop this here. My requirements were:</p>
+     <ol>
+      <li>Jars that can not be found in an online maven repository should be in the SVN.</li>
+      <li>If one developer adds another library, the other developers should not be bothered with manually installing them.</li>
+      <li>The IDE (NetBeans in my case) should be able find the sources and javadocs to provide autocompletion and help.</li>
+     </ol>
+     <p>Let's talk about (3) first: Just having the jars in a folder and somehow merging them into the final jar will not work for here, since the IDE will not understand this. This means all libraries have to be installed properly. However, I dont want to have everyone installing it using "mvn install-file".</p>
+     <p>In my project I needed metawidget. Here we go:</p>
+     <ol>
+      <li>Create a new maven project (name it "shared-libs" or something like that).</li>
+      <li>Download metawidget and extract the zip into src/main/lib.</li>
+      <li>The folder doc/api contains the javadocs. Create a zip of the content (doc/api/api.zip).</li>
+      <li>Modify the pom <a href="http://pastebin.com/GscFtMUP" rel="nofollow noreferrer">like this</a></li>
+      <li>Build the project and the library will be installed.</li>
+      <li>Add the library as a dependency to your project, or (if you added the dependency in the shared-libs project) add shared-libs as dependency to get all libraries at once.</li>
+     </ol>
+     <p>Every time you have a new library, just add a new execution and tell everyone to build the project again (you can improve this process with project hierachies).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>You might want to check <a href="http://stackoverflow.com/questions/2229757/maven-add-a-dependency-to-a-jar-by-relative-path/2230464#2230464">Maven: add a dependency to a jar by relative path</a> (which is IMHO a better alternative).</span> <span> - </span> <span class="display-name">Pascal Thivent</span> <span> </span> <span class="date">18 Sep 2010 at 19:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It is better if you can ensure that the local repository always has the same relative path to the project. If I have many projects (or different branches) in different locations this will not work.</span> <span> - </span> <span class="display-name">Cephalopod</span> <span> </span> <span class="date">19 Sep 2010 at 11:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><a href="http://stackoverflow.com/questions/364114/can-i-add-jars-to-maven-2-build-classpath-without-installing-them/426176#426176">My answer</a> has a way to tell pom.xml about a jar inside your project. Why not just do that, and point it to jars in ${basedir}/lib?</span> <span> - </span> <span class="display-name">Ed Brannin</span> <span> </span> <span class="date">20 Sep 2010 at 17:36</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Ed Because that's absolutely not what the system scope is for, system scoped dependencies have lots of side effects. This is an horrible practice that should be totally banned.</span> <span> - </span> <span class="display-name">Pascal Thivent</span> <span> </span> <span class="date">21 Sep 2010 at 19:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Donovan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Oct 2016 at 17:35</span>
+     </div>
+    </div>
+    <div>
+     <p>For those that didn't find a good answer here, this is what we are doing to get a jar with all the necessary dependencies in it. This answer (<a href="https://stackoverflow.com/a/7623805/1084306">https://stackoverflow.com/a/7623805/1084306</a>) mentions to use the Maven Assembly plugin but doesn't actually give an example in the answer. And if you don't read all the way to the end of the answer (it's pretty lengthy), you may miss it. Adding the below to your pom.xml will generate <code>target/${PROJECT_NAME}-${VERSION}-jar-with-dependencies.jar</code></p>
+     <pre><code>        &lt;plugin&gt;
+            &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+            &lt;artifactId&gt;maven-assembly-plugin&lt;/artifactId&gt;
+            &lt;version&gt;2.4.1&lt;/version&gt;
+            &lt;configuration&gt;
+                &lt;!-- get all project dependencies --&gt;
+                &lt;descriptorRefs&gt;
+                    &lt;descriptorRef&gt;jar-with-dependencies&lt;/descriptorRef&gt;
+                &lt;/descriptorRefs&gt;
+                &lt;!-- MainClass in mainfest make a executable jar --&gt;
+                &lt;archive&gt;
+                  &lt;manifest&gt;
+                    &lt;mainClass&gt;my.package.mainclass&lt;/mainClass&gt;
+                  &lt;/manifest&gt;
+                &lt;/archive&gt;
+
+            &lt;/configuration&gt;
+            &lt;executions&gt;
+              &lt;execution&gt;
+                &lt;id&gt;make-assembly&lt;/id&gt;
+                &lt;!-- bind to the packaging phase --&gt;
+                &lt;phase&gt;package&lt;/phase&gt; 
+                &lt;goals&gt;
+                    &lt;goal&gt;single&lt;/goal&gt;
+                &lt;/goals&gt;
+              &lt;/execution&gt;
+            &lt;/executions&gt;
+        &lt;/plugin&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Paul</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Feb 2014 at 20:28</span>
+     </div>
+    </div>
+    <div>
+     <p>I alluded to some python code in a comment to the answer from @alex lehmann's , so am posting it here.</p>
+     <pre><code>def AddJars(jarList):
+  s1 = ''
+  for elem in jarList:
+   s1+= """
+     &lt;dependency&gt;
+        &lt;groupId&gt;local.dummy&lt;/groupId&gt;
+        &lt;artifactId&gt;%s&lt;/artifactId&gt;
+        &lt;version&gt;0.0.1&lt;/version&gt;
+        &lt;scope&gt;system&lt;/scope&gt;
+        &lt;systemPath&gt;${project.basedir}/manual_jars/%s&lt;/systemPath&gt;
+     &lt;/dependency&gt;\n"""%(elem, elem)
+  return s1
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span> <span class="arrow"> <a href="#answer_22">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>javamonkey79</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Dec 2008 at 21:06</span>
+     </div>
+    </div>
+    <div>
+     <p>This doesn't answer how to add them to your POM, and may be a no brainer, but would just adding the lib dir to your classpath work? I know that is what I do when I need an external jar that I don't want to add to my Maven repos.</p>
+     <p>Hope this helps.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>This is what I was doing, and it works, but it also pollutes the global class path, and I'm trying to get away from it. Thanks!</span> <span> - </span> <span class="display-name">purple</span> <span> </span> <span class="date">12 Dec 2008 at 21:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@purple Exactly how did you do that?</span> <span> - </span> <span class="display-name">TheRealChx101</span> <span> </span> <span class="date">3 Jul 2019 at 23:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_22"><span>Answer 22</span> <span class="arrow"> <a href="#answer_21">↑</a> </span> <span class="arrow"> <a href="#answer_23">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Łukasz Klich</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Mar 2012 at 12:52</span>
+     </div>
+    </div>
+    <div>
+     <p>What works in our project is what Archimedes Trajano wrote, but we had in our .m2/settings.xml something like this:</p>
+     <pre class="lang-xml prettyprint-override"><code> &lt;mirror&gt;
+  &lt;id&gt;nexus&lt;/id&gt;
+  &lt;mirrorOf&gt;*&lt;/mirrorOf&gt;
+  &lt;url&gt;http://url_to_our_repository&lt;/url&gt;
+ &lt;/mirror&gt;
+</code></pre>
+     <p>and the * should be changed to central. So if his answer doesn't work for you, you should check your settings.xml</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_23"><span>Answer 23</span> <span class="arrow"> <a href="#answer_22">↑</a> </span> <span class="arrow"> <a href="#answer_24">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>boumbh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Oct 2015 at 15:29</span>
+     </div>
+    </div>
+    <div>
+     <p>I just wanted a quick and dirty workaround... I couldn't run the script from Nikita Volkov: syntax error + it requires a strict format for the jar names.</p>
+     <p>I made this Perl script which works with whatever format for the jar file names, and it generates the dependencies in an xml so it can be copy pasted directly in a pom.</p>
+     <p>If you want to use it, make sure you understand what the script is doing, you may need to change the <code>lib</code> folder and the value for the <code>groupId</code> or <code>artifactId</code>...</p>
+     <pre class="lang-perl prettyprint-override"><code>#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+open(my $fh, '&gt;', 'dependencies.xml') or die "Could not open file 'dependencies.xml' $!";
+foreach my $file (glob("lib/*.jar")) {
+    print "$file\n";
+    my $groupId = "my.mess";
+    my $artifactId = "";
+    my $version = "0.1-SNAPSHOT";
+    if ($file =~ /\/([^\/]*?)(-([0-9v\._]*))?\.jar$/) {
+        $artifactId = $1;
+        if (defined($3)) {
+            $version = $3;
+        }
+        `mvn install:install-file -Dfile=$file -DgroupId=$groupId -DartifactId=$artifactId -Dversion=$version -Dpackaging=jar`;
+        print $fh "&lt;dependency&gt;\n\t&lt;groupId&gt;$groupId&lt;/groupId&gt;\n\t&lt;artifactId&gt;$artifactId&lt;/artifactId&gt;\n\t&lt;version&gt;$version&lt;/version&gt;\n&lt;/dependency&gt;\n";
+        print " =&gt; $groupId:$artifactId:$version\n";
+    } else {
+        print "##### BEUH...\n";
+    }
+}
+close $fh;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_24"><span>Answer 24</span> <span class="arrow"> <a href="#answer_23">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Oleksii Kyslytsyn</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jan 2020 at 14:55</span>
+     </div>
+    </div>
+    <div>
+     <p>The solution for scope='system' approach in Java:</p>
+     <pre><code>public static void main(String[] args) {
+        String filepath = "/Users/Downloads/lib/";
+        try (Stream&lt;Path&gt; walk = Files.walk(Paths.get(filepath))) {
+
+        List&lt;String&gt; result = walk.filter(Files::isRegularFile)
+                .map(x -&gt; x.toString()).collect(Collectors.toList());
+
+                String indentation = "    ";
+                for (String s : result) {
+                    System.out.println(indentation + indentation + "&lt;dependency&gt;");
+                    System.out.println(indentation + indentation + indentation + "&lt;groupId&gt;"
+                            + s.replace(filepath, "").replace(".jar", "")
+                            + "&lt;/groupId&gt;");
+                    System.out.println(indentation + indentation + indentation + "&lt;artifactId&gt;"
+                            + s.replace(filepath, "").replace(".jar", "")
+                            + "&lt;/artifactId&gt;");
+                    System.out.println(indentation + indentation + indentation + "&lt;version&gt;"
+                            + s.replace(filepath, "").replace(".jar", "")
+                            + "&lt;/version&gt;");
+                    System.out.println(indentation + indentation + indentation + "&lt;scope&gt;system&lt;/scope&gt;");
+                    System.out.println(indentation + indentation + indentation + "&lt;systemPath&gt;" + s + "&lt;/systemPath&gt;");
+                    System.out.println(indentation + indentation + "&lt;/dependency&gt;");
+                }
+
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

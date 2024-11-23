@@ -1,6 +1,6 @@
 @echo off
 
-set JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-20.0.1.9-hotspot"
+set JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-20.0.2.9-hotspot"
 
 cd target
 

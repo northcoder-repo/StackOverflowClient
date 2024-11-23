@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to deal with identifier fields in Lucene?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to deal with identifier fields in Lucene?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>zakmck</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>31 May 2020 at 16:37</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62119328/how-to-deal-with-identifier-fields-in-lucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I've stumbled upon a problem similar to the one described in <a href="https://stackoverflow.com/questions/34653016/lucene-stringfield-no-result">this other question</a>: I have a field named like 'type', which is an identifier, ie, it's case sensitive and I want to use it for exact searches, no tokenisation, no similarity searches, just plain "find exactly 'Sport:01'". I might benefit from 'Sport*', but it's not extremely important in my case.</p>
+    <p>I cannot make it work: I thought the right kind of field to store this is: <code>StringField.TYPE_STORED</code>, with <code>DOCS_AND_FREQS_AND_POSITIONS</code> and <code>setOmitNorms ( true )</code>. However, this way I can't correctly resolve a query like: <code>+type:"RockMusic" +title: "a sample title"</code> using the standard analyzer, because, as far as I understand, the analyzer converts the input into lower case (ie, rockmusic) and the type is stored in its original mixed-case form (hence, I cannot resolve it even if I remove the title clause).</p>
+    <p>I'd like to mix case-insensitive search over title with case-sensitive over type, since I've cases where type := <code>BRAIN</code> is an acronym and it's different than 'Brain'.</p>
+    <p>So, what's the best way to manage fields and searches like the above? Are there alternatives other than text and string fields?</p>
+    <p>I'm using Lucene 6.6.0, but this is a general issue, regarding multiple (all?) Lucene versions.</p>
+    <p>Some code showing details is <a href="https://github.com/marco-brandizi/lucene-learn/blob/master/src/test/java/info/marcobrandizi/learn/lucene/BasicLuceneTest.java" rel="nofollow noreferrer">here</a> (see <code>testIdMixedCaseID*</code>). The <a href="https://github.com/Rothamsted/ondex-base/tree/master/core/lucene" rel="nofollow noreferrer">real use case</a> is rather more complicated, if you want to give a look, the problem is with the field <code>CC_FIELD</code>, which might be 'BioProc' and nothing can be found in such a case.</p>
+    <p>Please note I need to use the plain Lucene, not Solr or Elastic search.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Can you add the relevant parts of your code to the question? What version of Lucene are you using?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">1 Jun 2020 at 00:23</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewjames, I've added a few details, though the question is general hence they aren't very relevant. Thanks.</span> <span> - </span> <span class="display-name">zakmck</span> <span> </span> <span class="date">1 Jun 2020 at 08:57</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jun 2020 at 00:08</span>
+     </div>
+    </div>
+    <div>
+     <p>The following notes are based on Lucene 8.x, not on Lucene 6.6 - so there may be some syntax differences - but I take your point about how any such differences should be coincidental to your question.</p>
+     <p>Here are some notes, where I will focus on the following aspect of your question:</p>
+     <blockquote>
+      <p><em>However, this way I can't correctly resolve a query like: +type:"RockMusic" +title:"a sample title" using the standard analyzer</em></p>
+     </blockquote>
+     <p>I think there are 2 parts to this:</p>
+     <p>Firstly, the query example using <code>"a sample title"</code> will - as you say - not work well with how a standard analyzer works - for the reasons you state.</p>
+     <p>But, secondly, it is possible to combine the two types of query you want to use, in a way which I believe gets you what you need: An <em>exact</em> match for the <code>type</code> field (e.g. <code>RockMusic</code>) and a more traditional tokenized &amp; case-insensitive result for the <code>title</code> field (<code>a sample title</code>).</p>
+     <p>Here is how I would do that:</p>
+     <p>Here is some simple test data:</p>
+     <pre><code>public static void buildIndex() throws IOException {
+    final Directory dir = FSDirectory.open(Paths.get(INDEX_PATH));
+    Analyzer analyzer = new StandardAnalyzer();
+    IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
+    iwc.setOpenMode(OpenMode.CREATE);
+    Document doc;
+
+    try (IndexWriter writer = new IndexWriter(dir, iwc)) {
+        doc = new Document();
+        doc.add(new StringField("type", "RockMusic", Field.Store.YES));
+        doc.add(new TextField("title", "a sample title", Field.Store.YES));
+        writer.addDocument(doc);
+
+        doc = new Document();
+        doc.add(new StringField("type", "RockMusic", Field.Store.YES));
+        doc.add(new TextField("title", "another different title", Field.Store.YES));
+        writer.addDocument(doc);
+
+        doc = new Document();
+        doc.add(new StringField("type", "Rock Music", Field.Store.YES));
+        doc.add(new TextField("title", "a sample title", Field.Store.YES));
+        writer.addDocument(doc);
+
+    }
+}
+</code></pre>
+     <p>Here is the query code:</p>
+     <pre><code>public static void doSearch() throws QueryNodeException, ParseException, IOException {
+
+    IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(INDEX_PATH)));
+    IndexSearcher searcher = new IndexSearcher(reader);
+
+    TermQuery typeQuery = new TermQuery(new Term("type", "RockMusic"));
+
+    Analyzer analyzer = new StandardAnalyzer();
+    QueryParser parser = new QueryParser("title", analyzer);
+    Query titleQuery = parser.parse("A Sample Title");
+
+    Query query = new BooleanQuery.Builder()
+            .add(typeQuery, BooleanClause.Occur.MUST)
+            .add(titleQuery, BooleanClause.Occur.MUST)
+            .build();
+
+    System.out.println("Query: " + query.toString());
+    System.out.println();
+
+    TopDocs results = searcher.search(query, 100);
+    ScoreDoc[] hits = results.scoreDocs;
+    for (ScoreDoc hit : hits) {
+        System.out.println("doc = " + hit.doc + "; score = " + hit.score);
+        Document doc = searcher.doc(hit.doc);
+        System.out.println("Type = " + doc.get("type")
+                + "; Title = " + doc.get("title"));
+        System.out.println();
+    }
+}
+</code></pre>
+     <p>The output from the above query is as follows:</p>
+     <pre><code>Query: +type:RockMusic +(title:a title:sample title:title)
+
+doc = 0; score = 0.7016101
+Type = RockMusic; Title = a sample title
+
+doc = 1; score = 0.2743341
+Type = RockMusic; Title = another different title
+</code></pre>
+     <p>As you can see, this query is a little different from the one taken from your question.</p>
+     <p>But the list of found documents shows that (a) the <code>Rock Music</code> document was not found at all (good - because <code>Rock Music</code> does not match the "type" search term of <code>RockMusic</code>); and (b) the title <code>a sample title</code> got a far higher match score than the <code>another different title</code> document, when searching for <code>A Sample Title</code>.</p>
+     <p>Additional notes:</p>
+     <p>This query works by combining a <code>StringField</code> exact search with a more traditional <code>TextField</code> tokenized search - this latter search being processed by the <code>StandardAnalyzer</code> (matching how the data was indexed in the first place).</p>
+     <p>I am making an assumption about the score ranking being useful to you - but for title searches, I think that is reasonable.</p>
+     <p>This approach would also apply to your <code>BRAIN</code> vs. <code>brain</code> example, for <code>StringField</code> data.</p>
+     <p>(I also assume that, for a user interface, a user could select the "RockMusic" type value from a drop-down, and enter the "A Sample Title" search in an input field - but this is getting off-topic, I think).</p>
+     <p>You could obviously enhance the analyzer to include stop-words, and so on, as needed.</p>
+     <p>Of course, my examples involve hard-coded data - but it would not take much to generalize this approach to handle dynamically-provided search terms.</p>
+     <p>Hope that this makes sense - and that I understood the problem correctly.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>@anrewjames thanks so much for the deep analysis. I've ended up to similar code, with the addition of a PerFieldAnalyzerWrapper, which is able to select KeywordAnalyzer for fields like "type", and use the standard analyzer as default. I've had to struggle to realise that using the same analyzer that I used to index during search requires a query parser, but now it's working, will post my answer later. Thanks again!</span> <span> - </span> <span class="display-name">zakmck</span> <span> </span> <span class="date">3 Jun 2020 at 09:29</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I had not noticed <code>PerFieldAnalyzerWrapper</code> - that is a very useful class for this situation.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">4 Jun 2020 at 13:35</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>zakmck</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Jun 2020 at 11:34</span>
+     </div>
+    </div>
+    <div>
+     <p>Going to answer myself...</p>
+     <p>I discovered what @andrewjames outlines in <a href="https://stackoverflow.com/a/62163257/529286">his excellent analysis</a> by making <a href="https://github.com/marco-brandizi/lucene-learn/blob/master/src/test/java/info/marcobrandizi/learn/lucene/IDLuceneTest.java" rel="nofollow noreferrer">a number of tests of my own</a>. Essentially, fields like "type" don't play well with the standard analyser and they are best indexed and searched with an analyzer like KeywordAnalyzer, which, in practice, stores the original value as-is and searches it accordingly.</p>
+     <p>Most real cases are like my example, ie, mixed ID-like fields, which need exact matching, plus fields like 'title' or 'description', which best serves user searches using per-token searching, word-based scoring, stop words elimination, etc.</p>
+     <p>Because of that, <a href="https://stackoverflow.com/a/17566838/529286">PerFieldAnalyzerWrapper</a> (see also my sample code, linked above) comes to much help, ie, a wrapper analyzer, which is able to dispatch analysis field-specific analyzers, on a field name basis.</p>
+     <p>One thing to add is that I still haven't clear which analyzer is used when a query is built without a parser (eg, using new <code>TermQuery ( new Term ( fname, fval )</code>), so now I use a <code>QueryParser</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

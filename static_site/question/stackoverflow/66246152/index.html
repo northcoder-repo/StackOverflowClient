@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf Temporals and dates with Timezone</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf Temporals and dates with Timezone</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>HK15</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 Feb 2021 at 16:36</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66246152/thymeleaf-temporals-and-dates-with-timezone">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I've a Spring Boot Web application using Thymeleaf as View Layer and I need to show some dates with a specific Timezone (CET = UTC+1/UTC+2).</p>
+    <p>The server is set for UTC and all dates are stored in my DB as datetime in UTC format too and that's fine.</p>
+    <p>Now I want to show this dates on my HTML pages not in UTC format but in CET using Thymeleaf Temporals but it seem doesn't work.</p>
+    <p>The date object is a Java Instant.</p>
+    <p>The retrieved date from DB is (for example) <code>2021-02-17T16:18:21Z</code> and is display like:</p>
+    <pre><code>&lt;div th:text="${#temporals.format(user.lastAccess, 'dd/MM/yyyy HH:mm')}"&gt;&lt;/div&gt;
+=&gt; 17/02/2021 16:18
+</code></pre>
+    <p>But I want to show it like:</p>
+    <pre><code>17/02/2021 17:18
+</code></pre>
+    <p>so I used:</p>
+    <p>or</p>
+    <pre><code>&lt;div th:text="${#temporals.format(user.lastAccess, 'dd/MM/yyyy HH:mm', new java.util.Locale('it', 'IT'))}"&gt;&lt;/div&gt;
+</code></pre>
+    <p>But the date is always displayed as UTC</p>
+    <pre><code>17/02/2021 16:18
+</code></pre>
+    <p>The <code>Java8TimeDialect</code> for Thymeleaf is correctly configured.</p>
+    <p>I'm using:</p>
+    <pre><code>Spring Boot 2.2.4
+Thymeleaf 3.0.11.RELEASE
+</code></pre>
+    <p>What am I doing wrong?</p>
+    <p>Thanks.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">spring-boot</span><span class="tag">datetime</span><span class="tag">timezone</span><span class="tag">thymeleaf</span><span class="tag">java-time</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Feb 2021 at 19:58</span>
+     </div>
+    </div>
+    <div>
+     <p>There is no <a href="https://github.com/thymeleaf/thymeleaf-extras-java8time" rel="nofollow noreferrer">Thymeleaf temporals function</a> which can perform that time zone conversion for you.</p>
+     <p>The <code>Instant</code> value needs to be given a time zone, not a locale (Java locales do not manipulate time zones in this way).</p>
+     <p>You can do what you need in Java:</p>
+     <pre><code>Instant myInstant = Instant.parse("2021-02-17T16:18:00.00Z");
+ZonedDateTime myZDT = myInstant.atZone(ZoneId.of("CET"));
+</code></pre>
+     <p>Now, you can use the following Thymeleaf snippet:</p>
+     <pre><code>&lt;div th:text="${#temporals.format(myZDT, 'dd/MM/yyyy HH:mm')}"&gt;&lt;/div&gt;
+</code></pre>
+     <p>This will generate the following in a <code>div</code>:</p>
+     <pre><code>17/02/2021 17:18
+</code></pre>
+     <p>Now the time is displayed as <code>17:18</code> instead of <code>16:18</code>.</p>
+     <hr>
+     <p><strong>UPDATE</strong>: Please be sure to read the comment from OleV.V. regarding deprecated abbreviations, including the note:</p>
+     <blockquote>
+      <p><em>Three letter time zone abbreviations are deprecated and very often ambiguous, so don’t use ZoneId.of("CET"). Use a time zone ID like Europe/Vienna or Europe/San_Marino, so in the region/city format.</em></p>
+     </blockquote>
+     <p>The following question may therefore be useful:</p>
+     <p><a href="https://stackoverflow.com/questions/42512290/where-is-the-official-list-of-zone-names-for-java-time">Where is the official list of zone names for java.time?</a></p>
+     <p>And a related code snippet:</p>
+     <pre><code>Set&lt;String&gt; zoneIds = ZoneId.getAvailableZoneIds();
+for (String zone : zoneIds) {
+    System.out.println(zone);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you @OleV.V. I notice that <code>VV</code> is a valid string formatter for timezone data. Coincidence? I don't think so...</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">18 Feb 2021 at 20:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Arvind Kumar Avinash</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Feb 2021 at 13:29</span>
+     </div>
+    </div>
+    <div>
+     <p>You need to convert the timestamp to date-time with the specified timezone. Given below are some of the ways to do so.</p>
+     <p><strong>Using <a href="https://docs.oracle.com/javase/8/docs/api/java/time/ZonedDateTime.html#withZoneSameInstant-java.time.ZoneId-" rel="nofollow noreferrer"><code>ZonedDateTime#withZoneSameInstant</code></a>:</strong></p>
+     <pre><code>import java.time.ZoneId;
+import java.time.ZonedDateTime;
+
+class Main {
+    public static void main(String[] args) {
+        String timestamp = "2021-02-17T16:18:00.00Z";
+        ZonedDateTime zdt = ZonedDateTime.parse(timestamp);
+        ZonedDateTime zdtAtCet = zdt.withZoneSameInstant(ZoneId.of("Europe/Paris"));
+        System.out.println(zdtAtCet);
+    }
+}
+</code></pre>
+     <p>Now, you can use the corresponding object of <code>OffsetDateTime</code> in your code e.g.</p>
+     <pre><code>&lt;div th:text="${#temporals.format(zdtAtCet, 'dd/MM/yyyy HH:mm')}"&gt;&lt;/div&gt;
+</code></pre>
+     <p><code>ZonedDateTime</code> has been designed to adjust the changes in the offset from UTC due to daylight savings automatically.</p>
+     <p>If you are going to deal with a fixed offset from UTC e.g. UTC+01:00, you can also use <a href="https://docs.oracle.com/javase/8/docs/api/java/time/OffsetDateTime.html#withOffsetSameInstant-java.time.ZoneOffset-" rel="nofollow noreferrer"><code>OffsetDateTime#withOffsetSameInstant</code></a> e.g.</p>
+     <pre><code>import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+
+class Main {
+    public static void main(String[] args) {
+        String timestamp = "2021-02-17T16:18:00.00Z";
+        OffsetDateTime odt = OffsetDateTime.parse(timestamp);
+        OffsetDateTime odtAtUtcPlus1 = odt.withOffsetSameInstant(ZoneOffset.of("+01:00"));
+        OffsetDateTime odtAtUtcPlus2 = odt.withOffsetSameInstant(ZoneOffset.of("+02:00"));
+        System.out.println(odtAtUtcPlus1);
+        System.out.println(odtAtUtcPlus2);
+    }
+}
+</code></pre>
+     <p><strong>Output:</strong></p>
+     <pre><code>2021-02-17T17:18+01:00
+2021-02-17T18:18+02:00
+</code></pre>
+     <p>You can also use <a href="https://docs.oracle.com/javase/8/docs/api/java/time/Instant.html#atZone-java.time.ZoneId-" rel="nofollow noreferrer"><code>Instant#atZone</code></a> and <a href="https://docs.oracle.com/javase/8/docs/api/java/time/Instant.html#atOffset-java.time.ZoneOffset-" rel="nofollow noreferrer"><code>Instant#atOffset</code></a> to do first and the second solution, mentioned above, respectively e.g.</p>
+     <pre><code>import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+
+class Main {
+    public static void main(String[] args) {
+        String timestamp = "2021-02-17T16:18:00.00Z";
+        Instant instant = Instant.parse(timestamp);
+        OffsetDateTime odtAtUtcPlus1 = instant.atOffset(ZoneOffset.of("+01:00"));
+        ZonedDateTime zdtAtCet = instant.atZone(ZoneId.of("Europe/Paris"));
+        System.out.println(odtAtUtcPlus1);
+        System.out.println(zdtAtCet);
+    }
+}
+</code></pre>
+     <p><strong>Output:</strong></p>
+     <pre><code>2021-02-17T17:18+01:00
+2021-02-17T17:18+01:00[Europe/Paris]
+</code></pre>
+     <p>Learn more about the modern date-time API from <strong><a href="https://docs.oracle.com/javase/tutorial/datetime/index.html" rel="nofollow noreferrer">Trail: Date Time</a></strong>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>It would be fine if there was a way to handle all the dates in this way in a centralized manner into the Spring Boot application. However the solution suggested works fine. thanks.</span> <span> - </span> <span class="display-name">HK15</span> <span> </span> <span class="date">19 Feb 2021 at 08:44</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Marcin Kunert</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Jul 2021 at 08:02</span>
+     </div>
+    </div>
+    <div>
+     <p><code>Temporals</code> are created automatically. It takes the system default timezone.</p>
+     <pre><code>public Temporals(final Locale locale) {
+    this(locale, ZoneId.systemDefault());
+}
+</code></pre>
+     <p>The creation process isn't really designed to be customizable, so the best way seems to be to change the system default ZoneId.</p>
+     <p>For me, the best way was to set the expected timezone in Docker container. In my case the date was already correct on the server. To propagate it to the container volumes could be used:</p>
+     <pre><code>-v /etc/timezone:/etc/timezone:ro -v /etc/localtime:/etc/localtime:ro
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

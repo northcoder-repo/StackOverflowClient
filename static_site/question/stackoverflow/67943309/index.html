@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>R Shiny DT data table column width works on ALL columns, but not on specific column</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>R Shiny DT data table column width works on ALL columns, but not on specific column</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Gopala</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Jun 2021 at 20:47</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67943309/r-shiny-dt-data-table-column-width-works-on-all-columns-but-not-on-specific-col">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have looked at the documentation, and examples, and other answers. But, for the life of me, I can't get the <code>DT::datatable()</code> to widen just one column in my output. When I set the option to include <code>_all</code> columns, it works, but obviously not what I want.</p>
+    <p>Here is a working example:</p>
+    <pre><code>library(dplyr)
+library(shiny)
+library(DT)
+library(data.table)
+
+mtcars &lt;- mtcars[1:5, ]
+
+ui &lt;- fluidPage(
+  fluidRow(
+    dataTableOutput(('mtcarsDT')),
+    )
+  )
+
+server &lt;- function(input, output, session) {
+  output$mtcarsDT &lt;- DT::renderDataTable({
+    recFeedbackCol &lt;- lapply(1:nrow(mtcars), function(recnum)
+      as.character(
+        radioButtons(
+          paste0(
+            'rec', recnum),
+          '',
+          choices = c('good' = 'Good', 'bad' = 'Bad', 'neutral' = 'Neutral'),
+          inline = TRUE
+        )
+      )
+    )
+    recFeedbackCol &lt;- tibble(feedback = recFeedbackCol)
+    
+    mtcars &lt;- bind_cols(
+      mtcars,
+      recFeedbackCol
+      )
+    
+    mtcars %&gt;%
+      DT::datatable(
+        escape = FALSE, selection = 'none',
+        extensions = 'FixedColumns',
+        options = list(
+          paging = FALSE, pageLength = 10, ordering = FALSE,  scrollX = TRUE,
+          fixedColumns = list(leftColumns = 2),
+          preDrawCallback = JS(
+            'function() { Shiny.unbindAll(this.api().table().node()); }'
+            ),
+          drawCallback = JS(
+            'function() { Shiny.bindAll(this.api().table().node()); } '
+            ),
+          autoWidth = TRUE,
+          columnDefs = list(list(width = '200px', targets = 'feedback'))
+          )
+        )
+    })
+  }
+
+shinyApp(ui = ui, server = server)
+</code></pre>
+    <p>Changing <code>targets = '_all'</code> works. But, that widens all columns.</p>
+    <pre><code>&gt; packageVersion('shiny')
+[1] ‘1.4.0’
+&gt; packageVersion('DT')
+[1] ‘0.17’
+</code></pre>
+    <p>Anything I am missing?</p>
+    <p><strong>Update:</strong></p>
+    <p>Now, I am using <code>ncol(mtcars)</code> and with some options, and the DT does not render at all. I get the columns, and zero rows in display:</p>
+    <pre><code>library(dplyr)
+library(shiny)
+library(DT)
+library(data.table)
+
+mtcars &lt;- mtcars[1:5, ]
+
+ui &lt;- fluidPage(
+  fluidRow(
+    dataTableOutput(('mtcarsDT')),
+    )
+  )
+
+server &lt;- function(input, output, session) {
+  output$mtcarsDT &lt;- DT::renderDataTable({
+    recFeedbackCol &lt;- lapply(1:nrow(mtcars), function(recnum)
+      as.character(
+        radioButtons(
+          paste0(
+            'rec', recnum),
+          '',
+          choices = c('good' = 'Good', 'bad' = 'Bad', 'neutral' = 'Neutral'),
+          inline = TRUE
+        )
+      )
+    )
+    recFeedbackCol &lt;- tibble(feedback = recFeedbackCol)
+    
+    mtcars &lt;- bind_cols(
+      mtcars,
+      recFeedbackCol
+      )
+    
+    mtcars %&gt;%
+      DT::datatable(
+        extensions = 'FixedColumns',
+        rownames = FALSE,
+        escape = FALSE,
+        class="compact cell-border",
+        options = list(
+          pageLength = 15, 
+          lengthChange = FALSE, 
+          scrollX = TRUE,
+          searching = FALSE,
+          dom = 't',
+          ordering = TRUE,
+          fixedColumns = list(leftColumns = 2),
+          preDrawCallback = JS(
+            'function() { Shiny.unbindAll(this.api().table().node()); }'
+          ),
+          drawCallback = JS(
+            'function() { Shiny.bindAll(this.api().table().node()); } '
+          ),
+          autoWidth = TRUE,
+          columnDefs = list(
+            list(width = '200px', targets = ncol(mtcars))
+          )
+        )
+      )
+    })
+  }
+
+shinyApp(ui = ui, server = server)
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">r</span><span class="tag">shiny</span><span class="tag">dt</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Jun 2021 at 21:18</span>
+     </div>
+    </div>
+    <div>
+     <p>For <code>targets</code> you can use a column index number (indexing is zero-based):</p>
+     <pre><code>targets = 3
+</code></pre>
+     <p>Or to target multiple specific columns, use an array:</p>
+     <pre><code>targets = list(3,4)
+</code></pre>
+     <p>There are some additional options, too - see <a href="https://datatables.net/reference/option/columnDefs.targets" rel="nofollow noreferrer">here</a> for reference.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>So, using the fact mentioned above about indexing being zero-based, and looking at the reference documentation (see the above link), we can say the following:</p>
+     <ul>
+      <li>The first column in the table has an index of 0.</li>
+      <li>The second column in the table has an index of 1.</li>
+      <li>... and so on.</li>
+     </ul>
+     <p>And we can also say:</p>
+     <ul>
+      <li>The last column in the table has an index of -1.</li>
+      <li>The second-to-last column in the table has an index of -2.</li>
+      <li>... and so on.</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>See above update, and there new code that gives a problem.</span> <span> - </span> <span class="display-name">Gopala</span> <span> </span> <span class="date">11 Jun 2021 at 21:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>OK - if you changed other parts of your table &amp; app, I think that is now a new/different question about a new/different problem. If you go back to the original, does it work with my suggested syntax?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">11 Jun 2021 at 22:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes. Although, I want a robust solution that works with the addition of just a basic set of options. The target field seems to have some problem playing well.</span> <span> - </span> <span class="display-name">Gopala</span> <span> </span> <span class="date">11 Jun 2021 at 22:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>OK - I recommend you go ahead and ask that as a new question, making it clear what the specific issue is. I will keep an eye out for that new question. Good luck!</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">11 Jun 2021 at 23:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>First of all, thank you. dOK. I can. Although, if you know the answer, not clear why you won't help further? I mean, the system asks for minimal reproducible example, which I posted. Then, a new problem crept up. Of course, if you don't know the solution to this new problem, I will gladly post as a new question. Thank you.</span> <span> - </span> <span class="display-name">Gopala</span> <span> </span> <span class="date">12 Jun 2021 at 02:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I would like to help - but I am having a hard time understanding what the new problem is (or the new set of problems are). A new question would be great. That's why I said "<i>making it clear what the specific issue is.</i>". Also, I think doing that would really be to your advantage: You are <i>much</i> more likely to get <i>many</i> more eyeballs on your new problem if you present it in a new question (at least, that is what my experience has been). And you are probably going to get someone who can therefore provide the best possible answer - and that person may not be me!</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">12 Jun 2021 at 11:45</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

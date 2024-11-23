@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Datables Render Nested Objects &amp; Arrays from Ajax Request</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Datables Render Nested Objects &amp; Arrays from Ajax Request</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Puneet Saini</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Jan 2021 at 15:42</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65751413/datables-render-nested-objects-arrays-from-ajax-request">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have this json from third party API, which isn't under my control-</p>
+    <pre><code>https://pastebin.com/WNZZWXV7
+</code></pre>
+    <p>(contains stripped down single set)</p>
+    <p>The 2 values I want in a row are like this-</p>
+    <p>Column 1 = response.listResults[0].listInstrument.instrumentBasic.symbol ("SAREGAMA" in the example)</p>
+    <p>Column 2 = response.listResults[0].listColumns[0].dataValue.doubleValue (823 in example)</p>
+    <p>This is my current code-</p>
+    <pre><code>&lt;table id="example" class="display" style="width:100%"&gt;&lt;/table&gt;
+
+&lt;script&gt;    
+$(document).ready(function() {
+    $('#example').DataTable( {
+        "ajax": '..private url',
+        
+        "columns": [
+            { "title": "Stock", "data": "response.listResults.listInstrument.flagged", "searchable": true, "visible": true },
+            { "title": "Price", "data": "response.listResults.listColumns[0].dataValue.doubleValue" }
+        ]
+    } );
+} );
+&lt;/script&gt;
+</code></pre>
+    <p>I went through examples here - <a href="https://datatables.net/examples/ajax/" rel="nofollow noreferrer">https://datatables.net/examples/ajax/</a> but not able to sort it out. Any help or pointers are appreciated.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Jan 2021 at 17:48</span>
+     </div>
+    </div>
+    <div>
+     <p>That is a somewhat awkward JSON structure, because it has two separate arrays that you want to use as your iteration points for each DataTables column - and in the second column, you only want to take the first nested object...</p>
+     <p>Here is one approach:</p>
+     <p>Change your <code>ajax</code> option so it can use the <a href="https://datatables.net/reference/option/ajax.dataSrc" rel="nofollow noreferrer"><code>dataSrc</code></a> option:</p>
+     <pre class="lang-js prettyprint-override"><code>"ajax": {
+  "url": "..private url",
+  "dataSrc": "response.listResults"
+}
+</code></pre>
+     <p>In this case, the <code>dataSrc</code> points to the location in your JSON response where the first JSON array starts: the <code>listResults</code> array.</p>
+     <p>Now you can use this as the starting point for each of your <code>columns</code> definitions:</p>
+     <pre class="lang-js prettyprint-override"><code>"columns": [
+  { 
+    "title": "Stock", 
+    "data": "listInstrument.instrumentBasic.symbol", 
+    "searchable": true, 
+    "visible": true 
+  },
+  { 
+    "title": "Price",
+    "data": "listColumns.0.dataValue.doubleValue"
+  }
+]
+</code></pre>
+     <p>The first column's data definition will iterate over every <code>listInstrument</code> object. But since there is only one such object, it will only grab the one related value for the symbol name: "SAREGAMA".</p>
+     <p>The second column uses <code>listColumns.0</code> to ensure it only looks at the first (of many) <code>listColumns</code> objects. That gives you the single price you want: 823. This obviously assumes you are OK hard-coding that zero, for the first object.</p>
+     <p>The end result:</p>
+     <p><a href="https://i.stack.imgur.com/b9GMR.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/b9GMR.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks, it worked for my json. I have accepted the answer.</span> <span> - </span> <span class="display-name">Puneet Saini</span> <span> </span> <span class="date">17 Jan 2021 at 08:53</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

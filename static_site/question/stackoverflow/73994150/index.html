@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Selector.select() is not blocking after a SelectionKey.isReadable is read</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Selector.select() is not blocking after a SelectionKey.isReadable is read</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>-1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Matthew</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Oct 2022 at 03:27</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73994150/selector-select-is-not-blocking-after-a-selectionkey-isreadable-is-read">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a Socket that connects to a ServerSocketChannel which passes off to another Selector. The client socket sends a one time message of 8 bytes, I successfully read it, but then selector which I call <code>selectorIO</code> should block on the <code>select()</code> method, but it immediately returns and then re-reads the same message that was already sent.</p>
+    <pre><code>public void readData()
+    {
+        int numberOfKeys = 0;
+        buffer = ByteBuffer.allocate(8);
+        buffer.clear();
+        
+        while(true)
+        {
+            try
+            {
+                //This is not blocking anymore?!
+                numberOfKeys = selectorIO.select();
+                
+                Set&lt;SelectionKey&gt; keys = selectorIO.selectedKeys();
+                Iterator&lt;SelectionKey&gt; itr = keys.iterator();
+                
+                while(itr.hasNext())
+                {
+                    SelectionKey key = itr.next();
+                    if(key.isReadable())
+                    {
+                        SocketChannel channel = (SocketChannel)key.channel();
+                        
+                        int numread = channel.read(buffer);
+                    
+                        String s = new String(buffer.array());
+                        System.out.println(s);
+                        System.out.println(numread);
+                        
+                        
+                        buffer.flip();
+                        
+                        //channel.write(buffer);
+                        int numwrote = channel.write(buffer);
+                        System.out.println(numwrote+" Bytes writtent");
+                    
+                    
+                        buffer.flip();
+                        
+                        //buffer.reset();
+                    }   
+                    itr.remove();
+                }
+        
+            }
+            catch(Exception e)
+            {
+                System.out.println(e);
+            }
+        }
+    }
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">multithreading</span><span class="tag">selector</span><span class="tag">socketchannel</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Did you de-register the <code>SelectKey.OP_WRITE</code>? If you didn't, well, you <i>can</i> write, so, <code>select()</code> returns immediately.</span> <span> - </span> <span class="display-name">rzwitserloot</span> <span> </span> <span class="date">8 Oct 2022 at 03:43</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@rzwitserloot, That helped, but now the loop runs exactly twice. The select blocked the second time through. Any ideas on why it would loop twice before blocking instead of a single time?</span> <span> - </span> <span class="display-name">Matthew</span> <span> </span> <span class="date">8 Oct 2022 at 06:03</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I thought you needed OP_WRITE because I was going to use the SocketChannel to actually write too...</span> <span> - </span> <span class="display-name">Matthew</span> <span> </span> <span class="date">8 Oct 2022 at 06:04</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>You only need OP_WRITE if you were not able to write all data. So you want to be notified when more space in the socket send buffer comes available. If you managed to write all data, you do not want to register OP_WRITE.</span> <span> - </span> <span class="display-name">pveentjer</span> <span> </span> <span class="date">8 Oct 2022 at 06:56</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>When you create the channel, typically you only want to register OP_READ, not OP_WRITE.</span> <span> - </span> <span class="display-name">pveentjer</span> <span> </span> <span class="date">8 Oct 2022 at 07:00</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Your last flip should be a clear (or compact) For more info see <a href="https://www.tutorialspoint.com/java_nio/java_nio_socket_channel.htm" rel="nofollow noreferrer">tutorialspoint.com/java_nio/java_nio_socket_channel.htm</a></span> <span> - </span> <span class="display-name">pveentjer</span> <span> </span> <span class="date">8 Oct 2022 at 12:39</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>pveentjer</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Oct 2022 at 03:35</span>
+     </div>
+    </div>
+    <div>
+     <p>When you call the buffer.array() to create the String, the ByteBuffer has no clue that the bytes have been consumed, so the state of the ByteBuffer remains unchanged. It still contains the read bytes and still wants them to be consumed. This causes the rereading of the same message.</p>
+     <p>The array returned on ByteBuffer.array(), has no clue about how many useful bytes are available. If the array has a capacity of 10 and only 8 byte has been set, you are trying to create a String with 2 bogus bytes. And if only 2 bytes have been read, you try to create as string based on 2 instead of 8 bytes. The string creation approach is incorrect.</p>
+     <p>After you do a channel.write, you should do a compact or clear depending on if data is still available or not.</p>
+     <p>I normally use 2 separate ByteBuffers; one for reading and one for writing.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I tried adding both clear, reset, and compact and it still kept on looping. If the buffer is independent of the selector, how and why would it know if the buffer is in a state like that?</span> <span> - </span> <span class="display-name">Matthew</span> <span> </span> <span class="date">8 Oct 2022 at 05:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Can you update the code with these changes @Matthew</span> <span> - </span> <span class="display-name">pveentjer</span> <span> </span> <span class="date">8 Oct 2022 at 05:42</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>rzwitserloot</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Oct 2022 at 13:18</span>
+     </div>
+    </div>
+    <div>
+     <p>Multiple issues at work.</p>
+     <h2>Buffer Management</h2>
+     <h3>String creation broken</h3>
+     <p>You create a ByteBuffer and like all BBs they have a set capacity. You then read into it (<code>int numRead = channel.read(buffer)</code>) and this does one of two things:</p>
+     <ol>
+      <li>The capacity of the BB is <em>less</em> than the amount of bytes that can be immediately stuffed into that buffer, copied straight over from your network card's buffers.</li>
+     </ol>
+     <p>In this case, the entire BB is filled (<code>numRead</code> will be equal to the BB's capacity), and the 'READ READY' status of that channel remains up (because there are still more bytes ready to copy over).</p>
+     <p>Note that <code>bb.array()</code> returns <em>the entire backing array</em>, but in this scenario, given that the whole BB is filled to capacity, that 'works out' so to speak.</p>
+     <ol start="2">
+      <li>The capacity of the BB is <em>more</em> than the amount of bytes that can be immediately stuffed into that buffer.</li>
+     </ol>
+     <p>In this case, <code>numRead</code> will be <em>less</em> than the total capacity of that bytebuffer, and <code>new String(bb.array())</code> <strong>is broken</strong> - that would attempt to turn into a string the bytes you read so far <em>and</em> a whole bunch of garbage at the end.</p>
+     <p><code>new String(bb.array(), 0, bb.position())</code> would do the job, but in general this isn't how you're meant to be doing things. For starters, you're now charset-confused (You really should be using <code>new String(bb.array(), 0, bb.position(), StandardCharsets.UTF_8)</code> - do not ever convert bytes to chars or vice versa unless you specify which encoding is being used, otherwise the system chooses for you and that's rarely correct, and always confusing).</p>
+     <h2>No proper resetting</h2>
+     <p>The general way a buffer is meant to be used is like this:</p>
+     <ul>
+      <li>fill it (either you fill it, or you call read() on something).</li>
+      <li>flip it.</li>
+      <li>process with it (either you give it to something that sends the data in it, or you go through the bytes).</li>
+      <li>clear it.</li>
+      <li>repeat.</li>
+     </ul>
+     <p>You fill it (<code>channel.read()</code>), then use direct array manipulation instead of flip+reads to 'process' it (by passing the backing array to a string constructor), and then you <code>.flip()</code> it which is the wrong call, you want <code>.clear()</code>.</p>
+     <p>BBs work that way because, well, logic:</p>
+     <ul>
+      <li>They have a set capacity and you don't necessarily use <em>all</em> of that capacity. Often you use a little less. So, you first fill it, and then you want that BB to allow injecting data from 0 all the way up to capacity: the 'position' is 0 (and as we fill this thing it updates), the 'limit' is set to the capacity.</li>
+      <li>Then to process it, we want position to be 0 again (we start processing from the beginning of course), but we want <code>limit</code> <strong>not</strong> to be the end, because maybe it wasn't fully filled up exactly to capacity by whatever process put data into this thing... we want <code>limit</code> to be the position as it was (as that's where the 'process that filled the buffer' left things). <code>flip()</code> does this: It sets position back to 0 and limit to where the position was.</li>
+     </ul>
+     <p>Once you've read data into your buffer and then processed that data, you want <strong>clear</strong>: You want position back to 0 and the limit back to the capacity, ready for the process that fills the buffer to star filling it again. <code>clear()</code> does that. Your code calls <code>flip()</code> which is wrong.</p>
+     <h3>Confusion about selectors</h3>
+     <p>A selector is set up with certain thing you are 'interested in'. When you ask it to <code>.select()</code>, you're saying:</p>
+     <ol>
+      <li>Is any of the stuff I'm interested in possible right now? If yes, <strong>return immediately</strong>.</li>
+      <li>If not, go to sleep until something I'm interested in <em>might</em> be possible.</li>
+     </ol>
+     <p>The thing is, as you process a channel your opinion on what you're interested in <strong>changes over time</strong>, and you need to update that selector and turn on/off <code>SelectorKey</code>s as needed.</p>
+     <p>For example, let's say you are writing a simple chat program. Alice just pasted half of the collected works of shakespeare and your chat program now needs to send all this to Bob. You should now <em>turn on</em> <code>SelectorKey.OP_WRITE</code> on bob's network channel. It should have been off before as you did not have anything to send to bob. But you have something to send now, so turn it on.</p>
+     <p>You then go to <code>select()</code> which is highly likely to return immediately (the network card has free buffer space for bob's connection). You start copying those collected works of shakespeare over into the bytebuffer but you won't 'make it' - that buffer's capacity is less than shakespeare's total size. That's the point, that's fine. You then hand that buffer to the network and go back to selecting <em>while still interested in <code>OP_WRITE</code></em> because you haven't copied all of shakespeare's collected works yet, you only did like a quarter so far.</p>
+     <p>Eventually the network clears that buffer out through the network cable, and only then will your selector go: Oh, hey, we're ready for some more writing!</p>
+     <p>You keep doing this process (add some more of the shakespeare you need to send) until you stuff the last of it in the buffer you then hand to the channel. You should then <strong>remove</strong> <code>SelectorKey.OP_WRITE</code> because you now no longer care that the network buffer has room.</p>
+     <p>Whilst all this was going on, you have a problem: What if Alice keeps sending more and more books, and she sends them faster than bob can receive them? That's possible, of course - maybe Alice is on glass fiber and Bob is on a satellite phone. You can of course choose to buffer all of this server side, but all things are limited: There comes a point when Alice has queued up 50GB worth of book content that you still have to send to Bob. You can either decide that your server will just crash if Alice does this, or, you're going to have to put in a limit: Once the 'data that alice sent that I have yet to shove into the bob's channel' reaches a certain amount, you have to go: Okay, Alice, no more.</p>
+     <p>When that happens, <strong>you have to deregister the <code>OP_READ</code> key</strong> - you know alice has sent you some data that is ready to read, but you don't want to read it, your buffers are full. This is sensible: If Bob has the slower connection and alice is sending heaps of data to bob, you can't process alice's bytes as fast as she can send them.</p>
+     <p>Remember also that <code>.select()</code> is free to return spuriously (for no reason). Your code cannot assume 'oh hey <code>select()</code> returned therefore there MUST be at least one thing ready to do here'. Maybe not. Why does it 'quickly return twice'? Cuz. the JVM is allowed to.</p>
+     <p>Low-level async NIO like this tends to cause spinning fans. This is the logic:</p>
+     <ol>
+      <li>Your code loop works very simply: You <code>while (true) {}</code> your way through: Do whatever I can do. Write whatever I can write, read whatever I can read, and then loop to do it over again forever and ever.</li>
+      <li>The <code>x.select()</code> call <strong>is the only thing</strong> stopping a runaway while loop. That is the only place you ever 'sleep'. It's async: Thread sleeping is the death of your app (in an async model nothing is ever allowed to sleep except when selecting).</li>
+      <li>If the selector is misconfigured, for example you have <code>OP_WRITE</code> registered and nothing to write, the selector will always instantly return.</li>
+      <li>Thus, your code is runaway: It loops forever never sleeping, causing 100% CPU usage, fans turn on, laptops drain their battery in minutes, power is wasted, things get hot, IAAS costs go through the roof.</li>
+     </ol>
+     <p>async NIO is rocket science; it's really really hard to do it correctly. Usually you want to use frameworks that make things easier like grizzly or netty.</p>
+     <h2>Likely: Focusing on the wrong thing</h2>
+     <p>Writing low-level async code is like writing an app in low-level machine code. People tend to do it because 'they think it will be faster' but the only thing they accomplish is that they make a task that took an hour to program, and made it a thing that takes a week, the end result is a hard to test, buggy mess, and is <em>actually slower</em> because you don't know what you are doing and you underestimate how well all the middle layers (the compiler, the runtime, the OS, and so on) optimize.</p>
+     <p>There <em>are</em> reasons to want to go that low level (when you're writing a kernel driver, for example), but usually you don't.</p>
+     <p>Same here. Why are you using NIO here, exactly? It's not faster except in quite exotic circumstances, and it's definitely a lot harder to code for it. Java suffers (like most languages) from <a href="https://will-keleher.com/posts/red-blue-function-mistakes-in-JS.html" rel="nofollow noreferrer">'the red/blue' problem</a> quite severely.</p>
+     <p>OSes have absolutely no issue handling 5000 threads and can do it quite efficiently. Yes, 'oh no the context switch', but note that context switching is intrinsic to handling many connections simultaneously: Cache misses are going to be frequent and async doesn't solve that problem. The blog posts writing about how async is cool because it avoids 'context switches' all seem to forget that a cache miss due to having to hop to the buffers of another connection are just as much a 'context switch' as a thread hop.</p>
+     <p>The one thing that you need to take care of when writing this code in a threaded fashion which is way, way simpler to write and maintain and test, is that you want to manage the stack sizes of your thread: You both want your threads to use limited stack size (if an exception occurs and the stack trace is a screen ful, that's a problem), and you want to set them up with limited sizes. You can specify stack sizes when creating threads (the thread constructor allows it, and various things that make threads such as a threaded <code>ExecutorPool</code> let you specify either the stack size, or a closure that makes threads). Use that and you can just write code that swiftly processes 5000 simultaneous connections using 10,000 threads, and it's all <strong>much, much simpler</strong> to write than async. If you must go with async, use a framework to avoid the complications.</p>
+     <p>To go back to that alice sends faster than bob can receive model, note how much easier it is:</p>
+     <ol>
+      <li>You ask alice's <code>InputStream</code> to fill some byte array.</li>
+      <li>You then ask bob's <code>OutputStream</code> to send the bytes in that array from 0 to however many you read.</li>
+      <li>Go back to 1.</li>
+     </ol>
+     <p>That's it. With the async stuff, either alice outpaces bob (in which case you better be turning off <code>OP_READ</code> on alice's connection to gate her input), or, bob outpaces alice (in which case you need to be turning off and on bob's <code>OP_WRITE</code>), or even that due to vagaries in network speeds, sometimes alice outpaces bob, and sometimes bob outpaces alice.</p>
+     <p>With sync, as above, <strong>none of that matters</strong> - alice's <code>read()</code> call or bob's <code>write()</code> call, as needed, blocks, and that fixes all. See how much simpler that is?</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

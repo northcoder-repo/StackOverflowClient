@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to use sudo inside a docker container?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to use sudo inside a docker container?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>474</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>drubb</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Sep 2014 at 10:07</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/25845538/how-to-use-sudo-inside-a-docker-container">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Normally, docker containers are run using the user <strong>root</strong>. I'd like to use a different user, which is no problem using docker's USER directive. But this user should be able to use <strong>sudo</strong> inside the container. This command is missing.</p>
+    <p>Here's a simple Dockerfile for this purpose:</p>
+    <pre><code>FROM ubuntu:12.04
+
+RUN useradd docker &amp;&amp; echo "docker:docker" | chpasswd
+RUN mkdir -p /home/docker &amp;&amp; chown -R docker:docker /home/docker
+
+USER docker
+CMD /bin/bash
+</code></pre>
+    <p>Running this container, I get logged in with user 'docker'. When I try to use sudo, the command isn't found. So I tried to install the <em>sudo</em> package inside my Dockerfile using</p>
+    <pre><code>RUN apt-get install sudo
+</code></pre>
+    <p>This results in <em>Unable to locate package sudo</em></p>
+   </div>
+   <div class="tags">
+    <span class="tag">docker</span><span class="tag">sudo</span><span class="tag">linux-containers</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Just give sudo group to user. <a href="http://askubuntu.com/questions/7477/how-can-i-add-a-new-user-as-sudoer-using-the-command-line" title="how can i add a new user as sudoer using the command line">askubuntu.com/questions/7477/…</a></span> <span> - </span> <span class="display-name">Regan</span> <span> </span> <span class="date">15 Sep 2014 at 12:58</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>371</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>drubb</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Sep 2014 at 08:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Just got it. As regan pointed out, I had to add the user to the sudoers group. But the main reason was I'd forgotten to update the repositories cache, so apt-get couldn't find the sudo package. It's working now. Here's the completed code:</p>
+     <pre><code>FROM ubuntu:12.04
+
+RUN apt-get update &amp;&amp; \
+      apt-get -y install sudo
+
+RUN useradd -m docker &amp;&amp; echo "docker:docker" | chpasswd &amp;&amp; adduser docker sudo
+
+USER docker
+CMD /bin/bash
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>17</td>
+        <td><span>doesn't work in centos. the <code>adduser</code> command spits out the usage help for <code>useradd</code></span> <span> - </span> <span class="display-name">Emad</span> <span> </span> <span class="date">30 Oct 2015 at 10:07</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>For CentOS, you could add a user and group, then create a shard file under <code>/etc/sudoers.d/</code> and set the permissions to <code>440</code> on that file. Then the user would have sudo access under CentOS, 6 and up. 5 you'll have to add the <code>#includedir /etc/sudoers.d</code> directive in <code>/etc/sudoers</code></span> <span> - </span> <span class="display-name">FilBot3</span> <span> </span> <span class="date">3 Mar 2016 at 03:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Doesn't work for me. I have those errors: E: Could not open lock file /var/lib/apt/lists/lock - open (13: Permission denied) E: Unable to lock directory /var/lib/apt/lists/</span> <span> - </span> <span class="display-name">Marosinho</span> <span> </span> <span class="date">25 Sep 2019 at 05:41</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>This doesnt seem to be working for Ubuntu 18.04 docker image</span> <span> - </span> <span class="display-name">viggy</span> <span> </span> <span class="date">4 Apr 2020 at 11:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>My user is called <code>bot</code>. Is the right adaptation of your commands: ` RUN useradd -m bot RUN echo "bot:bot" | chpasswd RUN &amp;&amp; adduser docker sudo` maybe explaining <code>echo "docker:docker" | chpasswd &amp;&amp; adduser docker sudo</code> would have helped.</span> <span> - </span> <span class="display-name">Charlie Parker</span> <span> </span> <span class="date">15 Sep 2022 at 17:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Does not work. <code>sudo: a terminal is required to read the password</code></span> <span> - </span> <span class="display-name">Cerin</span> <span> </span> <span class="date">6 Oct 2022 at 01:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>adduser</code> creates a new user. To add the <code>docker</code> user to the <code>sudo</code> group, use <code>usermod -a -G sudo docker</code>.</span> <span> - </span> <span class="display-name">Aurélien Gâteau</span> <span> </span> <span class="date">7 Mar 2023 at 13:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>362</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tomáš Záluský</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Mar 2018 at 08:46</span>
+     </div>
+    </div>
+    <div>
+     <p>When neither sudo nor apt-get is available in container, you can also jump into running container as root user using command</p>
+     <pre><code>docker exec -u root -t -i container_id /bin/bash
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>16</td>
+        <td><span>This is a much better solution to what the OP probably wants to achieve, even though the accepted answer gives the requested solution. At the very least, it's the answer I was looking for!</span> <span> - </span> <span class="display-name">spikyjt</span> <span> </span> <span class="date">2 Jun 2020 at 12:44</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>This is the best answer, instead of doing it the hard way with the dockerfile.</span> <span> - </span> <span class="display-name">Marton Tatai</span> <span> </span> <span class="date">30 Mar 2021 at 08:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>+1 I had an issue in changing permission inside docker.. Came to know that only root user can perform this action and this is the only way to accomplish it. In this way, no sudo is required for me!</span> <span> - </span> <span class="display-name">Praveen</span> <span> </span> <span class="date">13 Jul 2021 at 11:54</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Somebody give this man a medal</span> <span> - </span> <span class="display-name">Timo Huovinen</span> <span> </span> <span class="date">11 Oct 2021 at 20:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>In case you can not use /bin/bash then use /bin/sh instead. 'docker exec -u root -t -i container_id /bin/sh'</span> <span> - </span> <span class="display-name">azwar_akbar</span> <span> </span> <span class="date">14 Sep 2022 at 13:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>this looks nice but when I get into my container nothing seems to have ebeen installed? <code>docker pull brandojazz/iit-term-synthesis:test</code> then <code>docker run -u root -ti brandojazz/iit-term-synthesis:test_arm bash</code>. Why? <a href="https://stackoverflow.com/questions/73735508/why-is-my-container-when-starting-as-root-seem-to-be-empty" title="why is my container when starting as root seem to be empty">stackoverflow.com/questions/73735508/…</a></span> <span> - </span> <span class="display-name">Charlie Parker</span> <span> </span> <span class="date">15 Sep 2022 at 17:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This didn't work for me. This did: <code>docker exec -u 0 -it container_id bash</code></span> <span> - </span> <span class="display-name">Skillz</span> <span> </span> <span class="date">30 Nov 2022 at 02:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>144</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>M. Scott Ford</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Jan 2018 at 19:39</span>
+     </div>
+    </div>
+    <div>
+     <p>The other answers didn't work for me. I kept searching and found a <a href="http://www.yegor256.com/2014/08/29/docker-non-root.html" rel="noreferrer">blog post</a> that covered how a team was running non-root inside of a docker container.</p>
+     <p>Here's the TL;DR version:</p>
+     <pre><code>RUN apt-get update \
+ &amp;&amp; apt-get install -y sudo
+
+RUN adduser --disabled-password --gecos '' docker
+RUN adduser docker sudo
+RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' &gt;&gt; /etc/sudoers
+
+USER docker
+
+# this is where I was running into problems with the other approaches
+RUN sudo apt-get update 
+</code></pre>
+     <p>I was using <code>FROM node:9.3</code> for this, but I suspect that other similar container bases would work as well.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I am using <code>ubuntu:bionic-20180724.1</code>. I used this approach but, after the above, it does not allow me to install another package. I appended one line to the above <code>Dockerfile</code> in order to install a package with: <code>RUN apt-get install -y tree</code>. However, it gave me this error message: <code>Step xxxx/xxxx : RUN apt-get install -y tree ---&gt; Running in j5e6gsvwfafa Reading package lists... E: Could not open lock file /var/lib/apt/lists/lock - open (13: Permission denied) E: Unable to lock directory /var/lib/apt/lists/</code></span> <span> - </span> <span class="display-name">edesz</span> <span> </span> <span class="date">19 Aug 2018 at 19:17</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@WR I think you need to change that line to read <code>RUN sudo apt-get install -y tree</code>. After setting the <code>USER</code> to something other than <code>root</code>, you'll need to use <code>sudo</code> for any commands that require <code>root</code> privileges.</span> <span> - </span> <span class="display-name">M. Scott Ford</span> <span> </span> <span class="date">22 Aug 2018 at 17:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>85</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Chris</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Feb 2019 at 18:45</span>
+     </div>
+    </div>
+    <div>
+     <p>For anyone who has this issue with an already running container, and they don't necessarily want to rebuild, the following command connects to a running container with root privileges:</p>
+     <pre><code>docker exec -ti -u root container_name bash
+</code></pre>
+     <p>You can also connect using its ID, rather than its name, by finding it with:</p>
+     <pre><code>docker ps -l
+</code></pre>
+     <p>To save your changes so that they are still there when you next launch the container (or docker-compose cluster) - note that these changes would not be repeated if you rebuild from scratch:</p>
+     <pre><code>docker commit container_id image_name
+</code></pre>
+     <p>To roll back to a previous image version (warning: this deletes history rather than appends to the end, so to keep a reference to the current image, tag it first using the optional step):</p>
+     <pre><code>docker history image_name
+docker tag latest_image_id my_descriptive_tag_name  # optional
+docker tag desired_history_image_id image_name
+</code></pre>
+     <p>To start a container that isn't running and connect as root:</p>
+     <pre><code>docker run -ti -u root --entrypoint=/bin/bash image_id_or_name -s
+</code></pre>
+     <p>To copy from a running container:</p>
+     <pre><code>docker cp &lt;containerId&gt;:/file/path/within/container /host/path/target
+</code></pre>
+     <p>To export a copy of the image:</p>
+     <pre><code>docker save container | gzip &gt; /dir/file.tar.gz
+</code></pre>
+     <p>Which you can restore to another Docker install using:</p>
+     <pre><code>gzcat /dir/file.tar.gz | docker load
+</code></pre>
+     <p>It is much quicker but takes more space to not compress, using:</p>
+     <pre><code>docker save container | dir/file.tar
+</code></pre>
+     <p>And:</p>
+     <pre><code>cat dir/file.tar | docker load
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Using <code>docker exec</code> and <code>docker commit</code> to create a new image is not an especially maintainable path; if you need to recreate the image for any reason (say there's a security issue in the original base image) these manual steps won't be tracked anywhere.</span> <span> - </span> <span class="display-name">David Maze</span> <span> </span> <span class="date">12 Sep 2021 at 17:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Are you saying it would be better to put the commands in the <code>Dockerfile</code> or <code>entrypoint</code> and rebuild? I might be misunderstanding your point, I do start with 'For anyone who has this issue with an already running container, and they don't necessarily want to rebuild', and I specifically warn the moment we can't backtrack. I have added your warning 'these changes would not be repeated if you rebuild from scratch'. Is there anything else you would add?</span> <span> - </span> <span class="display-name">Chris</span> <span> </span> <span class="date">15 Sep 2021 at 14:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ismail</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Apr 2018 at 10:10</span>
+     </div>
+    </div>
+    <div>
+     <p>if you want to connect to container and install something <br>
+       using apt-get <br>
+       first as above answer from our brother "Tomáš Záluský"</p>
+     <pre><code>docker exec -u root -t -i container_id /bin/bash
+</code></pre>
+     <p>then try to</p>
+     <blockquote>
+      <p>RUN apt-get update or apt-get 'anything you want'</p>
+     </blockquote>
+     <p>it worked with me hope it's useful for all</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>13</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>林果皞</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jun 2020 at 15:20</span>
+     </div>
+    </div>
+    <div>
+     <p>Unlike <a href="https://stackoverflow.com/a/25908200/1074998">accepted answer</a>, I use <code>usermod</code> instead.</p>
+     <p>Assume already logged-in as root in docker, and "fruit" is the new non-root username I want to add, simply run this commands:</p>
+     <pre><code>apt update &amp;&amp; apt install sudo
+adduser fruit
+usermod -aG sudo fruit
+</code></pre>
+     <p>Remember to save image after update. Use <code>docker ps</code> to get current running docker's &lt;CONTAINER ID&gt; and &lt;IMAGE&gt;, then run <code>docker commit -m "added sudo user" &lt;CONTAINER ID&gt; &lt;IMAGE&gt;</code> to save docker image.</p>
+     <p>Then test with:</p>
+     <pre><code>su fruit
+sudo whoami
+</code></pre>
+     <p>Or test by direct login(ensure save image first) as that non-root user when launch docker:</p>
+     <pre><code>docker run -it --user fruit &lt;IMAGE&gt;
+sudo whoami
+</code></pre>
+     <p>You can use <code>sudo -k</code> to reset password prompt timestamp:</p>
+     <pre><code>sudo whoami # No password prompt
+sudo -k # Invalidates the user's cached credentials
+sudo whoami # This will prompt for password
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Seth Bergman</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Sep 2019 at 02:57</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's how I setup a non-root user with the base image of <code>ubuntu:18.04</code>:</p>
+     <pre><code>RUN \
+    groupadd -g 999 foo &amp;&amp; useradd -u 999 -g foo -G sudo -m -s /bin/bash foo &amp;&amp; \
+    sed -i /etc/sudoers -re 's/^%sudo.*/%sudo ALL=(ALL:ALL) NOPASSWD: ALL/g' &amp;&amp; \
+    sed -i /etc/sudoers -re 's/^root.*/root ALL=(ALL:ALL) NOPASSWD: ALL/g' &amp;&amp; \
+    sed -i /etc/sudoers -re 's/^#includedir.*/## **Removed the include directive** ##"/g' &amp;&amp; \
+    echo "foo ALL=(ALL) NOPASSWD: ALL" &gt;&gt; /etc/sudoers &amp;&amp; \
+    echo "Customized the sudoers file for passwordless access to the foo user!" &amp;&amp; \
+    echo "foo user:";  su - foo -c id
+</code></pre>
+     <p>What happens with the above code:</p>
+     <ul>
+      <li>The user and group <code>foo</code> is created.</li>
+      <li>The user <code>foo</code> is added to the both the <code>foo</code> and <code>sudo</code> group.</li>
+      <li>The <code>uid</code> and <code>gid</code> is set to the value of <code>999</code>.</li>
+      <li>The home directory is set to <code>/home/foo</code>.</li>
+      <li>The shell is set to <code>/bin/bash</code>.</li>
+      <li>The <code>sed</code> command does inline updates to the <code>/etc/sudoers</code> file to allow <code>foo</code> and <code>root</code> users passwordless access to the <code>sudo</code> group.</li>
+      <li>The <code>sed</code> command disables the <code>#includedir</code> directive that would allow any files in subdirectories to override these inline updates.</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Yogi Ghorecha</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Dec 2019 at 12:32</span>
+     </div>
+    </div>
+    <div>
+     <p>If <strong>SUDO</strong> or <strong>apt-get</strong> is not accessible inside the Container, You can use, below option in running container.</p>
+     <pre><code>docker exec -u root -it f83b5c5bf413 ash
+</code></pre>
+     <p>"<strong>f83b5c5bf413" is my container ID</strong> &amp; here is working example from my terminal:</p>
+     <p><a href="https://i.stack.imgur.com/813r9.png" rel="noreferrer"><img src="https://i.stack.imgur.com/813r9.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alex Kaszynski</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Oct 2019 at 17:38</span>
+     </div>
+    </div>
+    <div>
+     <p>This may not work for all images, but some images contain a root user already, such as in the jupyterhub/singleuser image. With that image it's simply:</p>
+     <pre><code>USER root
+RUN sudo apt-get update
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>for the image "fabric8/java-centos-openjdk8-jdk" just adding USER root before the RUN command solved my problem, didn't even need to add the sudo</span> <span> - </span> <span class="display-name">Marco Martins</span> <span> </span> <span class="date">22 Jul 2020 at 17:22</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Charlie Parker</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Sep 2022 at 18:16</span>
+     </div>
+    </div>
+    <div>
+     <p>The main idea is that you need to create user that is a root user according to the container.</p>
+     <p>Main commands:</p>
+     <pre><code>RUN echo "bot:bot" | chpasswd
+RUN adduser bot sudo
+</code></pre>
+     <p>the first sends the literal string <code>bot:bot</code> to <code>chpasswd</code> which creates the user bot with the password <code>bot</code>, chpasswd does:</p>
+     <pre><code>The chpasswd command reads a list of user name and password pairs from standard input and uses this information to update a group of existing users. Each line is of the format:
+
+user_name:password
+
+By default the supplied password must be in clear-text, and is encrypted by chpasswd. Also the password age will be updated, if present.
+</code></pre>
+     <p>The second command I assume adds the user bot as sudo.</p>
+     <p>Full docker container to play with:</p>
+     <pre><code>FROM continuumio/miniconda3
+# FROM --platform=linux/amd64 continuumio/miniconda3
+
+MAINTAINER Brando Miranda "me@gmail.com"
+
+RUN apt-get update \
+  &amp;&amp; apt-get install -y --no-install-recommends \
+    ssh \
+    git \
+    m4 \
+    libgmp-dev \
+    opam \
+    wget \
+    ca-certificates \
+    rsync \
+    strace \
+    gcc \
+    rlwrap \
+    sudo
+
+# https://github.com/giampaolo/psutil/pull/2103
+
+RUN useradd -m bot
+# format for chpasswd user_name:password
+RUN echo "bot:bot" | chpasswd
+RUN adduser bot sudo
+
+WORKDIR /home/bot
+USER bot
+#CMD /bin/bash
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>i get the follwoing error when running the dockerfile : /bin/sh: useradd: not found . No idea why</span> <span> - </span> <span class="display-name">Berni</span> <span> </span> <span class="date">23 Dec 2022 at 15:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>XtraSimplicity</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Aug 2018 at 23:51</span>
+     </div>
+    </div>
+    <div>
+     <p>If you have a container running as root that runs a script (which you can't change) that needs access to the <code>sudo</code> command, you can simply create a new <code>sudo</code> script in your <code>$PATH</code> that calls the passed command.</p>
+     <p>e.g. In your Dockerfile:</p>
+     <pre><code>RUN if type sudo 2&gt;/dev/null; then \ 
+     echo "The sudo command already exists... Skipping."; \
+    else \
+     echo -e "#!/bin/sh\n\${@}" &gt; /usr/sbin/sudo; \
+     chmod +x /usr/sbin/sudo; \
+    fi
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Depending on the docker images you are using (in my case Ubuntu:18.04), you might need to remove the <code>-e</code> from the <code>echo</code>. Otherwise it will be present in the file itself, rendering it infunctional.</span> <span> - </span> <span class="display-name">stiller_leser</span> <span> </span> <span class="date">23 Nov 2018 at 09:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Neat idea, but this will not work if the original command is using sudo options, such as <code>sudo -E ls</code>. It will try to execute <code>-E ls</code>.</span> <span> - </span> <span class="display-name">wisbucky</span> <span> </span> <span class="date">22 Aug 2019 at 17:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Erkan Şirin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 May 2022 at 11:18</span>
+     </div>
+    </div>
+    <div>
+     <p>An example Dockerfile for Centos7. In this example we add prod_user with privilege of sudo.</p>
+     <pre><code>FROM centos:7
+
+RUN yum -y update &amp;&amp; yum clean all
+
+RUN yum -y install openssh-server  python3 sudo
+
+RUN adduser -m prod_user &amp;&amp; \
+    echo "MyPass*49?" | passwd prod_user --stdin &amp;&amp; \
+    usermod -aG wheel prod_user &amp;&amp; \
+    mkdir /home/prod_user/.ssh &amp;&amp; \
+    chown prod_user:prod_user -R  /home/prod_user/ &amp;&amp; \
+    chmod 700 /home/prod_user/.ssh
+
+RUN echo "prod_user ALL=(ALL) NOPASSWD: ALL" &gt;&gt; /etc/sudoers &amp;&amp; \
+    echo "%wheel ALL=(ALL) ALL" &gt;&gt; /etc/sudoers
+
+RUN echo "PasswordAuthentication yes" &gt;&gt; /etc/ssh/sshd_config
+
+RUN systemctl enable sshd.service
+
+VOLUME [ "/sys/fs/cgroup" ]
+
+ENTRYPOINT ["/usr/sbin/init"]
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Animesh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Oct 2020 at 19:00</span>
+     </div>
+    </div>
+    <div>
+     <p>There is no answer on how to do this on CentOS. On Centos, you can add following to Dockerfile</p>
+     <pre><code>RUN echo "user ALL=(root) NOPASSWD:ALL" &gt; /etc/sudoers.d/user &amp;&amp; \
+    chmod 0440 /etc/sudoers.d/user
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>But this command still failed: <code>bash Step 6/8 : RUN echo "user ALL=(root) NOPASSWD:ALL" &gt; /etc/sudoers.d/user &amp;&amp; chmod 0440 /etc/sudoers.d/user ---&gt; Running in daea0aae031c /bin/sh: 1: cannot create /etc/sudoers.d/user: Permission denied </code></span> <span> - </span> <span class="display-name">xnervwang</span> <span> </span> <span class="date">1 May 2021 at 20:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This essentially makes your "non-root" user equivalent to root, so long as an attacker knows to preface their commands with <code>sudo</code>. It's very marginally better than running as root, but not something I'd generally recommend in a Docker setup.</span> <span> - </span> <span class="display-name">David Maze</span> <span> </span> <span class="date">12 Sep 2021 at 17:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>ABHISHEK KAMBLE</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jul 2022 at 05:42</span>
+     </div>
+    </div>
+    <div>
+     <p>I'm using an Ubuntu image, while using the docker desktop had faced this issue.</p>
+     <p>The following resolved the issue:</p>
+     <ol>
+      <li>apt-get update</li>
+      <li>apt-get install sudo</li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

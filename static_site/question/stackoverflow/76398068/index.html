@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>A question regarding a class structure that will hold various types</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>A question regarding a class structure that will hold various types</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Reilas</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>3 Jun 2023 at 21:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76398068/a-question-regarding-a-class-structure-that-will-hold-various-types">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am creating a basic <em>JSON</em> string parser and I've run into a situation.</p>
+    <p>I've been using the following RFC.<br><em><a href="https://www.rfc-editor.org/rfc/rfc8259" rel="nofollow noreferrer">RFC 8259:&nbsp; The JavaScript Object Notation (JSON) Data Interchange Format</a></em>.</p>
+    <p>In <em><a href="https://www.rfc-editor.org/rfc/rfc8259#section-3" rel="nofollow noreferrer">Section 3 – Values</a></em>, it defines that a value is as follows.</p>
+    <pre class="lang-none prettyprint-override"><code>value = false / null / true / object / array / number / string
+</code></pre>
+    <p>And, <em><a href="https://www.rfc-editor.org/rfc/rfc8259#section-4" rel="nofollow noreferrer">Section 4 – Objects</a></em> defines an object.</p>
+    <pre class="lang-none prettyprint-override"><code>object = begin-object [ member *( value-separator member ) ]
+         end-object
+
+member = string name-separator value
+</code></pre>
+    <p>Thus, in my code I created the following class structures.</p>
+    <pre class="lang-java prettyprint-override"><code>private static class Value {
+    private java.lang.Object object;
+
+    @Override
+    public String toString() {
+        String string;
+        if (object instanceof Boolean) string = (boolean) object ? "true" : "false";
+        else if (object instanceof BigDecimal) string = ((BigDecimal) object).toPlainString();
+        else if (object instanceof String) string = (String) object;
+        else string = object.toString();
+        return string;
+    }
+}
+</code></pre>
+    <pre class="lang-java prettyprint-override"><code>private static class Object {
+    List&lt;Member&gt; list = new ArrayList&lt;&gt;();
+
+    private static class Member {
+        private String name;
+        private List&lt;Value&gt; value;
+
+        @Override
+        public String toString() {
+            return "{" + name + ": " + value + "}";
+        }
+    }
+
+    @Override
+    public String toString() {
+        return list.toString();
+    }
+}
+</code></pre>
+    <p>I am attempting to determine if there is a more logical way to do this.<br>
+      Is there a better way to contain each of those types, and then capture their content accordingly.</p>
+    <p>I thought of just storing them all as <em>String</em> values, although an <em>object</em> has less precedence than a <em>value</em>.<br>
+      Therefore, there would not be any difference in what I currently have implemented.</p>
+    <p>I feel inheritance would prove abstruse and lacking, since it won't ever scale beyond this.<br>
+      The values will always have the forms described.</p>
+    <p>Essentially, I want to have the following pseudo-code as an end-point.<br>
+      And, the error I encounter is that the user will have to decouple an <em>array</em> of <em>JSON objects</em>.<br>
+      To provide them with <em>Java Objects</em> seems daunting,</p>
+    <pre class="lang-java prettyprint-override"><code>parser.get("key").asString();
+parser.get(0).asArray();
+parser.get(1).asObject();
+parser.findObject("key").asObject();
+parser.findNumber(123).asNumber();
+</code></pre>
+    <p>Is there some sort of concept, or design, that can be used to harness a set of uncorrelated values?<br>
+      How can I offer the <em>JSON object</em>, or <em>array</em>, to the user, in a way that won't require them to cast a <em>Java Object</em>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">parsing</span><span class="tag">design-patterns</span><span class="tag">endpoint</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>An <code>Any</code> type. Not really. You'll have to write one. I suggest <code>JSONObject</code>. That's what most of the JSON libraries land on. Any reason you aren't using an existing JSON library?</span> <span> - </span> <span class="display-name">Elliott Frisch</span> <span> </span> <span class="date">3 Jun 2023 at 21:43</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>There's a bug in your Value toString impl: Strings should be quoted. Ie <code>if (object instanceof String) string = '"' + object.toString() + '"'</code></span> <span> - </span> <span class="display-name">Bohemian</span> <span> </span> <span class="date">3 Jun 2023 at 22:14</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Bohemian, great, I'll add that, thanks.</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">3 Jun 2023 at 22:15</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@ElliottFrisch, so, you're saying make a fork on the <i>gson</i> library or something? I guess. I figured starting from scratch would make the most sense.</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">3 Jun 2023 at 22:22</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Why fork it? You want to parse JSON. There are libraries that do that. Why write your own?</span> <span> - </span> <span class="display-name">Elliott Frisch</span> <span> </span> <span class="date">3 Jun 2023 at 22:25</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Bohemian, I just realized it saves the values within double-quotes. So that line is actually fine.</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">3 Jun 2023 at 22:51</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@Reilas but json values don't all have quotes, eg boolean and integer. I would just use a library...</span> <span> - </span> <span class="display-name">Bohemian</span> <span> </span> <span class="date">4 Jun 2023 at 00:12</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@ElliottFrisch, I really don't understand what you're asking or recommending. My question is in regard to a JSON parser I'm writing.</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">4 Jun 2023 at 22:58</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Bohemian, oh okay, so it's just the <i>text</i> values that are within quotes. Good to know, thanks.</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">4 Jun 2023 at 22:59</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span><i>My question is in regard to a JSON parser I'm writing.</i> My question is <b>why</b>?</span> <span> - </span> <span class="display-name">Elliott Frisch</span> <span> </span> <span class="date">4 Jun 2023 at 23:08</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@ElliottFrisch, who knows, man. I wish I knew!</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">4 Jun 2023 at 23:14</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@ElliottFrisch, so, where can I find these <i>"libraries"</i>? I can just download this code and it works? Amazing! LOL.</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">4 Jun 2023 at 23:20</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@ElliottFrisch, I'm reading ABNF from an RFC. I'm aware, thanks for the helpful guidance.</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">4 Jun 2023 at 23:24</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Assuming you aren't being facetious, there are currently <a href="https://mvnrepository.com/search?q=json" rel="nofollow noreferrer">9048 json projects on maven central</a>. None of them meet your needs? There is a need for 9049 json parsers... of course...</span> <span> - </span> <span class="display-name">Elliott Frisch</span> <span> </span> <span class="date">5 Jun 2023 at 00:29</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@ElliottFrisch, should I just quit programming all together?</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">5 Jun 2023 at 00:38</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span><a href="https://stackoverflow.com/a/878436/2970947"><i>Always code as if the guy who ends up maintaining your code will be a violent psychopath who knows where you live. Code for readability.</i></a> I literally just ripped a homebrew connection pool out of a project that was hosted in Tomcat. Why? Because that was 3000 lines of buggy code that could be replaced with a single JNDI call into the existing Tomcat connection pool. The people who wrote this custom monstrosity were long gone. And why should we pay that technical debt forever?</span> <span> - </span> <span class="display-name">Elliott Frisch</span> <span> </span> <span class="date">5 Jun 2023 at 00:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@ElliottFrisch, that's great, bruh. Totally wicked!</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">5 Jun 2023 at 00:51</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>amycodes</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jun 2023 at 22:52</span>
+     </div>
+    </div>
+    <div>
+     <p>The easiest way to implement this in Java (similar to all the big libs), is an inheritance tree of object types.</p>
+     <pre><code>                    ┌─────┐
+                    │Value│
+      ┌─────────────┴──┬──┴──────────────┐
+      │                │                 │
+┌─────▼──────┐   ┌─────▼─────┐    ┌──────▼─────┐
+│IntegerValue│   │StringValue│    │BooleanValue│
+└────────────┘   └───────────┘    └────────────┘
+</code></pre>
+     <p>Optionally, add casting methods as you described onto <code>Value</code>. Checking the type of a <code>Value</code> is now a type level operation, so you can use <code>instanceof</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Alright, and this would allow for the <i>asString</i>, <i>asObject</i>, etc. Interesting, I'll see if I can add it. Thanks.</span> <span> - </span> <span class="display-name">Reilas</span> <span> </span> <span class="date">3 Jun 2023 at 23:02</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>rzwitserloot</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jun 2023 at 00:22</span>
+     </div>
+    </div>
+    <div>
+     <p>In broad strokes you have 3 options.</p>
+     <p>But before we go through those, there are perfectly fine JSON parsing libraries out there. The standard <code>org.json</code> one is extremely hard to use and not at all recommended, but there's <a href="https://github.com/google/gson" rel="nofollow noreferrer">GSON</a> and <a href="https://github.com/FasterXML/jackson" rel="nofollow noreferrer">Jackson-json</a>. Open source, <em>very</em> widely used, and do all or most of this stuff already. Not sure why you want to reinvent this wheel. But, in the spirit of the question:</p>
+     <p>Let's work with an example:</p>
+     <pre><code>{
+  "movies": [
+    {
+      "title": "A Few Good Men",
+      "director": {
+        "name": "Rob Reiner",
+        "dob": {
+          "year": 1947,
+          "month": 3,
+          "day": 6
+        }
+      },
+      "stars": [
+        "Demi Moore",
+        "Tom Cruise",
+        "Jack Nicholson"
+      ]
+    }
+  ]
+}
+</code></pre>
+     <h2>Just cast em</h2>
+     <p>This is what the org.json library does, and results in <em>excessively</em> verbose and hard to write code.</p>
+     <p>Your <code>json.parse</code> method returns a <code>JsonObject</code>, which is an abstract class and not particularly useful until you instanceof check what it actually is and cast from there.</p>
+     <p><strong>If</strong> as a user of this library you know pretty much exactly how that data is structured and what you're looking for, in old timey java, you'd write:</p>
+     <pre><code>JsonValue j = parse(jsonString);
+JsonList movies = (JsonList) ((JsonObject) j).get("movies");
+for (JsonValue m : movies) {
+  int birthYearOfDirector = ((JsonNumber) ((JsonObject) ((JsonObject) ((JsonObject) m).get("director")).get("dob")).get("year")).asInt();
+}
+</code></pre>
+     <p>which surely needs no further debate about how ridiculous that is.</p>
+     <p>With <a href="https://www.baeldung.com/java-switch-pattern-matching" rel="nofollow noreferrer">patterned switches</a>, you have a few more options but it really doesn't get any better.</p>
+     <p>This style of parsing is considerably less convoluted if you <em>do not</em> know what you're looking for; for example, if you're writing a JSON UI widget that just renders it, this really isn't that bad.</p>
+     <h2>The key problem</h2>
+     <p>The problem is that JSON is untyped, but in java, we really need those types so that the parser can provide the data in the way the library user wants it. This means the structure and types of the JSON need to be provided externally.</p>
+     <h2>Marshalling</h2>
+     <p>One obvious way to do it, is by using simple java classes or records to represent this stuff. The library would work as follows:</p>
+     <pre><code>public record Movies(List&lt;Movie&gt; movies) {}
+
+public record Movie(String title, Director director, List&lt;String&gt; stars) {}
+
+public record Director(String name, LocalDate dob) {}
+
+// to use:
+
+Movies movies = jsonParser.parse(jsonString, Movies.class);
+</code></pre>
+     <p>Field names are public, record constructors are well defined, field types are public and 'reified' (you can look up the part in the <code>&lt;&gt;</code>, that is <em>not</em> erased). This complicates the library as it has to go on a reflective spree to bind it all together but it can be done, and this is something popular JSON libraries such as GSON and Jackson offer. The same system can be used to turn an instance into a JSON. Some obvious concerns:</p>
+     <ul>
+      <li>
+       <p>You really need a library of custom parsers; often <code>LocalDate x;</code> should just work for some data in your JSON consisting of <code>{"x": "1970-12-31"}</code> - GSON and co let you add 'parsers' and the like which are handed some JsonValue and a type (e.g. LocalDate), and this lets you handle such things. That does make it more complicated. You hardcode a few parsers (certainly all number types, string, and list, possibly (hash)map, need custom libraries).</p></li>
+      <li>
+       <p>You want the ability to add parse or format hints, such as wishing for a <code>long</code> to nevertheless be rendered as a string (note that if you send your JSON to javascript, or even just get it parsed elsewhere given that JSON is defined in terms of javascript, all numbers are effectively <code>double</code>, so the usual problems with doubles and rounding occurs. Trying to store a very large id, e.g. above 2^52, in a JSON number is a really bad idea as a consequence - whatever you send it to is extremely likely to round that). Annotations with RUNTIME level retention can do that.</p></li>
+     </ul>
+     <p>Marshalling is entirely useless if the user of the library doesn't know the structure of the JSON you're working with (such as when writing a 'JSON viewer' UI widget). This is why GSON and Jackson offer both this <em>and</em> a more 'just cast-em' like library.</p>
+     <h2>Replace <code>get()</code> with <code>asInt()</code> and friends.</h2>
+     <p>Instead of forcing the user to check what a thing is (with <code>instanceof</code>), or cast a thing to what they know it is, make methods for each type instead:</p>
+     <pre><code>Json j = parse(jsonString);
+for (Json m : j.get("movies").list()) {
+  int directorBirthYear = m.get("director").get("dob").get("year").asInt(0);
+}
+</code></pre>
+     <p>There is no <code>JsonNumber</code>, <code>JsonBoolean</code>, etcetera - instead there's just <code>Json</code> (though you may have package-private subtypes that implement each JSON principal data type). <code>.get()</code> just returns a wrapper object with the 'path' encoded in it (you don't want 'pathing' into non-existent spaces to throw exceptions), only <code>asX()</code> does a look up and these methods come in many variants (<code>asBoolean</code>, <code>asStringList</code>, and so on), each variant overloaded: A no-args variant that throws if the path you are in doesn't exist. And an argsed variant that takes a default that is returned if the path does not exist. If the path does exist but the value you find there is fundamentally incompatible, it's a bit of a design decision if that means the default should be returned, or an exception should be thrown (e.g. if you call <code>.asInt(100)</code> and the value there is <code>"foobar"</code>, what now)?</p>
+     <p>Same 'what now?' design question arises if e.g. the input json has a <code>"director"</code> k/v pair but its value is simply '18', instead of a JSON object that contains a key named <code>"dob"</code>.</p>
+     <p>The point is, the vast majority of JSON out there tends to have known structure (known to the library user), but often omits data that cannot be supplied or isn't relevant, and usually you want to handle that by going with a default value. This path solution is compatible with that idea, and is highly efficient (in the 'simple to write and understand, succinct code' sense), <em>if</em> you know what you're looking for.</p>
+     <p>You can make an explicit <code>JsonValue</code> type hierarchy and add an <code>asValue()</code> method to cater to the 'UI widget that can view arbitrary JSON' use case if you need this.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>If you’re going to list existing JSON parsers, it’s probably worth mentioning <a href="https://javaee.github.io/javaee-spec/javadocs/javax/json/package-summary.html" rel="nofollow noreferrer">javax.json</a>, which is part of Java EE.</span> <span> - </span> <span class="display-name">VGR</span> <span> </span> <span class="date">4 Jun 2023 at 03:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Reilas</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Jun 2023 at 00:05</span>
+     </div>
+    </div>
+    <div>
+     <p>I used @amycodes's answer, in addition to reviewing some <em><a href="https://github.com/google/gson/tree/master/gson/src/main/java/com/google/gson" rel="nofollow noreferrer">gson</a></em> classes.<br>
+       Thanks for the recommendation.</p>
+     <p>I'm using an <em>abstract class</em> as the main class.<br>
+       And, I'm using a sub-class for each type of <em>value</em>.</p>
+     <p>Note, these are all nested classes, within the <em>JSONParser</em> class.<br>
+       That's why they are all declared as <em>static</em>.</p>
+     <pre class="lang-java prettyprint-override"><code>private abstract static class JSONValue {
+    JSONBoolean asBoolean() throws IllegalJSONValueException {
+        if (this instanceof JSONBoolean) return (JSONBoolean) this;
+        throw new IllegalJSONValueException(getClass().getSimpleName(), this, JSONBoolean.class);
+    }
+
+    JSONNull asNull() throws IllegalJSONValueException {
+        if (this instanceof JSONNull) return (JSONNull) this;
+        throw new IllegalJSONValueException(getClass().getSimpleName(), this, JSONNull.class);
+    }
+
+    JSONObject asObject() throws IllegalJSONValueException {
+        if (this instanceof JSONObject) return (JSONObject) this;
+        throw new IllegalJSONValueException(getClass().getSimpleName(), this, JSONObject.class);
+    }
+
+    JSONArray asArray() throws IllegalJSONValueException {
+        if (this instanceof JSONArray) return (JSONArray) this;
+        throw new IllegalJSONValueException(getClass().getSimpleName(), this, JSONArray.class);
+    }
+
+    JSONNumber adNumber() throws IllegalJSONValueException {
+        if (this instanceof JSONNumber) return (JSONNumber) this;
+        throw new IllegalJSONValueException(getClass().getSimpleName(), this, JSONNumber.class);
+    }
+
+    JSONString asString() throws IllegalJSONValueException {
+        if (this instanceof JSONString) return (JSONString) this;
+        throw new IllegalJSONValueException(getClass().getSimpleName(), this, JSONString.class);
+    }
+
+    private static class IllegalJSONValueException extends Exception {
+        public IllegalJSONValueException(String string, JSONValue valueA, Class&lt;?&gt; valueB) {
+            super(valueA.getClass().getSimpleName() + " is not an instance of " + valueB.getSimpleName());
+        }
+    }
+}
+</code></pre>
+     <p>These classes will subsequently have the corresponding instance methods—such as <em>JSONObject#withKey</em>, <em>JSONArray#get</em>, <em>JSONBoolean#isTrue</em>, etc.</p>
+     <pre class="lang-java prettyprint-override"><code>static class JSONBoolean extends JSONValue {
+    private boolean value;
+}
+
+static class JSONNull extends JSONValue {
+}
+
+static class JSONObject extends JSONValue {
+    List&lt;Member&gt; list;
+
+    private static class Member {
+        String name;
+        List&lt;JSONValue&gt; value;
+    }
+}
+
+static class JSONArray extends JSONValue {
+    List&lt;JSONValue&gt; list;
+}
+
+static class JSONNumber extends JSONValue {
+    String number;
+}
+
+static class JSONString extends JSONValue {
+    String string;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

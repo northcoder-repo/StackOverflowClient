@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Add custom column to DataTable Export</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Add custom column to DataTable Export</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>alex</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Sep 2022 at 14:59</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73788791/add-custom-column-to-datatable-export">source</a>
+    </div>
+   </div>
+   <div>
+    <p>When exporting my dataTable to a PDF I'd like to add an extra blank column that doesn't exist on the dataTable itself. All it needs is the headline and a blank field for each row. Is that possible somehow?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>alex</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Sep 2022 at 15:18</span>
+     </div>
+    </div>
+    <div>
+     <p>I was able to add a custom column by adding the following to my <code>exportOptions</code> in my dataTabel config:</p>
+     <pre><code>customizeData: function (data) {
+            data['header'].push('Custom Field');
+            $.each(data['body'], function(key, row) {
+                row.push('');
+            });
+        }
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>The <code>customizeData</code> options certainly works (+1) - but it's described by the creator of DataTables as <i>"a bit of a legacy hack"</i> (<a href="https://datatables.net/forums/discussion/comment/96574/#Comment_96574" rel="nofollow noreferrer">reference</a>). It was effectively replaced by <code>customize</code>, which gives you full access to the underlying PDF object, for better customization (if you need that).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Sep 2022 at 15:57</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Sep 2022 at 15:52</span>
+     </div>
+    </div>
+    <div>
+     <p>You can add an extra empty column to the PDF by manipulating the <a href="http://pdfmake.org/#/" rel="nofollow noreferrer">PDFMake</a> document structure.</p>
+     <p>You can access this structure using the <a href="https://datatables.net/reference/button/pdfHtml5" rel="nofollow noreferrer"><code>pdfHtml5.customize</code></a> function.</p>
+     <p>A simple demo:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>  $(document).ready(function() {
+    $('#example').DataTable({
+
+      dom: 'Bfrtip',
+      buttons: [{
+        extend: 'pdf',
+        customize: function (pdf) {
+          addExtraColumn(pdf);
+        }
+      }
+    ]
+    });
+  });
+
+  function addExtraColumn(pdf) {
+    pdf.content[1].table.body.forEach(function(row, idx) { 
+      let newCell = structuredClone(row[0]);
+      newCell.text = idx === 0 ? "New Heading" : "";
+      row.push( newCell );
+      console.log( row );
+    })
+  };</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Export to PDF&lt;/title&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.min.css"/&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.2.3/css/buttons.dataTables.min.css"/&gt;
+ 
+  &lt;script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.3/js/dataTables.buttons.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.3/js/buttons.html5.min.js"&gt;&lt;/script&gt;
+  
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+&lt;table id="example" class="display nowrap dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Data&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Adelaide Nixon&lt;/td&gt;
+                &lt;td&gt;One&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Bruna Nash&lt;/td&gt;
+                &lt;td&gt;Two&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+
+&lt;/body&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>So, if you start with a table which looks like this:</p>
+     <p><a href="https://i.stack.imgur.com/XfMKf.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/XfMKf.png" alt="enter image description here"></a></p>
+     <p>Then the PDF will look like this:</p>
+     <p><a href="https://i.stack.imgur.com/WeaSb.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/WeaSb.png" alt="enter image description here"></a></p>
+     <p>From there, you may want to further customize the PDF - for example, by <a href="https://stackoverflow.com/a/67642023/12567365">drawing lines around every cell</a>, and so on.</p>
+     <p>You can read the PDFMake documentation for <a href="https://pdfmake.github.io/docs/0.1/document-definition-object/tables/" rel="nofollow noreferrer">tables</a>, and see <a href="http://pdfmake.org/playground.html" rel="nofollow noreferrer">examples</a> for more guidance.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

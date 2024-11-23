@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to highlight Boolean FuzzyQueries in Lucene - boost must be a positive float?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to highlight Boolean FuzzyQueries in Lucene - boost must be a positive float?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Rob Audenaerde</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>5 Jun 2020 at 20:27</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62223638/how-to-highlight-boolean-fuzzyqueries-in-lucene-boost-must-be-a-positive-float">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to be nice for users that make a lot of typos (like myself).</p>
+    <p>I try to create a simple search page for some data. I build <code>FuzzyQuery</code>s in a <code>BooleanQuery</code> because I would like the user to make typos, for example this:</p>
+    <pre><code>    BooleanQuery.Builder builder = new BooleanQuery.Builder();
+
+    builder.add(new FuzzyQuery(new Term("body", "pzza")), BooleanClause.Occur.SHOULD);
+    builder.add(new FuzzyQuery(new Term("body", "tcyoon")), BooleanClause.Occur.SHOULD);
+
+    BooleanQuery query = builder.build();
+</code></pre>
+    <p>Searching works as expected, but the code I got from the Lucene 8.5 API docs to build the highlighting fails:</p>
+    <pre><code>    SimpleHTMLFormatter htmlFormatter = new SimpleHTMLFormatter();
+    Highlighter highlighter = new Highlighter(htmlFormatter, new QueryScorer(query));
+    for (int i = 0; i &lt; hits.length; i++) {
+        int id = hits[i].doc;
+        Document doc = searcher.doc(id);
+        System.out.println("HIT:" +  doc.get("url"));
+        String text = doc.get("body");
+        TokenStream tokenStream = TokenSources.getAnyTokenStream(searcher.getIndexReader(), id, "body", analyzer);
+        TextFragment[] frag = highlighter.getBestTextFragments(tokenStream, text, false, 10);//highlighter.getBestFragments(tokenStream, text, 3, "...");
+        for (int j = 0; j &lt; frag.length; j++) {
+            if ((frag[j] != null) &amp;&amp; (frag[j].getScore() &gt; 0)) {
+                System.out.println((frag[j].toString()));
+            }
+        }
+    }
+</code></pre>
+    <p>With error:</p>
+    <pre><code>java.lang.IllegalArgumentException: boost must be a positive float, got -1.0
+    at org.apache.lucene.search.BoostQuery.&lt;init&gt;(BoostQuery.java:44)
+    at org.apache.lucene.search.ScoringRewrite$1.addClause(ScoringRewrite.java:69)
+    at org.apache.lucene.search.ScoringRewrite$1.addClause(ScoringRewrite.java:54)
+    at org.apache.lucene.search.ScoringRewrite.rewrite(ScoringRewrite.java:117)
+    at org.apache.lucene.search.highlight.WeightedSpanTermExtractor.extract(WeightedSpanTermExtractor.java:246)
+    at org.apache.lucene.search.highlight.WeightedSpanTermExtractor.extract(WeightedSpanTermExtractor.java:135)
+    at org.apache.lucene.search.highlight.WeightedSpanTermExtractor.getWeightedSpanTerms(WeightedSpanTermExtractor.java:530)
+    at org.apache.lucene.search.highlight.QueryScorer.initExtractor(QueryScorer.java:218)
+    at org.apache.lucene.search.highlight.QueryScorer.init(QueryScorer.java:186)
+    at org.apache.lucene.search.highlight.Highlighter.getBestTextFragments(Highlighter.java:201)
+</code></pre>
+    <p>The code uses a deprecated method, but I took it straight from the documentation.</p>
+    <p>Can somebody explain <em>why</em> I get this error? How can I create a highlighter that works with this query construction? Or do I need a different <code>Query</code>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span><span class="tag">highlight</span><span class="tag">fuzzy-search</span><span class="tag">booleanquery</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jun 2020 at 16:18</span>
+     </div>
+    </div>
+    <div>
+     <p>The following approach to highlighting uses Lucene v8.5.0 with the question's fuzzy boolean example.</p>
+     <p>The results look like this, in my stripped-down demo (but you can refine how the highlighted fragments are displayed, of course):</p>
+     <p><a href="https://i.stack.imgur.com/paTAw.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/paTAw.png" alt="enter image description here"></a></p>
+     <p>The highlighting code is as follows:</p>
+     <pre><code>import java.io.IOException;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.highlight.SimpleHTMLFormatter;
+import org.apache.lucene.search.highlight.Highlighter;
+import org.apache.lucene.search.highlight.QueryScorer;
+import org.apache.lucene.search.highlight.TokenSources;
+import org.apache.lucene.search.highlight.TextFragment;
+import org.apache.lucene.search.highlight.InvalidTokenOffsetsException;
+
+public class CustomHighlighter {
+
+    private static final String PRE_TAG = "&lt;span class=\"hilite\"&gt;";
+    private static final String POST_TAG = "&lt;/span&gt;";
+
+    public static String[] highlight(Query query, IndexSearcher searcher,
+            Analyzer analyzer, ScoreDoc hit, String fieldName)
+            throws IOException, InvalidTokenOffsetsException {
+        SimpleHTMLFormatter htmlFormatter = new SimpleHTMLFormatter(PRE_TAG, POST_TAG);
+        Highlighter highlighter = new Highlighter(htmlFormatter, new QueryScorer(query));
+        int id = hit.doc;
+        Document doc = searcher.doc(id);
+
+        String text = doc.get(fieldName);
+
+        TokenStream tokenStream = TokenSources.getTokenStream(fieldName,
+                searcher.getIndexReader().getTermVectors(id), text, analyzer, -1);
+        int maxNumFragments = 10;
+
+        boolean mergeContiguousFragments = Boolean.TRUE;
+        TextFragment[] frags = highlighter.getBestTextFragments(tokenStream,
+                text, mergeContiguousFragments, maxNumFragments);
+
+        String[] highlightedText = new String[frags.length];
+        for (int i = 0; i &lt; frags.length; i++) {
+            highlightedText[i] = frags[i].toString();
+        }
+        // control how you handle each fragment for display...
+        //for (TextFragment frag : frags) {
+        //    if ((frag != null) &amp;&amp; (frag.getScore() &gt; 0)) {
+        //        highlightedText = frag.toString();
+        //    }
+        //}
+        return highlightedText;
+    }
+
+}
+</code></pre>
+     <p>The class is used as follows (where <code>SearchResults</code> is just one of my classes for collecting results, for later presentation to the user):</p>
+     <pre><code>for (ScoreDoc hit : hits) {
+    String[] highlightedText = CustomHighlighter.highlight(query, searcher,
+            analyzer, hit, field);
+    String document = searcher.doc(hit.doc).get("path");
+    SearchResults.Match match = new SearchResults.Match(document, highlightedText, hit.score);
+    results.getMatches().add(match);
+}
+</code></pre>
+     <p>And the fuzzy query is this:</p>
+     <pre><code>private static Query useFuzzyBooleanQuery() {
+    BooleanQuery.Builder builder = new BooleanQuery.Builder();
+    builder.add(new FuzzyQuery(new Term("contents", "pzza")), BooleanClause.Occur.SHOULD);
+    builder.add(new FuzzyQuery(new Term("contents", "tcyoon")), BooleanClause.Occur.SHOULD);
+    return builder.build();
+}
+</code></pre>
+     <p>The above code does not give me any deprecation warnings.</p>
+     <p>I can't explain why you get that specific "boost" error - I have not seen that myself, and I was not able to recreate it. But I did not try too hard, I confess.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

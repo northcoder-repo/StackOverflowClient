@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>getRequestURI is null with Netty and Spring Boot 3</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>getRequestURI is null with Netty and Spring Boot 3</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Ajay Kumar</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Nov 2022 at 23:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74594544/getrequesturi-is-null-with-netty-and-spring-boot-3">source</a>
+    </div>
+   </div>
+   <div>
+    <p>In Thymeleaf &lt; 3.1 I used below expression to get the request URI.</p>
+    <pre><code>th:classappend="${#arrays.contains(urls, #httpServletRequest.getRequestURI()) ? 'active' : ''}"
+</code></pre>
+    <p>It worked all the time till recently I upgraded to Spring Boot 3.0 that pulls Thymeleaf 3.1. I am getting this exceptions:</p>
+    <pre><code>[THYMELEAF][parallel-2] Exception processing template "index": Exception evaluating SpringEL expression: "#arrays.contains(urls, #servletServerHttpRequest.getRequestURI()) ? 'active' : ''" (template: "fragments/header" - line 185, col 6)
+
+Caused by: org.springframework.expression.spel.SpelEvaluationException: EL1011E: Method call: Attempted to call method getRequestURI() on null context object
+</code></pre>
+    <p>What is the alternative now since I am using Netty instead of Tomcat in Spring Boot 3.0? I could not figure this from <a href="https://www.thymeleaf.org/doc/articles/thymeleaf31whatsnew.html" rel="nofollow noreferrer">here</a>.</p>
+    <p>As a workaround, for now to tackle this, I am using:</p>
+    <pre><code>@GetMapping ("/")
+String homePage(Model model) {
+    model.addAttribute("pagename", "home");
+    return "index";
+}
+</code></pre>
+    <p>AND</p>
+    <pre><code>th:classappend="${pagename == 'home' ? 'active' : ''}"
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">spring</span><span class="tag">spring-boot</span><span class="tag">thymeleaf</span><span class="tag">spring-thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Nov 2022 at 01:32</span>
+     </div>
+    </div>
+    <div>
+     <p>In Thymeleaf 3.0, access is provided to <code>HttpServletRequest</code>:</p>
+     <blockquote>
+      <p>#request : direct access to the javax.servlet.http.HttpServletRequest object associated with the current request. <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf.html#web-context-objects" rel="noreferrer">reference</a></p>
+     </blockquote>
+     <p>This has been removed from Thymeleaf in 3.1.0. Here is the equivalent section from the documentation: <a href="https://www.thymeleaf.org/doc/tutorials/3.1/usingthymeleaf.html#web-context-namespaces-for-requestsession-attributes-etc." rel="noreferrer">Web context namespaces for request/session attributes, etc.</a>.</p>
+     <hr>
+     <p>The "what's new in 3.1" <a href="https://www.thymeleaf.org/doc/articles/thymeleaf31whatsnew.html" rel="noreferrer">documentation</a> does not specifically mention <code>HttpServletRequest</code>, but it does mention the removal of all the "<em>web-API based expression utility objects</em>".</p>
+     <blockquote>
+      <p>The #request, #response, #session, and #servletContext are no longer available to expressions in Thymeleaf 3.1.</p>
+     </blockquote>
+     <p>Spring Boot 3.0.0 uses Thymeleaf 3.1.0 (as you noted).</p>
+     <hr>
+     <p><strong>What to do instead?</strong></p>
+     <p>See the related GitHub issue: <a href="https://github.com/thymeleaf/thymeleaf/issues/920" rel="noreferrer">Recommended way to go after upgrade to SpringBoot3 - attributes</a></p>
+     <p>Specifically:</p>
+     <blockquote>
+      <p>These objects are not directly available in templates in Thymeleaf 3.1 for security reasons. The recommended way to make this information available to templates is to add the specific pieces of information that are really needed by the template as context variables (model attributes in Spring).</p>
+     </blockquote>
+     <p>Example:</p>
+     <blockquote>
+      <p><code>model.addAttribute("servletPath", request.getServletPath();</code></p>
+     </blockquote>
+     <p>That is the same basic approach as what you are already doing, in your work-around.</p>
+     <hr>
+     <p>See also: <a href="https://github.com/thymeleaf/thymeleaf/issues/886" rel="noreferrer">Remove web-API based expression utility objects</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>You are awesome @andrewJames. I completely overlooked section 1.6 in the documentation for what's new in 3.1. Thanks a lot for your time and effort.</span> <span> - </span> <span class="display-name">Ajay Kumar</span> <span> </span> <span class="date">28 Nov 2022 at 03:31</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Imtiaz Shakil Siddique</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jan 2023 at 13:58</span>
+     </div>
+    </div>
+    <div>
+     <p>Adding to @andrewJames answer,</p>
+     <p>If you are using <code>request.getServletPath()</code> in many pages, then in such case, it's more convenient to use Spring's <code>@ModelAttribute</code> annotation in a <code>@ControllerAdvice</code> class. It will register this <code>@ModelAttribute</code> method for all controllers in your app. Example:</p>
+     <pre class="lang-java prettyprint-override"><code>@ControllerAdvice
+public class GlobalController {
+
+  @ModelAttribute("servletPath")
+  String getRequestServletPath(HttpServletRequest request) {
+    return request.getServletPath();
+  }
+}
+</code></pre>
+     <p>Finally in any page you can access by using:</p>
+     <pre><code>${servletPath}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Yes I am aware of this and using it to publish app name and signed-in user’s name across all the pages.</span> <span> - </span> <span class="display-name">Ajay Kumar</span> <span> </span> <span class="date">3 Jan 2023 at 22:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

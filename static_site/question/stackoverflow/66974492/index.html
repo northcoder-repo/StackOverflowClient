@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jQuery Data Table Retain Filter and Search parameters</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jQuery Data Table Retain Filter and Search parameters</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Slimshadddyyy</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>6 Apr 2021 at 18:32</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66974492/jquery-data-table-retain-filter-and-search-parameters">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am working with datatable and want to retain dropdown filters and search parameters on page reload as seen in the screenshot below. However, I want the parameters to clear up if a window is closed or a user logs out of the application.</p>
+    <p>Here I have used <code>"stateSave": true</code> but it retains only for search input and that too is not consistent as sometimes even when a user logs back in, it shows old search keyword instead of resetting.</p>
+    <p>I am using the below code to preserve values but since Country and State dropdowns are not in datatable scope their values are not retained</p>
+    <pre class="lang-js prettyprint-override"><code>// Restore state
+var state = table.state.loaded();
+if ( state ) {
+    table.columns().eq( 0 ).each( function ( colIdx ) {
+        var colSearch = state.columns['colIdx'].search;
+        if ( colSearch.search ) {
+            $('input', $('.filters th')[colIdx]).val( colSearch.search );
+        }
+    });
+    table.draw();
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Apr 2021 at 21:47</span>
+     </div>
+    </div>
+    <div>
+     <p>Request: <em>I want the parameters to clear up if a window is closed or a user logs out of the application.</em></p>
+     <p>By default, DataTables saves its state for 2 hours after the last change. It uses the browser's Local Storage for this. It sounds as if you want to use the browser's Session Storage instead.</p>
+     <p>To do this, you can explicitly set a negative value for the timeout period:</p>
+     <pre><code>"stateDuration": -1
+</code></pre>
+     <p>You can see more details <a href="https://datatables.net/reference/option/stateDuration" rel="nofollow noreferrer">here</a>.</p>
+     <p>I am not sure how this relates to your application's specific logout process (if the process involves redirecting to a different page - and if that is sufficient to clear the Session Storage). The notes below may be relevant for this.</p>
+     <hr>
+     <p>Issue: <em>Country and State dropdowns are not in datatable scope their values are not retained</em></p>
+     <p>For this case - and maybe also for the logout scenario above - you would have to write your own JavaScript to handle saving and retrieving your country and state values.</p>
+     <p>With apologies if I am telling you what you already know - but there is a straightforward JavaScript API to handle this:</p>
+     <p><a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage" rel="nofollow noreferrer">https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage</a></p>
+     <p>You would need to decide on a naming strategy for your storage key, and a structure for the data you wish to store.</p>
+     <p>For your Country and State fields, you can use an <code>onchange</code> or <code>onselect</code> event to trigger updates to your storage (I assume you already have something implemented for these).</p>
+     <p>For initially loading these values when your table is first displayed, I expect you can add this to your existing "state restore" code.</p>
+     <hr>
+     <p>It's always helpful to see what is happening behind the scenes. You can access Local and Session storage via your browser's dev tools (F12, usually). You can also see how DataTables stores its data, this way.</p>
+     <hr>
+     <p><strong>UPDATE</strong></p>
+     <p>Based on comments from the original poster: I like the alternative (and probably much better!) approach of integrating external values into the DataTables saved data set.</p>
+     <p>When I use the approach mentioned in the comments below, I do not have a problem with saving and retrieving this data.</p>
+     <p>In case it helps, here is a full stand-alone example (except it does not have any "logout" functionality):</p>
+     <pre><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;select name="country" id="drop_down_country"&gt;
+      &lt;option value="Argentina"&gt;Argentina&lt;/option&gt;
+      &lt;option value="Belgium"&gt;Belgium&lt;/option&gt;
+      &lt;option value="Canada"&gt;Canada&lt;/option&gt;
+    &lt;/select&gt;
+
+    &lt;br&gt;&lt;br&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;script&gt;
+
+var dataSet = [
+    {
+      "id": "1",
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "office": "Tokyo"
+    },
+    {
+      "id": "2",
+      "name": "Garrett Winters",
+      "position": "Accountant",
+      "office": "London"
+    },
+    {
+      "id": "3",
+      "name": "Ashton Cox",
+      "position": "Junior Technical Author",
+      "office": "New York"
+    }
+];
+ 
+$(document).ready(function() {
+
+$( "#drop_down_country" ).change(function() {
+  table.state.save();
+});
+
+var table = $('#example').DataTable( {
+  data: dataSet,
+  stateSave: true,
+  stateSaveParams: function( settings, data ) { 
+    data.searchCountry = $('#drop_down_country').val();
+  }, 
+  stateLoadParams: function( settings, data ) { 
+    $('#drop_down_country').val(data.searchCountry); 
+  },
+  columns: [
+    { title: "ID", data: "id" },
+    { title: "Name", data: "name" },
+    { title: "Office", data: "office" },
+    { title: "Position", data: "position" }
+  ]
+
+} ); 
+
+
+} );
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+     <p>In this example, I only have one drop-down (country), with a related event listener:</p>
+     <pre><code>$( "#drop_down_country" ).change(function() {
+  table.state.save();
+});
+</code></pre>
+     <p>Apart from that, I use the same <code>stateSaveParams</code> and <code>stateLoadParams</code> approach mentioned in the comments.</p>
+     <p>When I make changes to the country drop-down, I can see the changes being reflected in the local storage data.</p>
+     <p>When I close the browser tab, and then re-open it, my saved state is restored (including the selected country). The same happens if I navigate to another URL and then return to the original URL.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Thanks for responding, I tried using below to achieve what is expected but it is still not working 100% while keeping stateSave: true; <code>stateSaveParams: function( settings, data ) { data.searchCountry = $('#drop_down_country').val() data.searchState = $('#drop_down_state').val() }, stateLoadParams: function( settings, data ) { $('#drop_down_country').val(data.searchCountry) $('#drop_down_state').val(data.searchState) }</code></span> <span> - </span> <span class="display-name">Slimshadddyyy</span> <span> </span> <span class="date">16 Apr 2021 at 14:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Issue - When I go to inner pages and come back to the grid, it does not retain the input search keyword On logout, I am using below to clear out search elements <code>dataTable.state.clear() and dataTable.destroy()</code></span> <span> - </span> <span class="display-name">Slimshadddyyy</span> <span> </span> <span class="date">16 Apr 2021 at 14:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I like your approach - it is better than my suggested use of the API. However, I do not see the same problem you see (data not restored). I have provided a complete example that you can copy/paste into a text file and then open in a browser.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Apr 2021 at 18:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If you are using <code>stateSave:true;</code> and <code>stateSaveParams</code> is there a need to use <code>table.state.save();</code>?</span> <span> - </span> <span class="display-name">Slimshadddyyy</span> <span> </span> <span class="date">19 Apr 2021 at 12:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes. It is needed. <code>stateSaveParams</code> does not know <i>when</i> external state values change. It just knows <i>how</i> to store them when told to do so by the <code>save()</code> function. But you can see for yourself, by using my code with and without that line.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Apr 2021 at 13:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Slimshadddyyy</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Apr 2021 at 18:39</span>
+     </div>
+    </div>
+    <div>
+     <p>After exploring few options to resolve this issue, below code has been helpful to achieve what is required.</p>
+     <pre><code>"stateSave": true
+</code></pre>
+     <p>This will store state information such as pagination position, display length, filtering and sorting.</p>
+     <pre><code>stateSaveParams: function( settings, data ){
+    data.searchCountry = $('#drop_down_country').val()
+    data.searchState = $('#drop_down_state').val()
+},
+
+stateLoadParams: function( settings, data ){
+    $('#drop_down_country').val(data.searchCountry)
+    $('#drop_down_state').val(data.searchState)
+}
+</code></pre>
+     <p>For logout, clear out the saved state</p>
+     <pre><code>$('#reset_filter').click(function() {
+        var testTable = $('#test-table').DataTable();
+        testTable.state.clear();//Clear State
+        testTable.destroy();//Destroy
+        location.reload();
+    });
+</code></pre>
+     <p><strong>It has been observed that the <code>stateSaveParams</code> and <code>stateSave</code> basically remembers the url and works with it to retains the applied filters</strong></p>
+     <p><strong>Use Case - User has typed in order #12345 in search input and the url is <code>store.com/orders/index</code> Now if user go to any other page and come back to same url it would retain the search parameters but if you try changing the url to say <code>store.com/orders/</code> it will not retain the params.</strong></p>
+     <p>After executing multiple test cases, it has been concluded that the <code>stateSave</code> API works when user applies the filters and url remains same</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

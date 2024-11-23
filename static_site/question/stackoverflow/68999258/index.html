@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf Element Model processing</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf Element Model processing</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Pavel Polyakoff</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>31 Aug 2021 at 13:07</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68999258/thymeleaf-element-model-processing">source</a>
+    </div>
+   </div>
+   <div>
+    <p>How do I properly process HTML tag and its body in my own Element Model Processor? For example, I have the following HTML structure:</p>
+    <pre><code>&lt;my:form id="some_id"&gt;
+    &lt;my:input type="text" name="input-1"/&gt;
+    &lt;my:input type="number" name="input-2"/&gt;
+&lt;/my:form&gt;
+</code></pre>
+    <p>I would like to alter both the wrapping <code>my:form</code> tag by adding some generated attribute so that output would look something like <code>&lt;form id="some_id" other-attr="_generated_value_"&gt;...&lt;/form&gt;</code> and process each of the inner <code>my:input</code> by adding an attribute with form id to each of those inputs (and generally process those tags as they should be), e.g. <code>&lt;input type="text" name="input-1" id="generated_1" form-id="some_id"&gt;</code>. Normally <code>my:input</code> is processed by my <code>AbstractAttributeTagProcessor</code> extension.</p>
+    <p>As of now I have extended the <code>AbstractElementModelProcessor</code> creating the processor like this:</p>
+    <pre><code>public class MyFormProcessor extends AbstractElementModelProcessor {
+
+    private static final String ELEMENT_NAME = "form";
+    private static final int PRECEDENCE = 1000;
+
+    public MyFormProcessor( final String dialectPrefix ) {
+        super(
+                TemplateMode.HTML,
+                dialectPrefix, // dialect prefix - 'my' in this case
+                ELEMENT_NAME,
+                true, // filter by element name prefix
+                null,
+                false,
+                PRECEDENCE
+        );
+    }
+
+
+    @Override
+    protected void doProcess( ITemplateContext context,
+                              IModel model,
+                              IElementModelStructureHandler structureHandler ) {
+        // what goes here?
+    }
+}
+</code></pre>
+    <p>The processor is registered correctly and does turm the form and its body into a series of events, but I'm yet to figure out how to modify the <code>model</code> properly as I cannot find any modification methods on its elements.</p>
+    <p>Thanks in advance for any guidance!</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">model</span><span class="tag">thymeleaf</span><span class="tag">extending</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Aug 2021 at 20:01</span>
+     </div>
+    </div>
+    <div>
+     <p>To make your example work, I needed to make a change to your custom Thymeleaf input structure:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;my:form id="some_id"&gt;
+    &lt;my:input type="text" name="input-1"&gt;
+    &lt;my:input type="number" name="input-2"&gt;
+&lt;/my:form&gt;
+</code></pre>
+     <p>The difference is that I do not self-close the <code>&lt;my:input&gt;</code> tags (they end with <code>&gt;</code> not with <code>/&gt;</code>. This is so that they reflect the structure of the target "standalone" <code>&lt;input&gt;</code> elements, which are also not self-closing.</p>
+     <p>My approach processes the entire fragment of input HTML - so, if you also already have a separate processor for <code>&lt;my:input&gt;</code> tags, then I assume this would need to be a higher priority than that.</p>
+     <p>Here is the <code>doProcess()</code> method, with comments in the code:</p>
+     <pre class="lang-java prettyprint-override"><code>@Override
+protected void doProcess(ITemplateContext context,
+        IModel model,
+        IElementModelStructureHandler structureHandler) {
+    final IModelFactory modelFactory = context.getModelFactory();
+
+    // first handle the form element:
+    String formID = null;
+    final ITemplateEvent formEvent = model.get(0);
+    if (formEvent instanceof IOpenElementTag) {
+        // retrieve the form's ID value:
+        IOpenElementTag ele = (IOpenElementTag) formEvent;
+        IAttribute attr = ele.getAttribute("id");
+        formID = attr.getValue();
+    }
+
+    // build the attributes we want the form element to use:
+    Map&lt;String, String&gt; formAttrs = new HashMap&lt;&gt;();
+    formAttrs.put("id", formID);
+    formAttrs.put("other-attr", "_generated_value_");
+    // create the form element: 
+    IOpenElementTag formOpen = modelFactory
+            .createOpenElementTag("form", formAttrs,
+                    AttributeValueQuotes.DOUBLE,
+                    false);
+
+    model.replace(0, formOpen);
+
+    int idInt = 1; // used to increment ID values
+    // the loop processes all of the elements inside the form's opening
+    // and closing tags:
+    for (int i = 1; i &lt; model.size() - 1; i++) {
+        final ITemplateEvent inputEvent = model.get(i);
+
+        if (inputEvent instanceof IOpenElementTag) {
+            IOpenElementTag ele = (IOpenElementTag) inputEvent;
+            // we will add some more attributes here:
+            Map&lt;String, String&gt; attrs = ele.getAttributeMap();
+            attrs.put("form-id", formID);
+            attrs.put("id", "generated_" + idInt++); // the "idInt++" is just a demo - use whatever sequence you want here
+
+            IOpenElementTag openEle = modelFactory
+                    .createOpenElementTag("input", attrs,
+                            AttributeValueQuotes.DOUBLE,
+                            false);
+            model.replace(i, openEle);
+        }
+    }
+
+}
+</code></pre>
+     <p>The end-result HTML is as follows:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;form other-attr="_generated_value_" id="some_id"&gt;
+    &lt;input type="text" name="input-1" form-id="some_id" id="generated_1"&gt;
+    &lt;input type="number" name="input-2" form-id="some_id" id="generated_2"&gt;
+&lt;/form&gt;
+</code></pre>
+     <p><strong>Notes</strong></p>
+     <p>There may be more you could do to re-factor the code.</p>
+     <p>There are probably alternative (and maybe better) approaches to the one shown here. With Thymeleaf, there is often more than one way to do something.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

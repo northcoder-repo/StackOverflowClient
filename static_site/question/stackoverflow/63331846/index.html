@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jackson mapping nested hashmap to nested pojo class in java</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jackson mapping nested hashmap to nested pojo class in java</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Santi</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Aug 2020 at 22:15</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63331846/jackson-mapping-nested-hashmap-to-nested-pojo-class-in-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a nested java map like this inputMap: {jobId={EndpointReference={ReferenceParameters={ResourceURI=http://schemas.com/wbem/wscim/1/cim-schema/2/Job, SelectorSet={Selector=[JID_502260561923, root/im]}}, Address=http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous}}, returncode=4096, messageId=null, arguments=null, message=null} which I want to map to java pojo and here is my pojo classes.</p>
+    <pre><code>@Getter
+@Setter
+@ToString
+public class DMResponseMapper {
+    @Getter
+    @Setter
+    @ToString
+    public static class GetSysConfigDMResponseMapper {
+        @JsonProperty("jobId")
+        private EndpointReferenceMapper endpointReferenceMapper;
+        private Integer returnCode;
+        private String messageId;
+        private String arguments;
+        private String message;
+
+        @Getter
+        @Setter
+        @ToString
+        public static class EndpointReferenceMapper {
+            @JsonProperty("ReferenceParameters")
+            private ReferenceParametersMapper referenceParametersMapper;
+            @JsonProperty("Address")
+            private String address;
+
+                @Getter
+                @Setter
+                @ToString
+                public static class ReferenceParametersMapper {
+
+                    @JsonProperty("ResourceURI")
+                    private String resourceURI;
+
+                    @JsonProperty("SelectorSet")
+                    private SelectorSetMapper selectorSetMapper;
+
+                    @Getter
+                    @Setter
+                    @ToString
+                    public static class SelectorSetMapper {
+
+                        @JsonProperty("Selector")
+                        private List&lt;String&gt; selector;
+                    }
+                }
+            }
+        }
+    }
+</code></pre>
+    <p>but objectMapper.convertValue(inputMap, GetSysConfigDMResponseMapper.class) is NOT mapping the nested classes.. just the top level fields. My objectMapper is instantiated like this:</p>
+    <pre><code>static {
+objectMapper = new ObjectMapper();
+objectMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true);
+objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+</code></pre>
+    <p>}</p>
+    <p>Response Object is :</p>
+    <p>DMResponseMapper.GetSysConfigDMResponseMapper(endpointReferenceMapper=DMResponseMapper.GetSysConfigDMResponseMapper.EndpointReferenceMapper(referenceParametersMapper=null, address=null), returnCode=4096, messageId=null, arguments=null, message=null)</p>
+    <p>Can anyone please suggest, what is wrong here?</p>
+    <p>Upon debugging this is what I see: Converted endpointReferenceMapper to type Object.</p>
+    <pre><code>DMResponseMapper.GetSysConfigDMResponseMapper(endpointReferenceMapper={EndpointReference={ReferenceParameters={ResourceURI=http://schemas.com/wbem/wscim/1/cim-schema/2/Job, SelectorSet={Selector=[JID_502318722705, root/dcim]}}, Address=http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous}}, returnCode=4096, messageId=null, arguments=null, message=null)
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jackson</span><span class="tag">pojo</span><span class="tag">objectmapper</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Aug 2020 at 17:01</span>
+     </div>
+    </div>
+    <div>
+     <p>The <code>DMResponseMapper</code> pojo needs to follow the structure of your source data more closely.</p>
+     <p>Your source <code>Map</code> object has the following structure, based on the info in the question:</p>
+     <pre><code>inputMap: 
+{
+  jobId={
+    EndpointReference={
+      ReferenceParameters={
+        ResourceURI=http://schemas.com/wbem/wscim/1/cim-schema/2/Job, 
+        SelectorSet={
+          Selector=[JID_502260561923, root/im]
+        }
+      }, 
+      Address=http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous
+    }
+  }, 
+  returncode=4096, 
+  messageId=null, 
+  arguments=null, 
+  message=null
+}
+</code></pre>
+     <p>So, I adapted your <code>DMResponseMapper</code> pojo class to more closely map to that structure - and I changed the nested class names as well. Here is a summary of the nested classes with their fields for your data:</p>
+     <pre><code>//
+// NOT the actual class - just an overview of the structure!
+//
+class DMResponseMapper {
+
+    private JobId jobId;
+    private Integer returncode;
+    private Object messageId;
+    private Object arguments;
+    private Object message;
+
+    class JobId {
+
+        private EndpointReference endpointReference;
+
+        class EndpointReference {
+
+            private ReferenceParameters referenceParameters;
+            private String address;
+
+            class ReferenceParameters {
+
+                private String resourceURI;
+                private SelectorSet selectorSet;
+
+                class SelectorSet {
+                    private List&lt;String&gt; selector = null;
+                }
+            }
+        }
+    }
+}
+</code></pre>
+     <p>This gave me the following, when fleshed out with annotations and getters/setters:</p>
+     <pre><code>//
+// Here is the actual class, based on the above structure.
+//
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
+
+public class DMResponseMapper {
+
+    @JsonProperty("jobId")
+    private JobId jobId;
+    @JsonProperty("returncode")
+    private Integer returncode;
+    @JsonProperty("messageId")
+    private Object messageId;
+    @JsonProperty("arguments")
+    private Object arguments;
+    @JsonProperty("message")
+    private Object message;
+
+    @JsonProperty("jobId")
+    public JobId getJobId() {
+        return jobId;
+    }
+
+    @JsonProperty("jobId")
+    public void setJobId(JobId jobId) {
+        this.jobId = jobId;
+    }
+
+    @JsonProperty("returncode")
+    public Integer getReturncode() {
+        return returncode;
+    }
+
+    @JsonProperty("returncode")
+    public void setReturncode(Integer returncode) {
+        this.returncode = returncode;
+    }
+
+    @JsonProperty("messageId")
+    public Object getMessageId() {
+        return messageId;
+    }
+
+    @JsonProperty("messageId")
+    public void setMessageId(Object messageId) {
+        this.messageId = messageId;
+    }
+
+    @JsonProperty("arguments")
+    public Object getArguments() {
+        return arguments;
+    }
+
+    @JsonProperty("arguments")
+    public void setArguments(Object arguments) {
+        this.arguments = arguments;
+    }
+
+    @JsonProperty("message")
+    public Object getMessage() {
+        return message;
+    }
+
+    @JsonProperty("message")
+    public void setMessage(Object message) {
+        this.message = message;
+    }
+
+    public static class JobId {
+
+        @JsonProperty("EndpointReference")
+        private EndpointReference endpointReference;
+
+        @JsonProperty("EndpointReference")
+        public EndpointReference getEndpointReference() {
+            return endpointReference;
+        }
+
+        @JsonProperty("EndpointReference")
+        public void setEndpointReference(EndpointReference endpointReference) {
+            this.endpointReference = endpointReference;
+        }
+
+        public static class EndpointReference {
+
+            @JsonProperty("ReferenceParameters")
+            private ReferenceParameters referenceParameters;
+            @JsonProperty("Address")
+            private String address;
+
+            @JsonProperty("ReferenceParameters")
+            public ReferenceParameters getReferenceParameters() {
+                return referenceParameters;
+            }
+
+            @JsonProperty("ReferenceParameters")
+            public void setReferenceParameters(ReferenceParameters referenceParameters) {
+                this.referenceParameters = referenceParameters;
+            }
+
+            @JsonProperty("Address")
+            public String getAddress() {
+                return address;
+            }
+
+            @JsonProperty("Address")
+            public void setAddress(String address) {
+                this.address = address;
+            }
+
+            public static class ReferenceParameters {
+
+                @JsonProperty("ResourceURI")
+                private String resourceURI;
+                @JsonProperty("SelectorSet")
+                private SelectorSet selectorSet;
+
+                @JsonProperty("ResourceURI")
+                public String getResourceURI() {
+                    return resourceURI;
+                }
+
+                @JsonProperty("ResourceURI")
+                public void setResourceURI(String resourceURI) {
+                    this.resourceURI = resourceURI;
+                }
+
+                @JsonProperty("SelectorSet")
+                public SelectorSet getSelectorSet() {
+                    return selectorSet;
+                }
+
+                @JsonProperty("SelectorSet")
+                public void setSelectorSet(SelectorSet selectorSet) {
+                    this.selectorSet = selectorSet;
+                }
+
+                public static class SelectorSet {
+
+                    @JsonProperty("Selector")
+                    private List&lt;String&gt; selector = null;
+
+                    @JsonProperty("Selector")
+                    public List&lt;String&gt; getSelector() {
+                        return selector;
+                    }
+
+                    @JsonProperty("Selector")
+                    public void setSelector(List&lt;String&gt; selector) {
+                        this.selector = selector;
+                    }
+
+                }
+
+            }
+
+        }
+
+    }
+
+}
+</code></pre>
+     <p>This is invoked as follows:</p>
+     <p>First, some test data:</p>
+     <pre><code>List&lt;String&gt; selector = new ArrayList();
+selector.add("JID_502260561923");
+selector.add("root/im");
+
+Map&lt;String, Object&gt; selectorSet = new HashMap();
+selectorSet.put("Selector", selector);
+
+String resourceURI = "http://schemas.com/wbem/wscim/1/cim-schema/2/Job";
+
+Map&lt;String, Object&gt; referenceParameters = new HashMap();
+referenceParameters.put("ResourceURI", resourceURI);
+referenceParameters.put("SelectorSet", selectorSet);
+
+String address = "http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous";
+
+Map&lt;String, Object&gt; endpointReference = new HashMap();
+endpointReference.put("ReferenceParameters", referenceParameters);
+endpointReference.put("Address", address);
+
+Map&lt;String, Object&gt; jobId = new HashMap();
+jobId.put("EndpointReference", endpointReference);
+
+Map&lt;String, Object&gt; inputMap = new HashMap();
+inputMap.put("jobId", jobId);
+inputMap.put("returncode", 4096);
+inputMap.put("messageId", "foo");
+inputMap.put("arguments", "bar");
+inputMap.put("message", "baz");
+</code></pre>
+     <p>Note I replaced your <code>null</code> values with strings, for testing and demonstration.</p>
+     <p>Then the code to perform the mapping:</p>
+     <pre><code>ObjectMapper objectMapper = new ObjectMapper();
+DMResponseMapper mapper = objectMapper.convertValue(inputMap, DMResponseMapper.class);
+</code></pre>
+     <p>The resulting <code>mapper</code> object contains the test data:</p>
+     <p><a href="https://i.stack.imgur.com/3XBTa.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/3XBTa.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank You. It was a miss.. couldn't read the nesting so minutely. Which tool did you use to show the class layout?</span> <span> - </span> <span class="display-name">Santi</span> <span> </span> <span class="date">12 Aug 2020 at 16:45</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>You are welcone. In this case, I formatted the JSON using <a href="https://jsonlint.com/" rel="nofollow noreferrer">JSONlint</a> - which allowed me to see the nesting more clearly. Then I designed the class nesting to follow that structure (just the classes and fields). That was a manual step - but you can use tools such as <a href="http://www.jsonschema2pojo.org/" rel="nofollow noreferrer">JSON Schema to POJO</a> to help with that. It's a great tool - especially for complex JSON, but I do then sometimes end up simplifying what it generates for my specific needs. There may be better approaches - I am not a JSON expert.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">12 Aug 2020 at 17:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

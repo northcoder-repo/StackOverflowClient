@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How do I tell Maven to use the latest version of a dependency?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How do I tell Maven to use the latest version of a dependency?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>894</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Anders Sandvig</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Aug 2008 at 16:17</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/30571/how-do-i-tell-maven-to-use-the-latest-version-of-a-dependency">source</a>
+    </div>
+   </div>
+   <div>
+    <p>In Maven, dependencies are usually set up like this:</p>
+    <pre class="lang-xml prettyprint-override"><code>&lt;dependency&gt;
+  &lt;groupId&gt;wonderful-inc&lt;/groupId&gt;
+  &lt;artifactId&gt;dream-library&lt;/artifactId&gt;
+  &lt;version&gt;1.2.3&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+    <p>Now, if you are working with libraries that have frequent releases, constantly updating the &lt;version&gt; tag can be somewhat annoying. Is there any way to tell Maven to always use the latest available version (from the repository)?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">maven</span><span class="tag">dependencies</span><span class="tag">maven-2</span><span class="tag">maven-metadata</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>@Martin I am aware of the x.y.z-SNAPSHOT convention, but I was thinking about libraries that are released in final versions to the repository (i.e. going from dream-library-1.2.3.jar to dream-library-1.2.4.jar, and so on).</span> <span> - </span> <span class="display-name">Anders Sandvig</span> <span> </span> <span class="date">27 Aug 2008 at 16:50</span></td>
+      </tr>
+      <tr>
+       <td>223</td>
+       <td><span>I really don't recommend this practice (nor using version ranges) for the sake of build reproducibility. A build that starts to suddenly fail for an unknown reason is way more annoying than updating manually a version number.</span> <span> - </span> <span class="display-name">Pascal Thivent</span> <span> </span> <span class="date">17 Sep 2009 at 22:52</span></td>
+      </tr>
+      <tr>
+       <td>17</td>
+       <td><span>@PascalThivent Manually updating a release number in a pom is a pain if you are doing continuous releases. I use the versions plugin combined with the scm plugin to get past this (see my answer).</span> <span> - </span> <span class="display-name">Adam Gent</span> <span> </span> <span class="date">9 Jan 2012 at 21:24</span></td>
+      </tr>
+      <tr>
+       <td>4</td>
+       <td><span>@PascalThivent Both are annoying, but in a different way. I'd like to choose between both dependent on my situation and not be forced to use one because somebody else decided this one would be better.</span> <span> - </span> <span class="display-name">piegames</span> <span> </span> <span class="date">2 Feb 2018 at 20:07</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>The guava library is a good example of the newest version having classes removed from earlier versions, which then breaks the build. The Maven mindset is that any newer version can replace any earlier, which does not hold in practice.</span> <span> - </span> <span class="display-name">Thorbjørn Ravn Andersen</span> <span> </span> <span class="date">25 Nov 2020 at 09:19</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>840</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rich Seller</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jul 2009 at 14:58</span>
+     </div>
+    </div>
+    <div>
+     <p><em><strong>NOTE:</strong></em></p>
+     <p><em>The mentioned <code>LATEST</code> and <code>RELEASE</code> metaversions <a href="https://cwiki.apache.org/confluence/display/MAVEN/Maven+3.x+Compatibility+Notes#Maven3.xCompatibilityNotes-PluginMetaversionResolution" rel="noreferrer">have been dropped <strong>for plugin dependencies</strong> in Maven 3 "for the sake of reproducible builds"</a>, over 6 years ago. (They still work perfectly fine for regular dependencies.) For plugin dependencies please refer to this <strong><a href="https://stackoverflow.com/a/1172805/363573">Maven 3 compliant solution</a></strong></em>.</p>
+     <hr>
+     <p>If you always want to use the newest version, Maven has two keywords you can use as an alternative to version ranges. You should use these options with care as you are no longer in control of the plugins/dependencies you are using.</p>
+     <blockquote>
+      <p>When you depend on a plugin or a dependency, you can use the a version value of LATEST or RELEASE. LATEST refers to the latest released or snapshot version of a particular artifact, the most recently deployed artifact in a particular repository. RELEASE refers to the last non-snapshot release in the repository. In general, it is not a best practice to design software which depends on a non-specific version of an artifact. If you are developing software, you might want to use RELEASE or LATEST as a convenience so that you don't have to update version numbers when a new release of a third-party library is released. When you release software, you should always make sure that your project depends on specific versions to reduce the chances of your build or your project being affected by a software release not under your control. Use LATEST and RELEASE with caution, if at all.</p>
+     </blockquote>
+     <p>See the <a href="http://www.sonatype.com/books/maven-book/reference/pom-relationships-sect-pom-syntax.html#pom-relationships-sect-latest-release" rel="noreferrer">POM Syntax section of the Maven book</a> for more details. Or see this doc on <a href="http://www.mojohaus.org/versions-maven-plugin/examples/resolve-ranges.html" rel="noreferrer">Dependency Version Ranges</a>, where:</p>
+     <ul>
+      <li>A square bracket ( <code>[</code> &amp; <code>]</code> ) means "closed" (inclusive).</li>
+      <li>A parenthesis ( <code>(</code> &amp; <code>)</code> ) means "open" (exclusive).</li>
+     </ul>
+     <p>Here's an example illustrating the various options. In the Maven repository, com.foo:my-foo has the following metadata:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;metadata&gt;
+  &lt;groupId&gt;com.foo&lt;/groupId&gt;
+  &lt;artifactId&gt;my-foo&lt;/artifactId&gt;
+  &lt;version&gt;2.0.0&lt;/version&gt;
+  &lt;versioning&gt;
+    &lt;release&gt;1.1.1&lt;/release&gt;
+    &lt;versions&gt;
+      &lt;version&gt;1.0&lt;/version&gt;
+      &lt;version&gt;1.0.1&lt;/version&gt;
+      &lt;version&gt;1.1&lt;/version&gt;
+      &lt;version&gt;1.1.1&lt;/version&gt;
+      &lt;version&gt;2.0.0&lt;/version&gt;
+    &lt;/versions&gt;
+    &lt;lastUpdated&gt;20090722140000&lt;/lastUpdated&gt;
+  &lt;/versioning&gt;
+&lt;/metadata&gt;
+</code></pre>
+     <p>If a dependency on that artifact is required, you have the following options (other <a href="https://cwiki.apache.org/confluence/display/MAVENOLD/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges" rel="noreferrer">version ranges</a> can be specified of course, just showing the relevant ones here):</p>
+     <p>Declare an exact version (will always resolve to 1.0.1):</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;version&gt;[1.0.1]&lt;/version&gt;
+</code></pre>
+     <p>Declare an explicit version (will always resolve to 1.0.1 unless a collision occurs, when Maven will select a matching version):</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;version&gt;1.0.1&lt;/version&gt;
+</code></pre>
+     <p>Declare a version range for all 1.x (will currently resolve to 1.1.1):</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;version&gt;[1.0.0,2.0.0)&lt;/version&gt;
+</code></pre>
+     <p>Declare an open-ended version range (will resolve to 2.0.0):</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;version&gt;[1.0.0,)&lt;/version&gt;
+</code></pre>
+     <p>Declare the version as LATEST (will resolve to 2.0.0) (removed from maven 3.x)</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;version&gt;LATEST&lt;/version&gt;
+</code></pre>
+     <p>Declare the version as RELEASE (will resolve to 1.1.1) (removed from maven 3.x):</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;version&gt;RELEASE&lt;/version&gt;
+</code></pre>
+     <p>Note that by default your own deployments will update the "latest" entry in the Maven metadata, but to update the "release" entry, you need to activate the "release-profile" from the <a href="http://maven.apache.org/guides/introduction/introduction-to-the-pom.html" rel="noreferrer">Maven super POM</a>. You can do this with either "-Prelease-profile" or "-DperformRelease=true"</p>
+     <hr>
+     <p>It's worth emphasising that any approach that allows Maven to pick the dependency versions (LATEST, RELEASE, and version ranges) can leave you open to build time issues, as later versions can have different behaviour (for example the dependency plugin has previously switched a default value from true to false, with confusing results).</p>
+     <p>It is therefore generally a good idea to define exact versions in releases. As <a href="https://stackoverflow.com/questions/30571/how-do-i-tell-maven-to-use-the-latest-version-of-a-dependency/1172805#1172805">Tim's answer</a> points out, the <a href="http://www.mojohaus.org/versions-maven-plugin/" rel="noreferrer">maven-versions-plugin</a> is a handy tool for updating dependency versions, particularly the <a href="http://www.mojohaus.org/versions-maven-plugin/use-latest-versions-mojo.html" rel="noreferrer">versions:use-latest-versions</a> and <a href="http://www.mojohaus.org/versions-maven-plugin/use-latest-releases-mojo.html" rel="noreferrer">versions:use-latest-releases</a> goals.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>I think that LATEST/RELEASE is very important for plugins which provide deploy functionality. For example we use plugin which deploy new version of artifacts to the our servers. If servers will change we release new version of plugin and all projects that use this plugin must by manually updated to use new version of deploy plugin.</span> <span> - </span> <span class="display-name">ATom</span> <span> </span> <span class="date">17 Aug 2012 at 14:09</span></td>
+       </tr>
+       <tr>
+        <td>9</td>
+        <td><span>@RichSeller hey Rich; I spent a bit of time on this before I figured out this is not available in Maven 3.0 anymore ;) Would you consider editing the answer so it starts with an update stating the Maven 3.0 depreaction? Thanks a bunch!</span> <span> - </span> <span class="display-name">Miquel</span> <span> </span> <span class="date">29 Nov 2013 at 15:48</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>I believe a good balance would be to lock the major version but get the latest minor (or patch) version (whichever is used for bug-fixes only in the artifcat you are depending on). With the current syntax this appears to be only possible with a range like (note: starts with brackets and ends with parens): <code>[1.1,2.0)</code></span> <span> - </span> <span class="display-name">Amr Mostafa</span> <span> </span> <span class="date">4 Aug 2014 at 22:15</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>FWIW... updated link to Maven3 Compatibility Notes: <a href="https://cwiki.apache.org/confluence/display/MAVEN/Maven+3.x+Compatibility+Notes#Maven3.xCompatibilityNotes-PluginMetaversionResolution" rel="nofollow noreferrer">cwiki.apache.org/confluence/display/MAVEN/…</a></span> <span> - </span> <span class="display-name">dyodji</span> <span> </span> <span class="date">4 May 2015 at 21:17</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>Worth to note that [1.0.0, 2.0.0] range does not include 1.0-SNAPSHOT but does include 2.0-SNAPSHOT.</span> <span> - </span> <span class="display-name">splatch</span> <span> </span> <span class="date">26 Jan 2017 at 22:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Please take a look at enforcer plugin configuration - <a href="https://maven.apache.org/enforcer/enforcer-rules/requirePluginVersions.html" rel="nofollow noreferrer">maven.apache.org/enforcer/enforcer-rules/…</a></span> <span> - </span> <span class="display-name">Cristian Florescu</span> <span> </span> <span class="date">1 Jul 2019 at 05:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>if you just want to do it occasionally with a one liner: <code>mvn org.codehaus.mojo:versions-maven-plugin:2.11.0:use-latest-re‌​leases</code></span> <span> - </span> <span class="display-name">snap</span> <span> </span> <span class="date">2 Aug 2022 at 16:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>422</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tim</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jul 2009 at 16:03</span>
+     </div>
+    </div>
+    <div>
+     <p>Now I know this topic is old, but reading the question and the OP supplied answer it seems the <a href="http://www.mojohaus.org/versions-maven-plugin/" rel="noreferrer">Maven Versions Plugin</a> might have actually been a better answer to his question:</p>
+     <p>In particular the following goals could be of use:</p>
+     <ul>
+      <li><strong>versions:use-latest-versions</strong> searches the pom for all versions which have been a newer version and replaces them with the latest version.</li>
+      <li><strong>versions:use-latest-releases</strong> searches the pom for all non-SNAPSHOT versions which have been a newer release and replaces them with the latest release version.</li>
+      <li><strong>versions:update-properties</strong> updates properties defined in a project so that they correspond to the latest available version of specific dependencies. This can be useful if a suite of dependencies must all be locked to one version.</li>
+     </ul>
+     <p>The following other goals are also provided:</p>
+     <ul>
+      <li><strong>versions:display-dependency-updates</strong> scans a project's dependencies and produces a report of those dependencies which have newer versions available.</li>
+      <li><strong>versions:display-plugin-updates</strong> scans a project's plugins and produces a report of those plugins which have newer versions available.</li>
+      <li><strong>versions:update-parent</strong> updates the parent section of a project so that it references the newest available version. For example, if you use a corporate root POM, this goal can be helpful if you need to ensure you are using the latest version of the corporate root POM.</li>
+      <li><strong>versions:update-child-modules</strong> updates the parent section of the child modules of a project so the version matches the version of the current project. For example, if you have an aggregator pom that is also the parent for the projects that it aggregates and the children and parent versions get out of sync, this mojo can help fix the versions of the child modules. (Note you may need to invoke Maven with the -N option in order to run this goal if your project is broken so badly that it cannot build because of the version mis-match).</li>
+      <li><strong>versions:lock-snapshots</strong> searches the pom for all -SNAPSHOT versions and replaces them with the current timestamp version of that -SNAPSHOT, e.g. -20090327.172306-4</li>
+      <li><strong>versions:unlock-snapshots</strong> searches the pom for all timestamp locked snapshot versions and replaces them with -SNAPSHOT.</li>
+      <li><strong>versions:resolve-ranges</strong> finds dependencies using version ranges and resolves the range to the specific version being used.</li>
+      <li><strong>versions:use-releases</strong> searches the pom for all -SNAPSHOT versions which have been released and replaces them with the corresponding release version.</li>
+      <li><strong>versions:use-next-releases</strong> searches the pom for all non-SNAPSHOT versions which have been a newer release and replaces them with the next release version.</li>
+      <li><strong>versions:use-next-versions</strong> searches the pom for all versions which have been a newer version and replaces them with the next version.</li>
+      <li><strong>versions:commit</strong> removes the pom.xml.versionsBackup files. Forms one half of the built-in "Poor Man's SCM".</li>
+      <li><strong>versions:revert</strong> restores the pom.xml files from the pom.xml.versionsBackup files. Forms one half of the built-in "Poor Man's SCM".</li>
+     </ul>
+     <p>Just thought I'd include it for any future reference.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>10</td>
+        <td><span>In this context, what's the difference between "release" and "version".</span> <span> - </span> <span class="display-name">Ben Noland</span> <span> </span> <span class="date">23 Dec 2012 at 15:39</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@BenNoland, I believe the difference in this case is that the next version may not need be a release artifact. E.g. given an artifact versioned 1.0.0-SNAPSHOT, 1.0.0, and 1.0.1-SNAPSHOT, and a pom reference to 1.0.0-SNAPSHOT, versions:next-versions and versions:next-releases will resolve to 1.0.0, whereas versions:latest-versions and versions:latest-releases will resolve to 1.0.1-SNAPSHOT and 1.0.0 respectfully.</span> <span> - </span> <span class="display-name">Ryan Beesley</span> <span> </span> <span class="date">17 Jun 2014 at 19:14</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Printing all possible and unrelated goals is not helpful.</span> <span> - </span> <span class="display-name">MariuszS</span> <span> </span> <span class="date">25 Aug 2015 at 09:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What I'm looking for is something that will do the reverse of versions:resolve-ranges. I have a pom that has been resolved that I want to open back up to newer versions (i.e. go from &lt;version&gt;1.2.3-4&lt;/version&gt; to &lt;version&gt;[1.2,)&lt;/version&gt;.</span> <span> - </span> <span class="display-name">fmpdmb</span> <span> </span> <span class="date">25 Feb 2016 at 20:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@fmpdmb How would you be able to decide if it should be <code>&lt;version&gt;[1.2,)&lt;/version&gt;</code> or <code>&lt;version&gt;[1.2,2.0)&lt;/version&gt;</code> or <code>&lt;version&gt;[1.0,2.0)&lt;/version&gt;</code> ?</span> <span> - </span> <span class="display-name">Simon Forsberg</span> <span> </span> <span class="date">16 Mar 2016 at 15:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@SimonForsberg maybe a property to support either?</span> <span> - </span> <span class="display-name">fmpdmb</span> <span> </span> <span class="date">20 Mar 2016 at 15:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Are you able to ask the versions plugin to only look at dependencies with a certain groupId, e.g. <code>com.mycompany</code> ? I only want to analyze internal dependencies for latest versions, since analyzing everything takes ages...</span> <span> - </span> <span class="display-name">vikingsteve</span> <span> </span> <span class="date">16 Jun 2016 at 13:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@vikingsteve if you use properties for your internal version numbers, and <code>mvn versions:display-property-updates</code> it'll run much quicker</span> <span> - </span> <span class="display-name">Tim</span> <span> </span> <span class="date">17 Jun 2016 at 05:07</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>I would think versions:use-latest-versions solves most of the OP's problems.</span> <span> - </span> <span class="display-name">Alex R</span> <span> </span> <span class="date">31 May 2018 at 00:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>But...does it also work only for a specific dependency?</span> <span> - </span> <span class="display-name">Phate</span> <span> </span> <span class="date">7 Apr 2020 at 19:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Could any one help that I met with the same issue as <a href="https://stackoverflow.com/questions/45179530/versions-maven-plugin-doesnt-build-with-updated-properties" title="versions maven plugin doesnt build with updated properties">stackoverflow.com/questions/45179530/…</a>. I set in as an execution during build with validate phase. I can see the version update, but the real build still used the old value...</span> <span> - </span> <span class="display-name">Qiyu Zhang</span> <span> </span> <span class="date">13 Nov 2021 at 03:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>175</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Martin Klinke</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Aug 2008 at 16:56</span>
+     </div>
+    </div>
+    <div>
+     <p>Please take a look at <a href="https://cwiki.apache.org/confluence/display/MAVENOLD/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges" rel="noreferrer">this page</a> (section "Dependency Version Ranges"). What you might want to do is something like</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;version&gt;[1.2.3,)&lt;/version&gt;
+</code></pre>
+     <p>These version ranges are implemented in Maven2.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>You may want to have a closer look at how Maven compare version numbers - if you do not conform to a strict pattern Maven compares as strings and not numbers.</span> <span> - </span> <span class="display-name">Thorbjørn Ravn Andersen</span> <span> </span> <span class="date">25 Feb 2013 at 13:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That page is on Codehaus, and describes itself as things "that have not yet been implemented for Maven 2.0"... The Maven documentation itself doesn't say anything about version ranges. Am I missing something? When were version ranges introduced? Where are they described in the official documentation?</span> <span> - </span> <span class="display-name">Shannon</span> <span> </span> <span class="date">1 Aug 2014 at 21:37</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>You are wrong, version range means that all versions are OK from 1.2.3 to higher. This is not the latest version at all.</span> <span> - </span> <span class="display-name">MariuszS</span> <span> </span> <span class="date">24 Aug 2015 at 07:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>92</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Adam Gent</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jan 2012 at 21:21</span>
+     </div>
+    </div>
+    <div>
+     <p>Unlike others I think there are many reasons why you might <em>always want the latest</em> version. Particularly if you are doing continuous deployment (we sometimes have like 5 releases in a day) and don't want to do a multi-module project.</p>
+     <p>What I do is make Hudson/Jenkins do the following for every build:</p>
+     <pre class="lang-none prettyprint-override"><code>mvn clean versions:use-latest-versions scm:checkin deploy -Dmessage="update versions" -DperformRelease=true
+</code></pre>
+     <p>That is I use the versions plugin and scm plugin to update the dependencies and then check it in to source control. Yes I let my CI do SCM checkins (which you have to do anyway for the maven release plugin).</p>
+     <p>You'll want to setup the versions plugin to only update what you want:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;plugin&gt;
+    &lt;groupId&gt;org.codehaus.mojo&lt;/groupId&gt;
+    &lt;artifactId&gt;versions-maven-plugin&lt;/artifactId&gt;
+    &lt;version&gt;1.2&lt;/version&gt;
+    &lt;configuration&gt;
+        &lt;includesList&gt;com.snaphop&lt;/includesList&gt;
+        &lt;generateBackupPoms&gt;false&lt;/generateBackupPoms&gt;
+        &lt;allowSnapshots&gt;true&lt;/allowSnapshots&gt;
+    &lt;/configuration&gt;
+&lt;/plugin&gt;
+</code></pre>
+     <p>I use the release plugin to do the release which takes care of -SNAPSHOT and validates that there is a release version of -SNAPSHOT (which is important).</p>
+     <p>If you do what I do you will get the latest version for all snapshot builds and the latest release version for release builds. Your builds will also be reproducible.</p>
+     <p><strong>Update</strong></p>
+     <p>I noticed some comments asking some specifics of this workflow. I will say we don't use this method anymore and the big reason why is the maven versions plugin is buggy and in general is inherently flawed.</p>
+     <p>It is flawed because to run the versions plugin to adjust versions all the existing versions need to exist for the pom to run correctly. That is the versions plugin cannot update to the latest version of anything if it can't find the version referenced in the pom. This is actually rather annoying as we often cleanup old versions for disk space reasons.</p>
+     <p>Really you need a separate tool from maven to adjust the versions (so you don't depend on the pom file to run correctly). I have written such a tool in the the lowly language that is Bash. The script will update the versions like the version plugin and check the pom back into source control. It also runs like 100x faster than the mvn versions plugin. Unfortunately it isn't written in a manner for public usage but if people are interested I could make it so and put it in a gist or github.</p>
+     <p>Going back to workflow as some comments asked about that this is what we do:</p>
+     <ol>
+      <li>We have 20 or so projects in their own repositories with their own jenkins jobs</li>
+      <li>When we release the maven release plugin is used. The workflow of that is covered in the plugin's documentation. The maven release plugin sort of sucks (and I'm being kind) but it does work. One day we plan on replacing this method with something more optimal.</li>
+      <li>When one of the projects gets released jenkins then runs a special job we will call the update all versions job (how jenkins knows its a release is a complicated manner in part because the maven jenkins release plugin is pretty crappy as well).</li>
+      <li>The update all versions job knows about all the 20 projects. It is actually an aggregator pom to be specific with all the projects in the modules section in dependency order. Jenkins runs our magic groovy/bash foo that will pull all the projects update the versions to the latest and then checkin the poms (again done in dependency order based on the modules section).</li>
+      <li>For each project if the pom has changed (because of a version change in some dependency) it is checked in and then we immediately ping jenkins to run the corresponding job for that project (this is to preserve build dependency order otherwise you are at the mercy of the SCM Poll scheduler).</li>
+     </ol>
+     <p>At this point I'm of the opinion it is a good thing to have the release and auto version a separate tool from your general build anyway.</p>
+     <p>Now you might think maven sort of sucks because of the problems listed above but this actually would be fairly difficult with a build tool that does not have a declarative easy to parse <strong>extendable</strong> syntax (aka XML).</p>
+     <p>In fact we add custom XML attributes through namespaces to help hint bash/groovy scripts (e.g. don't update this version).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>Thanks for including a motivation (continuous deployment) in your answer.</span> <span> - </span> <span class="display-name">David J. Liszewski</span> <span> </span> <span class="date">11 Jan 2012 at 01:18</span></td>
+       </tr>
+       <tr>
+        <td>13</td>
+        <td><span>I think the important point here it that builds are reproducible with this method, whereas, when using version ranges or -LATEST, they are not!</span> <span> - </span> <span class="display-name">marc.guenther</span> <span> </span> <span class="date">12 Jul 2012 at 09:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I would like to second the solution using an external tool making changes to project pom before running build. We are also using this approach as version-range-plugin is inherently bugged for example taking to account dates and not only versions.</span> <span> - </span> <span class="display-name">Daniel Hajduk</span> <span> </span> <span class="date">8 Jan 2020 at 08:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Could any one help that I met with the same issue as <a href="https://stackoverflow.com/questions/45179530/versions-maven-plugin-doesnt-build-with-updated-properties" title="versions maven plugin doesnt build with updated properties">stackoverflow.com/questions/45179530/…</a>. I set in as an execution during build with validate phase. I can see the version update, but the real build still used the old value...</span> <span> - </span> <span class="display-name">Qiyu Zhang</span> <span> </span> <span class="date">13 Nov 2021 at 03:56</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>43</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>mkobit</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jul 2015 at 16:21</span>
+     </div>
+    </div>
+    <div>
+     <p>The dependencies syntax is located at the <a href="https://maven.apache.org/pom.html#Dependency_Version_Requirement_Specification">Dependency Version Requirement Specification</a> documentation. Here it is is for completeness:</p>
+     <blockquote>
+      <p>Dependencies' <code>version</code> element define version requirements, used to compute effective dependency version. Version requirements have the following syntax:</p>
+      <ul>
+       <li><code>1.0</code>: "Soft" requirement on 1.0 (just a recommendation, if it matches all other ranges for the dependency)</li>
+       <li><code>[1.0]</code>: "Hard" requirement on 1.0</li>
+       <li><code>(,1.0]</code>: x &lt;= 1.0</li>
+       <li><code>[1.2,1.3]</code>: 1.2 &lt;= x &lt;= 1.3</li>
+       <li><code>[1.0,2.0)</code>: 1.0 &lt;= x &lt; 2.0</li>
+       <li><code>[1.5,)</code>: x &gt;= 1.5</li>
+       <li><code>(,1.0],[1.2,)</code>: x &lt;= 1.0 or x &gt;= 1.2; multiple sets are comma-separated</li>
+       <li><code>(,1.1),(1.1,)</code>: this excludes 1.1 (for example if it is known not to work in combination with this library)</li>
+      </ul>
+     </blockquote>
+     <p>In your case, you could do something like <code>&lt;version&gt;[1.2.3,)&lt;/version&gt;</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Martin Klinke</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Aug 2008 at 16:30</span>
+     </div>
+    </div>
+    <div>
+     <p>Are you possibly depending on development versions that obviously change a lot during development?</p>
+     <p>Instead of incrementing the version of development releases, you could just use a snapshot version that you overwrite when necessary, which means you wouldn't have to change the version tag on every minor change. Something like 1.0-SNAPSHOT...</p>
+     <p>But maybe you are trying to achieve something else ;)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>trung</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Aug 2015 at 08:38</span>
+     </div>
+    </div>
+    <div>
+     <p>Who ever is using LATEST, please make sure you have -U otherwise the latest snapshot won't be pulled.</p>
+     <pre><code>mvn -U dependency:copy -Dartifact=com.foo:my-foo:LATEST
+// pull the latest snapshot for my-foo from all repositories
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This does not pulls latest snapshot from local m2 repo</span> <span> - </span> <span class="display-name">c.sankhala</span> <span> </span> <span class="date">12 Feb 2021 at 09:42</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>bclarance</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Apr 2015 at 16:00</span>
+     </div>
+    </div>
+    <div>
+     <p>By the time this question was posed there were some kinks with version ranges in maven, but these have been resolved in newer versions of maven. This article captures very well how version ranges work and best practices to better understand how maven understands versions: <a href="https://docs.oracle.com/middleware/1212/core/MAVEN/maven_version.htm#MAVEN8855" rel="nofollow noreferrer">https://docs.oracle.com/middleware/1212/core/MAVEN/maven_version.htm#MAVEN8855</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Whilst this may theoretically answer the question, <a href="//meta.stackoverflow.com/q/8259">it would be preferable</a> to include the essential parts of the answer here, and provide the link for reference.</span> <span> - </span> <span class="display-name">Kalle Richter</span> <span> </span> <span class="date">31 May 2017 at 19:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Junchen Liu</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jun 2015 at 15:53</span>
+     </div>
+    </div>
+    <div>
+     <p>The truth is even in 3.x it still works, surprisingly the projects builds and deploys. But the LATEST/RELEASE keyword causing problems in m2e and eclipse all over the place, ALSO projects depends on the dependency which deployed through the LATEST/RELEASE fail to recognize the version.</p>
+     <p>It will also causing problem if you are try to define the version as property, and reference it else where.</p>
+     <p>So the conclusion is use the <a href="http://www.mojohaus.org/versions-maven-plugin/" rel="noreferrer">versions-maven-plugin</a> if you can.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Markon</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 May 2017 at 15:59</span>
+     </div>
+    </div>
+    <div>
+     <p>Sometimes you don't want to use version ranges, because it seems that they are "slow" to resolve your dependencies, especially when there is continuous delivery in place and there are tons of versions - mainly during heavy development.</p>
+     <p>One workaround would be to use the <a href="http://www.mojohaus.org/versions-maven-plugin/" rel="noreferrer">versions-maven-plugin</a>. For example, you can declare a property:</p>
+     <pre><code>&lt;properties&gt;
+    &lt;myname.version&gt;1.1.1&lt;/myname.version&gt;
+&lt;/properties&gt;
+</code></pre>
+     <p>and add the versions-maven-plugin to your pom file:</p>
+     <pre><code>&lt;build&gt;
+    &lt;plugins&gt;
+        &lt;plugin&gt;
+            &lt;groupId&gt;org.codehaus.mojo&lt;/groupId&gt;
+            &lt;artifactId&gt;versions-maven-plugin&lt;/artifactId&gt;
+            &lt;version&gt;2.3&lt;/version&gt;
+            &lt;configuration&gt;
+                &lt;properties&gt;
+                    &lt;property&gt;
+                        &lt;name&gt;myname.version&lt;/name&gt;
+                        &lt;dependencies&gt;
+                            &lt;dependency&gt;
+                                &lt;groupId&gt;group-id&lt;/groupId&gt;
+                                &lt;artifactId&gt;artifact-id&lt;/artifactId&gt;
+                                &lt;version&gt;latest&lt;/version&gt;
+                            &lt;/dependency&gt;
+                        &lt;/dependencies&gt;
+                    &lt;/property&gt;
+                &lt;/properties&gt;
+            &lt;/configuration&gt;
+        &lt;/plugin&gt;
+    &lt;/plugins&gt;
+&lt;/build&gt;
+</code></pre>
+     <p>Then, in order to update the dependency, you have to execute the goals:</p>
+     <pre><code>mvn versions:update-properties validate
+</code></pre>
+     <p>If there is a version newer than 1.1.1, it will tell you:</p>
+     <pre><code>[INFO] Updated ${myname.version} from 1.1.1 to 1.3.2
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Arayan Singh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Apr 2018 at 09:10</span>
+     </div>
+    </div>
+    <div>
+     <p>If you want Maven should use the latest version of a dependency, then you can use <a href="http://www.mojohaus.org/versions-maven-plugin/" rel="noreferrer">Versions Maven Plugin</a> and how to use this plugin, Tim has already given a good answer, follow his <a href="https://stackoverflow.com/a/1172805/9339242">answer</a>.</p>
+     <p>But as a developer, I will not recommend this type of practices. WHY?</p>
+     <p>answer to why is already given by <a href="https://stackoverflow.com/users/70604/pascal-thivent">Pascal Thivent</a> in the comment of the question</p>
+     <blockquote>
+      <p>I really don't recommend this practice (nor using version ranges) for the sake of build reproducibility. A build that starts to suddenly fail for an unknown reason is way more annoying than updating manually a version number.</p>
+     </blockquote>
+     <p>I will recommend this type of practice:</p>
+     <pre><code>&lt;properties&gt;
+    &lt;spring.version&gt;3.1.2.RELEASE&lt;/spring.version&gt;
+&lt;/properties&gt;
+
+&lt;dependencies&gt;
+
+    &lt;dependency&gt;
+        &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-core&lt;/artifactId&gt;
+        &lt;version&gt;${spring.version}&lt;/version&gt;
+    &lt;/dependency&gt;
+
+    &lt;dependency&gt;
+        &lt;groupId&gt;org.springframework&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-context&lt;/artifactId&gt;
+        &lt;version&gt;${spring.version}&lt;/version&gt;
+    &lt;/dependency&gt;
+
+&lt;/dependencies&gt;
+</code></pre>
+     <p>it is easy to maintain and easy to debug. You can update your POM in no time.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>if you use versions-maven-plugin, the build is still reproducible. Updating the maven version can be done in a separate commit (as you can see from my answer, you have to specify a separate goal, it just doesn't happen magically in the build).</span> <span> - </span> <span class="display-name">Markon</span> <span> </span> <span class="date">8 Aug 2019 at 14:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>yilin </span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Oct 2018 at 03:52</span>
+     </div>
+    </div>
+    <div>
+     <p>MY solution in maven 3.5.4 ,use nexus, in eclipse:</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;yilin.sheng&lt;/groupId&gt;
+    &lt;artifactId&gt;webspherecore&lt;/artifactId&gt;
+    &lt;version&gt;LATEST&lt;/version&gt; 
+&lt;/dependency&gt;
+</code></pre>
+     <p>then in eclipse: <code>atl + F5</code>, and choose the <code>force update of snapshots/release</code></p>
+     <p>it works for me.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Wont work at the command line though for reasons ably stated above in various posts. Many of us have to conform to automated builds and so our POMs have to work when run at the command line, not just in Eclipse.</span> <span> - </span> <span class="display-name">bigbadmouse</span> <span> </span> <span class="date">16 Oct 2018 at 10:45</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

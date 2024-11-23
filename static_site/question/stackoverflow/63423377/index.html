@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Using DataTables how to display a running total of an amount entered in each row?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Using DataTables how to display a running total of an amount entered in each row?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>-1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Glyn</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Aug 2020 at 06:46</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63423377/using-datatables-how-to-display-a-running-total-of-an-amount-entered-in-each-row">source</a>
+    </div>
+   </div>
+   <div>
+    <p><a href="http://live.datatables.net/dalogaci/1/edit" rel="nofollow noreferrer">http://live.datatables.net/dalogaci/1/edit</a></p>
+    <p>I have an amount of money to be dispersed and am using DataTables to display a list of people and allow entry of an amount next to each person (their share of the disbursement). I want to provide a running total of the amount entered into the table so I can warn when the total to be dispersed has been reached or passed.</p>
+    <p>Kind regards,</p>
+    <p>Glyn</p>
+   </div>
+   <div class="tags">
+    <span class="tag">html</span><span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Aug 2020 at 18:23</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use the following approach.</p>
+     <p>In my case, I display the running total in a <code>&lt;div&gt;</code>, rather than an input box, as the value is only for display purposes:</p>
+     <pre><code>&lt;div id="showsum"&gt;Grand Total: $0.00&lt;/div&gt;
+</code></pre>
+     <p>The end result:</p>
+     <p><a href="https://i.stack.imgur.com/ZiEXw.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/ZiEXw.png" alt="enter image description here"></a></p>
+     <p>The script for this - which I have tried to explain with comments in the code:</p>
+     <pre><code>&lt;script type="text/javascript"&gt;
+
+// define the table variable here so the doSum()
+// function will have access to it, when needed:
+var table;
+
+// reads each value from the final column in the table, checks
+// if the value is a number (as opposed to blank), and then 
+// keeps a running total. Ensure we round fractions of pennies
+// as needed.
+//
+// When handling money, use a big number library - see this:
+// https://stackoverflow.com/questions/1458633/how-to-deal-with-floating-point-number-precision-in-javascript
+//
+function doSum() {
+  //var foop = table.columns(5).nodes().to$();
+  var sum = 0.0;
+  // this gets each node (cell) in the final column:
+  table.columns(5).nodes().to$()[0].forEach(function (item) {
+    // see if the display value is a number (i.e. not blank):
+    var amt = parseFloat($('input', item ).val());
+    if (!isNaN(amt)) {
+        sum += amt;
+    }
+  });
+  // round and display to 2 decimal places:
+  sum = (Math.round((sum + Number.EPSILON) * 100) / 100).toFixed(2);
+  $('#showsum').text("Grand Total: $" + sum);
+}
+
+  $(document).ready(function() {
+
+    table = $('#example').DataTable( {
+      "columnDefs": [ {
+        "targets": 5,
+        "data": function ( row, type, val, meta ) {
+          // note the use of onchange="doSum()" in the following:
+          return '&lt;input type="number" min="0" max="99999.99" step=".01" placeholder="0.00" onchange="doSum()"&gt;';
+        }
+      } ]
+    } );
+
+} );
+
+&lt;/script&gt;
+</code></pre>
+     <p>For a change to be added to the grand total, you have to hit "enter", or click outside of the input field, if you type the value in manually.</p>
+     <p>Because you are dealing with money, the code should really be using a "big number" format to eliminate the risk of inaccuracies in fractions of pennies (due to limitations in floating point arithmetic). For example see <a href="https://stackoverflow.com/questions/1458633/how-to-deal-with-floating-point-number-precision-in-javascript">here</a>.</p>
+     <p><em>Final note: I see this question was down-voted. I think that may have been because you only link to your demo code, instead of showing the relevant parts in the question itself. The link to the demo is useful - but showing code in the question itself is generally a "must-do", I think.</em></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

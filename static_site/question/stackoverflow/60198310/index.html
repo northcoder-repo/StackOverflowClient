@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Docker Desktop for Windows with Linux Containers and TLS</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Docker Desktop for Windows with Linux Containers and TLS</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>6</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>andrewJames</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Feb 2020 at 23:19</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60198310/docker-desktop-for-windows-with-linux-containers-and-tls">source</a>
+    </div>
+   </div>
+   <div>
+    <p><strong>TL/DR: Is it possible to use Docker on Windows, with Linux containers, and with TLS enabled?</strong></p>
+    <p><strong>Observation 1</strong>:</p>
+    <p>When I use Docker on Windows 10 (Docker Desktop 2.2.0.3, and engine 19.03.5) I can happily use Linux containers.</p>
+    <p><strong>Observation 2</strong>:</p>
+    <p>Using the same environment as observation 1 above, if I want to expose the docker daemon on TCP with TLS, I can use <code>openssl</code> to <a href="https://docs.docker.com/engine/security/https/" rel="nofollow noreferrer">set up the CA, and all the certs I need</a> - again, no problem. Just to clarify, this is all happening on localhost - only the one host PC is involved.</p>
+    <p>My Docker Engine config file (Docker Desktop &gt; Settings &gt; Docker Engine) ends up looking like this:</p>
+    <pre><code>{
+  "registry-mirrors": [],
+  "insecure-registries": [],
+  "debug": true,
+  "experimental": false,
+  "tlsverify": true,
+  "tlscacert": "C:/dockercerts/ca.pem",
+  "tlscert": "C:/dockercerts/server-cert.pem",
+  "tlskey": "C:/dockercerts/server-key.pem",
+  "hosts": [
+    "tcp://0.0.0.0:2376",
+    "npipe://"
+  ]
+}
+</code></pre>
+    <p>And, the following <code>docker version</code> command works like a charm for me:</p>
+    <pre><code>docker --tlsverify ^
+  --tlscacert=C:/dockercerts/ca.pem ^
+  --tlscert=C:/dockercerts/cert.pem ^
+  --tlskey=C:/dockercerts/key.pem ^
+  -H=localhost:2376 version
+</code></pre>
+    <p><strong>Observation 3</strong>:</p>
+    <p>But to make the <code>docker version</code> command in observation 2 work, I have to switch Docker Desktop from "Linux Containers" to "Windows Containers".</p>
+    <p>(I currently have no Windows containers.)</p>
+    <p>If I try to switch Docker Desktop to use Linux containers, then Docker Desktop crashes on start-up (or on restart). I even had to re-install the whole thing a couple of times - I could not get to the "reset to factory options" button.</p>
+    <p><strong>Background</strong>:</p>
+    <p>I was trying to use the Docker API (the REST services) over HTTPS rather than HTTP - so that's what prompted all of this - in case that helps.</p>
+    <p><strong>Likely Conclusion...?</strong>:</p>
+    <p>It's not possible to mix these specific things on Windows - and I should use a Linux host for my Linux containers.</p>
+    <p>However, I'd be delighted to see a set-up where I <em>can</em> run that <code>docker version</code> command on Windows, using my certificates, and Linux containers - all at the same time.</p>
+    <p>Failing that, if anyone has any insight into <em>why</em> it's not possible ("<em>...windows pipes...?</em>") or something like that, I would be very interested.</p>
+    <p>(I do see a fairly large number of Docker and TLS questions on SO - but nothing specific to this scenario.)</p>
+    <p><strong>UPDATE</strong>:</p>
+    <p>Here is the specific error I get:</p>
+    <pre><code>Docker.Core.Backend.BackendException:
+Failed to start
+   at Docker.Core.Pipe.NamedPipeClient.&lt;TrySendAsync&gt;d__5.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at Docker.Core.Pipe.NamedPipeClient.Send(String action, Object[] parameters)
+   at Docker.Actions.&lt;RestartDaemon&gt;b__37_0()
+   at Docker.ApiServices.TaskQueuing.TaskQueue.&lt;&gt;c__DisplayClass18_0.&lt;.ctor&gt;b__1()
+
+  Docker.Core.DockerException:
+  Failed to start
+     at Docker.Backend.ContainerEngine.Linux.DoStart(Settings settings, String daemonOptions, Credential credential)
+     at Docker.Backend.ContainerEngine.Linux.Restart(Settings settings, String daemonOptions, Credential credential)
+     at Docker.Backend.BackendNamedPipeServer.&lt;Run&gt;b__8_3(Object[] args)
+     at Docker.Core.Pipe.NamedPipeServer.&lt;&gt;c__DisplayClass9_0.&lt;Register&gt;b__0(Object[] parameters)
+     at Docker.Core.Pipe.NamedPipeServer.RunAction(String action, Object[] parameters)
+</code></pre>
+    <p>Researching the following...</p>
+    <pre><code>Failed to start at Docker.Core.Pipe.NamedPipeClient.&lt;TrySendAsync&gt;d__5.MoveNext()
+</code></pre>
+    <p>... has not led to any insights, beyond some <em>me too</em> comments - mostly related to version updates.</p>
+    <p><strong>Issue Ticket</strong></p>
+    <p><a href="https://github.com/docker/for-win/issues/7939" rel="nofollow noreferrer">Unable to run Docker for Windows using TLS with Linux Containers</a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">windows</span><span class="tag">docker</span><span class="tag">tls1.2</span><span class="tag">docker-desktop</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>I had a similar error when windows restart docker desktop was not getting started, these PS scripts helped me <a href="https://thecodeframework.com/start-docker-desktop-on-windows-start-up-without-user-logon/" rel="nofollow noreferrer">thecodeframework.com/…</a></span> <span> - </span> <span class="display-name">Gagan</span> <span> </span> <span class="date">2 Aug 2020 at 03:05</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

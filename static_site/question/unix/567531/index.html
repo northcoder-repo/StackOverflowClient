@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Ways to append text to a file</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Ways to append text to a file</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>15</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>annahri</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Feb 2020 at 02:19</span>
+    </div>
+    <div>
+     <a href="https://unix.stackexchange.com/questions/567531/ways-to-append-text-to-a-file">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I always do this to append text to a file</p>
+    <pre class="lang-bsh prettyprint-override"><code>echo "text text text ..." &gt;&gt; file
+# or
+printf "%s\n" "text text text ..." &gt;&gt; file
+</code></pre>
+    <p>I wonder if there are more ways to achieve the same, more elegant or unusual way.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">shell-script</span><span class="tag">shell</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>3</td>
+       <td><span>As I already said, it's not only that. <code>echo "a\nb"</code> will print something different than <code>printf "%s\n" "a\nb"</code>, in ~all the shells but bash. You cannot assume that the two are similar.</span> <span> - </span> <span class="display-name">user313992</span> <span> </span> <span class="date">14 Feb 2020 at 05:47</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Note that you can group commands together <code>(a ; b ; c) &gt;&gt; file</code></span> <span> - </span> <span class="display-name">Thorbjørn Ravn Andersen</span> <span> </span> <span class="date">15 Feb 2020 at 13:44</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>29</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>roaima</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Feb 2020 at 10:33</span>
+     </div>
+    </div>
+    <div>
+     <p>I quite like this one, where I can set up a log file at the top of a script and write to it throughout without needing either a global variable or to remember to change all occurrences of a filename:</p>
+     <pre><code>exec 3&gt;&gt; /tmp/somefile.log
+...
+
+echo "This is a log message" &gt;&amp;3
+echo "This goes to stdout"
+echo "This is written to stderr" &gt;&amp;2
+</code></pre>
+     <p>The <code>exec 3&gt;dest</code> construct opens the file <code>dest</code> for writing (use <code>&gt;&gt;</code> for appending, <code>&lt;</code> for reading - just as usual) and attaches it to file descriptor #3. You then get descriptor #1 for <em>stdout</em>, #2 for <em>stderr</em>, and this new #3 for the file <code>dest</code>.</p>
+     <p>You can join <em>stderr</em> to <em>stdout</em> for the duration of a script with a construct such as <code>exec 2&gt;&amp;1</code> - there are lots of powerful possibilities. The documentation (<code>man bash</code>) has this to say about it:</p>
+     <blockquote>
+      <p><strong><code>exec [-cl] [-a name] [command [arguments]]</code></strong> If <code>command</code> is specified, it replaces the shell. [...] <em>If <code>command</code> is not specified, any redirections take effect in the current shell [...].</em></p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nilushan Costa</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Feb 2020 at 05:41</span>
+     </div>
+    </div>
+    <div>
+     <p>Here are few other ways to append text to a file.</p>
+     <ol>
+      <li>
+       <p>Using tee</p>
+       <pre class="lang-bsh prettyprint-override"><code>tee -a file &lt;&lt;&lt; "text text text ..."
+</code></pre></li>
+      <li>
+       <p>Using awk</p>
+       <pre class="lang-bsh prettyprint-override"><code>awk 'BEGIN{ printf "text text text ..." &gt;&gt; "file" }'
+</code></pre></li>
+      <li>
+       <p>Using sed</p>
+       <pre class="lang-bsh prettyprint-override"><code>sed -i '$a text text text ...' file
+sed -i -e "\$atext text text ..." file
+</code></pre></li>
+     </ol>
+     <p>Sources:</p>
+     <ul>
+      <li>
+       <p><a href="https://linoxide.com/linux-how-to/append-to-end-of-file-in-linux/" rel="noreferrer">How to Append to End of a File in Linux</a></p></li>
+      <li>
+       <p><a href="https://unix.stackexchange.com/questions/20573/sed-insert-text-after-the-last-line">SED: insert text after the last line?</a></p></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>sed -i does not so much append as overwrite with an extended version. Normally not much of an issue, but it can be if the file is sparse, linked, or actively being read.</span> <span> - </span> <span class="display-name">David G.</span> <span> </span> <span class="date">16 Feb 2020 at 12:44</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Paulo Tomé</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Feb 2020 at 10:42</span>
+     </div>
+    </div>
+    <div>
+     <p>Using a <a href="https://en.wikipedia.org/wiki/Here_document" rel="noreferrer"><code>here-document</code></a> approach:</p>
+     <pre><code>cat &lt;&lt;EOF &gt;&gt; file
+&gt; foo
+&gt; bar
+&gt; baz
+&gt; EOF
+</code></pre>
+     <p>Tests:</p>
+     <pre><code>$ cat file
+aaaa
+bbbb
+
+$ cat &lt;&lt;EOF &gt;&gt; file
+&gt; foo
+&gt; bar
+&gt; baz
+&gt; EOF
+
+$ cat file
+aaaa
+bbbb
+foo
+bar
+baz
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>Why downvote? This is a valid answer tho.</span> <span> - </span> <span class="display-name">annahri</span> <span> </span> <span class="date">14 Feb 2020 at 14:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@annahri See updated answer with tests.</span> <span> - </span> <span class="display-name">Paulo Tomé</span> <span> </span> <span class="date">14 Feb 2020 at 15:28</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This is very, very useful in scripts.</span> <span> - </span> <span class="display-name">Thorbjørn Ravn Andersen</span> <span> </span> <span class="date">15 Feb 2020 at 13:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ThorbjørnRavnAndersen Thank you :)</span> <span> - </span> <span class="display-name">Paulo Tomé</span> <span> </span> <span class="date">15 Feb 2020 at 13:46</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Paul_Pedant</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Feb 2020 at 09:53</span>
+     </div>
+    </div>
+    <div>
+     <p>See <a href="http://man7.org/linux/man-pages/man1/dd.1.html" rel="nofollow noreferrer">dd(1)</a> man page:</p>
+     <pre><code>dd conv=notrunc oflags=append bs=4096 if=myNewData of=myOldFile
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is creative, but can you use a line of string instead of an input file?</span> <span> - </span> <span class="display-name">annahri</span> <span> </span> <span class="date">14 Feb 2020 at 14:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@annahri yes certainly, <code>dd conv=notruct oflag=append of=destination &lt;&lt;&lt;'Some string of text'</code></span> <span> - </span> <span class="display-name">roaima</span> <span> </span> <span class="date">14 Feb 2020 at 15:42</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@roaima that's shell dependent though. Not all shells support the <code>&lt;&lt;&lt;</code> herestring construct. I have no idea what <code>dd</code> would do in those cases, would it be safe?</span> <span> - </span> <span class="display-name">terdon on strike</span> <span> </span> <span class="date">15 Feb 2020 at 16:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@terdon I believe that the here-string construct is like feeding <code>dd</code> from any other file descriptor (but I've not checked the source). On that assumption, I would expect <code>dd</code> to be as safe as with any other similar invocation. <code>echo 'Some string of text or printf if you prefer' | dd conv=notrunc oflag=append of=destination</code>, etc.</span> <span> - </span> <span class="display-name">roaima</span> <span> </span> <span class="date">15 Feb 2020 at 16:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@roaima sure, with shells that support <code>&lt;&lt;&lt;</code>, it should be perfectly safe. I just wonder what happens with shells that don't. Will <code>dd</code> simply get no input and, if so, not write anything? Will it write an empty string? Or a NULL? I guess it would do nothing, but I was just idly wondering since I don't know.</span> <span> - </span> <span class="display-name">terdon on strike</span> <span> </span> <span class="date">15 Feb 2020 at 16:14</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@annahri. My bad: I scrolled down under "Each CONV symbol may be:" on the man page, and missed the bit where the list changes to "Each FLAG symbol may be:".</span> <span> - </span> <span class="display-name">Paul_Pedant</span> <span> </span> <span class="date">15 Feb 2020 at 17:20</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I tested dd with &lt;&lt;&lt; in dash. It throws "Syntax error: redirection unexpected" with status 2, so dd itself is not even invoked.</span> <span> - </span> <span class="display-name">Paul_Pedant</span> <span> </span> <span class="date">15 Feb 2020 at 17:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>dash</code> and other POSIX shells does not have a <code>herestring</code> only a <code>heredoc</code> so it stands to reason that if <code>dd</code> accepts input from <code>stdin</code> it should work with a <code>heredoc</code> on POSIX shells, see <a href="https://paste.opensuse.org/view/raw/14083760" rel="nofollow noreferrer">paste.opensuse.org/view/raw/14083760</a></span> <span> - </span> <span class="display-name">Jetchisel</span> <span> </span> <span class="date">15 Feb 2020 at 21:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The shell performs redirection regardless if you have it in the beginning,middle,last part of the code/script before any commands/expansion gets executed, in this case the herestring <code>&lt;&lt;&lt;</code></span> <span> - </span> <span class="display-name">Jetchisel</span> <span> </span> <span class="date">15 Feb 2020 at 21:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@jetchisel. In your example containing &gt;&gt;outputfile, I don't see that dd needs either the notrunc or append options. It (dd) just inherits a stream already opened in append mode, and it does not even know the filename.</span> <span> - </span> <span class="display-name">Paul_Pedant</span> <span> </span> <span class="date">15 Feb 2020 at 23:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Paul_Pedant indeed, i stand corected. <code>dd &lt;&lt;'EOF' &gt;&gt; file</code> <code>literal newlinehere</code> 'text here` <code>EOF</code> is enough.</span> <span> - </span> <span class="display-name">Jetchisel</span> <span> </span> <span class="date">15 Feb 2020 at 23:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@jetchisel. Actually, showing these options is probably a good idea, even if not required here. They cause no harm. They show intent. They protect functionality if somebody changes to of=myFile without due care. dd is obscure in places, so I never use short-form options.</span> <span> - </span> <span class="display-name">Paul_Pedant</span> <span> </span> <span class="date">16 Feb 2020 at 15:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jetchisel</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Feb 2020 at 12:21</span>
+     </div>
+    </div>
+    <div>
+     <p>Using the Unix file editors. Both <code>GNU</code> and <code>BSD</code> version.</p>
+     <p>Using <code>ed(1)</code> with <code>printf</code></p>
+     <pre><code>printf '%s\n' '$a' 'foo bar baz' . w | ed -s file.txt
+</code></pre>
+     <p>The bash specific but more cryptic syntax using the <code>$' '</code> shell quoting and a <code>herestring</code></p>
+     <pre><code>ed -s file.txt &lt;&lt;&lt; $'$a\nfoo bar baz\n.\nw'
+</code></pre>
+     <p>Using <code>ex(1)</code> with <code>printf</code></p>
+     <pre><code>printf '%s\n' '$a' 'foo bar baz' . x | ex -s file.txt
+</code></pre>
+     <p>The bash specific but more cryptic syntax <code>$' '</code> shell quoting and a <code>herestring</code></p>
+     <pre><code>ex -s file.txt &lt;&lt;&lt; $'$a\nfoo bar baz\n.\nx'
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>ed, ex, and other text editors do not so much append as overwrite with an extended version. Normally not much of an issue, but it can be if the file is sparse, linked, or actively being read.</span> <span> - </span> <span class="display-name">David G.</span> <span> </span> <span class="date">16 Feb 2020 at 12:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DavidG. Thank you for that wonderful comment.</span> <span> - </span> <span class="display-name">Jetchisel</span> <span> </span> <span class="date">16 Feb 2020 at 13:42</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>GAD3R</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Feb 2020 at 19:26</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>cat &gt;&gt; file
+first line
+second line
+...
+last line
+</code></pre>
+     <p>Hit <kbd>Enter</kbd> at the last line then <kbd>Ctrl + D</kbd>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I often use this now to copy-paste things into a file quickly.</span> <span> - </span> <span class="display-name">annahri</span> <span> </span> <span class="date">25 Aug 2021 at 02:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

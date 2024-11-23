@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How can i load a set number of rows from a table on pageload and only load further rows when the user loads them?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How can i load a set number of rows from a table on pageload and only load further rows when the user loads them?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jonny P</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>22 Mar 2020 at 15:57</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60801535/how-can-i-load-a-set-number-of-rows-from-a-table-on-pageload-and-only-load-furth">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a table using DataTables , it contains a large number of rows and so this causes the page to load very slowly as i assume the browser waits till the table is filled before displaying the page.</p>
+    <p>I would like to only load one page of the table (10 rows), and only show further data when the user browses through the table, showing a loading sign would be great too.</p>
+    <p>I have researched and heard of a DataTables function called 'deferRender' which is supposed to do what i need, but i can't get it to work with my table.</p>
+    <p>My table has 8 columns + the html is generated using PHP that builds the table from data in a text file:</p>
+    <pre><code>&lt;?php
+
+
+     $tdcount = 1; $numtd = 8; // number of cells per row
+     $str = "&lt;table id=\"table1\" class=\"table1 table table-striped table-bordered\"&gt;
+                                     &lt;thead&gt;
+                                     &lt;th&gt;1&lt;/th&gt;
+                                     &lt;th&gt;2&lt;/th&gt;
+                                     &lt;th&gt;3&lt;/th&gt;
+                                     &lt;th&gt;4&lt;/th&gt;
+                                     &lt;th&gt;5&lt;/th&gt;
+                                     &lt;th&gt;6&lt;/th&gt;
+                                     &lt;th&gt;7&lt;/th&gt;
+                                     &lt;th&gt;8&lt;/th&gt;
+                 &lt;/thead&gt;
+                                     &lt;tbody&gt;
+
+ ";
+     $f = fopen("tabledata.txt", "r");
+     if ( $f === FALSE ) {
+ exit;
+    }
+     while (!feof($f)) {
+         $arrM = explode(",",fgets($f));
+         $row = current ( $arrM );
+         if ($tdcount == 1)
+             $str .= "&lt;tr&gt;"; $str .= "&lt;td&gt;$row &lt;/td&gt;";
+         if ($tdcount == $numtd) {
+             $str .= "&lt;/tr&gt;";
+             $tdcount = 1;
+         } else {
+             $tdcount++;
+         }
+     }
+     if ($tdcount!= 1) {
+         while ($tdcount &lt;= $numtd) {
+             $str .= "&lt;td&gt;&amp;nbsp;&lt;/td&gt;"; $tdcount++;
+         } $str .= "&lt;/tr&gt;";
+     }
+     $str .= "&lt;/tbody&gt;&lt;/table&gt;";
+     echo $str;
+</code></pre>
+    <p>I then use the following code to turn it into a datatable:</p>
+    <pre><code>&lt;script&gt;
+        $(document).ready(function() {
+        $('#table1').basictable({
+          forceResponsive: false
+          });
+        $('#table1').DataTable( { "order": [[ 0, "desc" ]] } );
+
+          });
+
+&lt;/script&gt;
+</code></pre>
+    <p>I have read the instructions here: <a href="https://datatables.net/examples/server_side/defer_loading.html" rel="nofollow noreferrer">https://datatables.net/examples/server_side/defer_loading.html</a> and know i need to add parameters to the JS:</p>
+    <pre><code>"processing": true,
+"serverSide": true,
+"ajax": "scripts/server_processing.php",
+"deferLoading": 57
+</code></pre>
+    <p>and use a server_processing script, however the example only shows how to use it when connecting to a DB, and not when the data is loaded from a text file with php.</p>
+    <p>How can i acheive this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">php</span><span class="tag">ajax</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Whether your data is stored in a database or in a file is somewhat incidental - the core server-side processing that you need to implement to support DataTables remains broadly the same. Take a look at the data structure automatically passed from DataTables to your server (described here in the <a href="https://datatables.net/manual/server-side#Sent-parameters" rel="nofollow noreferrer">Sent Parameters</a> section). And look at the data structure you need to populate and pass back to DataTables in response (described in the <a href="https://datatables.net/manual/server-side#Returned-data" rel="nofollow noreferrer">Returned Data</a> section).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">22 Mar 2020 at 17:03</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Just to add: "defer loading" is an extra way to finesse your server-side processing - but it is not the core of how server-side processing works. If my notes are not helping I can provide a longer answer - but take a look at the links above, and at the data structures for the simplest server-side case. That should help point you in the right direction. If I have missed the point, then let me know, of course!</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">22 Mar 2020 at 17:05</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thanks , this does help somewhat however i am still confused of how to do this if you could provide a detailed solution to my problem that would be great @andrewjames</span> <span> - </span> <span class="display-name">Jonny P</span> <span> </span> <span class="date">22 Mar 2020 at 17:49</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Mar 2020 at 19:48</span>
+     </div>
+    </div>
+    <div>
+     <p>This will focus purely on the DataTables aspects of a "server-side" solution. How you write the server-side logic needed to support it is out of scope for this answer. But I hope these notes will at leasst clarify what that logic needs to be, and how you can approach it.</p>
+     <h2>Assumptions</h2>
+     <p>Assume you have a text file containing 1,000 rows of data like this (or a million - but too many rows to send to the browser and to DataTables, all at once). The text file is a simple pipe-delimited file, with three fields:</p>
+     <pre><code>id|name|description
+1|widget_1|This is a description for widget 1
+2|widget_2|This is a description for widget 2
+3|widget_3|This is a description for widget 3
+...
+1000|widget_1000|This is a description for widget 1000
+</code></pre>
+     <p>You want to send 10 items at a time to DataTables, using server-side processing.</p>
+     <p>Your data maps to a simple JSON structure, like this - an array of objects (each object is one record):</p>
+     <pre><code>[
+    {
+        "id": 1,
+        "name": "widget_1",
+        "description": "This is a description for widget 1"
+    },
+    {
+        "id": 2,
+        "name": "widget_2",
+        "description": "This is a description for widget 2"
+    },
+    ... // more records...
+]
+</code></pre>
+     <h2>The DataTable Definition</h2>
+     <p>Your datatable definition looks like this - it is deliberately very simple, at this stage:</p>
+     <pre><code>&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+&lt;table id="demo" class="display dataTable cell-border" style="width:100%"&gt;
+&lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;script type="text/javascript"&gt;
+
+  $(document).ready(function() {
+    $('#demo').DataTable({
+      serverSide: true,
+      ajax: {
+        url: 'http://localhost:7000/data',
+        type: 'POST'
+      },
+      columns: [
+        { title: 'ID',
+          data: 'id' },
+        { title: 'Name',
+          data: 'name' },
+        { title: 'Description',
+          data: 'description' }
+      ]
+    });
+
+  });
+&lt;/script&gt;
+
+&lt;/body&gt;
+</code></pre>
+     <h2>Initial Response</h2>
+     <p>When the web page is first displayed, it will send an initial POST request to the URL (<a href="http://localhost:7000/data" rel="nofollow noreferrer">http://localhost:7000/data</a>), and it will expect to receive a JSON response from the web server, containing the data to be displayed.</p>
+     <p>Because DataTables is using <code>serverSide: true</code>, DataTables will expect the JSON to have a specific structure, as described <a href="https://datatables.net/manual/server-side#Returned-data" rel="nofollow noreferrer">here</a>.</p>
+     <p>Specifically, the server has to add all of the mandatory fields (<code>draw</code>, <code>recordsTotal</code>, <code>recordsFiltered</code>, and <code>data</code>) to the JSON it sends to DataTables.</p>
+     <p>In our case it would look like this - note that it is just our previously mentioned JSON structure, with a few extra metadata fields added:</p>
+     <pre><code>{
+    "draw": 1,
+    "recordsTotal": 1000,
+    "recordsFiltered": 1000,
+    "data": [{
+        "id": 1,
+        "name": "widget_1",
+        "description": "This is a description for widget 1"
+    }, {
+        "id": 2,
+        "name": "widget_2",
+        "description": "This is a description for widget 2"
+    }, {
+        "id": 3,
+        "name": "widget_3",
+        "description": "This is a description for widget 3"
+    }, {
+        "id": 4,
+        "name": "widget_4",
+        "description": "This is a description for widget 4"
+    }, {
+        "id": 5,
+        "name": "widget_5",
+        "description": "This is a description for widget 5"
+    }, {
+        "id": 6,
+        "name": "widget_6",
+        "description": "This is a description for widget 6"
+    }, {
+        "id": 7,
+        "name": "widget_7",
+        "description": "This is a description for widget 7"
+    }, {
+        "id": 8,
+        "name": "widget_8",
+        "description": "This is a description for widget 8"
+    }, {
+        "id": 9,
+        "name": "widget_9",
+        "description": "This is a description for widget 9"
+    }, {
+        "id": 10,
+        "name": "widget_10",
+        "description": "This is a description for widget 10"
+    }]
+}
+</code></pre>
+     <p>It is the server's responsibility to build this JSON - the first 10 records of the server's data set. The server also tells DataTables that it has a total of 1,000 records, and that it has not filtered out any data (yet) - hence there are also a total of 1,000 records after filtering.</p>
+     <p>DataTables needs all of this information, so it knows how many pagination buttons to display, and what pagination data to show.</p>
+     <p>Note that it is entirely the server's responsibility to do all this work - that's why it's called "server-side" processing.</p>
+     <p>The client (browser) only has 10 records to render - so that happens quickly.</p>
+     <p><a href="https://i.stack.imgur.com/I76z6.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/I76z6.png" alt="server-side screen"></a></p>
+     <p>(I just noticed that the screenshot mentions "500 records" - that's a mistake in my server-side code - there is no filter, so I need to fix that).</p>
+     <h2>Subsequent Requests</h2>
+     <p>When a user clicks on a page navigation button (e.g. page "4"), that triggers a new request from DataTables to the server. DataTables builds this request automatically, using the fields described <a href="https://datatables.net/manual/server-side#Sent-parameters" rel="nofollow noreferrer">here</a>.</p>
+     <p>The request is sent as form data.</p>
+     <p>In our example, the request looks like this:</p>
+     <pre><code>"Form data": {
+    "draw": "5",
+    "columns[0][data]": "id",
+    "columns[0][name]": "",
+    "columns[0][searchable]": "true",
+    "columns[0][orderable]": "true",
+    "columns[0][search][value]": "",
+    "columns[0][search][regex]": "false",
+    "columns[1][data]": "name",
+    "columns[1][name]": "",
+    "columns[1][searchable]": "true",
+    "columns[1][orderable]": "true",
+    "columns[1][search][value]": "",
+    "columns[1][search][regex]": "false",
+    "columns[2][data]": "description",
+    "columns[2][name]": "",
+    "columns[2][searchable]": "true",
+    "columns[2][orderable]": "true",
+    "columns[2][search][value]": "",
+    "columns[2][search][regex]": "false",
+    "order[0][column]": "1",
+    "order[0][dir]": "asc",
+    "start": "30",
+    "length": "10",
+    "search[value]": "",
+    "search[regex]": "false"
+}
+</code></pre>
+     <p>These fields tell the server everything it needs to know, so it can prepare the correct response.</p>
+     <p>In our case the most important fields are these:</p>
+     <pre><code>"start": "30",
+"length": "10"
+</code></pre>
+     <p>Start at row 30, and provide 10 records.</p>
+     <p>It is, again, the server's responsibility to prepare a JSON response which accurately reflects the requested data.</p>
+     <p>In our case this means the server needs to have logic to read through the text file to the correct starting point (data row 31 - remember the offset starts at zero), and 10 rows in total (rows 31 through 40).</p>
+     <p>Other fields in the above request from DataTables describe how the data is to be sorted, and filtered. In our case there is no filter <code>"search[value]": "",</code> - and the data is to be sorted by the first column in ascending order.</p>
+     <h2>Final Notes</h2>
+     <p>I have deliberately not described the following:</p>
+     <p>1) How your server-side code handles the creation of the JSON responses it sends back to DataTables;</p>
+     <p>2) How your server-side code parses the form requests it receives from DataTables.</p>
+     <p>That all depends entirely on what your server-side technology is. DataTables doesn't care. It's just passing JSON messages - it is decoupled from the server-side implementation - as it should be.</p>
+     <p>Regarding the "defer render" option described <a href="https://datatables.net/reference/option/deferRender" rel="nofollow noreferrer">here</a>, that is an enhancement you may choose to add if you feel you need it. But I would recommend getting a more basic server-side implementation working first.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Meng</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Dec 2022 at 09:07</span>
+     </div>
+    </div>
+    <div>
+     <p>Not particulary relavant to any language, but I used Node.js as an example to make a minimum working project for what's explained above:</p>
+     <p>The data: (put this at the root of where you have the working directory of node.js service)</p>
+     <pre><code>[ { "id": 1,
+    "name": "widget_1",
+    "description": "This is a description for widget 1"
+},{ "id": 2,
+    "name": "widget_2",
+    "description": "This is a description for widget 2"
+},{ "id": 3,
+    "name": "widget_3",
+    "description": "This is a description for widget 3"
+},{ "id": 4,
+    "name": "widget_4",
+    "description": "This is a description for widget 4"
+},{ "id": 5,
+    "name": "widget_5",
+    "description": "This is a description for widget 5"
+},{ "id": 6,
+    "name": "widget_6",
+    "description": "This is a description for widget 6"
+},{ "id": 7,
+    "name": "widget_7",
+    "description": "This is a description for widget 7"
+},{ "id": 8,
+    "name": "widget_8",
+    "description": "This is a description for widget 8"
+},{ "id": 9,
+    "name": "widget_9",
+    "description": "This is a description for widget 9"
+},{ "id": 10,
+    "name": "widget_10",
+    "description": "This is a description for widget 10"
+},{ "id": 11,
+    "name": "widget_11",
+    "description": "This is a description for widget 11"
+},{ "id": 12,
+    "name": "widget_12",
+    "description": "This is a description for widget 12"
+},{ "id": 13,
+    "name": "widget_13",
+    "description": "This is a description for widget 13"
+},{ "id": 14,
+    "name": "widget_14",
+    "description": "This is a description for widget 14"
+},{ "id": 15,
+    "name": "widget_15",
+    "description": "This is a description for widget 15"
+},{ "id": 16,
+    "name": "widget_16",
+    "description": "This is a description for widget 16"
+},{ "id": 17,
+    "name": "widget_17",
+    "description": "This is a description for widget 17"
+},{ "id": 18,
+    "name": "widget_18",
+    "description": "This is a description for widget 18"
+},{ "id": 19,
+    "name": "widget_19",
+    "description": "This is a description for widget 19"
+},{
+    "id": 20,
+    "name": "widget_20",
+    "description": "This is a description for widget 20"
+}]
+</code></pre>
+     <p>The HTML: (put this under <code>your working directory</code>/public)</p>
+     <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+
+&lt;body&gt;
+&lt;/head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;script src="https://code.jquery.com/jquery-3.6.0.min.js"&gt;&lt;/script&gt;
+    &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.css"&gt;
+    &lt;script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+&lt;/head&gt;
+
+&lt;div style="margin: 20px;"&gt;
+    &lt;div id = 'pageinfo' style='display:none'&gt;&lt;/div&gt;
+    &lt;table id="demo" class="display dataTable cell-border" style="width:100%"&gt;&lt;/table&gt;
+&lt;/div&gt;
+
+&lt;script type="text/javascript"&gt;
+  $(document).ready(function() {
+    var table = $('#demo').DataTable({
+      serverSide: true,
+      ajax: {
+        url: 'http://localhost:3000/data',
+        data: $('#pageinfo').text(), //post pagination parameters to server
+        type: 'POST'
+      },
+      columns: [
+        { title: 'ID',
+          data: 'id' },
+        { title: 'Name',
+          data: 'name' },
+        { title: 'Description',
+          data: 'description' }
+      ],
+      lengthMenu: [5, 10, 20],
+      pageLength: 5
+    });
+    function getinfo(){
+        var info = table.page.info();
+        return info;
+    }
+    $('.dataTables_wrapper').on('click',function(e){
+        var info = table.page.info();
+        $('#pageinfo').text(JSON.stringify(info)) //get the pagination parameters
+    })
+  });
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;html&gt;
+</code></pre>
+     <p>And the server:</p>
+     <pre><code>const fs = require('fs');
+const data = JSON.parse(fs.readFileSync("data.json", 'utf8'));
+
+var express = require('express');
+var app = express();
+var bodyParser = require('body-parser')
+app.use( bodyParser.json() );       // to support JSON-encoded bodies
+app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
+  extended: true
+}));
+
+app.use('/static', express.static(__dirname + '/public')); //directory for static html docs
+app.post('/data', function(req, res){
+    var resp = {"recordsTotal": 20,"recordsFiltered": 20,"start":0,"length":5}
+    if(req.body.start){
+        resp.draw = JSON.parse(req.body.draw);
+        resp.data = data.slice(JSON.parse(req.body.start),
+                                JSON.parse(req.body.start)+JSON.parse(req.body.length));
+    }else{
+        resp.draw = 1;
+        resp.data = data.slice(resp.start,resp.start+resp.length);
+    }
+    res.end(JSON.stringify(resp))
+})
+
+
+app.listen(3000, function () {
+    console.log('listening on port 3000');
+});
+</code></pre>
+     <p>Then you'd be able to just start the server, and browse the result at <a href="http://localhost:3000/static/dtable.html" rel="nofollow noreferrer">http://localhost:3000/static/dtable.html</a></p>
+     <p>Read through these codes, or probably dig in to a few intermediate outputs, and you'll have a better idea of how DataTable works under a minimum setup for server-side processing.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

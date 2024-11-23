@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Seaching for product codes, phone numbers in Lucene</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Seaching for product codes, phone numbers in Lucene</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>aha</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Jun 2021 at 12:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68115969/seaching-for-product-codes-phone-numbers-in-lucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm looking for general advice how to search identifiers, product codes or phone numbers in Apache Lucene 8.x. Let's say I'm trying to to search lists of product codes (like an ISBN, for example <code>978-3-86680-192-9</code>). If somebody enters <code>9783</code> or <code>978 3</code> or <code>978-3</code>, <code>978-3-86680-192-9</code> should appear. Same should happen if an identifier uses any combinations of letters, spaces, digits, punctuation (examples: <code>TS 123</code>, <code>123.abc</code>. How would I do this?</p>
+    <p>I thought I could solve this with a custom analyzer that removes all the punctuation and whitespace, but the results are mixed:</p>
+    <pre><code>public class IdentifierAnalyzer extends Analyzer {
+    @Override
+    protected TokenStreamComponents createComponents(String fieldName) {
+        Tokenizer tokenizer = new KeywordTokenizer();
+        TokenStream tokenStream = new LowerCaseFilter(tokenizer);
+        tokenStream = new PatternReplaceFilter(tokenStream, Pattern.compile("[^0-9a-z]"), "", true);
+        tokenStream = new TrimFilter(tokenStream);
+        return new TokenStreamComponents(tokenizer, tokenStream);
+    }
+
+    @Override
+    protected TokenStream normalize(String fieldName, TokenStream in) {
+        TokenStream tokenStream = new LowerCaseFilter(in);
+        tokenStream = new PatternReplaceFilter(tokenStream, Pattern.compile("[^0-9a-z]"), "", true);
+        tokenStream = new TrimFilter(tokenStream);
+        return tokenStream;
+    }
+}
+</code></pre>
+    <p>So while I get the desired results when performing a <code>PrefixQuery</code> with <code>TS1*</code>, <code>TS 1*</code> (with whitespace) does not yield satisfactory results. When I look into the parsed query, I see that Lucene splits <code>TS 1*</code> into two queries: <code>myField:TS myField:1*</code>. <code>WordDelimiterGraphFilter</code> looks interesting, but I couldn't figure out to apply it here.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2021 at 17:34</span>
+     </div>
+    </div>
+    <div>
+     <p>This is not a comprehensive answer - but I agree that <code>WordDelimiterGraphFilter</code> may be helpful for this type of data. However, there could still be test cases which need additional handling.</p>
+     <p>Here is my custom analyzer, using a <code>WordDelimiterGraphFilter</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.core.KeywordTokenizer;
+import org.apache.lucene.analysis.core.LowerCaseFilter;
+import org.apache.lucene.analysis.miscellaneous.WordDelimiterGraphFilterFactory;
+import java.util.Map;
+import java.util.HashMap;
+
+public class IdentifierAnalyzer extends Analyzer {
+
+    private WordDelimiterGraphFilterFactory getWordDelimiter() {
+        Map&lt;String, String&gt; settings = new HashMap&lt;&gt;();
+        settings.put("generateWordParts", "1");   // e.g. "PowerShot" =&gt; "Power" "Shot"
+        settings.put("generateNumberParts", "1"); // e.g. "500-42" =&gt; "500" "42"
+        settings.put("catenateAll", "1");         // e.g. "wi-fi" =&gt; "wifi" and "500-42" =&gt; "50042"
+        settings.put("preserveOriginal", "1");    // e.g. "500-42" =&gt; "500" "42" "500-42"
+        settings.put("splitOnCaseChange", "1");   // e.g. "fooBar" =&gt; "foo" "Bar"
+        return new WordDelimiterGraphFilterFactory(settings);
+    }
+
+    @Override
+    protected TokenStreamComponents createComponents(String fieldName) {
+        Tokenizer tokenizer = new KeywordTokenizer();
+        TokenStream tokenStream = new LowerCaseFilter(tokenizer);
+        tokenStream = getWordDelimiter().create(tokenStream);
+        return new TokenStreamComponents(tokenizer, tokenStream);
+    }
+    
+    @Override
+    protected TokenStream normalize(String fieldName, TokenStream in) {
+        TokenStream tokenStream = new LowerCaseFilter(in);
+        return tokenStream;
+    }
+
+}
+</code></pre>
+     <p>It uses the <code>WordDelimiterGraphFilterFactory</code> helper, together with a map of parameters, to control which settings are applied.</p>
+     <p>You can see the complete list of available settings in the <code>WordDelimiterGraphFilterFactory</code> <a href="https://lucene.apache.org/core/8_3_0/analyzers-common/org/apache/lucene/analysis/miscellaneous/WordDelimiterGraphFilterFactory.html" rel="nofollow noreferrer">JavaDoc</a>. You may want to experiment with setting/unsetting different ones.</p>
+     <p>Here is a test index builder for the following 3 input values:</p>
+     <pre><code>978-3-86680-192-9
+TS 123
+123.abc
+</code></pre>
+     <pre class="lang-java prettyprint-override"><code>public static void buildIndex() throws IOException, FileNotFoundException, ParseException {
+    final Directory dir = FSDirectory.open(Paths.get(INDEX_PATH));
+    Analyzer analyzer = new IdentifierAnalyzer();
+    IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
+    iwc.setOpenMode(OpenMode.CREATE);
+    Document doc;
+
+    List&lt;String&gt; identifiers = Arrays.asList("978-3-86680-192-9", "TS 123", "123.abc");
+
+    try (IndexWriter writer = new IndexWriter(dir, iwc)) {
+        for (String identifier : identifiers) {
+            doc = new Document();
+            doc.add(new TextField("identifiers", identifier, Field.Store.YES));
+            writer.addDocument(doc);
+        }
+    }
+}
+</code></pre>
+     <p>This creates the following tokens:</p>
+     <p><a href="https://i.stack.imgur.com/zbWVF.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/zbWVF.png" alt="enter image description here"></a></p>
+     <p>For querying the above indexed data I used this:</p>
+     <pre class="lang-java prettyprint-override"><code>public static void doSearch() throws IOException, ParseException {
+    Analyzer analyzer = new IdentifierAnalyzer();
+    QueryParser parser = new QueryParser("identifiers", analyzer);
+
+    List&lt;String&gt; searches = Arrays.asList("9783", "9783*", "978 3", "978-3", "TS1*", "TS 1*");
+
+    for (String search : searches) {
+        Query query = parser.parse(search);
+        printHits(query, search);
+    }
+}
+
+private static void printHits(Query query, String search) throws IOException {
+    System.out.println("search term: " + search);
+    System.out.println("parsed query: " + query.toString());
+    IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(INDEX_PATH)));
+    IndexSearcher searcher = new IndexSearcher(reader);
+    TopDocs results = searcher.search(query, 100);
+    ScoreDoc[] hits = results.scoreDocs;
+    System.out.println("hits: " + hits.length);
+    for (ScoreDoc hit : hits) {
+        System.out.println("");
+        System.out.println("  doc id: " + hit.doc + "; score: " + hit.score);
+        Document doc = searcher.doc(hit.doc);
+        System.out.println("  identifier: " + doc.get("identifiers"));
+    }
+    System.out.println("-----------------------------------------");
+}
+</code></pre>
+     <p>This uses the following search terms - all of which I pass into the classic query parser (though you could, of course, use more sophisticated query types via the API):</p>
+     <pre><code>9783
+9783*
+978 3
+978-3
+TS1*
+TS 1*
+</code></pre>
+     <p>The only query which failed to find any matching documents was the first one:</p>
+     <pre><code>search term: 9783
+parsed query: identifiers:9783
+hits: 0
+</code></pre>
+     <p>This should not be a surprise, since this is a partial token, without a wildcard. The second query (with the wildcard added) found one document, as expected.</p>
+     <p>The final query I tested <code>TS 1*</code> found three hits - but the one we want has the best matching score:</p>
+     <pre><code>search term: TS 1*
+parsed query: identifiers:ts identifiers:1*
+hits: 3
+
+  doc id: 1; score: 1.590861
+  identifier: TS 123
+
+  doc id: 0; score: 1.0
+  identifier: 978-3-86680-192-9
+
+  doc id: 2; score: 1.0
+  identifier: 123.abc
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I know we're not really supposed to leave "thank you" comments, but thank you so much, @aha - that caught me by surprise in the nicest possible way.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">30 Jun 2021 at 22:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

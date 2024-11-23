@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why does the behavior of the Integer constant pool change at 127?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why does the behavior of the Integer constant pool change at 127?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>48</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Vivek</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Oct 2012 at 07:21</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/13098143/why-does-the-behavior-of-the-integer-constant-pool-change-at-127">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am not able to understand how the Java Constant Pool for Integer works.</p>
+    <p>I understand the behavior of Strings, and hence able to justify myself that it is the same case with Integer Constants also.</p>
+    <p>So, for Integers</p>
+    <pre><code>Integer i1 = 127;
+Integer i2 = 127;
+System.out.println(i1==i2); // True
+</code></pre>
+    <p>&amp;</p>
+    <pre><code>Integer i1 = new Integer(127);
+Integer i2 = new Integer(127);
+System.out.println(i1==i2); // False
+</code></pre>
+    <p>Till here everything goes in my head.</p>
+    <p>What I am not able to digest is, it behaves differently when I increase the integer from 127. This behavior changes after 127, below is the code snippet</p>
+    <pre><code>Integer i1 = 128;
+Integer i2 = 128;
+System.out.println(i1==i2); // False. WHY?????
+</code></pre>
+    <p>Can somebody help me understand this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">integer</span><span class="tag">constants</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span><a href="http://stackoverflow.com/questions/1700081/why-does-128-128-return-false-but-127-127-return-true-when-converting-to-integ?lq=1" title="why does 128 128 return false but 127 127 return true when converting to integ">stackoverflow.com/questions/1700081/…</a></span> <span> - </span> <span class="display-name">Ciro Santilli OurBigBook.com</span> <span> </span> <span class="date">17 Feb 2016 at 12:52</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>48</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jon Skeet</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Oct 2012 at 07:24</span>
+     </div>
+    </div>
+    <div>
+     <p>No, the constant pool for numbers doesn't work the same way as for strings. For strings, only compile-time constants are interned - whereas for the wrapper types for integer types, any boxing operation will <em>always</em> use the pool if it's applicable for that value. So for example:</p>
+     <pre><code>int x = 10;
+int y = x + 1;
+Integer z = y; // Not a compile-time constant!
+Integer constant = 11;
+System.out.println(z == constant); // true; reference comparison
+</code></pre>
+     <p>The JLS guarantees a small range of pooled values, but implementations can use a wider range if they wish.</p>
+     <p>Note that although it's not guaranteed, every implementation I've looked at uses <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/Integer.html#valueOf%28int%29" rel="noreferrer"><code>Integer.valueOf</code></a> to perform boxing operations - so you can get the same effect without the language's help:</p>
+     <pre><code>Integer x = Integer.valueOf(100);
+Integer y = Integer.valueOf(100);
+System.out.println(x == y); // true
+</code></pre>
+     <p>From <a href="http://docs.oracle.com/javase/specs/jls/se7/html/jls-5.html#jls-5.1.7" rel="noreferrer">section 5.1.7 of the JLS</a>:</p>
+     <blockquote>
+      <p>If the value p being boxed is true, false, a byte, or a char in the range \u0000 to \u007f, or an int or short number between -128 and 127 (inclusive), then let r1 and r2 be the results of any two boxing conversions of p. It is always the case that r1 == r2.</p>
+      <p>Ideally, boxing a given primitive value p, would always yield an identical reference. In practice, this may not be feasible using existing implementation techniques. The rules above are a pragmatic compromise. The final clause above requires that certain common values always be boxed into indistinguishable objects. The implementation may cache these, lazily or eagerly. For other values, this formulation disallows any assumptions about the identity of the boxed values on the programmer's part. This would allow (but not require) sharing of some or all of these references.</p>
+      <p>This ensures that in most common cases, the behavior will be the desired one, without imposing an undue performance penalty, especially on small devices. Less memory-limited implementations might, for example, cache all char and short values, as well as int and long values in the range of -32K to +32K.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>@user16320675: The latter, I think. I'm happy sticking to just the numeric behavior.</span> <span> - </span> <span class="display-name">Jon Skeet</span> <span> </span> <span class="date">28 May 2023 at 11:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>31</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Amit Deshpande</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Oct 2012 at 07:22</span>
+     </div>
+    </div>
+    <div>
+     <p>Java maintains Integer pool from <code>-128</code> to <code>127</code></p>
+     <p>Declaring Integer like below</p>
+     <pre><code>Integer i1 = 127;
+</code></pre>
+     <p>Results in to</p>
+     <pre><code>Integer i1 = Integer.valueOf(127);
+</code></pre>
+     <p>So what actually happening for first case is</p>
+     <pre><code>Integer i1 = 127;&lt;---Integer.valueOf(127);
+Integer i2 = 127;&lt;---Integer.valueOf(127);&lt;---Same reference as first
+</code></pre>
+     <p>From source code of <code>Integer</code> for class <code>valueOf</code> method</p>
+     <pre><code>public static Integer valueOf(int i) {
+    if(i &gt;= -128 &amp;&amp; i &lt;= IntegerCache.high)
+        return IntegerCache.cache[i + 128];
+    else
+        return new Integer(i);
+}
+</code></pre>
+     <p>So you get same reference if value is between <code>-128</code> to <code>127</code> and you call <code>valueOf</code> else it just returns <code>new Integer(i)</code></p>
+     <p>And because reference is same your <code>==</code> operator works for integers returned by <code>valueOf</code> between this range.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>+1 for mentioning Integer.valueOf(). Other answers seem to think it's just magic.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">27 Oct 2012 at 07:37</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Best explanation, This should be accepted answer</span> <span> - </span> <span class="display-name">Kushal</span> <span> </span> <span class="date">8 Feb 2021 at 07:31</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rohit Jain</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Oct 2012 at 07:23</span>
+     </div>
+    </div>
+    <div>
+     <p>Java caches the integer objects in the range <code>-128 to 127</code>. So, when you try to assign a value in this range to a <code>wrapper</code> object, the <code>boxing</code> operation will invoke <code>Integer.valueOf</code> method and in turn it will assign a reference to the object already in the pool.</p>
+     <p>On the other hand, if you assign a value outside this range to a <code>wrapper</code> reference type, <code>Integer.valueOf</code> will create a new <code>Integer</code> object for that value. And hence, comparing the <code>reference</code> for <code>Integer</code> objects having value outside this range will give you <code>false</code></p>
+     <p>So,</p>
+     <pre><code>Integer i = 127;  --&gt; // Equivalent to `Integer.valueOf(127)`
+Integer i2 = 127;
+
+// Equivalent to `Integer.valueOf(128)`
+// returns `new Integer(128)` for value outside the `Range - [-128, 127]`
+Integer i3 = 128; 
+Integer i4 = 128;
+
+System.out.println(i == i2); // true, reference pointing to same literal
+System.out.println(i3 == i4); // false, reference pointing to different objects
+</code></pre>
+     <p>But , when you create your integer instances using <code>new</code> operator, a new object will be created on Heap. So,</p>
+     <pre><code>Integer i = new Integer(127);
+Integer i2 = new Integer(127);
+
+System.out.println(i == i2); // false
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Your i3 to i4 comparison is incorrect, as you're using <code>int</code> rather than <code>Integer</code>.</span> <span> - </span> <span class="display-name">Jon Skeet</span> <span> </span> <span class="date">27 Oct 2012 at 07:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JonSkeet. Oh! sorry. I should have had <code>Integer</code> at all the four places. Will Edit it. Thanks for pointing :)</span> <span> - </span> <span class="display-name">Rohit Jain</span> <span> </span> <span class="date">27 Oct 2012 at 07:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Answer is basically incorrect. Java does not 'cache integer literals'. Java caches the <i>Integer objects</i> from -128 to 127 <i>if you call Integer.valueOf() to get them,</i> which does happen in auto boxing, but not in OP's code, which is why it doesn't give the answer expected.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">27 Oct 2012 at 07:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@EJP. Can you please remove your downvote now. Of course if you have downvoted.</span> <span> - </span> <span class="display-name">Rohit Jain</span> <span> </span> <span class="date">27 Oct 2012 at 07:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Certainly, when your answer is correct. Not before. I've provided quite enough information for you to correct it. You haven't assimilated it all yet.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">27 Oct 2012 at 09:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@EJP. Ok, what's the problem now?</span> <span> - </span> <span class="display-name">Rohit Jain</span> <span> </span> <span class="date">27 Oct 2012 at 09:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You are now asking me to repeat what I've already written. I suggest you re-read it instead. Easier for me and more efficient for you. The parts in italics are there, and italicised, for a reason.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">27 Oct 2012 at 09:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>suraj_fale</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Oct 2012 at 07:25</span>
+     </div>
+    </div>
+    <div>
+     <p>In short newer versions of Java cache Integer is in the -128 to 127 range (256 values). look here</p>
+     <p><a href="https://stackoverflow.com/questions/3689745/what-exactly-does-comparing-integers-with-do">What exactly does comparing Integers with == do?</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

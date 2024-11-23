@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Update Database with JDBC having some values which should be ignored</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Update Database with JDBC having some values which should be ignored</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>iiiiiiiiiiiiiiiiiiii</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Mar 2020 at 23:27</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60698698/update-database-with-jdbc-having-some-values-which-should-be-ignored">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am having some troubles using JDBC for updating a table-column. If I have a table e.g <code>User(name,address,hobby,...)</code> imagine about 15 fields. Then I get via frontend an Object from a form, where a user can type in all entries which should be changed. Now I need to save the changes in the database, but not all of the fields got changed, so my DAO has some <code>null</code> values. For example <code>name</code> and <code>address</code> should be changed, the other entries in the table shouldn't. Is there any smart way to put that into a JDBC <code>PreparedStatement</code>? Or do you know other solutions? I am trying to avoid a lot of <code>value != null</code> statements.</p>
+    <p>Thanks in advance!</p>
+    <p>(I am using spring as my backend, and angular in frontend)</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">database</span><span class="tag">jdbc</span><span class="tag">spring-jdbc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span></span> <span> - </span> <span class="display-name">HomeIsWhereThePcIs</span> <span> </span> <span class="date">15 Mar 2020 at 23:40</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Andreas</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Mar 2020 at 00:05</span>
+     </div>
+    </div>
+    <div>
+     <p>Since you're using Spring, you can use the <code>NamedParameterJdbcTemplate</code>, but the real trick is the use of <code>COALESCE</code> to use a fall-back value when the value given is <code>NULL</code>:</p>
+     <pre><code>@Autowired
+private DataSource dataSource;
+
+public void updateUser(int id, String name, String address, String hobby) {
+    NamedParameterJdbcTemplate jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
+    String sql = "UPDATE User" +
+                   " SET Name = COALESCE(:name, Name)" +
+                      ", Address = COALESCE(:address, Address)" +
+                      ", Hobby = COALESCE(:hobby, Hobby)" +
+                 " WHERE Id = :id";
+    MapSqlParameterSource paramMap = new MapSqlParameterSource();
+    paramMap.addValue("id"     , id     , Types.INTEGER);
+    paramMap.addValue("name"   , name   , Types.VARCHAR);
+    paramMap.addValue("address", address, Types.VARCHAR);
+    paramMap.addValue("hobby"  , hobby  , Types.VARCHAR);
+    if (jdbcTemplate.update(sql, paramMap) == 0)
+        throw new EmptyResultDataAccessException("User not found: " + id, 1);
+}
+</code></pre>
+     <p>Or, if you use a POJO with the user data:</p>
+     <pre><code>public class User {
+    private int id;
+    private String name;
+    private String address;
+    private String hobby;
+
+    // Getters and setters here
+}
+</code></pre>
+     <pre><code>public void updateUser(User user) {
+    NamedParameterJdbcTemplate jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
+    String sql = "UPDATE User" +
+                   " SET Name = COALESCE(:name, Name)" +
+                      ", Address = COALESCE(:address, Address)" +
+                      ", Hobby = COALESCE(:hobby, Hobby)" +
+                 " WHERE Id = :id";
+    BeanPropertySqlParameterSource paramMap = new BeanPropertySqlParameterSource(user);
+    if (jdbcTemplate.update(sql, paramMap) == 0)
+        throw new EmptyResultDataAccessException("User not found: " + id, 1);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>shahooo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Oct 2020 at 06:33</span>
+     </div>
+    </div>
+    <div>
+     <p>The simple solution you can have is using SimpleJdbcInsert and adding usingGeneratedKeyColumns("ID").</p>
+     <pre><code>@Autowired
+private DataSource dataSource;
+    
+@Override
+    public ResponseEntity&lt;Void&gt; insertEntity(Entity obj) {
+        SimpleJdbcInsert simpleJdbcInsert = new SimpleJdbcInsert(jdbcTemplate.getDataSource());
+        simpleJdbcInsert.withTableName(TABLE_APP_REPO).usingGeneratedKeyColumns("ID");
+        BeanPropertySqlParameterSource paramSource = new BeanPropertySqlParameterSource(obj);
+
+        try {
+            simpleJdbcInsert.execute(paramSource);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok().build();
+    }
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

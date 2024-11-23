@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Problem with Tomcat9 Context's docBase attribute</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Problem with Tomcat9 Context's docBase attribute</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>ratsafalig</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Sep 2020 at 10:52</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63967920/problem-with-tomcat9-contexts-docbase-attribute">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am new to Tomcat deployment.</p>
+    <p>I found in Tomcat's document and it says this about <code>&lt;Context&gt;</code> tag's <code>docBase</code> attribute:</p>
+    <blockquote>
+     <p>The value of this field must not be set unless the Context element is defined in server.xml or the docBase is not located under the Host's appBase.</p>
+    </blockquote>
+    <p>Here is my problem:</p>
+    <ol>
+     <li>
+      <p>I create a <code>&lt;Host&gt;</code> tag inside server.xml and set <code>appBase="C:/xxx/"</code></p></li>
+     <li>
+      <p>create a xml file named <code>ROOT.xml</code> inside <code>C:/xxx/</code> and add <code>&lt;Context docBase="../yyy" /&gt;</code></p></li>
+     <li>
+      <p>put index.html inside <code>C:/yyy/</code></p></li>
+    </ol>
+    <p>Why is it doesn't work when I try to browser <code>localhost:8080/</code> ?</p>
+    <p>Doesn't it supposed to show the <code>index.html</code> inside <code>C:/yyy</code> ?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">web</span><span class="tag">tomcat</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2020 at 16:23</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Summary</strong></p>
+     <p>When you add <code>appBase="C:/xxx"</code> to <code>server.xml</code>, that means all your web appplications will be found in that directory. At that point you cannot then have a specific web app which defines its own redirection to another directory (a custom <code>docBase</code>) <em>from within its own web application location</em>. At that point, its <code>docBase</code> location has already been set to be the <code>appBase</code> directory.</p>
+     <p><strong>A Different Approach</strong></p>
+     <p>The <code>ROOT.xml</code> file that you created <em>can</em> be used to point to a location which is different from the <code>appBase</code> - but you cannot place that file inside the <code>appBase</code> directory (as noted above).</p>
+     <p>Instead you have to place it in <code>$CATALINA_BASE/conf/[enginename]/[hostname]/</code> as described in this <a href="http://tomcat.apache.org/tomcat-9.0-doc/config/context.html#Defining_a_context" rel="nofollow noreferrer">documentation page</a>.</p>
+     <p>So, for me, that would be:</p>
+     <pre><code>C:\tomcat_9_test\conf\Catalina\localhost\ROOT.xml
+</code></pre>
+     <p>And its contents would simply be:</p>
+     <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;Context docBase="C:/yyy" /&gt;
+</code></pre>
+     <p>Because this is <em>outside</em> of the <code>docBase</code>, this <em>specific</em> application can have a different location from all the other web applications in <code>docBase</code>.</p>
+     <p>Now, your <code>C:\yyyy\index.html</code> file will be served at <code>http://localhost:8080/</code>, as expected.</p>
+     <p><strong>A Note on <code>context.xml</code></strong></p>
+     <p>What if you do not use this <code>ROOT.xml</code> file at all, but instead you create a <code>ROOT</code> folder in <code>C:\xxx</code> and then create a <code>META-INF</code> folder there, containing a <code>context.xml</code> file?</p>
+     <p>You could define <code>&lt;Context docBase="../yyy" /&gt;</code> in there. But it would be ignored (again, because the <code>docBase</code> is already set).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

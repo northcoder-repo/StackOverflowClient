@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene Index Query does not find document if too many documents/similar documents present</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene Index Query does not find document if too many documents/similar documents present</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Skyball</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Aug 2022 at 09:03</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73484766/lucene-index-query-does-not-find-document-if-too-many-documents-similar-document">source</a>
+    </div>
+   </div>
+   <div>
+    <p>If I create documents as such:</p>
+    <pre><code>{
+    Document document = new Document();
+    document.add(new TextField("id", "10384-10735", Field.Store.YES));
+    submitDocument(document);
+}
+{
+    Document document = new Document();
+    document.add(new TextField("id", "10735", Field.Store.YES));
+    submitDocument(document);
+}
+
+for (int i = 20000; i &lt; 80000; i += 123) {
+    Document otherDoc1 = new Document();
+    otherDoc1.add(new TextField("id", String.valueOf(i), Field.Store.YES));
+    submitDocument(otherDoc1);
+
+    Document otherDoc2 = new Document();
+    otherDoc2.add(new TextField("id", i + "-" + (i + 67), Field.Store.YES));
+    submitDocument(otherDoc2);
+}
+</code></pre>
+    <p>meaning:</p>
+    <ul>
+     <li>one with an id of <code>10384-10735</code></li>
+     <li>one with an id of <code>10735</code> (which is the last part of the previous document ID)</li>
+     <li>and 975 other documents with pretty much any ID</li>
+    </ul>
+    <p>and then write them using:</p>
+    <pre><code>final IndexWriterConfig luceneWriterConfig = new IndexWriterConfig(new StandardAnalyzer());
+luceneWriterConfig.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
+
+final IndexWriter luceneDocumentWriter = new IndexWriter(luceneDirectory, luceneWriterConfig);
+
+for (Map.Entry&lt;String, Document&gt; indexDocument : indexDocuments.entrySet()) {
+    final Term term = new Term(Index.UNIQUE_LUCENE_DOCUMENT_ID, indexDocument.getKey());
+    indexDocument.getValue().add(new TextField(Index.UNIQUE_LUCENE_DOCUMENT_ID, indexDocument.getKey(), Field.Store.YES));
+
+    luceneDocumentWriter.updateDocument(term, indexDocument.getValue());
+}
+
+luceneDocumentWriter.close();
+</code></pre>
+    <p>Now that the index is written, I want to perform a query, searching for the document with the ID <code>10384-10735</code>.</p>
+    <p>I will be doing this in two ways, using the TermQuery and a QueryParser with the StandardAnalyzer:</p>
+    <pre><code>System.out.println("term query:   " + index.findDocuments(new TermQuery(new Term("id", "10384-10735"))));
+
+final QueryParser parser = new QueryParser(Index.UNIQUE_LUCENE_DOCUMENT_ID, new StandardAnalyzer());
+System.out.println("query parser: " + index.findDocuments(parser.parse("id:\"10384 10735\"")));
+</code></pre>
+    <p>In both cases, I would expect the document to appear. This is the result if I run the queries however:</p>
+    <pre><code>term query:   []
+query parser: []
+</code></pre>
+    <p>which seems odd. I experimented around a bit further and found out that if I either reduce the amount of documents <strong>OR</strong> remove the entry <code>10735</code>, the query parser query now successfully finds the document:</p>
+    <pre><code>term query:   []
+query parser: [Document&lt;stored,indexed,tokenized&lt;id:10384-10735&gt; stored,indexed,tokenized&lt;uldid:10384-10735&gt;&gt;]
+</code></pre>
+    <p>meaning this works:</p>
+    <pre><code>{
+    Document document = new Document();
+    document.add(new TextField("id", "10384-10735", Field.Store.YES));
+    submitDocument(document);
+}
+
+for (int i = 20000; i &lt; 80000; i += 123) {
+    Document otherDoc1 = new Document();
+    otherDoc1.add(new TextField("id", String.valueOf(i), Field.Store.YES));
+    submitDocument(otherDoc1);
+
+    Document otherDoc2 = new Document();
+    otherDoc2.add(new TextField("id", i + "-" + (i + 67), Field.Store.YES));
+    submitDocument(otherDoc2);
+}
+</code></pre>
+    <p>and this works (490 documents)</p>
+    <pre><code>{
+    Document document = new Document();
+    document.add(new TextField("id", "10384-10735", Field.Store.YES));
+    submitDocument(document);
+}
+{
+    Document document = new Document();
+    document.add(new TextField("id", "10735", Field.Store.YES));
+    submitDocument(document);
+}
+
+for (int i = 20000; i &lt; 50000; i += 123) {
+    Document otherDoc1 = new Document();
+    otherDoc1.add(new TextField("id", String.valueOf(i), Field.Store.YES));
+    submitDocument(otherDoc1);
+
+    Document otherDoc2 = new Document();
+    otherDoc2.add(new TextField("id", i + "-" + (i + 67), Field.Store.YES));
+    submitDocument(otherDoc2);
+}
+</code></pre>
+    <p>Does somebody know what causes this? I really need the index to consistently find the documents. I'm fine with using the QueryParser and not the TermQuery.</p>
+    <p>I use 9.3.0 lucene-core and lucene-queryparser.</p>
+    <p>Thank you for your help in advance.</p>
+    <p><strong>Edit 1</strong>: This is the code in findDocuments():</p>
+    <pre><code>final TopDocs topDocs = getIndexSearcher().search(query, Integer.MAX_VALUE);
+
+final List&lt;Document&gt; documents = new ArrayList&lt;&gt;((int) topDocs.totalHits.value);
+for (int i = 0; i &lt; topDocs.totalHits.value; i++) {
+    documents.add(getIndexSearcher().doc(topDocs.scoreDocs[i].doc));
+}
+
+return documents;
+</code></pre>
+    <p><strong>Edit 2</strong>: here is a working example: <a href="https://pastebin.com/Ft0r8pN5" rel="nofollow noreferrer">https://pastebin.com/Ft0r8pN5</a></p>
+    <p>for some reason, the issue with the too many documents does not happen in this one, which I will look into. I still left it in for the example. This is my output:</p>
+    <pre><code>[similar id: true, many documents: true]
+Indexing [3092] documents
+term query:   []
+query parser: []
+
+[similar id: true, many documents: false]
+Indexing [654] documents
+term query:   []
+query parser: []
+
+[similar id: false, many documents: true]
+Indexing [3091] documents
+term query:   []
+query parser: [Document&lt;stored,indexed,tokenized&lt;id:10384-10735&gt; stored,indexed,tokenized&lt;uldid:10384-10735&gt;&gt;]
+
+[similar id: false, many documents: false]
+Indexing [653] documents
+term query:   []
+query parser: [Document&lt;stored,indexed,tokenized&lt;id:10384-10735&gt; stored,indexed,tokenized&lt;uldid:10384-10735&gt;&gt;]
+</code></pre>
+    <p>As you can see, if the document with the ID <code>10735</code> is added to the documents, the document cannot be found anymore.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Please note that I can successfully find the document if I list all documents in the index using: final IndexReader indexReader = getIndexReader(); final int docCount = indexReader.numDocs(); final List&lt;Document&gt; documents = new ArrayList&lt;&gt;(docCount); for (int i = 0; i &lt; docCount; i++) { documents.add(indexReader.document(i)); }</span> <span> - </span> <span class="display-name">Skyball</span> <span> </span> <span class="date">25 Aug 2022 at 09:12</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>What is <code>index.findDocuments(...)</code>?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Aug 2022 at 12:33</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Sorry, should have added that. It's a call to <code>IndexSearcher.search(query, Integer.MAX_VALUE);</code> (unlimited documents as max documents) that uses an <code>IndexReader</code> which is created with <code>DirectoryReader.open(indexDirectory)</code>, I will add the code to the question.</span> <span> - </span> <span class="display-name">Skyball</span> <span> </span> <span class="date">25 Aug 2022 at 13:17</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Also, what is <code>submitDocument(document)</code>? and what is <code>Index.UNIQUE_LUCENE_DOCUMENT_ID</code>? - and any other methods we may need to recreate the problem. Can you make the code a <a href="https://stackoverflow.com/help/minimal-reproducible-example">minimal reproducible example</a> for us?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Aug 2022 at 14:00</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Alright, I wrote a class that reproduces the problem. Please see the edit. Please also note that I will be out of office for the rest of the week and might not see your responses immediately, for which I am sorry. I will do my best to watch this question. Thank you for your time.</span> <span> - </span> <span class="display-name">Skyball</span> <span> </span> <span class="date">25 Aug 2022 at 15:00</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I appreciate all the updates, thank you. My quick observations, after an initial review are these: (a) When I use <code>luceneDocumentWriter.addDocument(...)</code> instead of <code>luceneDocumentWriter.updateDocument(...)</code>, then the queries work as expected (when I have crossed the "too many documents" threshold). And (b) the indexed data looks identical in both cases - so it <i>appears</i> as if two <i>apparently</i> identical indexes give different results when I run the same queries against them.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Aug 2022 at 18:15</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Oh my, you seem to be onto something. If I use either <code>luceneDocumentWriter.addDocument(indexDocument.getFields());</code> or <code>luceneDocumentWriter.updateDocument(null, indexDocument);</code> the documents are found in all cases. I will test if this works in my real case tomorrow and write a short answer if that works. Thank you so much for pointing me in the correct direction!</span> <span> - </span> <span class="display-name">Skyball</span> <span> </span> <span class="date">25 Aug 2022 at 21:03</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Skyball</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Aug 2022 at 06:58</span>
+     </div>
+    </div>
+    <div>
+     <p>At a first glance, a possible solution for this would be:<br>
+       The <code>updateDocument()</code> method with a term passed as first parameter is currently used to build the index. When either passing <code>null</code> as term or using the <code>addDocument()</code> method, the query successfully returned the correct values. The solution must have something to do with the <code>Term</code>.</p>
+     <pre><code>luceneDocumentWriter.addDocument(indexDocument.getFields());
+// or
+luceneDocumentWriter.updateDocument(null, indexDocument);
+</code></pre>
+     <p>Playing around a bit further: the key of the term the document in question is stored under cannot be used as field key inside the document again, otherwise the document becomes unsearchable:</p>
+     <pre><code>final Term term = new Term("uldid", indexDocument.get("id"));
+
+// would work, different key from term...
+indexDocument.add(new TextField("uldid2", indexDocument.get("id"), Field.Store.YES));
+
+// would not work...
+indexDocument.add(new TextField("uldid", indexDocument.get("id"), Field.Store.YES));
+
+// ...when adding to index using term
+luceneDocumentWriter.updateDocument(term, indexDocument);
+</code></pre>
+     <p>Another way to circumvent this would be to use a different value from the identical field in the document (<code>uldid</code> in this case), that is also different from the ID that is being searched in the index:</p>
+     <pre><code>final Term term = new Term("uldid", indexDocument.get("id").hashCode() + "");
+// or
+indexDocument.add(new TextField("uldid", indexDocument.get("id").hashCode() + "", Field.Store.YES));
+</code></pre>
+     <p>Which seems rather odd. I don't really have a final solution or reason this is the way it is, but I will be using the second option from now on, using the hash of whatever key I want to store the document under as <code>Term</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Aug 2022 at 18:03</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Summary</strong></p>
+     <p>The problem is caused by a combination of (a) the order in which your documents are processed; and (b) the fact that <code>updateDocument</code> first deletes and then inserts data in the index.</p>
+     <p>When you use <a href="https://lucene.apache.org/core/9_3_0/core/org/apache/lucene/index/IndexWriter.html#updateDocument(org.apache.lucene.index.Term,java.lang.Iterable)" rel="nofollow noreferrer"><code>writer.updateDocument(term, document)</code></a>, Lucene performs an atomic delete-then-add:</p>
+     <blockquote>
+      <p>Updates a document by first deleting the document(s) containing term and then adding the new document.</p>
+     </blockquote>
+     <p>In your case, the order in which documents are processed is based on how they are retrieved from your Java <code>Map</code> - and that is based on how the entries are hashed by the map.</p>
+     <p>As you note in <a href="https://stackoverflow.com/a/73497188/12567365">your answer</a>, you already have a way to avoid this by using your Java object hashes as the <code>updateDocument</code> terms. (As long as you don't get any hash collisions.)</p>
+     <p>This answer attempts to explain the "why" behind the results you are seeing.</p>
+     <hr>
+     <p><strong>Basic Demonstration</strong></p>
+     <p>This is a highly simplified version of your code.</p>
+     <p>Consider the following two Lucene documents:</p>
+     <pre class="lang-java prettyprint-override"><code>final Document documentA = new Document();
+documentA.add(new TextField(FIELD_NAME, "10735", Field.Store.YES));
+final Term termA = new Term(FIELD_NAME, "10735");
+writer.updateDocument(termA, documentA);
+            
+final Document documentB = new Document();
+documentB.add(new TextField(FIELD_NAME, "10384-10735", Field.Store.YES));
+final Term termB = new Term(FIELD_NAME, "10384-10735");
+writer.updateDocument(termB, documentB);
+</code></pre>
+     <p><em>documentA then documentB:</em></p>
+     <p>Lucene has nothing to delete when <code>documentA</code> is added. After the doc is added, the index contains the following:</p>
+     <pre><code>field id
+  term 10735
+    doc 0
+      freq 1
+      pos 0
+</code></pre>
+     <p>So, we have only one token <code>10735</code>.</p>
+     <p>For <code>documentB</code>, there are no documents in the index containing the term <code>10384-10735</code> - and therefore nothing is deleted prior to <code>documentB</code> being added to the index.</p>
+     <p>We end up with the following final indexed data:</p>
+     <pre><code>field id
+  term 10384
+    doc 1
+      freq 1
+      pos 0
+  term 10735
+    doc 0
+      freq 1
+      pos 0
+    doc 1
+      freq 1
+      pos 1
+</code></pre>
+     <p>When we search for <code>10384</code>, we get one hit, as expected.</p>
+     <p><em>documentB then documentA:</em></p>
+     <p>If we swap the order in which the 2 documents are processed, we see the following after <code>documentB</code> is indexed:</p>
+     <pre><code>field id
+  term 10384
+    doc 0
+      freq 1
+      pos 0
+  term 10735
+    doc 0
+      freq 1
+      pos 1
+</code></pre>
+     <p>When <code>documentA</code> is indexed, Lucene finds that <code>doc 0</code> (above) in the index does contain the term <code>10735</code> used by <code>documentA</code>. Therefore all of the <code>doc 0</code> entries are deleted from the index, before <code>documentA</code> is added.</p>
+     <p>We end up with the following indexed data (basically, a new <code>doc 0</code>, after the original <code>doc 0</code> was deleted):</p>
+     <pre><code>field id
+  term 10735
+    doc 0
+      freq 1
+      pos 0
+</code></pre>
+     <p>Now when we search for <code>10384</code>, we get zero hits - not what we expected.</p>
+     <hr>
+     <p><strong>More Complicated Demonstration</strong></p>
+     <p>Things are made more complicated in your scenario in the question by your use of a Java <code>Map</code> to collect the documents to be indexed. This causes the order in which your Lucene documents are indexed to be different from the order in which they are created, due to hashing performed by the map.</p>
+     <p>Here is another simplified version of your code, but this time it uses a map:</p>
+     <pre class="lang-java prettyprint-override"><code>public class MyIndexBuilder {
+
+    private static final String INDEX_PATH = "index";
+    private static final String FIELD_NAME = "id";
+
+    private static final Map&lt;String, Document&gt; indexDocuments = new HashMap&lt;&gt;();
+
+    public static void buildIndex() throws IOException, FileNotFoundException, ParseException {
+        final Directory dir = FSDirectory.open(Paths.get(INDEX_PATH));
+
+        Analyzer analyzer = new StandardAnalyzer();
+
+        IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
+        iwc.setOpenMode(OpenMode.CREATE);
+        //iwc.setCodec(new SimpleTextCodec());
+
+        try ( IndexWriter writer = new IndexWriter(dir, iwc)) {
+            
+            String suffix = "10429";
+            
+            Document document1 = new Document();
+            document1.add(new TextField("id", "10001-" + suffix, Field.Store.YES));
+            indexDocuments.put("10001-" + suffix, document1);
+            
+            Document document2 = new Document();
+            document2.add(new TextField("id", suffix, Field.Store.YES));
+            indexDocuments.put(suffix, document2);
+            
+            //int max = 10193; // OK
+            int max = 10192; // not OK
+            
+            for (int i = 10003; i &lt;= max; i += 1) {
+                Document otherDoc1 = new Document();
+                otherDoc1.add(new TextField(FIELD_NAME, String.valueOf(i), Field.Store.YES));
+                indexDocuments.put(String.valueOf(i), otherDoc1);
+            }
+
+            System.out.println("Total docs: " + indexDocuments.size());
+            for (Map.Entry&lt;String, Document&gt; indexDocument : indexDocuments.entrySet()) {
+                if (indexDocument.getKey().contains(suffix)) {
+                    // show the order in which the document1 and document2 are indexed:
+                    System.out.println(indexDocument.getKey());
+                }
+                final Term term = new Term(FIELD_NAME, indexDocument.getKey());
+                writer.updateDocument(term, indexDocument.getValue());
+            }
+            
+        }
+    }
+
+}
+</code></pre>
+     <p>In addition to the two documents we are interested in, I add 191 additional (completely unrelated) documents to the index.</p>
+     <p>When I process the map, I see the following output:</p>
+     <pre><code>Total docs: 193
+10429
+10001-10429
+</code></pre>
+     <p>So, <code>document2</code> is indexed before <code>document1</code> - and our search for <code>10001</code> finds one hit.</p>
+     <p>But if I process fewer of these "extra" documents (190 instead of 191):</p>
+     <pre><code>int max = 10192; // not OK
+</code></pre>
+     <p>...then I get this output:</p>
+     <pre><code>Total docs: 192
+10001-10429
+10429
+</code></pre>
+     <p>You can see that the order in which <code>document1</code> and <code>document2</code> are processed has been flipped - and now that same search for <code>10001</code> finds zero hits.</p>
+     <p>A seemingly unrelated change (procesing one fewer document) has caused the retrieval order from the map to change, causing the indexed data to be different.</p>
+     <p>(I was incorrect in one of my comments in the question, when I noted that the indexed data was <em>apparently</em> identical. It is not the same. I missed that when I was first looking at the indexed data.)</p>
+     <hr>
+     <p><strong>Recommendation</strong></p>
+     <p>Consider adding a new field to your Lucene documents, for storing each document's unique identifier.</p>
+     <p>You could call it <code>doc_id</code> and it would be created as a <a href="https://lucene.apache.org/core/9_3_0/core/org/apache/lucene/document/StringField.html" rel="nofollow noreferrer"><code>StringField</code></a>, not as a <code>TextField</code>.</p>
+     <p>This would ensure that the contents of this field are never processed by the Standard Analyzer and are stored in the index as a single (presumably unique) token. A <code>StringField</code> is indexed but not tokenized.</p>
+     <p>You can then use this field when building your term to use in the <code>updateDocument()</code> method. And you can use the existing <code>id</code> field for searches.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for taking the time to properly explain why this phenomenon occurs the way it does. I am still new to using Lucene and your help is appreciated a lot. I think I now understand what to do.</span> <span> - </span> <span class="display-name">Skyball</span> <span> </span> <span class="date">27 Aug 2022 at 20:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

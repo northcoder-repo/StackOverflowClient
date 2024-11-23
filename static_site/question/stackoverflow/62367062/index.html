@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Spring MVC java mail IMAP, how to display list of emails received through a form in thymeleaf?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Spring MVC java mail IMAP, how to display list of emails received through a form in thymeleaf?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Felipe Macías</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Jun 2020 at 00:28</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62367062/spring-mvc-java-mail-imap-how-to-display-list-of-emails-received-through-a-form">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am making an email client application, for that I am using Spring MVC and the "javax.mail" mail API, in addition to thymeleaf for the view. I already configured the service to read messages through IMAP, so far so good, the problem I have is that when I try to show the list of emails through a form in the view I can only see one item in the list despite that in the debug you can see that all the emails in the specified folder (inbox) are listed. So how can I display the email list of the "inbox" folder through a form in thymeleaf?</p>
+    <pre><code>public class ReadDto {
+
+    private String from;
+    private String subject;
+    private Date sentDate;
+
+    public ReadDto() {
+    }
+
+    public ReadDto(String from, String subject, Date sentDate) {
+        this.from = from;
+        this.subject = subject;
+        this.sentDate = sentDate;
+    }
+
+    public String getFrom() {
+        return from;
+    }
+
+    public void setFrom(String from) {
+        this.from = from;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public Date getSentDate() {
+        return sentDate;
+    }
+
+    public void setSentDate(Date sentDate) {
+        this.sentDate = sentDate;
+    }
+}
+</code></pre>
+    <p>my service:</p>
+    <pre><code>public interface EmailReadService {
+    ReadDto downloadEmails();
+}
+</code></pre>
+    <p>Implementation:</p>
+    <pre><code>    @Override
+    public ReadDto downloadEmails(){
+
+        ReadDto readDto = new ReadDto();
+
+        if (getLoginSession()==null){
+            logger.error("Session error!");
+        }
+
+        try {
+            store = getLoginSession().getStore(emailAccountComponent.getProtocol());
+            store.connect(connectService.javaMailSenderImpl.getHost(),
+                        connectService.javaMailSenderImpl.getUsername(),
+                        connectService.javaMailSenderImpl.getPassword());
+
+            folder = store.getFolder(emailAccountComponent.getFolder());
+            folder.open(Folder.READ_ONLY);
+
+            Message[] messages = folder.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
+            for (Message message: messages){
+                readDto.setFrom(Arrays.toString(message.getFrom()));
+                readDto.setSubject(message.getSubject());
+                readDto.setSentDate(message.getSentDate());
+            }
+            folder.close(false);
+            store.close();
+        } catch (NoSuchProviderException ex) {
+            System.out.println("No provider.");
+            ex.printStackTrace();
+        } catch (MessagingException ex) {
+            System.out.println("Could not connect to the message store");
+            ex.printStackTrace();
+        }
+
+        return readDto;
+    }
+</code></pre>
+    <p>My controller</p>
+    <pre><code>    @GetMapping("/read")
+    public String getEmails(Model model){
+        ReadDto readDto = emailReadService.downloadEmails();
+        model.addAttribute("emails", readDto);
+        return READ_VIEW;
+    }
+</code></pre>
+    <p>in the view:</p>
+    <pre><code>&lt;div class="container"&gt;
+    &lt;div class="card-body"&gt;
+        &lt;table class="table table-striped table-dark"&gt;
+            &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;From&lt;/th&gt;
+                &lt;th&gt;Subject&lt;/th&gt;
+                &lt;th&gt;Sent date&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+            &lt;/tr&gt;
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+            &lt;tr th:each="readDto: ${emails}"&gt;
+                &lt;td&gt;&lt;span th:text="${emails.from}"&gt; From &lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;span th:text="${emails.subject}"&gt; Subject &lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;span th:text="${emails.sentDate}"&gt; Sent date &lt;/span&gt;&lt;/td&gt;
+
+            &lt;/tr&gt;
+            &lt;/tbody&gt;
+        &lt;/table&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">email</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Jun 2020 at 01:10</span>
+     </div>
+    </div>
+    <div>
+     <p>Instead of this:</p>
+     <pre><code>&lt;tr th:each="readDto: ${emails}"&gt;
+    &lt;td&gt;&lt;span th:text="${emails.from}"&gt; From &lt;/span&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;span th:text="${emails.subject}"&gt; Subject &lt;/span&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;span th:text="${emails.sentDate}"&gt; Sent date &lt;/span&gt;&lt;/td&gt;
+&lt;/tr&gt;
+</code></pre>
+     <p>You need to use this:</p>
+     <pre><code>&lt;tr th:each="readDto : ${emails}"&gt;
+    &lt;td&gt;&lt;span th:text="${readDto.from}"&gt; From &lt;/span&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;span th:text="${readDto.subject}"&gt; Subject &lt;/span&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;span th:text="${readDto.sentDate}"&gt; Sent date &lt;/span&gt;&lt;/td&gt;
+&lt;/tr&gt;
+</code></pre>
+     <p>The <code>readDto</code> variable represents each object in the <code>${emails}</code> collection.</p>
+     <p>Then, after that, you need to ensure that the <code>readDTO</code> object populated from here...</p>
+     <pre><code>ReadDto readDto = emailReadService.downloadEmails();
+</code></pre>
+     <p>...is actually a collection not a single object. It needs to be something like this:</p>
+     <pre><code>public interface EmailReadService {
+    List&lt;ReadDto&gt; downloadEmails();
+}
+</code></pre>
+     <p>Right now, your code returns one email via the above interface:</p>
+     <pre><code>for (Message message: messages){
+    readDto.setFrom(Arrays.toString(message.getFrom()));
+    readDto.setSubject(message.getSubject());
+    readDto.setSentDate(message.getSentDate());
+}
+</code></pre>
+     <p>So, you need to store each of these <code>readDto</code> objects in a list, as you create them.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for the help andrewjames, you are absolutely right, with your help I already managed to get the entire email list, thanks again!</span> <span> - </span> <span class="display-name">Felipe Macías</span> <span> </span> <span class="date">17 Jun 2020 at 22:09</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

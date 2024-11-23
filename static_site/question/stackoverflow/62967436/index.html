@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Identify open FileOutputStreams by the process</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Identify open FileOutputStreams by the process</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Anurag Sharma</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>18 Jul 2020 at 10:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62967436/identify-open-fileoutputstreams-by-the-process">source</a>
+    </div>
+   </div>
+   <div>
+    <p>We have a memory leak in our Java application as the number of FileOutputStream open - closed difference is increasing with time. In our case heap is pretty stable but since FileOutputStreams are open we are facing memory leak in JVM native memory.</p>
+    <p>Could you please suggest a way by which we can identify the piece of code in the codebase that may be contributing to this leak.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">memory-leaks</span><span class="tag">jprofiler</span><span class="tag">yourkit</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ingo Kegel</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jul 2020 at 11:37</span>
+     </div>
+    </div>
+    <div>
+     <p>In JProfiler, you can find the allocation spots of unclosed FileOutputStreams like this:</p>
+     <ol>
+      <li>Record allocations and take a heap snapshot</li>
+      <li>Select all instances of FileOutputStream and create a new object set</li>
+      <li>Select the "Outgoing references" view</li>
+      <li>Select the "closed" field of a FileOutputStream instance and invoke "Apply filter-&gt;By restricting the selected value", then select "false" in the value dialog.</li>
+      <li>Go to the "Allocations" view of the heap walker and inspect the tree of allocation call stacks or the allocation hot spots view.</li>
+     </ol>
+     <p><a href="https://i.stack.imgur.com/5JiZc.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/5JiZc.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>DuncG</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Jul 2020 at 12:11</span>
+     </div>
+    </div>
+    <div>
+     <p>On Linux systems <code>lsof</code> will help you identify which file handles are open, and if you recognise the names that may help you track down the place in your code that is not closing resources properly.</p>
+     <p>However there is a much easier way if you just use a good IDE as they warn when resources are at risk of not being closed.</p>
+     <p>For example Eclipse flags this line with a warning that <code>fis1</code> may not be closed properly:</p>
+     <pre><code>FileInputStream fis1 = new FileInputStream(file);
+    
+</code></pre>
+     <p>... and warning vanishes if changed to:</p>
+     <pre><code>try(FileInputStream fis2 = new FileInputStream(file)) {
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vladimir Kondratyev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Aug 2020 at 07:17</span>
+     </div>
+    </div>
+    <div>
+     <p>YourKit profiler automatically finds all non-closed FileInputStreams:</p>
+     <ul>
+      <li>
+       <p>Capture and open memory snapshot.</p></li>
+      <li>
+       <p>Select "Inspections" tab.</p></li>
+      <li>
+       <p>Find in the inspection tree "Other memory oddities" node. It contains "Non closed resources pending finalization".</p></li>
+      <li>
+       <p>Run the inspection.</p></li>
+     </ul>
+     <p>Profiler is also able to find non-closed files, directory streams, streams closed in finalizer, and many other issues. More details are available at <a href="https://www.yourkit.com/docs/java/help/event_inspections.jsp" rel="nofollow noreferrer">https://www.yourkit.com/docs/java/help/event_inspections.jsp</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

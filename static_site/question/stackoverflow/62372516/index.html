@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to include jars in lib into project jar file in Netbeans 8.2?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to include jars in lib into project jar file in Netbeans 8.2?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user13196379</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Jun 2020 at 12:28</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62372516/how-to-include-jars-in-lib-into-project-jar-file-in-netbeans-8-2">source</a>
+    </div>
+   </div>
+   <div>
+    <p>When I build the jar file, it creates a separate folder, lib, but since I can make it combine everything in one file, I saw how to do it <a href="https://stackoverflow.com/questions/18451052/how-to-include-jars-in-lib-into-project-jar-file-in-netbeans">here</a>, but in this new version(8.2) it doesn't work because the site menus have changed and when I add in the build.xml I can't right click &gt; run target since it "blocks" that element</p>
+    <p>The goal is to have only one file, for greater convenience and not having to move the folder lib, generated automatically. The project type is Java Application and I haven't modified anything in build.xml</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">netbeans</span><span class="tag">build</span><span class="tag">jar</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Can you clarify your question, by editing it (not by adding comments). What outcome are you trying to achieve? What are you adding to your <code>build.xml</code>? Which ant target are you trying to run?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">14 Jun 2020 at 15:29</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Jun 2020 at 19:22</span>
+     </div>
+    </div>
+    <div>
+     <h2>Option One</h2>
+     <p>Assuming you have: (a) a standard Ant-based project (which it sounds like you have), and (b) you have your extra JAR files in the usual NetBeans "Libraries" folder, then you can do the following:</p>
+     <p>1) Edit the project's <code>build.xml</code> file.</p>
+     <p>2) Go to the end of the file, and add the following immediately before the final <code>&lt;/project&gt;</code> tag:</p>
+     <pre><code>    &lt;target name="-post-jar"&gt;
+        &lt;jar destfile="${dist.jar}"
+             update="true"&gt;
+            &lt;restrict&gt; 
+                &lt;archives&gt;
+                   &lt;zips&gt;
+                       &lt;fileset dir="${dist.dir}" includes="lib/*.jar"/&gt;
+                   &lt;/zips&gt;
+                &lt;/archives&gt;
+            &lt;/restrict&gt;
+        &lt;/jar&gt;
+    &lt;/target&gt;
+</code></pre>
+     <p>This adds an extra step to the standard "clean and build" process in NetBeans.</p>
+     <p>It copies the <em>contents</em> of library files into your application's JAR file. Note that I explicitly say "the contents" here. It does not copy the JAR files themselves - because you would have to handle the classpath issues arising from that approach (see option 2). It just copies all of the class files from your library JARs into your application's JAR.</p>
+     <p>The above is based on the examples found <a href="https://ant.apache.org/manual/Tasks/jar.html" rel="nofollow noreferrer">here</a> in the Ant documentation. See the "Merging archives" examples.</p>
+     <p>Then, you can run the JAR file with something like this:</p>
+     <pre><code>"C:\Program Files\Java\jdk1.8.0_211\bin\java" -jar C:\tmp\DemoOne.jar
+</code></pre>
+     <h2>Option Two</h2>
+     <p>Use Maven, not Ant, for your build process (and JAR dependency management). The specifics are outside the scope of this question, but look for the <a href="https://maven.apache.org/plugins/maven-shade-plugin/" rel="nofollow noreferrer">Maven Shade</a> plug-in.</p>
+     <p>That plug-in was designed specifically to handle the situation in your question - and to deal with more complex situations which may not be handled by my option 1 above. Using Maven to manage your dependent JARs can also make your life much, much easier.</p>
+     <h2>Other Notes</h2>
+     <p>It may feel inconvenient (i.e. less portable) to have a separate "lib" directory containing required library JARs, but it does make sense from the point of view of keeping your code separated (in its own JAR) from other libraries and dependencies.</p>
+     <p>NetBeans 8.2 was released in October 2016 - it is (by the standards of IDEs) quite old. You may want to consider upgrading to a later version, if that is an option. See <a href="https://netbeans.apache.org/download/archive/index.html" rel="nofollow noreferrer">here</a> for a list of recent releases.</p>
+     <p>With a more recent version of NetBeans you will more easily be able to take advantage of newer versions of Java.</p>
+     <h2>Edit - Maven Shade</h2>
+     <p>Here is a Maven-based example (using Java 11), in case it encourages you to take another look at Maven.</p>
+     <p>This is the Java program:</p>
+     <pre><code>package org.ajames.uberjar;
+
+import org.apache.commons.lang3.CharUtils;
+
+public class App {
+
+    public static void main(String[] args) {
+        System.out.println("The result is " + CharUtils.isAscii('x') + "!");
+    }
+
+}
+</code></pre>
+     <p>As you can see, it is very simple. It requires one external JAR file: <code>commons-lang3</code>.</p>
+     <p>A Maven POM file (pom.xml) is created for you by NetBeans when you choose to create a new Maven-based Java project.</p>
+     <p>You have to edit that POM file. Here is mine, which creates a single executable JAR containing everything I need:</p>
+     <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+    &lt;groupId&gt;org.ajames&lt;/groupId&gt;
+    &lt;artifactId&gt;UberJarExample&lt;/artifactId&gt;
+    &lt;version&gt;1.0-SNAPSHOT&lt;/version&gt;
+    &lt;packaging&gt;jar&lt;/packaging&gt;
+    &lt;properties&gt;
+        &lt;project.build.sourceEncoding&gt;UTF-8&lt;/project.build.sourceEncoding&gt;
+        &lt;maven.compiler.source&gt;11&lt;/maven.compiler.source&gt;
+        &lt;maven.compiler.target&gt;11&lt;/maven.compiler.target&gt;
+    &lt;/properties&gt;
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.apache.commons&lt;/groupId&gt;
+            &lt;artifactId&gt;commons-lang3&lt;/artifactId&gt;
+            &lt;version&gt;3.10&lt;/version&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;build&gt;
+        &lt;finalName&gt;UberJarExample&lt;/finalName&gt;
+        &lt;plugins&gt;
+
+            &lt;plugin&gt;
+                &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+                &lt;artifactId&gt;maven-shade-plugin&lt;/artifactId&gt;
+                &lt;version&gt;3.2.1&lt;/version&gt;
+                &lt;executions&gt;
+                    &lt;execution&gt;
+                        &lt;phase&gt;package&lt;/phase&gt;
+                        &lt;goals&gt;
+                            &lt;goal&gt;shade&lt;/goal&gt;
+                        &lt;/goals&gt;
+                        &lt;configuration&gt;
+                            &lt;transformers&gt;
+                                &lt;transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/&gt;
+                                &lt;transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"&gt;
+                                    &lt;manifestEntries&gt;
+                                        &lt;Built-By&gt;ajames&lt;/Built-By&gt;
+                                        &lt;Main-Class&gt;org.ajames.uberjar.App&lt;/Main-Class&gt;
+                                        &lt;Build-Number&gt;123&lt;/Build-Number&gt;
+                                        &lt;!-- https://planet.jboss.org/post/building_multi_release_jars_with_maven --&gt;
+                                        &lt;Multi-Release&gt;false&lt;/Multi-Release&gt;
+                                    &lt;/manifestEntries&gt;
+                                &lt;/transformer&gt;
+                            &lt;/transformers&gt;
+                        &lt;/configuration&gt;
+                    &lt;/execution&gt;
+                &lt;/executions&gt;
+            &lt;/plugin&gt;            
+
+        &lt;/plugins&gt;
+    &lt;/build&gt;
+
+&lt;/project&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Gracias por tomarse el tiempo para responder, En cuanto a la segunda opción, traté de usar maeven pero al final me di por vencido debido a algunos errores que no pude arreglar, trataré de crear el proyecto en un net bean más moderno en caso de que me den alguna opción al construir, de nuevo gracias por su tiempo</span> <span> - </span> <span class="display-name">user13196379</span> <span> </span> <span class="date">14 Jun 2020 at 21:06</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I added a Maven example for creating an executable JAR file.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Jun 2020 at 22:22</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

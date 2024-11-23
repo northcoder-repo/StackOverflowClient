@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Return the same value from a second function call</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Return the same value from a second function call</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Petar Luketina</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Jul 2020 at 03:24</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62724931/return-the-same-value-from-a-second-function-call">source</a>
+    </div>
+   </div>
+   <div>
+    <p>If the first function calls a second function, is it possible to have the second function return a value <strong>for</strong> the first function?</p>
+    <pre><code>def check_type(x):
+  if type(x) not in [int, float]:
+    return None
+
+def square(x):
+  check_type(x)
+  return x**2
+
+
+print(square(2))
+&gt;&gt;&gt; 4
+
+print(square('2'))
+&gt;&gt;&gt; Error but should return None
+</code></pre>
+    <p>I know that I can restructure my code in such a way to make this possible by using <code>if</code> <code>then</code> statements but I wanted to see if Python had anything built in already to save lines of code.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">python</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>I've updated my answer with more food for thought</span> <span> - </span> <span class="display-name">Mad Physicist</span> <span> </span> <span class="date">4 Jul 2020 at 15:49</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mad Physicist</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jul 2020 at 04:03</span>
+     </div>
+    </div>
+    <div>
+     <p>From a conceptual point of view, you might want to switch the order of the functions. Instead of <code>square</code> using <code>check_type</code> to check its arguments, you can make <code>check_type</code> accept <code>square</code> as the callback to call with sanitized arguments if everything passes.</p>
+     <p>A naive approach might be as follows:</p>
+     <pre><code>def check_type(x, hook):
+    return hook(x) if type(x) in [int, float] else None
+
+def square(x):
+    return x**2
+
+
+print(check_type(2, square))
+# 4
+
+print(check_type('2', square))
+# None
+</code></pre>
+     <p>This is not super elegant, but it is a design improvement over your original approach in a number of ways. For one thing, the function <code>square</code> is free to focus on doing it's job instead of worrying about sanitizing arguments, which helps encapsulation. For another, it makes type checking more consistent across functions, because you can do it in one place instead of having to remember to do it in each function.</p>
+     <p>As far as elegance goes, python provides a mechanism for doing this quite cleanly, called decorators. A decorator is a function that accepts a function or class as input, and returns a replacement object. This is usually used to wrap functions with extra functionally, exactly like you are trying to do.</p>
+     <p>A first pass decorator implementation would look like this:</p>
+     <pre><code>from functools import wraps
+
+def check_type(func):
+    @wraps(f)
+    def wrapper(x):
+        return func(x) if type(x) in [int, float] else None
+    return wrapper
+
+@check_type
+def square(x):
+    return x**2
+
+
+print(square(2))
+# 4
+
+print(square('2'))
+# None
+</code></pre>
+     <p>Notice that the <code>wrapper</code> function that the decorator returns to replace <code>square</code> is itself decorated. <a href="https://docs.python.org/3/library/functools.html#functools.wraps" rel="nofollow noreferrer"><code>functools.wraps</code></a> modifies the function object by updating the name and other attributes to make <code>wrapper</code> be harder to distinguish from the original <code>square</code>.</p>
+     <p>On an unrelated note, I probably wouldn't allow my function to return a value on inappropriate input. When you return <code>None</code>, you are forcing the caller to check for <code>None</code> vs a valid value, effectively defeating the purpose of having a type checker in the first place. Instead, an exception is a better design choice because it doesn't punt the responsibility down the line:</p>
+     <pre><code>def check_type(func):
+    @wraps(f)
+    def wrapper(x):
+        if type(x) in [int, float]
+            raise TypeError ('Expected one thing but got the other')
+        return func(x)
+    return wrapper
+</code></pre>
+     <p>As a final point, you may want to reconsider how you do type checking, or whether you do it at all. For example, you can extend most of the built-in classes. If you want to allow such extensions, a better phrasing might be</p>
+     <pre><code>if isinstance(x, (int, float)):
+</code></pre>
+     <p>Or you can use abstract base classes registered in the <a href="https://docs.python.org/3/library/numbers.html#module-numbers" rel="nofollow noreferrer"><code>numbers</code></a> module. This will allow you to handle things like numpy scalars, decimals, etc:</p>
+     <pre><code>if isinstance(x, numbers.Number):
+</code></pre>
+     <p>Finally, you may want to consider doing the most pythonic thing, and passing through anything that supports whatever operation you need. That means not doing any type checking at all. If you pass an instance of something with no <code>__pow__</code> method, the interpreter will raise a <code>TypeError</code> for you in <code>square</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Yeah, decorators are the obvious solution (in hindsight) here.</span> <span> - </span> <span class="display-name">Mark</span> <span> </span> <span class="date">4 Jul 2020 at 04:05</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mark</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jul 2020 at 03:41</span>
+     </div>
+    </div>
+    <div>
+     <p>If you want to save lines of code (not saying that's always a virtuous goal), you can use boolean short circuiting for things like this:</p>
+     <pre><code>def check_type(x):
+    return type(x) in [int, float] or None
+
+def square(x):
+    return check_type(x) and x**2
+
+
+print(square(2))
+# 4
+
+print(square('2'))
+# None
+</code></pre>
+     <p>This will return the value for <code>check_type(x)</code> if it's falsey, otherwise the value <code>square()</code></p>
+     <p>Having said that, it seems the pythonic way is to not do the type check, but catch the error:</p>
+     <pre><code>def square(x):
+    try:
+        return x**2
+    except TypeError:
+        return None
+</code></pre>
+     <p>This will allow your function to work on other types you might not have predicted, but allow exponents. For example, complex numbers: <code>square(2+1j)</code> which returns <code>None</code> in the first example, but <code>(3+4j)</code> in the second.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Achy97</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jul 2020 at 03:50</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>def check_type(x):
+  if type(x) not in [int, float]:
+    return None
+</code></pre>
+     <p>Here the problem is when your type is not <code>int</code> or <code>float</code> you are returning <code>None</code>, but when your value is in the desired type it returns nothing.</p>
+     <p>So actually the typechecking is returning nothing and you cannot return from a function without writing return statement, i.e, when you call <code>check_type</code> it returns None (from <code>check_type</code> )but dosent return from <code>sqauare</code> function.</p>
+     <p>Mark Meyer answer is perfect</p>
+     <p>Ans it should also work-</p>
+     <pre><code>def check_type(x):
+  return type(x) in [int, float] or None
+
+def square(x):
+  return None if not check_type(x) else x**2
+  
+print(square('2'))
+#4
+print(square(2))
+#None
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jason Yang</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jul 2020 at 04:42</span>
+     </div>
+    </div>
+    <div>
+     <p>check_type(x) always return None to square(x), but not let square(x) to return None.</p>
+     <p>Try this</p>
+     <pre class="lang-py prettyprint-override"><code>def square(x):
+    return x**2 if isinstance(x , (int, float)) else None
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

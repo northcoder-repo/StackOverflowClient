@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Is this initialization safe?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Is this initialization safe?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Life44</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Mar 2020 at 16:29</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60530612/is-this-initialization-safe">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a class like that:</p>
+    <pre><code>public class WorkHelper {
+
+    private final Worker worker;
+
+    public WorkHelper(Worker worker) {
+        this.worker = worker;
+    }
+
+    //...
+
+}
+</code></pre>
+    <p>and everybody knows that the initialization below is wrong:</p>
+    <pre><code>public class Worker {
+
+    private final WorkHelper helper;
+    private final SomeClass some;
+
+    public Worker(SomeClass some) {
+        helper = new WorkHelper(this);
+        this.some = some;
+    }
+
+}
+</code></pre>
+    <p>But how about the one below? Is this correct?</p>
+    <pre><code>public class Worker {
+
+    private final WorkHelper helper = new WorkHelper(this);
+    private final SomeClass some;
+
+    public Worker(SomeClass some) {
+        this.some = some;
+    }
+
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Why is the second initialization wrong? You can initialize <code>final</code> variables in the constructor...</span> <span> - </span> <span class="display-name">dan1st is on strike</span> <span> </span> <span class="date">4 Mar 2020 at 16:31</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@dan1st, there is a cycle initializing there?</span> <span> - </span> <span class="display-name">Tran Ho</span> <span> </span> <span class="date">4 Mar 2020 at 16:32</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>"everybody knows that the initialization below is wrong" Really? I don't see what could be wrong there.</span> <span> - </span> <span class="display-name">Stefan</span> <span> </span> <span class="date">4 Mar 2020 at 16:32</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span><a href="http://www.javapractices.com/topic/TopicAction.do?Id=252" rel="nofollow noreferrer">javapractices.com/topic/TopicAction.do?Id=252</a></span> <span> - </span> <span class="display-name">Life44</span> <span> </span> <span class="date">4 Mar 2020 at 16:32</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>The problem is passing a partially constructed object to the other class, where some values may not be seen as initialized. There is no difference between 2 and 3 in this respect.</span> <span> - </span> <span class="display-name">RealSkeptic</span> <span> </span> <span class="date">4 Mar 2020 at 16:33</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>There is no cyclic initialization.</span> <span> - </span> <span class="display-name">dan1st is on strike</span> <span> </span> <span class="date">4 Mar 2020 at 16:33</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Better, if you can, just to use POJOs</span> <span> - </span> <span class="display-name">ControlAltDel</span> <span> </span> <span class="date">4 Mar 2020 at 16:34</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Bohemian</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Mar 2020 at 16:33</span>
+     </div>
+    </div>
+    <div>
+     <p>All versions are unsafe; they are all cases of “<a href="https://stackoverflow.com/a/3705628/256196">letting <code>this</code> escape</a>”.</p>
+     <p>Consider creating a factory method that creates the worker helper after construction is complete, for example:</p>
+     <pre><code>public class Worker {
+
+    private WorkHelper helper;
+    private SomeClass some;
+
+    // hide the constructor
+    private Worker() {}
+
+    public static Worker create(SomeClass some) {
+        Worker worker = new Worker();
+        worker.some = some;
+        worker.helper = new WorkHelper(worker); // pass post construction
+        return worker;
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Ok, my fault. :)</span> <span> - </span> <span class="display-name">dan1st is on strike</span> <span> </span> <span class="date">4 Mar 2020 at 16:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>i am new to stackoverflow may someone let me know what is OP</span> <span> - </span> <span class="display-name">Abhinav Chauhan</span> <span> </span> <span class="date">4 Mar 2020 at 16:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@RealSkeptic perhaps, but OP has probably simplified his/her real life situation to make the question simple and more broadly useful.</span> <span> - </span> <span class="display-name">Bohemian</span> <span> </span> <span class="date">4 Mar 2020 at 16:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@TheGoldy OP == Original Poster (conveniently gender neutral)</span> <span> - </span> <span class="display-name">Bohemian</span> <span> </span> <span class="date">4 Mar 2020 at 16:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Bohemian but why is helper initialized two times?</span> <span> - </span> <span class="display-name">Life44</span> <span> </span> <span class="date">4 Mar 2020 at 16:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Life44 oops! It got left in from copy-paste. Fixed now.</span> <span> - </span> <span class="display-name">Bohemian</span> <span> </span> <span class="date">4 Mar 2020 at 16:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@RealSkeptic as I just posted, that was left there in error due to a sloppy copy paste. Have some sympathy - I am thumbing this code in on my phone and only part of my post is visible at any one time due to tiny screen size.</span> <span> - </span> <span class="display-name">Bohemian</span> <span> </span> <span class="date">4 Mar 2020 at 16:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

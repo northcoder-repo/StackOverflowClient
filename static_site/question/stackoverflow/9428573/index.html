@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Is it safe to use a static java.sql.Connection instance in a multithreaded system?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Is it safe to use a static java.sql.Connection instance in a multithreaded system?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>63</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Asher Saban</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Feb 2012 at 09:45</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/9428573/is-it-safe-to-use-a-static-java-sql-connection-instance-in-a-multithreaded-syste">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm running a web application on Tomcat. I have a class that handles all DB queries. This class contains the <code>Connection</code> object and methods that returns query results.</p>
+    <p>This is the connection object:</p>
+    <pre><code>private static Connection conn = null;
+</code></pre>
+    <p>It has only one instance (singleton).</p>
+    <p>In addition, I have methods that execute queries, such as search for a user in the db:</p>
+    <pre><code>public static ResultSet searchUser(String user, String pass) throws SQLException
+</code></pre>
+    <p>This method uses the static <code>Connection</code> object. My question is, is my use in static <code>Connection</code> object thread safe? Or can it cause problems when a lot of users will call the <code>searchUser</code> method?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">multithreading</span><span class="tag">servlets</span><span class="tag">jdbc</span><span class="tag">connection</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>94</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BalusC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Feb 2012 at 13:53</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p><em>is my use in static Connection object thread safe?</em></p>
+     </blockquote>
+     <h1>Absolutely not!</h1>
+     <p>This way the connection going to be shared among all requests sent by all users and thus all queries will interfere with each other. But threadsafety is not your only problem, resource leaking is also your other problem. You're keeping a single connection open during the entire application's lifetime. The average database will reclaim the connection whenever it's been open for too long which is usually between 30 minutes and 8 hours, depending on DB's configuration. So if your web application runs longer than that, the connection is lost and you won't be able to execute queries anymore.</p>
+     <p>This problem also applies when those resources are held as a non-<code>static</code> instance variable of a class instance which is reused multiple times.</p>
+     <p>You should <em>always</em> acquire and close the connection, statement and resultset in the <strong>shortest possible scope</strong>, preferably inside the very same <a href="https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html" rel="noreferrer"><code>try-with-resources</code> block</a> as where you're executing the query according the following JDBC idiom:</p>
+     <pre class="lang-java prettyprint-override"><code>public User find(String username, String password) throws SQLException {
+    User user = null;
+
+    try (
+        Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement("SELECT id, username, email FROM user WHERE username=? AND password=md5(?)");
+    ) {
+        statement.setString(1, username);
+        statement.setString(2, password);
+
+        try (ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                user = new User();
+                user.setId(resultSet.getLong("id"));
+                user.setUsername(resultSet.getString("username"));
+                user.setEmail(resultSet.getString("email"));
+            }
+        }
+    }       
+
+    return user;
+}
+</code></pre>
+     <p>Note that you should <strong>not</strong> return a <code>ResultSet</code> here. You should immediately read it and map it to a non-JDBC class and then return it, so that the <code>ResultSet</code> can safely be closed.</p>
+     <p>If you're not on Java 7 yet, then use a <code>try-finally</code> block wherein you manually close the closeable resources in the reverse order as you've acquired them. You can find an example here: <a href="https://stackoverflow.com/questions/5602772/how-often-should-connection-statement-and-resultset-be-closed-in-jdbc">How often should Connection, Statement and ResultSet be closed in JDBC?</a></p>
+     <p>If you worry about connecting performance, then you should be using connection pooling instead. This is built-in into many Java EE application servers and even barebones servletcontainers like Tomcat supports it. Just create a JNDI datasource in the server itself and let your webapp grab it as <code>DataSource</code>. It's transparently already a connection pool. You can find an example in the first link of the list below.</p>
+     <h3>See also:</h3>
+     <ul>
+      <li><a href="https://stackoverflow.com/questions/2299469/how-should-i-connect-to-a-mysql-data-source-from-eclipse/">How should I connect to JDBC database / datasource in a servlet based application?</a></li>
+      <li><a href="https://stackoverflow.com/questions/8345133/when-my-app-loses-connection-how-should-i-try-to-recover">When my app loses connection, how should I recover it?</a></li>
+      <li><a href="https://stackoverflow.com/questions/7592056/am-i-using-jdbc-connection-pooling">Am I Using JDBC Connection Pooling?</a></li>
+      <li><a href="https://stackoverflow.com/questions/5003142/jsp-using-mvc-and-jdbc">Show JDBC ResultSet in HTML in JSP page using MVC and DAO pattern</a></li>
+      <li><a href="http://balusc.blogspot.com/2008/07/dao-tutorial-data-layer.html" rel="noreferrer">DAO tutorial with JDBC</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Although it has nothing to do with the current question, but just for curiosity sake, does hibernate do the same thing. I mean every time we create the session object, does it create the new connection object and closes after use.</span> <span> - </span> <span class="display-name">coder</span> <span> </span> <span class="date">24 Feb 2012 at 17:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Vikas: Hibernate isn't that stupid :) Yes, it does it rightly. You as developer has still to make sure that you're using the Hibernate session rightly (i.e. do not assign it as <code>static</code> variable or something).</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">24 Feb 2012 at 17:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BaluC: What if we use a code like in this link for web? It is using C3P0- <a href="http://www.javatips.net/blog/2013/12/c3p0-connection-pooling-example" rel="nofollow noreferrer">javatips.net/blog/2013/12/c3p0-connection-pooling-example</a></span> <span> - </span> <span class="display-name">PeakGen</span> <span> </span> <span class="date">28 May 2015 at 18:50</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@JustCause: Explore "See also" links in bottom of answer. Note that your link doesn't use a static <code>Connection</code>, where this question is all about.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">28 May 2015 at 18:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BalusC: I know, I just wanted to know whether that code is safer for web. Any ideas?</span> <span> - </span> <span class="display-name">PeakGen</span> <span> </span> <span class="date">28 May 2015 at 18:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BalusC: Maybe, this is better, as it is doing a check for connection existence - <a href="http://syntx.io/configuring-c3p0-connection-pooling-with-jdbc/" rel="nofollow noreferrer">syntx.io/configuring-c3p0-connection-pooling-with-jdbc</a></span> <span> - </span> <span class="display-name">PeakGen</span> <span> </span> <span class="date">28 May 2015 at 18:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BalusC Your answer is contradicting with this answer - <a href="https://stackoverflow.com/questions/1531073/is-java-sql-connection-thread-safe" title="is java sql connection thread safe">stackoverflow.com/questions/1531073/…</a> .. As per this answer, connection object is thread safe and can be used concurrently my multiple threads, Could you please help explaining this confusion/discrepancy between answers?</span> <span> - </span> <span class="display-name">pjj</span> <span> </span> <span class="date">9 Jun 2017 at 10:52</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>TPete</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Feb 2012 at 11:55</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are only running <code>Select</code> queries (<code>searchUser</code> sounds like only selecting data) there will be no issues, apart from thread contention.</p>
+     <p>As far as I know, a <code>Connection</code> can only handle one query at a time, so by using a single instance you will essentially serialize database access. But this does not necessarily mean, it is always <em>safe</em> to access a database like this in a multi threaded environment. There might still be issues if concurrent accesses are interleaving.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

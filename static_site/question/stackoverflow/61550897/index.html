@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>CSVParser not handling escaped delimiters in unquoted strings</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>CSVParser not handling escaped delimiters in unquoted strings</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Andy Jacobs</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>1 May 2020 at 21:13</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61550897/csvparser-not-handling-escaped-delimiters-in-unquoted-strings">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm using com.opencsv.CSVParser (5.1) in my Java program.</p>
+    <pre><code>                    final CSVParser csvParser =
+                        new CSVParserBuilder()
+                        .withSeparator(',')
+                        .withQuoteChar('"')
+                        .withEscapeChar('\\')
+                        .withIgnoreQuotations(true)
+                        .build();
+</code></pre>
+    <p>My input file has</p>
+    <pre><code>3,2.48,E #3,String with \, comma in it,0
+</code></pre>
+    <p>I was expecting the 4th field to end up with "String with , comma in it". But instead, the parser is splitting the string into two fields at the escaped comma, with "String with " and " comma in it". The documentation for withEscapeChar() says:</p>
+    <blockquote>
+     <p>Sets the character to use for escaping a separator or quote.</p>
+    </blockquote>
+    <p>And since quoted separators don't need to be escaped, I assumed (hoped) this would allow me to escape separators in non-quoted strings. I've tried this both with and without withIgnoreQuotations.</p>
+    <p>Am I missing something, or doing something wrong?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">opencsv</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 May 2020 at 19:12</span>
+     </div>
+    </div>
+    <div>
+     <p>I don't see anything wrong with your code - but I also am not able to parse your data as expected - I hit the same problem as you. This feels like a bug (which is surprising). And if it's not a bug, then the correct usage is too obscure for me.</p>
+     <p>Alternatively, you can use Commons CSV:</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;org.apache.commons&lt;/groupId&gt;
+    &lt;artifactId&gt;commons-csv&lt;/artifactId&gt;
+    &lt;version&gt;1.8&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>Sample code:</p>
+     <pre><code>import com.opencsv.CSVReader;
+import com.opencsv.CSVWriter;
+
+...
+
+private void commonsCsvTest() throws URISyntaxException, IOException {
+    Path path = Paths.get(ClassLoader.getSystemResource("csv/escapes.csv").toURI());
+    Reader in = new FileReader(path.toString());
+    Iterable&lt;CSVRecord&gt; records = CSVFormat.DEFAULT.withEscape('\\').parse(in);
+    for (CSVRecord record : records) {
+        System.out.println(record.get(3));
+    }
+}
+</code></pre>
+     <p>Using your data in the input file "escapes.csv", we get the following output:</p>
+     <pre><code>String with , comma in it
+</code></pre>
+     <p>You can obviously change how you read the input file, to fit your specific situation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I opened <a href="https://sourceforge.net/p/opencsv/bugs/212/" rel="nofollow noreferrer">a ticket</a> with the OpenCSV team.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">2 May 2020 at 23:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Release 5.2 of OpenCSV includes a fix for the above issue. See the <a href="https://sourceforge.net/p/opencsv/wiki/What%27s%20new/" rel="nofollow noreferrer">release announcement</a>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 May 2020 at 00:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

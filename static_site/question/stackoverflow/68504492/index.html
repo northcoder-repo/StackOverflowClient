@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Dynamically populate second drop down menu based on first selection</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Dynamically populate second drop down menu based on first selection</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>dfahsjdahfsudaf</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Jul 2021 at 19:58</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68504492/dynamically-populate-second-drop-down-menu-based-on-first-selection">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using the following code to dynamically populate two drop down menus "searchProject" and "searchHR". The user can select a single value from "searchProject" and multiple values from "searchHR" to filter the data table.</p>
+    <p>I am attempting to have the second drop down menu "searchHR" populate with values based on the single value selected in the first drop down menu "searchProject".</p>
+    <p><strong>This is my current code:</strong></p>
+    <pre><code>  var sortFunction = function (a, b) {
+        if (a &lt; b) return -1;
+        if (a &gt; b) return 1;
+        return 0;
+    };
+       
+
+ $(document).ready(function () {
+        var ex_table = $('#data_table').DataTable({
+            "order": [],
+            pageLength: 50,
+            ajax: {
+                url: '/db',
+                dataSrc: "",
+                type: "POST",
+                'data': function (d) {
+                    return $.extend({}, d, {
+                        "project_name": $('#searchProject').val(),
+                        "hour": $('#searchHR').val(),
+                    });
+                },
+                "serverSide": true,
+            },
+    
+            columns: [
+                {data: 'project_name'},
+                {data: 'id'},
+                {data: 'hour'},  
+            ],
+            "initComplete": function () {
+                ex_table.columns([0]).every(function () {
+                    const column = this;
+                    const select = $('#searchProject')
+                        .on('change', function () {
+                            const Project_val = $(this).val();
+                            column.search(Project_val).draw();
+                        });
+                    column.data().unique().sort().each(function (d) {
+                        select.append('&lt;option value="' + d + '"&gt;' + d + '&lt;/option&gt;')
+                    });
+                });
+    
+    
+                ex_table.columns([2]).every(function () {
+                    const column = this;
+                    const select = $('#searchHR')
+                        .on('change', function () {
+                            var vals = $('option:selected', this).map(function (index, element) {
+                                return $.fn.dataTable.util.escapeRegex($(element).val());
+                            }).toArray().join('|');
+    
+                            column.search(vals.length &gt; 0 ? '^(' + vals + ')$' : '', true, false).draw();
+                        });
+    
+                    column.data().unique().sort(sortFunction).each(function (d) {
+                        select.append('&lt;option value="' + d + '"&gt;' + d + '&lt;/option&gt;')
+                    });
+                });
+            }
+        });
+})
+</code></pre>
+    <p><strong>HTML:</strong></p>
+    <pre><code>    &lt;label for="searchProject"&gt;&lt;/label&gt;&lt;select id="searchProject" class="js-example-basic-single" style="width: 10%"&gt;
+    &lt;option&gt;&lt;/option&gt;
+&lt;/select&gt;
+    &lt;label for="searchHR"&gt;&lt;/label&gt;&lt;select id="searchHR" class="js-example-basic-multiple" multiple="multiple" style="width:15%"&gt;
+    &lt;option&gt;&lt;/option&gt;
+&lt;/select&gt;
+</code></pre>
+    <p>Any help would be very appreciated. Thanks.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jul 2021 at 18:53</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is one approach - I have annotated the code to provide explanations of the main steps. Most of the complexity comes from (a) managing the relationship between the two selection widgets, and (b) handling the array of values from the multi-select.</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>// inline test data:
+var dataSet = [
+    {
+      "id": "123",
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "salary": "$320,800",
+      "start_date": "2011/04/25",
+      "office": "Edinburgh",
+      "extn": "5421"
+    },
+    {
+      "id": "456",
+      "name": "Donna Snider",
+      "position": "Customer Support",
+      "salary": "$112,000",
+      "start_date": "2011/01/25",
+      "office": "New York",
+      "extn": "4226"
+    },
+    {
+      "id": "567",
+      "name": "Cedric Kelly",
+      "position": "Senior Javascript Developer",
+      "salary": "$433,060",
+      "start_date": "2012/03/29",
+      "office": "Edinburgh",
+      "extn": "6224"
+    },
+    {
+      "id": "432",
+      "name": "Airi Satou",
+      "position": "Accountant",
+      "salary": "$162,700",
+      "start_date": "2008/11/28",
+      "office": "Tokyo",
+      "extn": "5407"
+    },
+    {
+      "id": "987",
+      "name": "Brielle Williamson",
+      "position": "Integration Specialist",
+      "salary": "$372,000",
+      "start_date": "2012/12/02",
+      "office": "New York",
+      "extn": "4804"
+    }
+  ];
+
+$(document).ready(function() {
+
+var table = $('#example').DataTable( {
+  data: dataSet,
+  orderCellsTop: true,
+  columns: [
+    { data: "name" },
+    { data: "office" },
+    { data: "position" },
+    { data: "extn" }
+  ],
+  initComplete: function () {
+    this.api().columns( [1, 2] ).every( function () {
+      var column = this;
+      var colIdx = column.index();
+      var node;
+      var select;
+      if (colIdx === 1) {
+        node = $('#office_select');
+        select = $('&lt;select&gt;&lt;option value=""&gt;&lt;/option&gt;&lt;/select&gt;');
+      } else {
+        node = $('#position_select');
+        select = $('&lt;select multiple&gt;&lt;option value=""&gt;&lt;/option&gt;&lt;/select&gt;');
+      }
+
+      select.appendTo( $(node).empty() )
+        .on( 'change', function () {
+          // the contents of the multi-select, as an array of values:
+          var val = $(this).val();
+          if (colIdx === 1) { // this is the standard select column (for "office")
+            val = $.fn.dataTable.util.escapeRegex(val);
+            column.search( val ? '^' + val + '$' : '', true, false ).draw();
+            rebuildPositionSelect();
+          } else { // this is the multi-select column (for "position"):
+            // build a string containing the pipe-separated multiselect values, but
+            // with each value escaped for any regex characters it may contain:
+            var vals = val.map(x =&gt; $.fn.dataTable.util.escapeRegex(x)).join('|');           
+            column.search( vals ? '^' + vals + '$' : '', true, false ).draw();
+          }
+        } );
+
+      column.data().unique().sort().each( function ( val ) {
+        select.append( '&lt;option value="' + val +'"&gt;' + val + '&lt;/option&gt;' )
+      } );
+
+    } );
+  }
+} ); 
+
+function rebuildPositionSelect() {
+  var select = $('#position_select select').empty().append('&lt;option value=""&gt;&lt;/option&gt;');
+  // note the use of {search:'applied'} here, to only capture visible "position" values:
+  var column = table.column(2, {search:'applied'});
+  // we need to reset the "position" search back to "none", to unfilter that column,
+  // otherwise our new filter may not find the already filtered data:
+  column.search('').draw();
+  column.data().unique().sort().each( function ( val ) {
+    select.append( '&lt;option value="' + val +'"&gt;' + val + '&lt;/option&gt;' );
+  } );
+}
+
+} );</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;div&gt;
+        &lt;span&gt;Office: &lt;/span&gt;
+        &lt;span id="office_select"&gt;&lt;/span&gt;
+        &lt;span&gt; Position: &lt;/span&gt;
+        &lt;span id="position_select"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;br&gt;&lt;br&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Office&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Extn.&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>Some notes:</p>
+     <ol>
+      <li>
+       <p>The UI could be improved! the select drop-down and the multi-select do not have any styling/positioning CSS.</p></li>
+      <li>
+       <p>Because there is a dependency from the first ("office") drop-down to the second ("position") multi-select, we have to clear out any multi-select selections whenever we make changes to the first drop-down. Without this, you could end up with multi-select values which are not related to the selected drop-down.</p></li>
+      <li>
+       <p>The code could (and probably should) be re-arranged into a better-organized structure. Currently, most of my code is just dumped into the <code>initComplete</code> function.</p></li>
+     </ol>
+     <p>(My purely personal preference is to generally avoid this type of selection dependency, as it may be potentially surprising for users.)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

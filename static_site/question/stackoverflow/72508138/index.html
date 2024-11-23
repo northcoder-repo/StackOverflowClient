@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene calculate term vectors for existing index</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene calculate term vectors for existing index</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>NewDeveloper</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>5 Jun 2022 at 14:25</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/72508138/lucene-calculate-term-vectors-for-existing-index">source</a>
+    </div>
+   </div>
+   <div>
+    <p>With Lucene.net I would like to get the term vectors as described in this <a href="https://stackoverflow.com/questions/14363377/in-lucene-4-indexreader-gettermvectordocid-fieldname-returns-null-for-every">stackoverflow question</a>.</p>
+    <p>The problem is, the index is already generated with the field indexed and stored, but without term vectors.</p>
+    <pre><code>FieldType type = new FieldType();
+type.setIndexed(true);
+type.setStored(true);
+type.setStoreTermVectors(false);
+</code></pre>
+    <p>Theoretically, it should be possible to re-calculate the term vectors for each document and then store it in the index.</p>
+    <p>Do you know how this could be possible, without deleting the complete Lucene index?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span><span class="tag">lucene.net</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>Not an answer, just some notes: (1) My notes are based on Java usage, but that should be translatable to .NET. (2) You cannot add the missing term vector information to an existing index. You can update (replace) the indexed data - but that is what you want to avoid, I suppose.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Jun 2022 at 15:28</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>(3) You can create on-the-fly term vector data (which is not stored in the index). Use the <a href="https://lucenenet.apache.org/docs/4.8.0-beta00016/api/core/Lucene.Net.Util.AttributeSource.html#Lucene_Net_Util_AttributeSource_AddAttribute__1" rel="nofollow noreferrer"><code>Add Attribute()</code></a> method of the <code>TokenStream</code> class - for example, using the <a href="https://lucenenet.apache.org/docs/4.8.0-beta00013/api/core/Lucene.Net.Analysis.TokenAttributes.OffsetAttribute.html" rel="nofollow noreferrer"><code>OffsetAttribute</code></a> class. The trade-off is smaller indexes (or no re-build of the index) but potentially slower searches.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">5 Jun 2022 at 15:28</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewJames note (3) is super interesting. I didn't realize that was possible. Wish I could upvote it in a way that got you more points. Honestly I think your two comments are worthy of being combined as an actual answer.</span> <span> - </span> <span class="display-name">RonC</span> <span> </span> <span class="date">6 Jun 2022 at 03:38</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewJames It would be really cool, if you could provide an example and combine it to an actual answer.</span> <span> - </span> <span class="display-name">NewDeveloper</span> <span> </span> <span class="date">10 Jun 2022 at 17:48</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Jun 2022 at 19:46</span>
+     </div>
+    </div>
+    <div>
+     <p>As mentioned in my comments in the question, you can generate term vector data on-the-fly, which may help you to avoid a complete rebuild of your indexed data.</p>
+     <p>In my scenario, I want to find the offset positions of my search term in the matched document.</p>
+     <p><em><strong>I don't want to oversell this approach - it's absolutely not a substitute for re-indexing - but if your queries are basic, it may help.</strong></em></p>
+     <hr>
+     <p><strong>Step 1</strong>: Perform whatever query you are currently performing.</p>
+     <p>For each document in the list of hits, you will then need to re-process the relevant field from that document - so, either you already have the field data stored in your existing index, or you will need to retrieve it from its original source.</p>
+     <hr>
+     <p><strong>Step 2</strong>: For each such field, you can re-use the same analyzer to build a token stream on-the-fly. The token stream can be configured with different attributes, such as:</p>
+     <ul>
+      <li>token attributes</li>
+      <li>offset attributes</li>
+      <li>and others (see <a href="https://lucenenet.apache.org/docs/4.8.0-beta00013/api/core/Lucene.Net.Analysis.TokenAttributes.html" rel="nofollow noreferrer">here</a>)</li>
+     </ul>
+     <hr>
+     <p><strong>Example:</strong></p>
+     <pre class="lang-c# prettyprint-override"><code>using Lucene.Net.Analysis.Standard;
+using Lucene.Net.Analysis.TokenAttributes;
+using Lucene.Net.Util;
+
+const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
+
+String? fieldName = null;
+String fieldContent = "Foo Bar Baz Bar Bat";
+String searchTerm = "bar";
+
+var analyzer = new StandardAnalyzer(AppLuceneVersion);
+var ts = analyzer.GetTokenStream(fieldName, fieldContent);
+var charTermAttr = ts.AddAttribute&lt;ICharTermAttribute&gt;();
+var offsetAttr = ts.AddAttribute&lt;IOffsetAttribute&gt;();
+
+try
+{
+    ts.Reset();
+    Console.WriteLine("");
+    Console.WriteLine("Token: " + searchTerm);
+    while (ts.IncrementToken())
+    {
+        if (searchTerm.Equals(charTermAttr.ToString())) 
+        {
+            var start = offsetAttr.StartOffset;
+            var end = offsetAttr.EndOffset;
+            Console.WriteLine(String.Format("  &gt; offset: {0}-{1}", start, end));
+        }
+    }
+    ts.End();
+}
+catch (Exception)
+{
+
+    throw;
+}
+</code></pre>
+     <p>The above example assumes one of the hits from step 1 was a field containing <code>"Foo Bar Baz Bar Bat"</code> - with a search term of <code>bar</code>.</p>
+     <p>The output generated is:</p>
+     <pre><code>Token: bar
+  &gt; offset: 4-7
+  &gt; offset: 12-15
+</code></pre>
+     <hr>
+     <p>So, as you can see, you are not re-executing a query - you are just re-processing a token stream. The more complex the original search term is, the harder it will be to make this approach work the way you probably need it to.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

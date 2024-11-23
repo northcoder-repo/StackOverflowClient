@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>what is the difference between - and NOT operator in Lucene?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>what is the difference between - and NOT operator in Lucene?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>7</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user8983999</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>1 Oct 2010 at 10:45</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/3838438/what-is-the-difference-between-and-not-operator-in-lucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>In the <a href="http://lucene.apache.org/java/2_9_1/queryparsersyntax.html" rel="noreferrer">query syntax of Lucene</a> it is said the following:</p>
+    <pre><code>The NOT operator excludes documents that contain the term after NOT.
+...
+The "-" or prohibit operator excludes documents that contain 
+the term after the "-" symbol
+</code></pre>
+    <p>I think the difference is that the - operator can be used alone, which is not the case for NOT. Is that it?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span><span class="tag">operators</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>dogbane</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Oct 2010 at 13:52</span>
+     </div>
+    </div>
+    <div>
+     <p>There is a very subtle difference. Take a look at this long thread on <a href="http://www.mail-archive.com/java-user@lucene.apache.org/msg11783.html" rel="nofollow">"Getting a Better Understanding of Lucene's Search Operators"</a> which should hopefully answer your question.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>To prevent link staleness (or whatever the SO term is), you should copy the important parts that answer the question from the link into your answer.</span> <span> - </span> <span class="display-name">Dirk</span> <span> </span> <span class="date">20 Oct 2015 at 02:14</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Aug 2021 at 20:22</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Quick answer:</strong></p>
+     <p>There is no difference between the behavior of the <code>-</code> (prohibit) operator and the <code>NOT</code> operator. The documentation does not make this especially clear, I think.</p>
+     <p><code>NOT</code> is a synonym for <code>-</code>, here.</p>
+     <p>This can be demonstrated with some tests, summarized below.</p>
+     <p>See also the extract at the end of this answer for a summary which does a great job of distilling various points about the Lucene classic query parser.</p>
+     <p>Probably the most important point to take away is that the <code>AND</code>, <code>OR</code>, and <code>NOT</code> operators are not the same as "traditional" boolean operators. They are subtly different. This is because Lucene's classic query parser is only partially reliant on boolean operations - specifically, whether a document should receive a score or not. Beyond that, operators can be used in distinctly "non-boolean" ways, to affect how documents are scored relative to each other.</p>
+     <p>This makes sense, given Lucene's purpose of showing results <em>in order of relevance</em>.</p>
+     <hr>
+     <p><strong>Test inputs:</strong></p>
+     <p>I am using:</p>
+     <ul>
+      <li>Lucene 8.9.0</li>
+      <li>the <code>StandardAnalyzer</code></li>
+      <li>a <code>TextField</code> named "body"</li>
+      <li>the classic query parser</li>
+      <li>the default query parser operator (<code>A B</code> means "A or B")</li>
+      <li>the following 6 test documents:</li>
+     </ul>
+     <ol start="0">
+      <li>apples</li>
+      <li>oranges</li>
+      <li>apples oranges</li>
+      <li>bananas</li>
+      <li>apples bananas</li>
+      <li>oranges bananas</li>
+     </ol>
+     <p>See <a href="https://lucene.apache.org/core/8_9_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#package.description" rel="nofollow noreferrer">here</a> for the official "classic query parser" syntax documentation.</p>
+     <hr>
+     <p><strong>First test case: <code>A -B</code></strong></p>
+     <p>My paraphrase: "<em>documents which contain A but cannot contain B</em>"</p>
+     <p>The following query strings...</p>
+     <pre><code>apples -oranges
+apples NOT oranges
+apples OR -oranges
+apples OR NOT oranges
+</code></pre>
+     <p>...are all parsed to the same query, using <code>org.apache.lucene.queryparser.classic.QueryParser</code>. That query is:</p>
+     <pre><code>body:apples -body:oranges
+</code></pre>
+     <p>They therefore all generate the same hits:</p>
+     <pre><code>doc = 0; score = 0.3648143
+field = apples
+
+doc = 4; score = 0.2772589
+field = apples bananas
+</code></pre>
+     <hr>
+     <p><strong>Second test case: <code>-X</code></strong></p>
+     <p>The following query strings...</p>
+     <pre><code>-apples
+ NOT apples
+-anything
+NOT anything
+</code></pre>
+     <p>...are all parsed to the following 2 queries:</p>
+     <pre><code>-body:apples
+-body:anything
+</code></pre>
+     <p>These queries always generate <em>no hits</em>, regardless of the data in the source documents.</p>
+     <p>This may be counterintuitive - especially <code>-anything</code>.</p>
+     <p>In the first case, the single clause <code>-body:apples</code> forces all documents containing <code>apples</code> to be given a score of zero. But now there are no more clauses in the query - and therefore there is <em>no additional information</em> which can be used to calculate any scores for the remaining documents. They therefore all stay at their initial state of "unscored". Therefore, no documents can be returned.</p>
+     <p>In the second case <code>-body:anything</code>, the overall logic is the same. After removing all the documents containing <code>anything</code> from scoring consideration (even if that means removing no documents at all), there is still no more information in the query which can be used for scoring purposes.</p>
+     <hr>
+     <p><strong>Third test case: <code>A AND -B</code></strong></p>
+     <p>The following query strings...</p>
+     <pre><code>apples AND -oranges
+apples AND NOT oranges
+</code></pre>
+     <p>...are both parsed to the same query:</p>
+     <pre><code>+body:apples -body:oranges
+</code></pre>
+     <p>This is very similar to the first test case - and actually returns the same hits with the same score. This specific case is not significant when investigating the differences between <code>-</code> and <code>NOT</code>, since it gives the same results as test case 1.</p>
+     <p>Digression: A more interesting test case would be <code>A B</code> versus <code>+A B</code>, where there is a difference in results and scoring (<code>+A</code> forces <code>A</code> to be required). But that is outside the scope of this question.</p>
+     <hr>
+     <p><strong>More Background</strong></p>
+     <p>Looking at the e-mail thread referred to in another answer, here is a copy of the <a href="https://www.mail-archive.com/java-user@lucene.apache.org/msg11815.html" rel="nofollow noreferrer">most relevant section</a>, reproduced here for reference:</p>
+     <p><em>begin copied section</em></p>
+     <p>In a nutshell...</p>
+     <ol>
+      <li>
+       <p>Lucene's <code>QueryParser</code> class does not parse boolean expressions -- it might look like it, but it does not.</p></li>
+      <li>
+       <p>Lucene's <code>BooleanQuery</code> clause does not model Boolean Queries ... it models aggregate queries.</p></li>
+      <li>
+       <p>the most native way to represent the options available in a lucene "BooleanQuery" as a string is with the +/- prefixes, where...</p></li>
+     </ol>
+     <p><code>+foo</code> ... means foo is a required clause and docs must match it</p>
+     <p><code>-foo</code> ... means foo is prohibited clause and docs must not match it</p>
+     <p><code>foo</code> ... means foo is an optional clause and docs that match it will get score benefits for doing so.</p>
+     <ol start="4">
+      <li>
+       <p>in an attempt to make things easier for people who have simple needs, <code>QueryParser</code> "fakes" that it parses boolean expressions by interpreting <code>A AND B</code> as <code>+A +B</code>; <code>A OR B</code> as <code>A B</code> and <code>NOT A</code> as <code>-A</code></p></li>
+      <li>
+       <p>if you change the default operator on <code>QueryParser</code> to be <code>AND</code> then things get more complicated, mainly because then <code>QueryParser</code> treats <code>A B</code> the same as <code>+A +B</code></p></li>
+      <li>
+       <p>you should avoid thinking in terms of <code>AND</code>, <code>OR</code>, and <code>NOT</code> ... think in terms of <code>OPTIONAL</code>, <code>REQUIRED</code>, and <code>PROHIBITED</code> ... your life will be much easier: documentation will make more sense, conversations on the email list will be more synergistastic, wine will be sweeter, and food will taste better.</p></li>
+     </ol>
+     <p><em>end copied section</em></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Favonius</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Oct 2010 at 11:42</span>
+     </div>
+    </div>
+    <div>
+     <p>Long time back i read this somewhere... Something similar to your guess... :)</p>
+     <p>The NOT operator cannot be used with just one term. For example, the following search will return no results:</p>
+     <p><code>NOT "jakarta apache"</code></p>
+     <p>whereas the "-" or prohibit operator excludes documents that contain the term after the "-" symbol...</p>
+     <p>Hope this will be useful..</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

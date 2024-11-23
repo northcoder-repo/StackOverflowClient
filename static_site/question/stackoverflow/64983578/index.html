@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Reading a stale value after a newer value was read</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Reading a stale value after a newer value was read</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Oliv</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Nov 2020 at 09:25</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64983578/reading-a-stale-value-after-a-newer-value-was-read">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Consider this example. We're having:</p>
+    <pre><code>int var = 0;
+</code></pre>
+    <p>Thread A:</p>
+    <pre><code>System.out.println(var);
+System.out.println(var);
+</code></pre>
+    <p>Thread B:</p>
+    <pre><code>var = 1;
+</code></pre>
+    <p>The threads run concurrently. Is the following output possible?</p>
+    <pre><code>1
+0
+</code></pre>
+    <p>That is, the original value is read after the new value was read. The <code>var</code> isn't volatile. My gut feeling is that it's not possible.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">concurrency</span><span class="tag">java-memory-model</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>writing and reading variables from different threads without synchronization is just wrong.</span> <span> - </span> <span class="display-name">Alexei Kaigorodov</span> <span> </span> <span class="date">24 Nov 2020 at 12:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@AlexeiKaigorodov Let's say I don't care about reading a stale value, even for a very long time. I only care about reading a new value and then the old value again, in the same thread.</span> <span> - </span> <span class="display-name">Oliv</span> <span> </span> <span class="date">24 Nov 2020 at 13:01</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>May I ask what the motivation behind the question is? It seems to me as if there is some cunfusion about something but you haven't really explained it.</span> <span> - </span> <span class="display-name">akuzminykh</span> <span> </span> <span class="date">24 Nov 2020 at 16:44</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@akuzminykh I added my use-case to the question. But let's stick to the original question.</span> <span> - </span> <span class="display-name">Oliv</span> <span> </span> <span class="date">25 Nov 2020 at 08:21</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Oliv Now that I know your use case this is simply a question about synchronization. You need to synchronize the access on <code>var</code> as Alexei has pointed out. If you care about performance in that regard, check out the Java section in here: <a href="https://en.wikipedia.org/wiki/Double-checked_locking" rel="nofollow noreferrer">Double-checked locking</a>. If you don't want to stick to the original question, I'd edit my answer. ;)</span> <span> - </span> <span class="display-name">akuzminykh</span> <span> </span> <span class="date">25 Nov 2020 at 10:53</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@akuzminykh I'll probably delete the use case. The question itself is interesting and can be answered. My use case has multiple assignments in thread B so it's a more complex issue. I'd like to see an answer citing JLS rules that guarantee the behavior, I'll mark such answer as correct. I was trying to do that myself, but I'm not able to. Maybe I'll try again to write such answer.</span> <span> - </span> <span class="display-name">Oliv</span> <span> </span> <span class="date">25 Nov 2020 at 13:21</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Removing the use case was bad move, as the use case is different to your question. The two subsequent <code>System.out.println(var);</code> statements can not perceive the old value after the new, because <code>println</code> uses <code>synchronized</code> internally, with a broader side effect than necessary. That’s an implementation detail, but one that exists for a quarter century now.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">25 Nov 2020 at 14:13</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>your use-case was fabulous, imho; and would have touched two points from the JLS that are by far not trivial: <code>program order</code>, <code>happens before</code> and <code>happens before consistency</code>, the latter would prove that <code>return var</code> can return a zero, even if you entered that <code>if</code> block.</span> <span> - </span> <span class="display-name">Eugene</span> <span> </span> <span class="date">25 Nov 2020 at 15:30</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Eugene</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Nov 2020 at 04:41</span>
+     </div>
+    </div>
+    <div>
+     <p>You are using <code>System.out.println</code> that internally does a <code>synchronized(this) {...}</code> that will make things a bit more worse. But even with that, your reader thread can still observe <code>1, 0</code>, i.e. : a racy read.</p>
+     <p>I am by far not an expert of this, but after going through lots of videos/examples/blogs from Alexey Shipilev, I think I understand at least something.</p>
+     <p><a href="https://docs.oracle.com/javase/specs/jls/se15/html/jls-17.html#jls-17.4.5" rel="nofollow noreferrer">JLS states</a> that :</p>
+     <blockquote>
+      <p>If x and y are actions of the same thread and x comes before y in program order, then hb(x, y).</p>
+     </blockquote>
+     <p>Since both reads of <code>var</code> are in <code>program order</code>, we can draw:</p>
+     <pre><code>                (po) 
+firstRead(var) ------&gt; secondRead(var)
+// po == program order
+</code></pre>
+     <p>That sentence also says that this builds a <code>happens-before</code> order, so:</p>
+     <pre><code>                (hb) 
+firstRead(var) ------&gt; secondRead(var)
+// hb == happens before
+</code></pre>
+     <p>But that is within "the same thread". If we want to reason about multiple threads, we need to look into <a href="https://docs.oracle.com/javase/specs/jls/se15/html/jls-17.html#jls-17.4.4" rel="nofollow noreferrer">synchronization order</a>. We need that because the same paragraph about <code>happens-before order</code> says:</p>
+     <blockquote>
+      <p>If an action x <strong>synchronizes-with</strong> a following action y, then we also have hb(x, y).</p>
+     </blockquote>
+     <p>So if we build this chain of actions between <code>program order</code> and <code>synchronizes-with order</code>, we can reason about the result. Let's apply that to your code:</p>
+     <pre><code>            (NO SW)                    (hb)
+write(var) ---------&gt; firstRead(var) -------&gt; secondRead(var)
+
+// NO SW == there is "no synchronizes-with order" here
+// hb    == happens-before
+</code></pre>
+     <p>And this is where <code>happens-before consistency</code> comes at play in the <a href="https://docs.oracle.com/javase/specs/jls/se15/html/jls-17.html#jls-17.4.5" rel="nofollow noreferrer">same chapter</a>:</p>
+     <blockquote>
+      <p>A set of actions A is happens-before consistent if for all reads r in A, where W(r) is the write action seen by r, it is not the case that either hb(r, W(r)) or that there exists a write w in A such that w.v = r.v and hb(W(r), w) and hb(w, r).</p>
+     </blockquote>
+     <blockquote>
+      <p>In a happens-before consistent set of actions, each read sees a write that it is allowed to see by the happens-before ordering</p>
+     </blockquote>
+     <p>I admit that I very vaguely understand the first sentence and this is where Alexey has helped me the most, as he puts it:</p>
+     <blockquote>
+      <p>Reads either see the last write that happened in the <code>happens-before</code> or <em>any other write</em>.</p>
+     </blockquote>
+     <p>Because there is no <code>synchronizes-with order</code> there, and implicitly there is no <code>happens-before order</code>, the reading thread is allowed to read via a race. and thus get <code>1</code>, than <code>0</code>.</p>
+     <hr>
+     <p>As soon as you introduce a correct <code>synchronizes-with order</code>, <a href="https://docs.oracle.com/javase/specs/jls/se15/html/jls-17.html#jls-17.4.5" rel="nofollow noreferrer">for example one from here</a></p>
+     <blockquote>
+      <p>An unlock action on monitor m synchronizes-with all subsequent lock actions on...</p>
+     </blockquote>
+     <blockquote>
+      <p>A write to a volatile variable v synchronizes-with all subsequent reads of v by any thread...</p>
+     </blockquote>
+     <p>The graph changes (let's say you chose to make <code>var</code> <code>volatile</code>):</p>
+     <pre><code>               SW                       PO
+write(var) ---------&gt; firstRead(var) -------&gt; secondRead(var)
+
+// SW == there IS "synchronizes-with order" here
+// PO == happens-before
+</code></pre>
+     <p><code>PO</code> (program order) gives that <code>HB</code> (happens before) via the first sentence I quoted in this answer from the JLS. And <code>SW</code> gives <code>HB</code> because:</p>
+     <blockquote>
+      <p>If an action x synchronizes-with a following action y, then we also have hb(x, y).</p>
+     </blockquote>
+     <p>As such:</p>
+     <pre><code>               HB                       HB
+write(var) ---------&gt; firstRead(var) -------&gt; secondRead(var)
+</code></pre>
+     <p>And now <code>happens-before order</code> says that the reading thread will read the value that was "written in the last HB", or it means that reading <code>1</code> then <code>0</code> is impossible.</p>
+     <hr>
+     <p>I took the example <a href="http://hg.openjdk.java.net/code-tools/jcstress/file/tip/tests-custom/src/main/java/org/openjdk/jcstress/tests/volatiles/ReadAfterReadTest.java" rel="nofollow noreferrer">jcstress samples</a> and introduced a small change (just like your <code>System.out.println</code> does):</p>
+     <pre><code>@JCStressTest
+@Outcome(id = "0, 0", expect = Expect.ACCEPTABLE, desc = "Doing both reads early.")
+@Outcome(id = "1, 1", expect = Expect.ACCEPTABLE, desc = "Doing both reads late.")
+@Outcome(id = "0, 1", expect = Expect.ACCEPTABLE, desc = "Doing first read early, not surprising.")
+@Outcome(id = "1, 0", expect = Expect.ACCEPTABLE_INTERESTING, desc = "First read seen racy value early, and the second one did not.")
+@State
+public class SO64983578 {
+
+    private final Holder h1 = new Holder();
+    private final Holder h2 = h1;
+
+    private static class Holder {
+
+        int a;
+        int trap;
+    }
+
+    @Actor
+    public void actor1() {
+        h1.a = 1;
+    }
+
+    @Actor
+    public void actor2(II_Result r) {
+        Holder h1 = this.h1;
+        Holder h2 = this.h2;
+        
+        h1.trap = 0;
+        h2.trap = 0;
+
+        synchronized (this) {
+            r.r1 = h1.a;
+        }
+
+        synchronized (this) {
+            r.r2 = h2.a;
+        }
+
+    }
+
+}
+</code></pre>
+     <p>Notice the <code>synchronized(this){....}</code> that is not part of the initial example. Even with synchronization, I still can see that <code>1, 0</code> as a result. This is just to prove that even with <code>synchronized</code> (that comes internally from <code>System.out.println</code>), you can still get <code>1</code> than <code>0</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>So you are saying that, without <code>println()</code>, <code>1 0 1</code> may happen?</span> <span> - </span> <span class="display-name">spongebob</span> <span> </span> <span class="date">26 Nov 2020 at 07:17</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@FrancescoMenzani in theory, it could even happen with <code>println()</code>.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">26 Nov 2020 at 08:02</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>akuzminykh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Nov 2020 at 10:04</span>
+     </div>
+    </div>
+    <div>
+     <p>When the value of <code>var</code> is read and it's <code>1</code> it won't change back. This output can't happen, neither due to visibility nor reorderings. What can happen is <code>0 0</code>, <code>0 1</code> and <code>1 1</code>.</p>
+     <p>The key point to understand here is that <code>println</code> involves synchronization. Look inside that method and you should see a <code>synchronized</code> there. These blocks have the effect that the prints will happen in just that order. While the write can happen anywhen, it's not possible that the first print sees the new value of <code>var</code> but the second print sees the old value. Therefore, the write can only happen before both prints, in-between or after them.</p>
+     <p>Besides that, there is no guarantee that the write will be visible at all, as <code>var</code> is not marked with <code>volatile</code> nor is the write synchronized in any way.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>@Holger It's based on the fact that we have two prints/reads of <code>var</code> by A and one write to <code>var</code> by B. Assuming that the write is visible to A, it happens either before the prints, in-between or after, which leads to the possibilities I've mentioned. If the write is not visible, then it's just <code>0 0</code>. If there were reorderings, which is not the case as <code>println</code> has <code>synchronized</code> in it, then there is still no serialization of events that would result A to magically print <code>0</code> after it reads <code>1</code>. What have I missed?</span> <span> - </span> <span class="display-name">akuzminykh</span> <span> </span> <span class="date">25 Nov 2020 at 14:32</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>First of all, an answer should include the reasoning. And “assuming that the write is visible to A” is missing the point, as the question is specifically about the absence of visibility, as the variable is not <code>volatile</code>. Since in that case, no guarantees are made, a read may happen to perceive an updated value, but that does not retroactively establish a happens-before relationship. Further “serialization of events” is not a thing. Only the <code>synchronized</code> within the <code>println</code> affects this specific example, so it’s irresponsible not to mention it in the answer.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">25 Nov 2020 at 16:46</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span><code>1 0</code> can’t happen as long as the internals of <code>println</code> prevent it. But generally, without additional synchronization primitives, reading a non-volatile variable that might be modified by a different thread is a racy read. And for two subsequent racy reads there are no visibility guarantees and what looks like the subsequent read may perceive an older value than the previous read. You’re not saying anything about happens-before, but you <i>should</i>, as only those relationships, as defined by <a href="https://docs.oracle.com/javase/specs/jls/se15/html/jls-17.html#jls-17.4" rel="nofollow noreferrer">the specification</a>, matter.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">25 Nov 2020 at 17:40</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>While doing more research on just that topic and similar examples I've actually found the exact duplicate: <a href="https://stackoverflow.com/q/37240208/12323248">Reordering of reads</a>. It blows my mind that <code>1 0</code> would be possible if there was no synchronization within <code>println</code>. Thank you again for pointing out my misunderstandings, @Holger.</span> <span> - </span> <span class="display-name">akuzminykh</span> <span> </span> <span class="date">25 Nov 2020 at 18:46</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alex Revetchi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Nov 2020 at 08:32</span>
+     </div>
+    </div>
+    <div>
+     <p>I think what is missing here is the fact that those threads run on actual physical cores and we have few possible variants here:</p>
+     <ol>
+      <li>
+       <p>all threads run on the same core, then the problem is reduced to the order of execution of those 3 instructions, in this case 1,0 is not possible I think, println executions are ordered due to the memory barriers created by synchronisation, so that excludes 1,0</p></li>
+      <li>
+       <p>A and B runs on 2 different cores, then 1,0 does not look possible either, as as soon the core that runs thread A reads 1, there is no way it will read 0 after, same as above printlns are ordered.</p></li>
+      <li>
+       <p>Thread A is rescheduled in between those 2 printlns, so the second println is executed on a different core, either the same as B was/will be executed or on a different 3rd core. So when the 2 printlns are executed on a different cores, it depends what value does 2 cores see, if var is not synchronised (it is not clear is var a member of this), then those 2 cores can see different var value, so there is a possibility for 1,0.</p></li>
+     </ol>
+     <p>So this is a cache coherence problem.</p>
+     <p>P.S. I'm not a jvm expert, so there might be other things in play here.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>The thing you’re overlooking is the JIT compiler/optimizer that may transform the code to something that does not even remotely look like what you’ve written in the source code. It’s pointless to discuss how the code may be affected by the CPU architecture when you don’t know how the actual code looks like. Cache coherence is the least problem.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">26 Nov 2020 at 11:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>JIT can do whatever it likes, apart from breaking memory model.</span> <span> - </span> <span class="display-name">Alex Revetchi</span> <span> </span> <span class="date">26 Nov 2020 at 11:50</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Now, you are close to the correct answer. <a href="https://docs.oracle.com/javase/specs/jls/se15/html/jls-17.html#jls-17.4" rel="nofollow noreferrer"><i>The memory model</i></a> specifies what is a legal execution, not the stuff you wrote about “actual physical cores” or thread scheduling.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">26 Nov 2020 at 11:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>So my point was if var is not affected by println() synchronisation, the actual physical execution matters, as writing to var and var value visibility can vary in different circumstances, so that is the grey jvm area for me.</span> <span> - </span> <span class="display-name">Alex Revetchi</span> <span> </span> <span class="date">26 Nov 2020 at 12:05</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>As said, if you don’t understand what the JIT is allowed to do or not, there is no point in discussing how the JIT’s result will interact with the physical architecture.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">26 Nov 2020 at 12:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Well so far I do not disagree with you and I'm trying to delve a bit more in to it. But again as I reread the question, the author is asking if the 1,0 is possible. Then we see things explained from the point if few of JLS, but is that the only cause of 1,0 possibility? Then see next authors comment: "Let's say I don't care about reading a stale value, even for a very long time. I only care about reading a new value and then the old value again, in the same thread", so it is quite specific about same thread and the ordering of the two reads in time, so JIT is out of play at that stage.</span> <span> - </span> <span class="display-name">Alex Revetchi</span> <span> </span> <span class="date">26 Nov 2020 at 13:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>As well just noticed 3 extra comments under the question that is easy to miss and needs expanding, where, the author changes/concretises the question. So then in that context cpu arch is out of play.</span> <span> - </span> <span class="display-name">Alex Revetchi</span> <span> </span> <span class="date">26 Nov 2020 at 14:06</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>The JLS is the only relevant thing, as when a hardware architecture allows certain things the JLS forbids, it’s the duty of the JVM developers to prevent this from happening. For example, the JLS forbids speculative execution to turn a condition into a self-fulfilling prophecy (“out of thin air” values). So for architectures having such speculative execution (Alpha AFAIK), the JVM developers have to limit its effects to conform to the JLS. So, in the end, it doesn’t matter for the Java developer if a behavior is caused by JIT or hardware, as it only happens because the JLS allows it.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">26 Nov 2020 at 14:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>spongebob</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Nov 2020 at 18:35</span>
+     </div>
+    </div>
+    <div>
+     <p>Adding to the other answers:</p>
+     <p>With <code>long</code> and <code>double</code>, writes may not be atomic so the first 32 bits could become visible before the last 32 bits, or viceversa. Therefore completely different values could be output.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How can I export the &lt;a&gt; tag using pdfhtml5 in DataTables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How can I export the &lt;a&gt; tag using pdfhtml5 in DataTables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>EdBel</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Oct 2022 at 12:03</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74153344/how-can-i-export-the-a-tag-using-pdfhtml5-in-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to export the <code>&lt;a&gt;</code> tag or link inside a cell in DataTables using <code>pdfhtml5</code>.</p>
+    <p>As of now the link is showing as plain text. How can I print it including its format?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span><span class="tag">pdfmake</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>You should show your attempt, and try to ask a <i>specific</i> question about a <i>specific</i> problem you are having - ideally by providing a <a href="https://stackoverflow.com/help/minimal-reproducible-example">minimal reproducible example</a> in the question. You can take the <a href="https://stackoverflow.com/tour">tour</a> and read <a href="https://stackoverflow.com/questions/how-to-ask">How to Ask</a> for more guidance.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Oct 2022 at 13:26</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Oct 2022 at 13:25</span>
+     </div>
+    </div>
+    <div>
+     <p>This is a two-step process:</p>
+     <p><strong>Step 1</strong></p>
+     <p>Use the DataTables <a href="https://datatables.net/reference/api/buttons.exportData()" rel="nofollow noreferrer"><code>exportOptions.format</code></a> function to pass the full HTML text to the PDF maker (instead of just passing the inner text).</p>
+     <pre class="lang-js prettyprint-override"><code>exportOptions: {
+  format: {
+    body: function ( inner, rowidx, colidx, node ) {
+      console.log( "in format" );
+      return inner;
+    }
+  }
+}
+</code></pre>
+     <p><strong>Step 2</strong></p>
+     <p>Process the PDF document, to convert the HTML <code>&lt;a&gt;</code> tag into a <a href="https://pdfmake.github.io/docs/0.1/document-definition-object/links/" rel="nofollow noreferrer">PDFMake link</a>.</p>
+     <p>You can use the DataTables <a href="https://datatables.net/reference/button/pdfHtml5" rel="nofollow noreferrer"><code>customize</code></a> function for this.</p>
+     <pre class="lang-js prettyprint-override"><code>customize: function ( doc ) {
+  processDoc(doc);
+}
+</code></pre>
+     <p>The <code>processDoc</code> function referenced above is provided below in the runnable demo. It uses JavaScript to extract the link and display text from the HTML. It also adds some styling to make the end result look more like a clickable link.</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>$(document).ready(function() {
+
+  var table = $('#example').DataTable( {
+    dom: 'Brftip',
+    buttons: [
+      { 
+        extend: 'pdfHtml5', 
+
+        exportOptions: {
+          format: {
+            body: function ( inner, rowidx, colidx, node ) {
+              return inner;
+            }
+          }
+        },
+
+        customize: function ( doc ) {
+          processDoc(doc);
+        }
+
+      }  
+    ]
+  } );
+
+} );
+
+function processDoc( doc ) {
+  let tableBody = doc.content[1].table.body;
+  tableBody.forEach(function( row ) {
+    row.forEach(function( cell ) {
+      let cellText = cell.text;
+      if (cellText.startsWith( '&lt;a href=' )) {
+
+        let textStart = cellText.indexOf("&gt;") +1;
+        let textEnd = cellText.indexOf("&lt;", textStart);
+        let text = cellText.substring(textStart, textEnd);
+
+        let linkStart = cellText.indexOf("\"") +1;
+        let linkEnd = cellText.indexOf("\"", linkStart);
+        let link = cellText.substring(linkStart, linkEnd);
+
+        cell.text = text;
+        cell.link = link;
+        cell.color =  '#1a0dab';
+        cell.decoration = 'underline';
+      }
+    });
+  });
+}</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css"/&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.2.3/css/buttons.dataTables.css"/&gt;
+ 
+  &lt;script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.3/js/dataTables.buttons.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.3/js/buttons.html5.js"&gt;&lt;/script&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Tiger Nixon&lt;/td&gt;
+                &lt;td&gt;System Architect&lt;/td&gt;
+                &lt;td&gt;&lt;a href="https://en.wikipedia.org/wiki/Edinburgh"&gt;Edinburgh&lt;/a&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Donna Snider&lt;/td&gt;
+                &lt;td&gt;Customer Support&lt;/td&gt;
+                &lt;td&gt;&lt;a href="https://en.wikipedia.org/wiki/New_York_City"&gt;New York&lt;/a&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <hr>
+     <p>The end result PDF for the above demo looks like this:</p>
+     <p><a href="https://i.stack.imgur.com/dQq1W.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/dQq1W.png" alt="generated PDF"></a></p>
+     <hr>
+     <p>Note: If you have other HTML in other columns that you do not want to handle, then you may need to refine your <code>body</code> function - so, something like:</p>
+     <pre class="lang-js prettyprint-override"><code>if ($(node).children('a').length &gt; 0) {
+  return whatever you need here;
+} else {
+  return inner;
+}
+</code></pre>
+     <hr>
+     <p><strong>Follow-Up Question</strong> (from comments):</p>
+     <blockquote>
+      <p><em>How about if I have multiple links in one cell? How can I export it?</em></p>
+     </blockquote>
+     <p>Yes, there are various ways you can do this.</p>
+     <p>Since you are already using jQuery (for DataTables), you can use jQuery's <a href="https://api.jquery.com/jquery.parsehtml/" rel="nofollow noreferrer"><code>parseHTML()</code></a> function. This converts a string of HTML (as text) into an array of the related HTML nodes.</p>
+     <p>And then you can iterate over the array to process each link one at a time (and also handle any other text which may be in the same data cell).</p>
+     <p>A basic example:</p>
+     <p>Let's assume a DataTable cell containing the following content:</p>
+     <pre class="lang-html prettyprint-override"><code>Some text &lt;a href="whateverA"&gt;Edinburgh&lt;/a&gt; and then &lt;a href="whateverB"&gt;New York&lt;/a&gt; the end.
+</code></pre>
+     <p>The <code>parseHTML()</code> function will split this into an array containing the following 5 separate nodes - which you can then handle as 5 separate strings:</p>
+     <pre><code>Some text 
+&lt;a href="whateverA"&gt;Edinburgh&lt;/a&gt;
+ and then 
+&lt;a href="whateverB"&gt;New York&lt;/a&gt;
+ the end.
+</code></pre>
+     <p>Here is a demo of that:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>let str = 'Some text &lt;a href="whateverA"&gt;Edinburgh&lt;/a&gt; and then &lt;a href="whateverB"&gt;New York&lt;/a&gt; the end.'
+let nodes = $.parseHTML( str );
+nodes.forEach(function( node ) {
+  if ( node.nodeType === Node.TEXT_NODE ) {
+    console.log( node.data ); // handle as PDF plain string
+  } else {
+    console.log( node.outerHTML ); // handle as PDF link
+  }
+})</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+    &lt;head&gt;
+        &lt;meta charset="UTF-8"&gt;
+        &lt;title&gt;New tab&lt;/title&gt;
+        &lt;script src="https://code.jquery.com/jquery-3.6.0.js"&gt;&lt;/script&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;div&gt;See the results in the console, below.&lt;/div&gt;
+    &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>Final steps:</p>
+     <p>Now, instead of creating a PDF cell containing only a single PDF-formatted link, you will need to create an array of 5 PDF elements (see an example <a href="https://pdfmake.github.io/docs/0.1/document-definition-object/styling/" rel="nofollow noreferrer">here</a>), and add that array to the cell.</p>
+     <pre><code>myPdfCellContent: [ 
+  'Some text ',
+  { text: 'Edinburgh', link: 'whateverA' },
+  ' and then ',
+  { text: 'New York', link: 'whateverB' },
+  ' the end.'
+]
+</code></pre>
+     <p>You can integrate this approach into the existing DataTables solution to handle multiple links in one cell.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>How about if I have multiple links in one cell? How can I export it?</span> <span> - </span> <span class="display-name">EdBel</span> <span> </span> <span class="date">24 Oct 2022 at 10:31</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>There are probably various ways to do this. I updated my answer showing you one approach. You can take this approach and integrate it into the original solution in my answer (I leave that for you to try for yourself). If you get stuck, you can ask a new specific question about that. But I think my notes should give you everything you need.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">24 Oct 2022 at 12:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Nice, this answer is very helpful!</span> <span> - </span> <span class="display-name">Jcc.Sanabria</span> <span> </span> <span class="date">16 Feb 2023 at 13:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

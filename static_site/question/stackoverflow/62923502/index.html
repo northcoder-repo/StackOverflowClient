@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>It's possible to export only a portion of the values of a datatable column?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>It's possible to export only a portion of the values of a datatable column?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Murilo Sitonio</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Jul 2020 at 20:46</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62923502/its-possible-to-export-only-a-portion-of-the-values-of-a-datatable-column">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a <code>datatable</code> with a button to export its data to a pdf file using <code>pdfmake</code>. So far so good until I received the request to add one more value to one of the columns (and this value should not appear in the exported data). The column I'm having this problem has the following composition:</p>
+    <pre><code>&lt;td&gt;{{client.lot}}&lt;br&gt;&lt;p&gt;{{client.lot.total_negotiations}} client(s) negotiating!&lt;/p&gt;&lt;/td&gt;
+</code></pre>
+    <p>(Ok, I know this is not the best way to split all cells of the column into two rows)</p>
+    <p>What I'm trying to do is to export the data only with the "first row" (before the <code>&lt;br&gt;</code> tag). How can I accomplish this? There's any workaround adjusting the table or the pdf?</p>
+    <p><a href="https://i.stack.imgur.com/4PCEW.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/4PCEW.png" alt="The column"></a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">html</span><span class="tag">datatables</span><span class="tag">pdfmake</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Jul 2020 at 23:32</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use the <code>exportOptions.format()</code> function provided by DataTables to do this.</p>
+     <p>For example, assuming we start with the following table data (where there are 2 cells containing data which needs to be formatted):</p>
+     <p><a href="https://i.stack.imgur.com/njqwx.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/njqwx.png" alt="enter image description here"></a></p>
+     <p>Then the resulting PDF will look as follows:</p>
+     <p><a href="https://i.stack.imgur.com/bjlCp.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/bjlCp.png" alt="enter image description here"></a></p>
+     <p>The DataTables configuration for this is:</p>
+     <pre><code>$(document).ready(function() {
+
+  $('#example').DataTable( {
+
+    "dom": 'B&lt;"clear"&gt;lfrtip',
+
+    buttons: [{
+      extend: 'pdf',
+      text: 'Save as PDF',
+      exportOptions: {
+        modifier: {
+          page: 'current'
+        },
+        format: {
+          body: function ( data, rowIdx, colIdx ) {
+            if (colIdx == 1) {
+              var brIdx = data.indexOf("&lt;br&gt;");
+              if (brIdx &gt;= 0) {
+                return data.substring(0, brIdx);
+              } else {
+                return data;
+              }
+            } else {
+              return data;
+            }
+          }
+        }
+
+      }
+
+    }]
+
+  } );
+
+} );
+</code></pre>
+     <p>This uses a function to inspect the contents of each cell. In my case, I ignore any data which is not in column index 1 (the 2nd column in the table).</p>
+     <p>For each cell of data in this column, I check for the existence of a <code>&lt;br&gt;</code> tag in the data. If one exists, then all data from this tag to the end of the string is discarded.</p>
+     <p>All other cells in all other columns are passed through to the PDF unchanged.</p>
+     <p>You may need to adjust this, depending on your specific needs (e.g. if you need to handle multiple columns, maybe to clean up that trailing hyphen in "Lote 14 -", etc.).</p>
+     <p>You may want move the export logic to its own separate function, as well, and then call that function from the DataTable config instead (so the logic does not clutter the DataTable configuration code).</p>
+     <p>Background information on this export function can be found here: <a href="https://datatables.net/reference/api/buttons.exportData()" rel="nofollow noreferrer"><code>exportData</code></a> - specifically, see the <code>format</code> section on that page. This is the general buttons function used by the <code>exportOptions</code> configuration in the above example.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Absolutely fantastic answer! That's exactly what I was trying to accomplish! Thank you very much!!</span> <span> - </span> <span class="display-name">Murilo Sitonio</span> <span> </span> <span class="date">16 Jul 2020 at 11:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

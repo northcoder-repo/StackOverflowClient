@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Is there a function in java to check if any json attribute is null?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Is there a function in java to check if any json attribute is null?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>leen altwayan</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Mar 2021 at 07:55</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66514323/is-there-a-function-in-java-to-check-if-any-json-attribute-is-null">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a message in <code>JSON</code> format that I converted to a <code>JSONObject</code>, and I have around 30 mandatory fields that I have to check for whether they're null or not. If one of these mandatory fields are null, I will discard the message, however other fields can be null without needing to discard the message. <strong>Is there any efficient way I can do this without going through each and every field and using <code>isNull()</code> ?</strong></p>
+    <p>Also, the JSON objects are nested, so a simple <code>anyNull()</code> function would not work since it would only return if the object itself is null and not if the variables themselves are null.</p>
+    <p>I tried using gson to convert the message to a POJO, and created classes for 10 objects</p>
+    <pre><code>Gson gson = new Gson();
+Message message = gson.fromJson(msg, Message.class);
+</code></pre>
+    <p>but since many classes are nested (and one of which is an array of objects) using simple null checkers don't work.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">null</span><span class="tag">gson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>terrorrussia-keeps-killing</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Mar 2021 at 12:23</span>
+     </div>
+    </div>
+    <div>
+     <p>Actually speaking your question is not very clear because you're using a word of "message" that refers your particular class, but can also be more generic referring sent/received messages.</p>
+     <p>So something like for JSON elements in memory:</p>
+     <pre class="lang-java prettyprint-override"><code>public static void failOnNullRecursively(final JsonElement jsonElement) {
+    if ( jsonElement.isJsonNull() ) {
+        throw new IllegalArgumentException("null!");
+    }
+    if ( jsonElement.isJsonPrimitive() ) {
+        return;
+    }
+    if ( jsonElement.isJsonArray() ) {
+        for ( final JsonElement element : jsonElement.getAsJsonArray() ) {
+            failOnNullRecursively(element);
+        }
+        return;
+    }
+    if ( jsonElement.isJsonObject() ) {
+        for ( final Map.Entry&lt;String, JsonElement&gt; e : jsonElement.getAsJsonObject().entrySet() ) {
+            failOnNullRecursively(e.getValue());
+        }
+        return;
+    }
+    throw new AssertionError(jsonElement);
+}
+</code></pre>
+     <p>or JSON documents in streams:</p>
+     <pre class="lang-java prettyprint-override"><code>public final class FailOnNullJsonReader
+        extends JsonReader {
+
+    private FailOnNullJsonReader(final Reader reader) {
+        super(reader);
+    }
+
+    public static JsonReader create(final Reader reader) {
+        return new FailOnNullJsonReader(reader);
+    }
+
+    @Override
+    public void nextNull() {
+        throw new IllegalStateException(String.format("null at %@!", getPath()));
+    }
+
+}
+</code></pre>
+     <p>Both of them will throw on <code>null</code>. But it also seems that you want to validate <code>Message</code> instances:</p>
+     <blockquote>
+      <p>If one of these mandatory fields are null, I will discard the message, however other fields can be null without needing to discard the message.</p>
+     </blockquote>
+     <p>So this tells why the above null-checks won't fit your needs. What you're looking for is <a href="https://beanvalidation.org/2.0/" rel="nofollow noreferrer">JSR-303</a>. It won't be that efficient as you might want to want it to be (message instances are deserialized, validation takes time and resources too), but it might be efficient from the coding perspective:</p>
+     <pre class="lang-java prettyprint-override"><code>final Set&lt;ConstraintViolation&lt;V&gt;&gt; violations = validator.validate(message);
+if ( !violations.isEmpty() ) {
+    throw new ConstraintViolationException(violations);
+}
+</code></pre>
+     <p>or even integrate it right into Gson so that it serves middleware:</p>
+     <pre class="lang-java prettyprint-override"><code>public final class PostReadTypeAdapterFactory&lt;V&gt;
+        implements TypeAdapterFactory {
+
+    private final Predicate&lt;? super TypeToken&lt;?&gt;&gt; supports;
+    private final BiConsumer&lt;? super TypeToken&lt;V&gt;, ? super V&gt; onRead;
+
+    private PostReadTypeAdapterFactory(final Predicate&lt;? super TypeToken&lt;?&gt;&gt; supports, final BiConsumer&lt;? super TypeToken&lt;V&gt;, ? super V&gt; onRead) {
+        this.supports = supports;
+        this.onRead = onRead;
+    }
+
+    public static &lt;V&gt; TypeAdapterFactory create(final Predicate&lt;? super TypeToken&lt;?&gt;&gt; supports, final BiConsumer&lt;? super TypeToken&lt;V&gt;, ? super V&gt; onRead) {
+        return new PostReadTypeAdapterFactory&lt;&gt;(supports, onRead);
+    }
+
+    @Override
+    @Nullable
+    public &lt;T&gt; TypeAdapter&lt;T&gt; create(final Gson gson, final TypeToken&lt;T&gt; typeToken) {
+        if ( !supports.test(typeToken) ) {
+            return null;
+        }
+        final TypeAdapter&lt;T&gt; delegate = gson.getDelegateAdapter(this, typeToken);
+        return new TypeAdapter&lt;T&gt;() {
+            @Override
+            public void write(final JsonWriter out, final T value)
+                    throws IOException {
+                delegate.write(out, value);
+            }
+
+            @Override
+            public T read(final JsonReader in)
+                    throws IOException {
+                final T readValue = delegate.read(in);
+                @SuppressWarnings("unchecked")
+                final V value = (V) readValue;
+                @SuppressWarnings("unchecked")
+                final TypeToken&lt;V&gt; valueTypeToken = (TypeToken&lt;V&gt;) typeToken;
+                onRead.accept(valueTypeToken, value);
+                return readValue;
+            }
+        };
+    }
+
+}
+</code></pre>
+     <pre class="lang-java prettyprint-override"><code>public final class Jsr303Support {
+
+    private Jsr303Support() {
+    }
+
+    public static &lt;V&gt; TypeAdapterFactory createTypeAdapterFactory(final Validator validator) {
+        return PostReadTypeAdapterFactory.&lt;V&gt;create(
+                typeToken -&gt; typeToken.getRawType().isAnnotationPresent(Validate.class),
+                (typeToken, value) -&gt; {
+                    final Set&lt;ConstraintViolation&lt;V&gt;&gt; violations = validator.validate(value);
+                    if ( !violations.isEmpty() ) {
+                        throw new ConstraintViolationException(violations);
+                    }
+                }
+        );
+    }
+
+}
+</code></pre>
+     <pre class="lang-java prettyprint-override"><code>@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Validate {
+}
+</code></pre>
+     <p>And the test (using Lombok for brevity):</p>
+     <pre class="lang-java prettyprint-override"><code>@Validate
+@AllArgsConstructor
+@EqualsAndHashCode
+@ToString
+final class Message {
+
+    @NotNull
+    final String foo;
+
+    @NotNull
+    final String bar;
+
+    @NotNull
+    final String baz;
+
+}
+</code></pre>
+     <pre class="lang-java prettyprint-override"><code>public final class Jsr303SupportTest {
+
+    private static final Validator validator;
+
+    static {
+        try ( final ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory() ) {
+            validator = validatorFactory.getValidator();
+        }
+    }
+
+    public static final Gson gson = new GsonBuilder()
+            .disableHtmlEscaping()
+            .disableInnerClassSerialization()
+            .registerTypeAdapterFactory(Jsr303Support.createTypeAdapterFactory(validator))
+            .create();
+
+    @Test
+    public void test() {
+        Assertions.assertEquals(new Message("1", "2", "3"), gson.fromJson("{\"foo\":\"1\",\"bar\":\"2\",\"baz\":\"3\"}", Message.class));
+        final ConstraintViolationException ex = Assertions.assertThrows(ConstraintViolationException.class, () -&gt; gson.fromJson("{\"foo\":\"1\",\"bar\":null,\"baz\":\"3\"}", Message.class));
+        Assertions.assertEquals(1, ex.getConstraintViolations().size());
+    }
+
+}
+</code></pre>
+     <p>And finally, probably the most efficient (in terms of reading JSON stream), but very limited whencompared to JSR-303 (and <strong>NOT</strong> working in Gson because Gson does not propagate null-checking to downstream (de)serializers), way that could replace <code>@NotNull</code> with a similar "functional" annotation:</p>
+     <pre class="lang-java prettyprint-override"><code>public final class NotNullTypeAdapterFactory
+        implements TypeAdapterFactory {
+
+    // note no external access
+    private NotNullTypeAdapterFactory() {
+    }
+
+    @Override
+    public &lt;T&gt; TypeAdapter&lt;T&gt; create(final Gson gson, final TypeToken&lt;T&gt; typeToken) {
+        final TypeAdapter&lt;T&gt; delegate = gson.getAdapter(typeToken);
+        return new TypeAdapter&lt;T&gt;() {
+            @Override
+            public void write(final JsonWriter out, @Nullable final T value)
+                    throws IOException {
+                if ( value == null ) {
+                    throw new IllegalArgumentException(typeToken + " with null");
+                }
+                delegate.write(out, value);
+            }
+
+            @Override
+            public T read(final JsonReader in)
+                    throws IOException {
+                @Nullable
+                final T value = delegate.read(in);
+                if ( value == null ) {
+                    throw new IllegalArgumentException(typeToken + " with null at " + in.getPath());
+                }
+                return value;
+            }
+        };
+    }
+
+}
+</code></pre>
+     <pre class="lang-java prettyprint-override"><code>@AllArgsConstructor
+@EqualsAndHashCode
+@ToString
+final class Message {
+
+    @JsonAdapter(NotNullTypeAdapterFactory.class)
+    final String foo;
+
+    @JsonAdapter(NotNullTypeAdapterFactory.class)
+    final String bar;
+
+    @JsonAdapter(NotNullTypeAdapterFactory.class)
+    final String baz;
+
+}
+</code></pre>
+     <pre class="lang-java prettyprint-override"><code>public final class NotNullTypeAdapterFactoryTest {
+
+    public static final Gson gson = new GsonBuilder()
+            .disableHtmlEscaping()
+            .disableInnerClassSerialization()
+            .create();
+
+    @Test
+    public void test() {
+        Assertions.assertEquals(new Message("1", "2", "3"), gson.fromJson("{\"foo\":\"1\",\"bar\":\"2\",\"baz\":\"3\"}", Message.class));
+        final IllegalArgumentException ex = Assertions.assertThrows(IllegalArgumentException.class, () -&gt; gson.fromJson("{\"foo\":\"1\",\"bar\":null,\"baz\":\"3\"}", Message.class));
+        Assertions.assertEquals("whatever here, the above does not work anyway", ex.getMessage());
+    }
+
+}
+</code></pre>
+     <p>The third, JSR-303, looks like the best for you.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

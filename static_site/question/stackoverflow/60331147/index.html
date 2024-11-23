@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>joda DateTimeFormat local timezone formatting question</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>joda DateTimeFormat local timezone formatting question</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>wz2b</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Feb 2020 at 02:00</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60331147/joda-datetimeformat-local-timezone-formatting-question">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm starting with an org.joda.time.DateTime and I want to output it with a timezone offset equivalent to the local time zone. It's really for the convenience of a user looking at the time with his eyes (rather than parsing it with a proper ISO8601 parser).</p>
+    <pre><code>val tz = DateTimeZone.getDefault()
+val formatter = JacksonJodaDateFormat(DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZone(tz))
+</code></pre>
+    <p>What I get out is this:</p>
+    <pre><code>2020-02-01T05:00:00+0000
+</code></pre>
+    <p>What I want is this:</p>
+    <pre><code>2020-02-01T00:00:00-0500
+</code></pre>
+    <p>What it's outputting is actually correct for my time zone, but I told it .withZone(tz) and I confirmed (through the debugger) that tz is in fact America/New_York.</p>
+    <p>I'm using jodatime 2.10.2. I've also got jackson-format-jodatime in the mix here but I tried this with jackson out of the loop and it behaves the same.</p>
+    <p><a href="https://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormatter.html#withZone-org.joda.time.DateTimeZone-" rel="nofollow noreferrer">The Documents</a> say this:</p>
+    <pre><code>When printing, this zone will be used in preference to the zone from the datetime that would otherwise be used. 
+</code></pre>
+    <p>The one that would otherwise be printed is UTC, but that's not what I want it to do.</p>
+    <p>Am I interpreting what the javadocs say incorrectly?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jodatime</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Quick clarifications: (1) <code>val</code> is not a Java keyword - is that from Lombok? (2) What version of Java are you using? (From Java 8 onwards, <code>java.time</code> is preferred over Joda-Time - but migration may not be an option for you).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Feb 2020 at 14:06</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>It's kotlin, sorry. I go back and forth between java and kotlin without even thinking about it nowadays. Yep I'm using GraalVM 11 so I definitely could use java.time instead, is that really considered preferred (i.e. joda is considered obsolete) by most people now?</span> <span> - </span> <span class="display-name">wz2b</span> <span> </span> <span class="date">21 Feb 2020 at 22:25</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>The good people behind Joda Time were instrumental in implementing <code>java.time</code>. They recommend no longer using Joda Time. See their notes <a href="https://www.joda.org/joda-time/" rel="nofollow noreferrer">here</a> (the "Why Joda Time" section).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Feb 2020 at 22:30</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Feb 2020 at 15:31</span>
+     </div>
+    </div>
+    <div>
+     <p>If you don't object to a Java answer (perhaps your code snippet is Kotlin?), the following will format the date string as you want, and handle time zone shifts.</p>
+     <p>To keep things simple, I also did not use the Jackson library, as you mentioned.</p>
+     <p>You can obviously replace the timezone IDs below with whatever you need for your starting point - such as <code>"UTC"</code>. Or for the system default, using Joda-Time:</p>
+     <pre><code>DateTimeZone defaultZone = DateTimeZone.getDefault();
+</code></pre>
+     <h2>Joda-Time</h2>
+     <pre><code>//
+// Using Joda-Time 2.10.2:
+//
+
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormat;
+
+...
+
+String pattern = "yyyy-MM-dd'T'HH:mm:ssZ";
+String dateString;
+
+DateTime dtOne = new DateTime("2020-02-21T09:30:45.678+00:00");
+DateTimeFormatter fmt = DateTimeFormat.forPattern(pattern);
+
+DateTime dtTwo = dtOne.withZone(DateTimeZone.forID("America/New_York"));
+dateString = fmt.print(dtTwo);   // "2020-02-21T04:30:45-0500":
+
+DateTime dtThree = dtOne.withZone(DateTimeZone.forID("Europe/Paris"));
+dateString = fmt.print(dtThree); // "2020-02-21T10:30:45+0100"
+</code></pre>
+     <h2>java.time</h2>
+     <p>For Java 8 onwards, if you can use <code>java.time</code>, then <code>withZoneSameInstant()</code> shifts the date and time accordingly:</p>
+     <pre><code>//
+// Using java.time (Java 8 onwards):
+//
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+
+...
+String pattern = "yyyy-MM-dd'T'HH:mm:ssZ";
+String dateString;
+
+DateTimeFormatter format = DateTimeFormatter.ofPattern(pattern);
+LocalDateTime localDateTime = LocalDateTime.parse("2020-02-21T09:30:45.123");
+ZonedDateTime zonedDateTimeA = localDateTime.atZone(ZoneId.of("Europe/Paris"));
+
+dateString = zonedDateTimeA.format(format); // "2020-02-21T09:30:45+0100"
+
+ZonedDateTime zonedDateTimeB = zonedDateTimeA
+        .withZoneSameInstant(ZoneId.of("America/New_York"));    
+dateString = zonedDateTimeB.format(format); // "2020-02-21T03:30:45-0500"
+</code></pre>
+     <p>For the default timezone using <code>java.time</code>, it's <code>ZoneId.systemDefault()</code>.</p>
+     <p>Also, <a href="https://stackoverflow.com/questions/32437550/whats-the-difference-between-instant-and-localdatetime/32443004#32443004">this</a> is an amazing overview.</p>
+     <h2>Edit: Use <code>java.time</code> instead of Joda Time</h2>
+     <p>The following was mentioned in the question's comments, but needs to be stated in this answer, also:</p>
+     <p>If you can, you absolutely should use <code>java.time</code> over Joda Time.</p>
+     <p>From the Joda Time <a href="https://www.joda.org/joda-time/" rel="nofollow noreferrer">homepage</a>:</p>
+     <blockquote>
+      <p>Note that from Java SE 8 onwards, users are asked to migrate to java.time (JSR-310) - a core part of the JDK which replaces this project.</p>
+     </blockquote>
+     <p>And from <a href="https://blog.joda.org/2014/11/converting-from-joda-time-to-javatime.html" rel="nofollow noreferrer">Stephen Colebourne</a>, one of the creators of Joda Time:</p>
+     <blockquote>
+      <p>I use the phraseology that java.time is "inspired by Joda-Time", rather than an exact derivation, however many concepts will be familiar.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Can't get Datatables row group working with ajax</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Can't get Datatables row group working with ajax</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>torain20</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Sep 2022 at 16:42</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73720460/cant-get-datatables-row-group-working-with-ajax">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to group rows in my table based on date ranges using the first column's data("Due_Date") and using the rowGroup extension from Datatables. I have searched and tried solutions from others such as using the data property('Due_Date') vs. the index of an array([0]) and removed buttons from table to prevent conflicts. I believe the versions of jQuery, Datatables, and rowGroup extensions are correct. I actually need the table to be split into three groups(red, yellow, and green) based on the table legend.(If "Due_Date" is before, current date, the current date, or 1 or 2 days after the current date, the group = red group. 3-4 days after current date = yellow group, and 5 or more days after current date = green group.) I realize I don't have the correct logic for the grouped date ranges but as of now I can't get the table to group by the data property at all. The table displays data but it seems as if the grouping is being ignored? Apologies in advance, I'm new to this and not sure where I'm going wrong. Any help is appreciated. Here is my relevant code:</p>
+    <pre><code>//html
+
+&lt;table class="table table-striped" id="circuitsDueTable"&gt;
+     &lt;caption style="caption-side:top"&gt;
+          &lt;ul&gt;
+               &lt;li&gt;&lt;span style="background-color:#ff3333;font-weight:bolder"&gt;RED&lt;/span&gt; = Current 
+                    Date: Plus Two Days&lt;/li&gt;
+               &lt;li&gt;&lt;span style="background-color:#ffff4d;font-weight:bolder"&gt;YELLOW&lt;/span&gt; = 
+                    Pending: Three to Four Days&lt;/li&gt;
+               &lt;li&gt;&lt;span style="background-color:#4dff4d;font-weight:bolder"&gt;GREEN&lt;/span&gt; = Have 
+                    Time: Five or More Days&lt;/li&gt;
+          &lt;/ul&gt;
+     &lt;/caption&gt;
+     &lt;thead&gt;
+          &lt;tr&gt;
+               &lt;th&gt;OCV DUE DATE&lt;/th&gt;
+               &lt;th&gt;CIRCUIT NAME&lt;/th&gt;
+               &lt;th&gt;OCV&lt;/th&gt;
+               &lt;th&gt;CIRCUIT VIEW&lt;/th&gt;
+          &lt;/tr&gt;
+     &lt;/thead&gt;
+     &lt;tbody id="circuitsDueTableBody"&gt;&lt;/tbody&gt;
+     &lt;tfoot&gt;&lt;/tfoot&gt;
+&lt;/table&gt;
+</code></pre>
+    <p>//javascript/jquery</p>
+    <pre><code>function getTable() {
+    $.ajax({
+        url: baseUrl + "VoltReading/GetOCVDue",
+        method: "POST",
+        dataType: "json",
+        success: function(data) {
+
+            if (circuitsDueTable) {
+                circuitsDueTable.destroy();
+            }
+
+            circuitsDueTable = $("#circuitsDueTable").DataTable({
+                data: data,
+                order: [
+                    [0, "asc"]
+                ],
+                rowGroup: {
+                    dataSrc: "Due_Date"
+                },
+                columns: [{
+                        data: 'Due_Date'
+                    },
+                    {
+                        data: 'Circuit_Num'
+                    },
+                    {
+                        data: 'Stage_Num'
+                    },
+                    {
+                        render: function(data, type, row) {
+                            return '&lt;button class="btn btn-success btn-xs viewCircuitBtn" 
+                                 value="' + row.Circuit_Id + '"&gt;View Circuit&lt;/button&gt;&lt;/a&gt;';
+                        }
+                    }
+                ],
+                //return moment(row.Due_Date).format();
+            });
+        }
+    });
+}
+getTable()
+</code></pre>
+    <p>//php controller</p>
+    <pre><code>public function GetOCVDue()
+{
+    $ocvsDue = $this-&gt;ocv-&gt;SelectCircuitOCVDates();
+    echo json_encode($ocvsDue);
+}
+</code></pre>
+    <p>//json data</p>
+    <pre><code>[
+{"Circuit_Id":"89","Circuit_Num":"090622002C","Due_Date":"2022-09-10","Stage_Num":"1"},
+{"Circuit_Id":"90","Circuit_Num":"0909221B","Due_Date":"2022-09-13","Stage_Num":"1"},
+{"Circuit_Id":"89","Circuit_Num":"090622002C","Due_Date":"2022-09-14","Stage_Num":"2"},
+{"Circuit_Id":"90","Circuit_Num":"0909221B","Due_Date":"2022-09-17","Stage_Num":"2"},
+{"Circuit_Id":"88","Circuit_Num":"090622001B","Due_Date":"2022-09-22","Stage_Num":"3"},
+{"Circuit_Id":"89","Circuit_Num":"090622002C","Due_Date":"2022-09-22","Stage_Num":"3"},
+{"Circuit_Id":"90","Circuit_Num":"0909221B","Due_Date":"2022-09-25","Stage_Num":"3"}
+]
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">ajax</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>If I (1) comment out the <code>circuitsDueTable.destroy()</code> line (just for now) and also (2) ensure the string in the <code>render</code> function's <code>return</code> statement is all on one line (to avoid a JavaScript syntax error), then your DataTables grouping logic works correctly for me using your code - the simple grouping, based on date. I cannot recreate your issue. The grouping is not being ignored.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">14 Sep 2022 at 19:51</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@andrewJames Thanks you are correct. I believe I had multiple jQuery plugins loading but have fixed that and it seems to be working correctly as you said. Now I just need to come up with a function for the dataSrc to group by the date ranges I need.</span> <span> - </span> <span class="display-name">torain20</span> <span> </span> <span class="date">14 Sep 2022 at 21:14</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Sep 2022 at 00:38</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a basic approach - I say "basic" because it does not use a library such as <a href="https://momentjs.com/" rel="nofollow noreferrer">Moment</a> or the newer <a href="https://moment.github.io/luxon/#/" rel="nofollow noreferrer">Luxon</a> - but only the built-in <code>Date</code> object:</p>
+     <pre class="lang-js prettyprint-override"><code>var today = new Date();
+var redDate = today.setDate(today.getDate() + 2);
+var yellowDate = today.setDate(today.getDate() + 4);
+</code></pre>
+     <p>I use the above dates to calculate a status color for each record, and I add that <code>status</code> value to the JSON results returned from the URL.</p>
+     <p>Then, I use the <a href="https://datatables.net/reference/option/rowGroup.dataSrc" rel="nofollow noreferrer"><code>rowGroup.dataSrc</code></a> option to base its grouping on this newly calculated <code>status</code> color:</p>
+     <pre class="lang-js prettyprint-override"><code>rowGroup: {
+    dataSrc: "status"
+}
+</code></pre>
+     <p>The full JavaScript is as follows:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).ready(function() {
+
+function getTable() {
+    $.ajax({
+        url: "YOUR URL GOES HERE", // I used my own test URL
+        method: "POST",
+        dataType: "json",
+        success: function(data) {
+
+            if (circuitsDueTable) {
+                //circuitsDueTable.destroy();
+            }
+            
+            var today = new Date();
+            var redDate = today.setDate(today.getDate() + 2);
+            var yellowDate = today.setDate(today.getDate() + 4);
+                
+            
+
+            data.forEach(function(row) {
+                var date = Date.parse(row.Due_Date);
+                var color = 'green'; // default for 5 or more days
+                
+                if ( date &lt;= redDate ) {
+                    color = 'red';
+                } else if ( date &lt;= yellowDate ){ 
+                    color = 'yellow';
+                }
+                row['status'] = color; // add color to row
+            });
+
+            circuitsDueTable = $("#circuitsDueTable").DataTable({
+                data: data,
+                order: [
+                    [0, "asc"]
+                ],
+                rowGroup: {
+                    dataSrc: "status"
+                },
+                columns: [{
+                        data: 'Due_Date'
+                    },
+                    {
+                        data: 'Circuit_Num'
+                    },
+                    {
+                        data: 'Stage_Num'
+                    },
+                    {
+                        render: function(data, type, row) {
+                            return '&lt;button class="btn btn-success btn-xs viewCircuitBtn" value="' + row.Circuit_Id + '"&gt;View Circuit&lt;/button&gt;&lt;/a&gt;';
+                        }
+                    }
+                ],
+                //return moment(row.Due_Date).format();
+            });
+        }
+    });
+}
+getTable()
+
+} );
+</code></pre>
+     <p>And the resulting table looks like this:</p>
+     <p><a href="https://i.stack.imgur.com/iOUSe.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/iOUSe.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

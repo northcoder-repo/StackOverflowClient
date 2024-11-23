@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>flitering multiple Datatables without using regex</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>flitering multiple Datatables without using regex</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>djna</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Oct 2020 at 10:53</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64193725/flitering-multiple-datatables-without-using-regex">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm using Datatables 1.10.19 though I would happily upgrade if that will help.</p>
+    <p>I have an application with several tables on the same page. For one of those tables I want to offer the user the option to do a negative search. They enter a value and see all the rows that don't have that value.</p>
+    <p>So far as I can see the search() API allows simple text or regex criteria. I've seen examples such as this.</p>
+    <pre><code>var allTables = $('table.dataTable').DataTable();
+ 
+allTables.column( 0 ).search( 'mySearchTerm', true, false ).draw();
+</code></pre>
+    <p>Some regex dialects support negative look ahead so regex such as those described in <a href="https://stackoverflow.com/questions/406230/regular-expression-to-match-a-line-that-doesnt-contain-a-word">this answer</a> would allow me to specify negation, but it appears that that the regex engine in use in Datatables does not work with such expressions.</p>
+    <p>My alternative is to use a filter function which I can establish with this:</p>
+    <pre><code>$.fn.dataTable.ext.search.push()
+</code></pre>
+    <p>However that seems to be a global construct affecting all tables, which I really don't want.</p>
+    <p>Any suggestions please?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Oct 2020 at 19:46</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use <code>$.fn.dataTable.ext.search.push()</code> - but it requires some additional work, to handle the fact (as you point out) that this is a global function, affecting all tables.</p>
+     <p>The following is not a full implementation, but shows the main points:</p>
+     <p><strong>The Approach</strong></p>
+     <p>My example uses 2 tables, with hard-coded data in each HTML table.</p>
+     <p>Each table is initialized as follows:</p>
+     <pre class="lang-js prettyprint-override"><code>  $(document).ready(function() {
+
+    // ---- first table with custom search ---------//
+
+    var table_a = $('#example_a').DataTable( {
+      pageLength: 10
+    } );
+
+    // remove the default DT search events - otherwise
+    // they will always fire before our custom event:
+    $( "#example_a_filter input" ).unbind();
+
+    // add our custom filter event for table_a:
+    $('#example_a_filter input').keyup( function( e ) {
+        table_a.draw();
+    } );
+
+    // ---- second table with DT default search ----//
+
+    var table_b = $('#example_b').DataTable( {
+      pageLength: 10
+    } );
+
+  } );
+</code></pre>
+     <p>For my custom search function, I make use of the fact that the function includes a <code>settings</code> parameter which we can use to see which table is being searched:</p>
+     <pre class="lang-js prettyprint-override"><code>  $.fn.dataTable.ext.search.push (
+    function( settings, searchData, index, rowData, counter ) {
+
+      var tableID = settings.nTable.id;
+      var searchTerm = $('#' + tableID + '_filter input').val()
+
+      //console.log( tableID );
+      //console.log( searchTerm );
+      //console.log( searchData );
+
+      switch(tableID) {
+        case 'example_a':
+          if (searchTerm === '') {
+            return true;
+          } else {
+            show_me = true;
+            searchData.forEach(function (item, index) {
+              if (show_me &amp;&amp; item.includes(searchTerm)) {
+                show_me = false;
+              }
+            });
+            return show_me;
+          }
+          break;
+        default:
+          // for all other tables, pass through the rows
+          // already filtered by the default DT filter:
+          return true;
+      }
+    }
+  );
+</code></pre>
+     <p>The following line is where we ID which table is being filtered:</p>
+     <pre><code>var tableID = settings.nTable.id;
+</code></pre>
+     <p>After that, I can use a <code>switch</code> statement to handle each table's search separately.</p>
+     <p>In the default case (for <code>example_b</code>), I'm just passing through what was already filtered by the DT default search:</p>
+     <pre><code>default: return true;
+</code></pre>
+     <p>The above filter looks like this when I search each table for the letter <code>x</code>:</p>
+     <p><a href="https://i.stack.imgur.com/XCyN3.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/XCyN3.png" alt="enter image description here"></a></p>
+     <p><strong>Incomplete Implementation</strong></p>
+     <p>This logic is incomplete for the custom search logic. It assumes the search term is a single string. If I enter "x y" in the input field, that will exclude all records where a field contains "x y" - which is probably not what you want.</p>
+     <p>You probably want the exact negation of the standard search - so the input term would need to be split on spaces and each sub-term (<code>x</code> and <code>y</code>) would need to be checked separately across each row of data.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you; this answers my question, and gives nicely detailed examples that surely will be helpful to others.</span> <span> - </span> <span class="display-name">djna</span> <span> </span> <span class="date">5 Oct 2020 at 04:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

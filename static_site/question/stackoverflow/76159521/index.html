@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Apache Lucene to have case insensitive search</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Apache Lucene to have case insensitive search</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>TheHydGuy</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>2 May 2023 at 23:32</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76159521/apache-lucene-to-have-case-insensitive-search">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have the following use case. Store/Index data without tokenize (use StringField) and maintain the same string while storing (maintain case sensitivity while storing data). The problem I face is during search. If I store field called name as 'Lucene' and if I try to search with 'lucene', I'm not able to get the store data with 'Lucene'.</p>
+    <p>I'm trying to use Lucene 9.5.0</p>
+    <pre><code>public class LuceneExample {
+public static void main(String[] args) throws IOException, ParseException {
+// Create index
+KeywordAnalyzer analyzer = new KeywordAnalyzer();
+String indexDirectoryPath = new StringBuilder("/temp/").append("test").toString();
+// create the directory to store the index
+Directory directory = FSDirectory.open(Paths.get(indexDirectoryPath));
+IndexWriterConfig config = new IndexWriterConfig(analyzer);
+IndexWriter writer = new IndexWriter(directory, config);
+
+    Document doc = new Document();
+    doc.add(new StringField("name", "John Smith", Field.Store.YES));
+    writer.addDocument(doc);
+    writer.close();
+
+    // Search index
+
+    // create a reader to read the index
+    IndexReader reader = DirectoryReader.open(directory);
+    IndexSearcher searcher = new IndexSearcher(reader);
+    QueryParser parser = new QueryParser("name", analyzer);
+    Query query = parser.parse("john smith");
+    TopDocs results = searcher.search(query, 10);
+    for (int i = 0; i &lt; results.scoreDocs.length; i++) {
+        Document hitDoc = searcher.doc(results.scoreDocs[i].doc);
+        System.out.println(hitDoc.get("name"));
+    }
+}
+}
+</code></pre>
+    <p>Am I missing something here? Could you please help me out.</p>
+    <p>Thanks in advance!</p>
+    <p>I would like to know how to have the search case insensitive</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Use <code>toLowerCase()</code> on the value you want to store when you create the Lucene document; and use <code>toLowerCase()</code> on the search term, also. (This all feels like a mis-use of a <code>StringField</code>...)</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">3 May 2023 at 00:28</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thank you @andrewJames. If we lowercase the value, then while showing the user the same value in UI, it will be all lower case, we wanted to maintain the case as is.</span> <span> - </span> <span class="display-name">TheHydGuy</span> <span> </span> <span class="date">3 May 2023 at 12:48</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>OK, understood. In that case don't use a <code>StringField</code> for this type of searching - use a <code>TextField</code>. A <code>StringField</code> is generally for storing a pre-defined list of values (IDs; master data list; file names; etc.) where you want to retrieve the exact value when searching <i>on some other fields</i> or if you want an exact string match. You can create docs which use both types of field for the same value (e.g. a user's name), if you want.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">3 May 2023 at 13:00</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>If you don't want to duplicate the user name data in 2 fields, then consider combining your <code>TextField</code> search on a user's name with a relational database which stores the precise user name. Put a unique ID into that relational database table - and put that same unique ID into a <code>StringField</code>. Your search for a user name in Lucene returns the ID. Use that ID to retrieve the user record from the database.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">3 May 2023 at 13:04</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 May 2023 at 13:08</span>
+     </div>
+    </div>
+    <div>
+     <p>Use <code>toLowerCase()</code> on the value you want to store when you create the Lucene document; and use <code>toLowerCase()</code> on the search term, also.</p>
+     <p>If you have data that you want to display to your users, such as a person's name, then consider a different approach.</p>
+     <p><strong>Example 1:</strong></p>
+     <p>Don't use a <code>StringField</code> for this type of searching - use a <code>TextField</code>.</p>
+     <p>A <code>StringField</code> is generally for storing a pre-defined list of values (IDs; master data list; file names; etc.) where you want to retrieve the exact value when searching on some other fields or if you want an exact string match. You can create docs which use both types of field for the same value (e.g. a user's name), if you want.</p>
+     <p><strong>Example 2:</strong></p>
+     <p>If you don't want to duplicate the user name data in 2 fields, then consider combining your <code>TextField</code> search on a user's name with a relational database which stores the precise user name in a <code>USERS</code> table. Put a unique ID into each row of that relational database table - and put that same unique ID into a <code>StringField</code> in each of your Lucene documents.</p>
+     <p>Your flexible search for a user name in that Lucene <code>TextField</code> returns the ID stored in the Lucene <code>StringField</code>.</p>
+     <p>Use that ID to retrieve the user record from the database.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

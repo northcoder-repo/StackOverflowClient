@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Retrieve list of table names</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Retrieve list of table names</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Johannes</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>5 Sep 2020 at 20:29</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63758220/retrieve-list-of-table-names">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to get the list of tables in a database.</p>
+    <p><a href="https://rethinkdb.com/api/java/table_list/" rel="nofollow noreferrer">The documentation of the <code>tableList</code> command</a> says this method returns a list of strings, but that is not exactly the case. It actually returns a <code>TableList</code> object.</p>
+    <p>And when I run..</p>
+    <pre class="lang-java prettyprint-override"><code>r.db("test").tableList().run(conn);
+</code></pre>
+    <p>I get a <code>Result&lt;Object&gt;</code> object as result with one entry that is really an <code>ArrayList</code> with all table names I want.</p>
+    <p>So, is this actually how this is supposed to work now:</p>
+    <pre class="lang-java prettyprint-override"><code>Connection connection = r.connection().hostname(DEFAULT_HOSTNAME).port(DEFAULT_PORT).connect();
+
+Object tableListObject = r.db(DEFAULT_DB_NAME).tableList().run(connection).single();
+
+if (tableListObject instanceof Collection) {
+    List&lt;?&gt; tableList = new ArrayList&lt;&gt;((Collection&lt;?&gt;) tableListObject);
+
+    for(Object tableName : tableList) {
+        System.out.println(tableName);
+    }
+}
+</code></pre>
+    <p>Seems rather complicated to me, is there an official/better way to do this?</p>
+    <p>I am using the RethinkDB Java driver version 2.4.4.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">rethinkdb</span><span class="tag">reql</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>@DevilsHnd Are you aware that your link is sending me to this very question? .. 😅</span> <span> - </span> <span class="display-name">Johannes</span> <span> </span> <span class="date">6 Sep 2020 at 10:18</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>My apologies @Johannes, I wasn't aware of that and now I can't find the link intended. :( I believe I originally got it from this <a href="https://rethinkdb.com/api/java/table_list/" rel="nofollow noreferrer">ReThinkDB web page</a> but can seem to dig it up any more. There were few answers within the SO thread which may of helped. Again, my apologies.</span> <span> - </span> <span class="display-name">DevilsHnd</span> <span> </span> <span class="date">6 Sep 2020 at 16:31</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@DevilsHnd No worries.. 🙂</span> <span> - </span> <span class="display-name">Johannes</span> <span> </span> <span class="date">6 Sep 2020 at 20:48</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Sep 2020 at 22:21</span>
+     </div>
+    </div>
+    <div>
+     <p>You can take advantage of the <code>run()</code> method which allows you to specify the class of the returned results - in this case an array of strings:</p>
+     <pre><code>Connection conn = r.connection().hostname("localhost").port(32769).connect();
+List&lt;?&gt; tables = r.db("test").tableList().run(conn, ArrayList.class).first();
+if (tables != null) {
+    tables.forEach(System.out::println);
+}
+</code></pre>
+     <p>For me, this prints the following in my test DB:</p>
+     <pre><code>movies
+tv_shows
+</code></pre>
+     <p>Updated to use <code>List&lt;?&gt;</code> as suggested by @Johannes.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>That's much better.. maybe even use <code>List&lt;?&gt; tables = ...</code> to avoid the unchecked cast warning.</span> <span> - </span> <span class="display-name">Johannes</span> <span> </span> <span class="date">7 Sep 2020 at 06:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes - thank you for pointing that out. I had somehow managed to disable that warning check in my IDE. I would never have noticed...</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Sep 2020 at 13:22</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

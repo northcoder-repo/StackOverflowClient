@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>how to insert data into csv file using apche meta model?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>how to insert data into csv file using apche meta model?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>santosh</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 Jul 2020 at 13:00</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62954514/how-to-insert-data-into-csv-file-using-apche-meta-model">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am working in java project and i am using apache metamodel to insert data into csv file.</p>
+    <p>Code:</p>
+    <pre><code> public void insertIntoCSVFile(){
+    File myFile = new File("unexisting_file.csv");    
+    UpdateableDataContext dataContext = DataContextFactory.createCsvDataContext(myFile);
+    final Schema schema = dataContext.getDefaultSchema();
+    dataContext.executeUpdate(new UpdateScript() {
+      public void run(UpdateCallback callback) {
+    
+        // CREATING A TABLE
+        Table table = callback.createTable(schema, "my_table")
+          .withColumn("name").ofType(VARCHAR)
+          .withColumn("gender").ofType(CHAR)
+          .withColumn("age").ofType(INTEGER)
+          .execute();
+     
+        // INSERTING SOME ROWS
+        callback.insertInto(table).value("name","John Doe").value("gender",'M').value("age",42).execute();
+        callback.insertInto(table).value("name","Jane Doe").value("gender",'F').value("age",42).execute();
+      }
+    });
+}
+</code></pre>
+    <p>Whenever i call this method for same csv file it inserts data successfully but deleting old data and then inserting new data so every time only two row insert.</p>
+    <p>I want to insert multiple duplicate row by calling function multiple times means new rows should append and old rows remains same.</p>
+    <p>How can i achieve this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">apache-metamodel</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jul 2020 at 15:41</span>
+     </div>
+    </div>
+    <div>
+     <p>Move the table creation code outside of the data insertion method. Every time you create the table, in the CSV file, it overwrites the previous table and its contents.</p>
+     <p>Here is one approach:</p>
+     <pre><code>import java.io.File;
+import org.apache.metamodel.UpdateableDataContext;
+import org.apache.metamodel.csv.CsvDataContext;
+import org.apache.metamodel.DataContextFactory;
+import org.apache.metamodel.schema.Schema;
+import org.apache.metamodel.UpdateScript;
+import org.apache.metamodel.UpdateCallback;
+import org.apache.metamodel.schema.Table;
+import org.apache.metamodel.schema.ColumnType;
+
+public class App {
+
+    public static void main(String[] args) {
+        File myFile = new File("c:/tmp/unexisting_file.csv");
+        UpdateableDataContext dataContext = DataContextFactory.createCsvDataContext(myFile);
+        final Schema schema = dataContext.getDefaultSchema();
+
+        final String tableName = "my_table";
+        
+        dataContext.executeUpdate(new UpdateScript() {
+            @Override
+            public void run(UpdateCallback callback) {
+
+                // CREATING A TABLE
+                Table table = callback.createTable(schema, tableName)
+                        .withColumn("name").ofType(ColumnType.VARCHAR)
+                        .withColumn("gender").ofType(ColumnType.CHAR)
+                        .withColumn("age").ofType(ColumnType.INTEGER)
+                        .execute();
+            }
+        });
+
+        insertIntoCSVFile(dataContext, tableName);
+        insertIntoCSVFile(dataContext, tableName);
+    }
+
+    public static void insertIntoCSVFile(final UpdateableDataContext dataContext,
+            final String tableName) {
+
+        dataContext.executeUpdate(new UpdateScript() {
+            @Override
+            public void run(UpdateCallback callback) {
+
+                String schemaName = dataContext.getDefaultSchema().getName();
+                Table table = dataContext.getTableByQualifiedLabel(schemaName + "." + tableName);
+                      
+                // INSERTING SOME ROWS
+                callback.insertInto(table).value("name", "John Doe").value("gender", 'M').value("age", 42).execute();
+                callback.insertInto(table).value("name", "Jane Doe").value("gender", 'F').value("age", 42).execute();
+            }
+        });
+    }
+}
+</code></pre>
+     <p>In this example, the main method is responsible for creating the table. This method then calls the data insertion method twice, passing in the relevant context and table name.</p>
+     <p>The resulting file contents are:</p>
+     <pre><code>"name","gender","age"
+"John Doe","M","42"
+"Jane Doe","F","42"
+"John Doe","M","42"
+"Jane Doe","F","42"
+</code></pre>
+     <p>For further info, see the semantics for the <a href="https://cwiki.apache.org/confluence/display/METAMODEL/Schema+and+table+semantics" rel="nofollow noreferrer">creation of tables in CSV files</a> - specifically:</p>
+     <blockquote>
+      <p><em>Create or overwrite the CSV file with a (new) table structure.</em></p>
+     </blockquote>
+     <p><em><strong>Update</strong></em></p>
+     <p>You can prevent the data being overwritten by checking if the table already exists, before trying to create it (again).</p>
+     <p>Here is a simple example showing that approach:</p>
+     <p>First, change the table name so it matches the file name:</p>
+     <pre><code>final String tableName = "unexisting_file.csv";
+</code></pre>
+     <p>This is because MetaModel uses this as the default table name for tables in CSV files. We can use this to check if we have already created the table:</p>
+     <pre><code>if (!tableExists()) {
+    createTable();
+}
+</code></pre>
+     <p>Using the above approach, here is a full example:</p>
+     <pre><code>import org.apache.metamodel.UpdateableDataContext;
+import org.apache.metamodel.UpdateScript;
+import org.apache.metamodel.UpdateCallback;
+import org.apache.metamodel.schema.Table;
+import org.apache.metamodel.csv.CsvConfiguration;
+import org.apache.metamodel.csv.CsvDataContext;
+import org.apache.metamodel.schema.ColumnType;
+import org.apache.metamodel.util.Resource;
+import org.apache.metamodel.util.FileResource;
+
+public class CsvDemo {
+
+    private final String tableName;
+    private final UpdateableDataContext dataContext;
+    
+    public CsvDemo() {
+        this.tableName = "example.csv";
+        Resource resource = new FileResource("c:/tmp/" + tableName);
+        CsvConfiguration configuration = new CsvConfiguration();
+        this.dataContext = new CsvDataContext(resource, configuration);
+    }
+    
+    public void doWork() {
+        if (!tableExists()) {
+            createTable();
+        }
+        appendData();
+    }
+
+    private boolean tableExists() {
+        return getTable() != null;
+    }
+    
+    private Table getTable() {
+        return dataContext.getDefaultSchema().getTableByName(tableName);
+    }
+
+    private void createTable() {
+        dataContext.executeUpdate(new UpdateScript() {
+            @Override
+            public void run(UpdateCallback callback) {
+                callback.createTable(dataContext.getDefaultSchema(), tableName)
+                        .withColumn("name").ofType(ColumnType.VARCHAR)
+                        .withColumn("gender").ofType(ColumnType.CHAR)
+                        .withColumn("age").ofType(ColumnType.INTEGER)
+                        .execute();
+            }
+        });
+    }
+    
+    private void appendData() {
+        dataContext.executeUpdate(new UpdateScript() {
+            final Table table = getTable();
+            @Override
+            public void run(UpdateCallback callback) {
+                callback.insertInto(table).value("name", "John Doe")
+                        .value("gender", 'M').value("age", 42).execute();
+                callback.insertInto(table).value("name", "Jane Doe")
+                        .value("gender", 'F').value("age", 42).execute();
+            }
+        });
+    }
+
+}
+</code></pre>
+     <p>Now, you will only create the table in your CSV file if it does not already exist. And if it does exist, then your additional data will be appended to any data which is already in the file.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>It was working but when main method executes it inserts 4 rows and if i run main method again then it delete old rows and insert new rows so how can i achieve this? So i want that whenever i call main method it should isert new rows without deleting old rows.</span> <span> - </span> <span class="display-name">santosh</span> <span> </span> <span class="date">18 Jul 2020 at 11:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If i am using openCSV then it is working. Csv file is opening in appned mode so every time data is apending instead of overwrite. String csvFileName = "example.csv"; CSVWriter writer = new CSVWriter(new FileWriter(csvFileName, true)); String [] record = "David,M,40".split(","); writer.writeNext(record); writer.close(); So can i achive this using apache metamodel please suggest.</span> <span> - </span> <span class="display-name">santosh</span> <span> </span> <span class="date">18 Jul 2020 at 14:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I added an example of how to check if the table already exists. This prevents you from creating the table more than once.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">18 Jul 2020 at 15:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I cleaned up the updated example a bit, to better show the new table-checking approach.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">18 Jul 2020 at 16:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Getting error :- java.lang.ClassNotFoundException: au.com.bytecode.opencsv.CSVReader in insert statement in appendData( ) .</span> <span> - </span> <span class="display-name">santosh</span> <span> </span> <span class="date">19 Jul 2020 at 08:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>First time it is working and inserting two rows but when i run for second time it gives error :- java.lang.ClassNotFoundException: au.com.bytecode.opencsv.CSVReader in insert statement in appendData( ) .</span> <span> - </span> <span class="display-name">santosh</span> <span> </span> <span class="date">19 Jul 2020 at 09:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What version of MetaModel are you using? I am using the latest version (5.3.2). Also, how are you running your program? How are you using the <code>CsvDemo</code> class from my answer?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Jul 2020 at 14:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Apache meta model version which i am using is 4.5.6. I am using your class CsvDemo by creating it's object and then calling doWork(). Example :- CsvDemo demo = new CsvDemo(); demo.doWork();</span> <span> - </span> <span class="display-name">santosh</span> <span> </span> <span class="date">19 Jul 2020 at 15:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>OK, thanks, your approach looks good. I am not able to recreate your problem using v 4.5.5 (I cannot find v 4.5.6). Having said that, try upgrading to the latest version. However, that may not work for you, either. Something else may be happening on your side, which is not happening when I run my code.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Jul 2020 at 16:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you, yes it is working with another sample project. The cause may be conflict multiple dependecies in my pom file.</span> <span> - </span> <span class="display-name">santosh</span> <span> </span> <span class="date">20 Jul 2020 at 09:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

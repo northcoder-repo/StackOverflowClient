@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java Best Practices to Prevent Cross Site Scripting</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java Best Practices to Prevent Cross Site Scripting</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>39</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Hoe Chin</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Jul 2009 at 14:58</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/1159729/java-best-practices-to-prevent-cross-site-scripting">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have gone through the OWASP top ten vulnerabilities and found that Cross-Site Scripting is the one we have to take notes. There was few way recommended solutions. One has stated that Do not use "blacklist" validation to detect XSS in input or to encode output. Searching for and replacing just a few characters (<code>&lt;</code> and <code>&gt;</code> and other similar characters or phrases such as <code>script</code>) is weak and has been attacked successfully. Even an unchecked <code>“&lt;b&gt;”</code> tag is unsafe in some contexts. XSS has a surprising number of variants that make it easy to bypass blacklist validation. Another solution said that Strong output encoding. Ensure that all user-supplied data is appropriately entity encoded (either HTML or XML depending on the output mechanism) before rendering. So, which is the best way to prevent cross site scripting to validate and replace the input or encoding the output ?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">security</span><span class="tag">xss</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Possible duplicate: <a href="http://stackoverflow.com/questions/24723/best-regex-to-catch-xss-attack-in-java" title="best regex to catch xss attack in java">stackoverflow.com/questions/24723/…</a></span> <span> - </span> <span class="display-name">aem</span> <span> </span> <span class="date">21 Jul 2009 at 15:10</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Duplicate: <a href="https://stackoverflow.com/questions/2658922/xss-prevention-in-jsp-servlet-web-application/" title="xss prevention in jsp servlet web application">stackoverflow.com/questions/2658922/…</a></span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">20 Sep 2020 at 09:34</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>43</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BalusC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Aug 2010 at 01:22</span>
+     </div>
+    </div>
+    <div>
+     <p>The normal practice is to HTML-escape any <strong>user-controlled</strong> data during <em>redisplaying</em> in JSP, not during <em>processing</em> the submitted data in servlet nor during <em>storing</em> in DB. In JSP you can use the <a href="http://java.sun.com/products/jsp/jstl/1.1/docs/tlddocs/" rel="noreferrer">JSTL</a> (to install it, just drop <a href="http://download.java.net/maven/1/jstl/jars/jstl-1.2.jar" rel="noreferrer">jstl-1.2.jar</a> in <code>/WEB-INF/lib</code>) <a href="http://java.sun.com/products/jsp/jstl/1.1/docs/tlddocs/c/out.html" rel="noreferrer"><code>&lt;c:out&gt;</code></a> tag or <a href="http://java.sun.com/products/jsp/jstl/1.1/docs/tlddocs/fn/escapeXml.fn.html" rel="noreferrer"><code>fn:escapeXml</code></a> function for this. E.g.</p>
+     <pre><code>&lt;%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %&gt;
+...
+&lt;p&gt;Welcome &lt;c:out value="${user.name}" /&gt;&lt;/p&gt;
+</code></pre>
+     <p>and</p>
+     <pre><code>&lt;%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %&gt;
+...
+&lt;input name="username" value="${fn:escapeXml(param.username)}"&gt;
+</code></pre>
+     <p>That's it. No need for a blacklist. Note that user-controlled data covers <strong>everything</strong> which comes in by a HTTP request: the request parameters, body and headers(!!).</p>
+     <p>If you HTML-escape it during processing the submitted data and/or storing in DB as well, then it's all spread over the business code and/or in the database. That's only maintenance trouble and you will risk double-escapes or more when you do it at different places (e.g. <code>&amp;</code> would become <code>&amp;amp;amp;</code> instead of <code>&amp;amp;</code> so that the enduser would literally see <code>&amp;amp;</code> instead of <code>&amp;</code> in view. The business code and DB are in turn not sensitive for XSS. Only the view is. You should then escape it only <em>right there</em> in view.</p>
+     <h3>See also:</h3>
+     <ul>
+      <li><a href="http://www.virtualforge.de/vmovie/xss_lesson_1/xss_selling_platform_v1.0.swf" rel="noreferrer">How does an XSS attack work? Video #1</a></li>
+      <li><a href="http://www.virtualforge.de/vmovie/xss_lesson_2/xss_selling_platform_v2.0.swf" rel="noreferrer">How does an XSS attack work? Video #2</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>+1 ! If only we could somehow configure the EL expression to default to html-escaping, then we wouldnt need to have lots of c:out everywhere :-)</span> <span> - </span> <span class="display-name">Bertie</span> <span> </span> <span class="date">3 Jul 2012 at 04:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Ah, you have answered about this issue in here : <a href="http://stackoverflow.com/questions/5887037/escape-html-entities-in-jsp-jspx-no-solution-for-problem-that-should-not-even" title="escape html entities in jsp jspx no solution for problem that should not even">stackoverflow.com/questions/5887037/…</a></span> <span> - </span> <span class="display-name">Bertie</span> <span> </span> <span class="date">3 Jul 2012 at 04:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Albert: if I'm not mistaken, you're already using JSF/Facelets, right? All XSS escaping is already done for you then, yes.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">3 Jul 2012 at 04:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Wow, you still remember ! Yes i was with Facelets, but currently on a project using SpringMVC, and with JSP as the view. So my current conclusion is to c:out when displaying user inputs, and EL for the rests.</span> <span> - </span> <span class="display-name">Bertie</span> <span> </span> <span class="date">3 Jul 2012 at 07:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What if there is something in the output value like, &lt;font color="#FF0000"&gt; it would display as it is without taking effect.</span> <span> - </span> <span class="display-name">Narayana Nagireddi</span> <span> </span> <span class="date">4 Oct 2012 at 14:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Altair: use <code>Jsoup#clean()</code> to remove potentially malicious HTML from the string. See also <a href="http://stackoverflow.com/questions/7722159/csrf-xss-and-sql-injection-attack-prevention-in-jsf/7725675#7725675" title="csrf xss and sql injection attack prevention in jsf">stackoverflow.com/questions/7722159/…</a></span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">4 Oct 2012 at 15:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>But I also have an anchor tag with some JavaScript in the value attribute, so what could I do in this case?</span> <span> - </span> <span class="display-name">Narayana Nagireddi</span> <span> </span> <span class="date">5 Oct 2012 at 00:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What happens if you have a JSONP API. You do not know how your customers are going to use it. Wouldn't it be better to remove vulnerabilities when storing the data in this case?</span> <span> - </span> <span class="display-name">Alessandro Giannone</span> <span> </span> <span class="date">24 Mar 2013 at 03:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am having the same issue and questioning the validity of your existing answer as it's from 2009. I opened a new question, can you answer please? My question is here - <a href="https://stackoverflow.com/q/63969509/1379286">stackoverflow.com/q/63969509/1379286</a></span> <span> - </span> <span class="display-name">PeakGen</span> <span> </span> <span class="date">20 Sep 2020 at 02:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@LemonJuice: answer is still valid these days.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">20 Sep 2020 at 09:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BalusC: Awesome. So basically, having JSTL is more than enough , isnt it? Before going to an explanation for the security auditors, I must know the facts, thats why.</span> <span> - </span> <span class="display-name">PeakGen</span> <span> </span> <span class="date">21 Sep 2020 at 08:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vineet Reynolds</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jul 2009 at 20:30</span>
+     </div>
+    </div>
+    <div>
+     <p>Use both. In fact refer a guide like the <a href="http://www.owasp.org/index.php/XSS_%28Cross_Site_Scripting%29_Prevention_Cheat_Sheet" rel="noreferrer">OWASP XSS Prevention cheat sheet</a>, on the possible cases for usage of output encoding and input validation.</p>
+     <p>Input validation helps when you cannot rely on output encoding in certain cases. For instance, you're better off validating inputs appearing in URLs rather than encoding the URLs themselves (Apache will not serve a URL that is url-encoded). Or for that matter, validate inputs that appear in JavaScript expressions.</p>
+     <p>Ultimately, a simple thumb rule will help - if you do not trust user input enough or if you suspect that certain sources can result in XSS attacks despite output encoding, validate it against a whitelist.</p>
+     <p>Do take a look at the <a href="http://www.owasp.org/index.php/ESAPI" rel="noreferrer">OWASP ESAPI</a> source code on how the output encoders and input validators are written in a security library.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>atk</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jul 2009 at 17:33</span>
+     </div>
+    </div>
+    <div>
+     <p>My preference is to encode all non-alphaumeric characters as HTML numeric character entities. Since almost, if not all attacks require non-alphuneric characters (like &lt;, ", etc) this should eliminate a large chunk of dangerous output.</p>
+     <p>Format is &amp;#N;, where N is the numeric value of the character (you can just cast the character to an int and concatenate with a string to get a decimal value). For example:</p>
+     <pre>// java-ish pseudocode
+StringBuffer safestrbuf = new StringBuffer(string.length()*4);
+foreach(char c : string.split() ){  
+  if( Character.isAlphaNumeric(c) ) safestrbuf.append(c);
+  else safestrbuf.append(""+(int)symbol);
+</pre>
+     <p>You will also need to be sure that you are encoding immediately before outputting to the browser, to avoid double-encoding, or encoding for HTML but sending to a different location.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Space isn't alphanumeric, right?</span> <span> - </span> <span class="display-name">Tom Hawtin - tackline</span> <span> </span> <span class="date">21 Jul 2009 at 23:28</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Correct. Space is not alphanumeric, and, given this very draconian algorithm, will encode to &amp;#32; . This may seem like it's never necessary, but think of a case where only known dangerous characters of single &amp; double quote are handled, if the output is constructed from the following JSP snippet: &lt;input name=foo value=&lt;%= userdata %&gt; &gt; if the user were to submit a value such as x onfocus=alert(1) s/he'd be able to execute XSS. P.S. is there any way to format comments? I'm trying to pretty print, but can't...</span> <span> - </span> <span class="display-name">atk</span> <span> </span> <span class="date">22 Jul 2009 at 22:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

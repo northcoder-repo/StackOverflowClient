@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Use BeanMapper from within a RowMapper?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Use BeanMapper from within a RowMapper?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Yeroc</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Jan 2020 at 20:53</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/59830691/use-beanmapper-from-within-a-rowmapper">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm using JDBI's SQL Objects declarative API to map an object containing a one-to-many relationship:</p>
+    <pre><code>class Foo {
+  private String id;
+  private String name;
+  private Set&lt;Bar&gt; bars = new HashSet&lt;&gt;();
+}
+
+class Bar {
+  private String id;
+}
+</code></pre>
+    <p>Initially it looked like a <code>RowReducer</code> would be ideal:</p>
+    <pre><code>@UseFreemarkerSqlLocator
+class FooQuery {
+
+  @SqlQuery
+  @RegisterBeanMapper(value = Foo.class, prefix = "f")
+  @RegisterBeanMapper(value = Bar.class, prefix = "b")
+  @UseRowReducer(RowReducer.class)
+  ResultIterator&lt;Foo&gt; queryAll();
+
+  static class RowReducer implements LinkedHashMapRowReducer&lt;String, Foo&gt; {
+
+    @Override
+    public void accumulate(Map&lt;String, Foo&gt; map, RowView rowView) {
+      final Foo foo = map.computeIfAbsent(rowView.getColumn("f_id", String.class),
+          id -&gt; rowView.getRow(Foo.class));
+      if (rowView.getColumn("b_id", String.class) != null) {
+        foo.addBar(rowView.getRow(Bar.class));
+      }
+    }
+  }
+}
+</code></pre>
+    <p>However I soon discovered that <code>RowReducer</code>s don't work with <code>ResultIterator</code>s (I'm working with a large database so it's important to be able to stream these) so now I'm reverting back to implementing a <code>RowMapper</code> instead. I'd still like to use the handy <code>BeanMapper</code>s built into JDBI though but I can't figure out how to access them from within my <code>RowMapper</code> implementation.</p>
+    <pre><code>class FooRowMapper implements RowMapper&lt;Foo&gt; {
+  private Foo foo = null;
+
+  @Override
+  public Foo map(ResultSet rs, StatementContext ctx) throws SQLException {
+    String fooId = rs.getString("f_id");
+    if (foo == null || !foo.id.equals(fooId)) {
+      // ideally construct using JDBI's BeanMapper similar to how we can above
+      // in the RowReducer!
+      foo = ??? 
+    }
+    // same as above...
+    Bar bar = ???
+    foo.addBar(bar);
+
+    return foo;
+  }
+}
+</code></pre>
+    <p>Is it possible to easily use BeanMappers from within a RowMapper so I don't have to manually construct the beans?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jdbi</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>jpell</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Aug 2020 at 16:50</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>RowMapper&lt;Bar&gt; barMapper = BeanMapper.of(Bar.class)
+Bar bar = barMapper.map(rs, ctx);
+foo.addBar(bar);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Indeed, thanks for posting this. I should have answered my own question as this was the solution I ended up with in the end as well.</span> <span> - </span> <span class="display-name">Yeroc</span> <span> </span> <span class="date">17 Aug 2020 at 15:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

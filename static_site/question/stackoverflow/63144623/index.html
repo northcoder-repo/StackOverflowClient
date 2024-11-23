@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How do I pool Oracle connections in Tomcat?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How do I pool Oracle connections in Tomcat?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>John Fisher</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>29 Jul 2020 at 00:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63144623/how-do-i-pool-oracle-connections-in-tomcat">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm unclear on the appropriate way to set up connections to an Oracle RAC database in Tomcat via context.xml. THIS method works for me:</p>
+    <pre><code>&lt;Resource
+     name="jdbc/mydb"
+     auth="Container"
+     type="javax.sql.DataSource"
+     driverClassName="oracle.jdbc.OracleDriver"
+     url="jdbc:oracle:thin:&lt;connection details&gt;"
+     username="&lt;username&gt;"
+     password="&lt;account&gt;"
+     maxTotal="150"
+     maxIdle="10"
+     /&gt;
+</code></pre>
+    <p>But is that using a connection pool? I tried adding <code>factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"</code>, as suggested at <a href="https://tomcat.apache.org/tomcat-8.0-doc/jdbc-pool.html" rel="nofollow noreferrer">https://tomcat.apache.org/tomcat-8.0-doc/jdbc-pool.html</a>, and mysteriously with that one change, I started getting:</p>
+    <pre><code>java.sql.SQLException: ORA-01017: invalid username/password; logon denied
+</code></pre>
+    <p>If I instead try <code>type="oracle.jdbc.pool.OracleDataSource"</code> and <code>factory="oracle.jdbc.pool.OracleDataSourceFactory"</code> I get:</p>
+    <pre><code>Error: Unable to obtain a JDBC connection from Datasource:
+java.lang.Exception: Error: Unable to obtain a JDBC connection from Datasource:
+</code></pre>
+    <p>I've looked all over, but it's not clear to me what the best practice is for this. Ideas?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">oracle</span><span class="tag">tomcat</span><span class="tag">jdbc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Yes, it looks like your first method - that works - should use a connection pool.</span> <span> - </span> <span class="display-name">pmdba</span> <span> </span> <span class="date">29 Jul 2020 at 02:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Do you mean pooling is built into the Oracle driver, or into Tomcat? Without directly referencing the pooling factories?</span> <span> - </span> <span class="display-name">John Fisher</span> <span> </span> <span class="date">29 Jul 2020 at 15:14</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Tomcat has a default connection pool called <code>DBCP 2</code> - at least in Tomcat versions 8 and 9. See <a href="https://tomcat.apache.org/tomcat-9.0-doc/jndi-datasource-examples-howto.html#Database_Connection_Pool_(DBCP_2)_Configurations" rel="nofollow noreferrer">here</a>. I have used it in the same way as your first (working) example - your <code>Resource</code> configuration. It was for MySQL, in my case. I have never used that <code>factory</code> parameter.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">29 Jul 2020 at 15:29</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Just to add: There are plenty of alternatives to the default Tomcat pool. I have also used <a href="https://github.com/brettwooldridge/HikariCP" rel="nofollow noreferrer">Hikari</a> - but in that case, it was configured in the web app's Java code, not via a resource entry.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">29 Jul 2020 at 15:44</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I guess this confuses me, because in the Tomcat documentation link on JDBC pools, it says " factory is required, and the value should be org.apache.tomcat.jdbc.pool.DataSourceFactory"</span> <span> - </span> <span class="display-name">John Fisher</span> <span> </span> <span class="date">29 Jul 2020 at 15:45</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>I took a closer look at this, because - yes - it is confusing. In a new Tomcat 9 install, I used 2 <code>Resource</code> variations: (1) using only <code>type="javax.sql.DataSource"</code>, and (2) using <code>factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"</code> with <code>type="org.apache.tomcat.jdbc.pool.DataSource"</code>. In both cases, I used <code>initialSize="4"</code>. With set-up (1), I got far too many connections created. With set-up (2) I got the 4 I was expecting. So, both settings worked for me, but (a) did not appear to be using the pooled connections as expected, whereas (b) did. <b>My comment above seems to be wrong.</b></span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">29 Jul 2020 at 17:51</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Ok, your settings seemed to work for me Andrew... thanks!</span> <span> - </span> <span class="display-name">John Fisher</span> <span> </span> <span class="date">30 Jul 2020 at 20:04</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Jul 2020 at 16:35</span>
+     </div>
+    </div>
+    <div>
+     <p><em>I am adding this answer to clarify my earlier comments, and for future visitors to this question.</em></p>
+     <p><strong>Summary</strong></p>
+     <p>Both of the following approaches will use DB connection pools:</p>
+     <ul>
+      <li>Use Tomcat's newer, default DBCP 2 pool with <code>type="javax.sql.DataSource"</code>.</li>
+      <li>Use Tomcat's older JDBC pool with <code>factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"</code> and <code>type="org.apache.tomcat.jdbc.pool.DataSource"</code>.</li>
+     </ul>
+     <p>I don't know enough about the differences to give any strong recommendations re. using one over the other.</p>
+     <p><strong>The Default DBCP 2 Tomcat Pool</strong></p>
+     <p>To make use of the default Tomcat DB connection pool, via a JNDI resource, you should follow the instructions provided on this Tomcat documentation page: <a href="http://tomcat.apache.org/tomcat-9.0-doc/jndi-datasource-examples-howto.html" rel="nofollow noreferrer">JNDI Datasource How-To</a></p>
+     <p>Specifically, you need to use <code>type="javax.sql.DataSource"</code>.</p>
+     <p>Here is a very basic resource configuration - not suitable for production, but useful to illustrate the approach. And it's for MySQL not Oracle, so there will be some adjustments needed:</p>
+     <pre><code>&lt;Resource name="jdbc/my_db" 
+          auth="Container" 
+          type="javax.sql.DataSource"
+          initialSize="5"
+          username="db_user"
+          password="***"
+          driverClassName="com.mysql.cj.jdbc.Driver"
+          url="jdbc:mysql://localhost:3306/mytestdb" /&gt;
+</code></pre>
+     <p>When using <code>initialSize="5"</code>, I saw the 5 expected connections on the DB server.</p>
+     <p>In the JVM, a connection pool was created - as shown in this VisualVM heap dump:</p>
+     <p><a href="https://i.stack.imgur.com/jbc4N.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/jbc4N.png" alt="enter image description here"></a></p>
+     <p>Here we can see that the pool is created, it has 5 connection objects, and it is using <code>Tomcat DBCP</code> - which, in turn, is a fork of Apache Commons <code>DBCP 2</code>.</p>
+     <p>DBCP 2 provides support for JDBC 4.1.</p>
+     <p><strong>Tomcat's Home-Grown JDBC Pool</strong></p>
+     <p>If you look at the Tomcat documentation on this other page - <a href="https://tomcat.apache.org/tomcat-9.0-doc/jdbc-pool.html" rel="nofollow noreferrer">The Tomcat JDBC Connection Pool</a> - you will see different guidance.</p>
+     <p>Specifically it states that you need both of the following in your <code>&lt;Resource&gt;</code>:</p>
+     <pre><code>factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"
+type="org.apache.tomcat.jdbc.pool.DataSource"
+</code></pre>
+     <p>If you use this, you will also be using a DB connection pool - but it will be based on the older Tomcat JDBC pool package:</p>
+     <p><a href="https://i.stack.imgur.com/9pFIN.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/9pFIN.png" alt="enter image description here"></a></p>
+     <p>In this example, I used <code>initialSize="3"</code>.</p>
+     <p>In the Tomcat documentation this is presented as "a new connection pool" (it <em>was</em> a replacement for the previously used <code>Commons DBCP 1.x</code>). It's <em>not</em> as new as the Tomcat default DBCP 2 solution. I think the documentation wording is out-of-date, now. And somewhat confusing, because of that.</p>
+     <p><strong>Additional Notes</strong></p>
+     <p>Notes from a member of the Tomcat commit team (see <a href="https://bz.apache.org/bugzilla/show_bug.cgi?id=64106#c1" rel="nofollow noreferrer">here</a>):</p>
+     <blockquote>
+      <p><em>Tomcat JDBC is Tomcat's "home grown" database connection pooling and does not use poolPreparedStatements</em></p>
+      <p><em>Tomcat DBCP is Tomcat's package renamed fork of Apache Commons DBCP 2.</em></p>
+      <p><em>Tomcat DBCP is used by default.</em></p>
+     </blockquote>
+     <p>You can always choose to implement a pool directly in your code, without using a JNDI <code>&lt;Resource&gt;</code> annotation. There are many available options.</p>
+     <p>(In my initial tests, there was a problem with my Tomcat installation which resulted in the creation of too many connections for DBCP 2. That misled me, initially).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nirmala</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Jul 2020 at 21:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Oracle <a href="https://docs.oracle.com/en/database/oracle/oracle-database/20/jjucp/toc.htm" rel="nofollow noreferrer">Universal Connection Pool (UCP)</a> is a Java connection pool that you can use as well. It is feature rich and works well with Oracle RAC, DG etc., Check out <a href="https://github.com/oracle/oracle-db-examples/tree/master/java/jdbc/Tomcat_Servlet" rel="nofollow noreferrer">UCPServlet</a> for an example.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

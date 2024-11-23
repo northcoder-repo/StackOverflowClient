@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene how can i turn off "toLowerCase" in StandardAnalyzer?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene how can i turn off "toLowerCase" in StandardAnalyzer?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Eve</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>3 Jul 2021 at 11:27</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68235840/lucene-how-can-i-turn-off-tolowercase-in-standardanalyzer">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to tokenaze my text, I use tokenStream from StandardAnalyzer, but it has by default "toLowerCase".</p>
+    <p>My code:</p>
+    <pre><code>
+        ArrayList&lt;String&gt; toTextWord = new ArrayList&lt;&gt;(); 
+        Analyzer analyzer = new StandardAnalyzer();
+
+        try (TokenStream stream = analyzer.tokenStream("tags", new StringReader(iterStr))) {
+
+            stream.addAttribute(CharTermAttribute.class);
+            stream.reset();
+            while (stream.incrementToken()) {
+                CharTermAttribute token = stream.getAttribute(CharTermAttribute.class);
+                System.out.println(token.toString());
+                toTextWord.add(token.toString());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+</code></pre>
+    <p>How can i use StandardAnalyzer without "toLowerCase"? How can i turn off "toLowerCase" in this StandardAnalyzer?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>You don’t want to match if the case is different?</span> <span> - </span> <span class="display-name">erickson</span> <span> </span> <span class="date">3 Jul 2021 at 14:32</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jul 2021 at 14:30</span>
+     </div>
+    </div>
+    <div>
+     <p>You cannot turn off <code>toLowerCase</code> directly in the <code>StandardAnalyzer</code>.</p>
+     <p>You can create a custom analyzer which behaves the same way as the <code>StandardAnalyzer</code>, and then customize it to meet your needs:</p>
+     <p>Example using <a href="https://lucene.apache.org/core/8_9_0/analyzers-common/org/apache/lucene/analysis/custom/CustomAnalyzer.html" rel="nofollow noreferrer"><code>org.apache.lucene.analysis.custom.CustomAnalyzer</code></a>:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer analyzer = CustomAnalyzer.builder()
+        .withTokenizer("standard")
+        .addTokenFilter("lowercase")
+        .addTokenFilter("stop")
+        .build();
+</code></pre>
+     <p>Now you can comment out (or remove) the lowercase token filter:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer analyzer = CustomAnalyzer.builder()
+        .withTokenizer("standard")
+        .addTokenFilter("stop")
+        .build();
+</code></pre>
+     <p>Note that if you want to exactly match the default Standard Analyzer, then you should also comment out or remove the stop-word filter, since by default stopwords are not removed from the Standard Analyzer unless you provide an explicit list.</p>
+     <p>That gives us this:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer analyzer = CustomAnalyzer.builder()
+        .withTokenizer("standard")
+        .build();
+</code></pre>
+     <p>If I use the following input with my custom analyzer:</p>
+     <pre><code>String iterStr = "Eric the quick brown fox jumps over Freddy the lazy dog, LOL.";
+</code></pre>
+     <p>then the output from your code is as follows:</p>
+     <pre><code>Eric
+the
+quick
+brown
+fox
+jumps
+over
+Freddy
+the
+lazy
+dog
+LOL
+</code></pre>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>When using the <code>CustomAnalyzer</code> you can use string values to identify the different tokenizer and filter objects - such as "standard" and "lowercase", as used in my examples above.</p>
+     <p>If you want to avoid using these identifiers, you can use the relevant factory object with the <code>NAME</code> field:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer analyzer = CustomAnalyzer.builder()
+        .withTokenizer(StandardTokenizerFactory.NAME)
+        .addTokenFilter(LowerCaseFilterFactory.NAME)
+        .addTokenFilter(StopFilterFactory.NAME)
+        .build();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

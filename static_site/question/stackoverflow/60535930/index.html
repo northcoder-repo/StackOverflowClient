@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to determine extension from fileBytes</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to determine extension from fileBytes</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>feltspar</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Mar 2020 at 22:57</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60535930/how-to-determine-extension-from-filebytes">source</a>
+    </div>
+   </div>
+   <div>
+    <p>My application allows users to download files. While creating headers I am using Tika to set extension as shown below. This works fine for pdf files. Fails for DOC and EXCEL files.</p>
+    <pre><code>private HttpHeaders getHeaderData(byte[] fileBytes) throws IOException, MimeTypeException {
+        final HttpHeaders headers = new HttpHeaders();
+
+        TikaInputStream tikaStream = TikaInputStream.get(fileBytes);
+        Tika tika = new Tika();
+        String mimeType = tika.detect(tikaStream);
+        headers.setContentType(MediaType.valueOf(mimeType));
+
+        MimeTypes defaultMimeTypes = MimeTypes.getDefaultMimeTypes();
+        String extension = defaultMimeTypes.forName(mimeType).getExtension();
+        headers.add("file-ext", extension);
+
+        return headers;
+    }
+</code></pre>
+    <p>I see that the mimeType is resolved to <strong>"application/pdf"</strong> for pdf files but resolves to "<strong>application/x-tika-ooxml</strong>" for excel and word files which is the problem. How can I get word(.docx) and excel (xlx, xlsx) formats if I have a file in bytes.</p>
+    <p>Why does this work for pdf?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">download</span><span class="tag">http-headers</span><span class="tag">file-extension</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Mar 2020 at 19:36</span>
+     </div>
+    </div>
+    <div>
+     <h2>Summary</h2>
+     <p>The short answer is: You have to use Tika's detector with its <code>MediaType</code> class - not <code>MimeTypes</code>.</p>
+     <p>The slightly longer answer is: Even that will not get you all the way, because of how older MS-Office files are structured. For those you have to also parse the files, and inspect their metadata.</p>
+     <p>The term "media type" has replaced the term "MIME type" - see <a href="https://www.iana.org/assignments/media-types/media-types.xhtml" rel="nofollow noreferrer">here</a>:</p>
+     <blockquote>
+      <p>[RFC2046] specifies that Media Types (formerly known as MIME types) and Media Subtypes will be assigned and listed by the IANA.</p>
+     </blockquote>
+     <h2>Office 97-2003</h2>
+     <p>When Tika inspects Excel and Word 97-2003 files using its detector, it will return a media type of <code>application/x-tika-msoffice</code>. I assume (perhaps incorrectly) that this is its way of handling a file-type group, where the detector cannot determine the specific flavor of MS-Office 97-2003 file, based on its analysis. This is similar to the <code>application/x-tika-ooxml</code> in your question.</p>
+     <h2>Expected Results</h2>
+     <p>Based on the IANA list <a href="https://www.iana.org/assignments/media-types/media-types.xhtml" rel="nofollow noreferrer">here</a>, and a Mozilla list <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types" rel="nofollow noreferrer">here</a>, these are the media types we expect to get for the following file types:</p>
+     <ul>
+      <li>.pdf :: application/pdf</li>
+      <li>.xls :: application/vnd.ms-excel</li>
+      <li>.doc :: application/msword</li>
+      <li>.xlsx :: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</li>
+      <li>.docx :: application/vnd.openxmlformats-officedocument.wordprocessingml.document</li>
+     </ul>
+     <h2>The Program</h2>
+     <p>The program shown below uses the following Maven dependencies:</p>
+     <pre><code>    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.apache.tika&lt;/groupId&gt;
+            &lt;artifactId&gt;tika-core&lt;/artifactId&gt;
+            &lt;version&gt;1.23&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.apache.tika&lt;/groupId&gt;
+            &lt;artifactId&gt;tika-parsers&lt;/artifactId&gt;
+            &lt;version&gt;1.23&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;javax.ws.rs&lt;/groupId&gt;
+            &lt;artifactId&gt;javax.ws.rs-api&lt;/artifactId&gt;
+            &lt;version&gt;2.1.1&lt;/version&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+</code></pre>
+     <p>The program (just for this demo - not production ready) is shown below. Specifically, look at the <code>tikaDetect()</code> and <code>tikaParse()</code> methods.</p>
+     <pre><code>import java.io.IOException;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.BufferedInputStream;
+import java.util.Set;
+import java.util.HashSet;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MimeTypeException;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.detect.Detector;
+import org.apache.tika.detect.DefaultDetector;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.parser.AutoDetectParser;
+import org.apache.tika.sax.BodyContentHandler;
+import org.apache.tika.parser.ParseContext;
+import org.xml.sax.SAXException;
+import org.xml.sax.ContentHandler;
+
+public class Main {
+
+    private final Set&lt;File&gt; msOfficeFiles = new HashSet();
+
+    public static void main(String[] args) throws IOException, MimeTypeException,
+            SAXException, TikaException {
+        Main main = new Main();
+        main.doFileDetection();
+    }
+
+    private void doFileDetection() throws IOException, MimeTypeException, SAXException, TikaException {
+        File file1 = new File("C:/tmp/foo.pdf");
+        File file2 = new File("C:/tmp/baz.xlsx");
+        File file3 = new File("C:/tmp/bat.docx");
+        // Excel 97-2003 format:
+        File file4 = new File("C:/tmp/bar.xls");
+        // Word 97-2003 format:
+        File file5 = new File("C:/tmp/daz.doc");
+        Set&lt;File&gt; files = new HashSet();
+        files.add(file1);
+        files.add(file2);
+        files.add(file3);
+        files.add(file4);
+        files.add(file5);
+
+        for (File file : files) {
+            try (BufferedInputStream bis = new BufferedInputStream(
+                    new FileInputStream(file))) {
+                tikaDetect(file, bis);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        for (File file : msOfficeFiles) {
+            tikaParse(file);
+        }
+    }
+
+    private void tikaDetect(File file, BufferedInputStream bis)
+            throws IOException, SAXException, TikaException {
+        Detector detector = new DefaultDetector();
+        Metadata metadata = new Metadata();
+        MediaType mediaType = detector.detect(bis, metadata);
+        if (mediaType.toString().equals("application/x-tika-msoffice")) {
+            msOfficeFiles.add(file);
+        } else {
+            System.out.println("Media Type for " + file.getName()
+                    + " is: " + mediaType.toString());
+        }
+    }
+
+    private void tikaParse(File file) throws SAXException, TikaException {
+        Parser parser = new AutoDetectParser();
+        ContentHandler handler = new BodyContentHandler();
+        Metadata metadata = new Metadata();
+        ParseContext context = new ParseContext();
+        try (BufferedInputStream bis = new BufferedInputStream(
+                new FileInputStream(file))) {
+            parser.parse(bis, handler, metadata, context);
+            tikaDetect(file, bis);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.out.println("Media Type for " + file.getName()
+                + " is: " + metadata.get("Content-Type"));
+    }
+}
+</code></pre>
+     <h2>Actual Results</h2>
+     <p>The program generates some warnings and information messages. If we ignore these for this exercise, we get the following print statements:</p>
+     <pre><code>Media Type for bat.docx is: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+Media Type for baz.xlsx is: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Media Type for foo.pdf is: application/pdf
+Media Type for bar.xls is: application/vnd.ms-excel
+Media Type for daz.doc is: application/msword
+</code></pre>
+     <p>These match the expected official media (MIME) types.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ricky Leung</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jun 2021 at 13:59</span>
+     </div>
+    </div>
+    <div>
+     <p>Tika official usages: <a href="https://tika.apache.org/1.26/detection.html" rel="nofollow noreferrer">https://tika.apache.org/1.26/detection.html</a></p>
+     <p>Tika supported formats: <a href="https://tika.apache.org/1.26/formats.html" rel="nofollow noreferrer">https://tika.apache.org/1.26/formats.html</a></p>
+     <p>You could get the answers by simply reading the above 2 pages. Here are some key quotes:</p>
+     <blockquote>
+      <p>Microsoft Office and some related applications produce documents in the generic OLE 2 Compound Document and Office Open XML (OOXML) formats. The older OLE 2 format was introduced in Microsoft Office version 97 and was the default format until Office version 2007 and the new XML-based OOXML format. The OfficeParser and OOXMLParser classes use Apache POI libraries to support text and metadata extraction from both OLE2 and OOXML documents.</p>
+     </blockquote>
+     <p>That means you need to <strong>include also Apache POI jars or Maven dependencies</strong> for MS office files.</p>
+     <blockquote>
+      <p>Tika provides a wrapping detector in the form of org.apache.tika.detect.DefaultDetector. This uses the service loader to discover all available detectors, including any available container aware ones, and tries them in turn. For container aware detection, include the Tika Parsers jar and its dependencies in your project, then use DefaultDetector along with a TikaInputStream.</p>
+     </blockquote>
+     <p>That means you need <strong>to include the Tika Parsers jar or Maven dependencies</strong>.</p>
+     <p>Then use <code>new DefaultDetector().detect(TikaInputStream.get(file), new Metadata());</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Do you have an example? I have added both apache poi and tika parsers depencencied in my pom.xml file but when I run the line you have given above I still get application/x-tika.ooxml for an Excel file.</span> <span> - </span> <span class="display-name">Keyhan</span> <span> </span> <span class="date">9 Jan 2023 at 17:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I already forgot how, but I am sure Tika could do this by adding enough libraries.</span> <span> - </span> <span class="display-name">Ricky Leung</span> <span> </span> <span class="date">11 Jan 2023 at 00:59</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to use global variables while avoiding permission errors?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to use global variables while avoiding permission errors?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>TheMaster</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Dec 2020 at 20:21</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65150194/how-to-use-global-variables-while-avoiding-permission-errors">source</a>
+    </div>
+   </div>
+   <div>
+    <p>See the below example,</p>
+    <pre><code>function doSomething1(){/*needs ss*/const ss = SpreadsheetApp.openById(/*SPREADSHEET_ID*/);}
+function doSomething2(){/*needs ss*/const ss = SpreadsheetApp.openById(/*SPREADSHEET_ID*/);}
+function doItAll(){
+  doSomething1();
+  doSomething2();
+}
+</code></pre>
+    <p>Instead of calling Spreadsheet in both functions, this could be simplified using globals as</p>
+    <pre><code>const ss = SpreadsheetApp.openById(/*SPREADSHEET_ID*/);
+function doSomething1(){/*do something with ss*/}
+function doSomething2(){/*do something with ss*/}
+function doItAll(){
+  doSomething1();
+  doSomething2();
+}
+</code></pre>
+    <p>The problem here can be solved without using global variables by simply passing <code>ss</code> variable between the functions. But This will get much more complicated with multiple functions requiring access to the <code>ss</code> variable. And passing <code>ss</code> is cumbersome. There aren't many ways to avoid a global in Apps script. Modules aren't supported. If you use a IIFE, all functions are hidden from the IDE- making a function call from IDE or anywhere else impossible. Using a global here is much more elegant. But problems arise if I have a simple trigger:</p>
+    <pre><code>const ss = SpreadsheetApp.openById(/*SPREADSHEET_ID*/);
+function doSomething1(){/*do something with ss*/}
+function doSomething2(){/*do something with ss*/}
+function doItAll(){
+  doSomething1();
+  doSomething2();
+}
+function onOpen(){/*Adds a menu*/}
+</code></pre>
+    <p>The menu addition <code>onOpen</code> will fail because this line is loaded <code>SpreadsheetApp.openById(/*SPREADSHEET_ID*/)</code> before <code>onOpen</code> and that line requires permissions/authorizations while <code>onOpen</code> being a simple trigger doesn't run with any code requiring authorization.</p>
+    <p>How to declare globals without running into authorization errors?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">google-apps-script</span><span class="tag">google-sheets</span><span class="tag">global-variables</span><span class="tag">lazy-loading</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>I'm trying to understand your statements about authorization. Are you saying that since SpreadsheetApp.openById(..) requires authorization, adding an OnOpen() call means that, being global, SpreadsheetApp.openById(..) will need to run before OnOpen() and OnOpen() may be running in AuthMode.NONE? (I think your use of "this line" and "that line" is confusing me)</span> <span> - </span> <span class="display-name">John Pankowicz</span> <span> </span> <span class="date">25 Aug 2022 at 13:42</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@JohnPankowicz Yes.</span> <span> - </span> <span class="display-name">TheMaster</span> <span> </span> <span class="date">25 Aug 2022 at 15:19</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Is that true just for onOpen, or would it fail if the code included any trigger function?</span> <span> - </span> <span class="display-name">John Pankowicz</span> <span> </span> <span class="date">25 Aug 2022 at 18:41</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@JohnPankowicz It will fail for any triggers that run without authorization, i.e., any simple trigger.</span> <span> - </span> <span class="display-name">TheMaster</span> <span> </span> <span class="date">25 Aug 2022 at 19:17</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Related: <a href="https://stackoverflow.com/a/64384141">stackoverflow.com/a/64384141</a></span> <span> - </span> <span class="display-name">TheMaster</span> <span> </span> <span class="date">25 Aug 2022 at 19:20</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>TheMaster</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Dec 2020 at 20:21</span>
+     </div>
+    </div>
+    <div>
+     <p>This issue can be solved by using a <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/get" rel="nofollow noreferrer">getter</a>. A getter executes the code only when called from anywhere, thus encapsulating the execution of the code in global context. But the getter will execute on each call to the variable. If <code>ss</code> is called in two functions, <code>SpreadsheetApp.openById</code> is executed twice. We can avoid this using <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/get#Examples" rel="nofollow noreferrer">lazy loading technique</a> mentioned in the MDN.</p>
+     <pre><code>const config = {
+  get ss() {
+    delete this.ss;
+    return (this.ss = SpreadsheetApp.openById(/*SPREADSHEET_ID*/));
+  },
+};
+function doSomething1(){/*do something with config.ss*/}
+function doSomething2(){/*do something with config.ss*/}
+function doItAll(){
+  doSomething1();
+  doSomething2();
+}
+function onOpen(){/*Adds a menu*/}
+</code></pre>
+     <p>Here, We use a <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/get" rel="nofollow noreferrer">getter</a> inside a object instead of directly declaring the <code>ss</code>. Used this way, <code>SpreadsheetApp.openById()</code> is never called in global scope, though it is declared in global scope. It is only loaded, when <code>doSomething1</code> is executed. In addition, the method is not called again when it is accessed from <code>doSomething2</code>, because the getter is deleted on first access and replaced with the actual value.</p>
+     <p>Although the code becomes a bit bulky, this solves many problems and is much more elegant.</p>
+     <h3>Samples:</h3>
+     <ul>
+      <li>
+       <p><a href="https://stackoverflow.com/questions/70056310/avoid-repeating-use-global-variables-in-google-apps-script-or-not/70074204#70074204">Avoid Repeating: Use Global Variables in Google Apps Script or Not?</a></p></li>
+      <li>
+       <p><a href="https://stackoverflow.com/a/65134054/">Dynamically adding objects like sheets and range values using Lazy loading technique</a></p></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Hi! Got the same issue, but I'm not sure that your example applioes exactly to my issue. So, how would I go about add many more <code>ss</code>'s? Would <code>get ss1</code>, <code>get ss2</code> so on and so forth work?</span> <span> - </span> <span class="display-name">onit</span> <span> </span> <span class="date">14 Mar 2022 at 20:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@santosOnit Have you read the samples in my answer?</span> <span> - </span> <span class="display-name">TheMaster</span> <span> </span> <span class="date">15 Mar 2022 at 01:38</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Cooper</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Feb 2021 at 00:08</span>
+     </div>
+    </div>
+    <div>
+     <p>I've found that you don't have to use the return here <code>return (this.ss = SpreadsheetApp.openById(/*SPREADSHEET_ID*/)</code></p>
+     <p>I was messing around with this one day. I tried it this way and it makes it possible to maintain state between function calls just like real global variables without have to go through extra steps of starting up the properties service. However it does require that you have to run the readInit every time.</p>
+     <pre><code> let gobj={get init(){delete this.init;this.globals=getGlobals();this.init=PropertiesService.getScriptProperties().getProperties();}};
+     readInit();
+    
+    function readInit() {
+      gobj.init;
+      console.log(JSON.stringify(gobj.globals));
+      console.log(JSON.stringify(gobj.init))
+    }
+</code></pre>
+     <p>Just wondering what you think which is another way of saying what's the down side. I also added the getGlobals which is something I often access in my code. Only now I can access it with gobj.globals.key etc I haven't tried it in anything big yet so it may slow things down quite a bit.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I think <code>readInit</code> once is enough. Infact, once you access <code>gobj.init</code>, everything should be initialized automatically.</span> <span> - </span> <span class="display-name">TheMaster</span> <span> </span> <span class="date">16 Feb 2021 at 06:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Build jQuery datatable using array of objects</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Build jQuery datatable using array of objects</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>NoBullMan</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Oct 2021 at 14:43</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/69632960/build-jquery-datatable-using-array-of-objects">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to create and populate a jQuery datatable using an array of objects where each objct has two properties: HR and TXN_COUNT. It represents number of transaction by the hour and looks something like:</p>
+    <pre><code>HR  TXN_COUNT
+00  4591
+01  2402
+...
+08  2129
+</code></pre>
+    <p>I need content of first column as datatable column headers and second column as data, so that I would end up with:</p>
+    <pre><code> 00    01    ...   08
+4591  2402        2129
+</code></pre>
+    <p>Can't get it to work.</p>
+    <p>I have tried this:</p>
+    <pre><code>&lt;div id="divGrid" style="clear: both"&gt;
+    &lt;table id="txnTable" class="table table-striped table-bordered table-hover display responsive compact divGrid " style="width: 98%;"&gt;
+    &lt;/table&gt;
+&lt;/div&gt;
+...
+
+$(document).ready(function () {
+    ...
+    populateTable();
+});
+
+function populateTable() {
+    $.ajax({
+        type: "POST",
+        dataType: "json",
+        contentType: "application/json; charset=utf-8",
+        url: "../WebService/ABC.asmx/GetTransactionCountByDay",
+        cache: false,
+        data: JSON.stringify({ SelDate: selDate, LogType: -1 }),
+    }).done(function (result) {debugger
+        var jResult = JSON.parse(result.d);
+        //columnNames = jResult.map(a =&gt; a.HR);
+
+        // Stupid IE version, since it doesn't understand '=&gt;' !
+        columnNames = jResult.map(function (a) { return a.HR; });
+        tblData = jResult.map(function (a) { return a.TXN_COUNT; });
+
+        $('#txnTable').DataTable({
+            destroy: true,
+            processing: true,
+            serverSide: true,
+            data: tblData,
+            columns: columnNames
+        });
+    })
+}
+</code></pre>
+    <p>When I run this, I see correct values in columnNames and tblData arrays. However, I get jquery error (<strong>Invalid operand to 'in': Object expected</strong>) in function "isArrayLike( obj )" where object is the string "00" (the first HR value). When I continue the process, I just see my "wait" spinner spinning and nothing displayed. This happens when it is creating the datatable.</p>
+    <p><strong>Update</strong></p>
+    <p>Adding this piece of code just before creating datatable at least displays the table headers. Seems "columns" property of datatable expects object and I was passing string (e.g. "00").</p>
+    <pre><code>for (var i in columnNames) {debugger
+    columns.push({
+        data: columnNames[i],
+        title: columnNames[i]
+    });
+}
+</code></pre>
+    <p>and then set the "column" property to columns instead of columnNames. Now I get an error in datatable's js (Unable to set property 'data' of undefined or null reference)</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>What is not working like expected?</span> <span> - </span> <span class="display-name">Thallius</span> <span> </span> <span class="date">19 Oct 2021 at 14:47</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I edited the question to explain what occurs.</span> <span> - </span> <span class="display-name">NoBullMan</span> <span> </span> <span class="date">19 Oct 2021 at 15:03</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Can you show us the JSON response, as formatted text, returned from the URL? A representative sample will be OK, but we do need to see the overall structure of the JSON.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Oct 2021 at 16:18</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>You are using <code>serverSide: true</code>, which implies your server-side code will handle all sorting, paging and filtering (DataTables will not handle any of that). Does your server-side code do that? Also, if you are using <code>serverSide: true</code> you need to use the DataTables Ajax option, instead of jQuery's <code>$.ajax</code> - otherwise, DataTables will not be able to pass the required paging/sorting/filtering parameters to the server.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Oct 2021 at 16:19</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>[{\"DT\":\"2021-10-19\",\"HR\":\"00\",\"TXN_COUNT\":138.0},{‌​\"DT\":\"2021-10-19\‌​",\"HR\":\"01\",\"TX‌​N_COUNT\":235.0},{\"‌​DT\":\"2021-10-19\",‌​\"HR\":\"02\",\"TXN_‌​COUNT\":111.0},{\"DT‌​\":\"2021-10-19\",\"‌​HR\":\"03\",\"TXN_CO‌​UNT\":120.0},{\"DT\"‌​:\"2021-10-19\",\"HR‌​\":\"04\",\"TXN_COUN‌​T\":120.0},{\"DT\":\‌​"2021-10-19\",\"HR\"‌​:\"05\",\"TXN_COUNT\‌​":120.0},{\"DT\":\"2‌​021-10-19\",\"HR\":\‌​"06\",\"TXN_COUNT\":‌​318.0},{\"DT\":\"202‌​1-10-19\",\"HR\":\"0‌​7\",\"TXN_COUNT\":50‌​5.0},{\"DT\":\"2021-‌​10-19\",\"HR\":\"08\‌​",\"TXN_COUNT\":294.‌​0}]</span> <span> - </span> <span class="display-name">NoBullMan</span> <span> </span> <span class="date">19 Oct 2021 at 16:40</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I am thinking maybe it is easier to modify the returned datatable from ajax call and create a new one to make it have two coumns: HR and TXN_COUNT and use run of the mill jquery datatable setup.</span> <span> - </span> <span class="display-name">NoBullMan</span> <span> </span> <span class="date">19 Oct 2021 at 16:42</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thank you, but please <a href="https://stackoverflow.com/posts/69632960/edit">edit</a> your question so that the data can be added there and given some formatting. Also, what you have provided is not valid JSON. You can see for yourself by pasting the contents into any JSON validator - for example, <a href="https://jsonlint.com/" rel="nofollow noreferrer">this one</a>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Oct 2021 at 16:45</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Agreed - you need to re-arrange the data. But first we need to see the actual JSON data - and also to understand whether you really are using server-side processing or not.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Oct 2021 at 16:50</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Maybe I can pose the question like this: I have a data table consisting of two columns: one depicting hours (00, 01, ...) and the other a txn count for each hour. How can I create a jquery datatable with column headers being hours and the one single row depicting the counts for each hour. My original post shows what the data table looks like.</span> <span> - </span> <span class="display-name">NoBullMan</span> <span> </span> <span class="date">19 Oct 2021 at 20:57</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>OK - thank you for the extra notes. I took your starting point and focused on the core question, in my answer.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Oct 2021 at 22:15</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Oct 2021 at 22:14</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is how I would approach this, given the requirement to pivot the source data into a single row for the DataTable:</p>
+     <p>Starting assumptions:</p>
+     <p>(1) I will ignore the <code>serverSide: true</code> option, since it's not clear if it is required, and it is not relevant to how the source JSON data needs to be transformed.</p>
+     <p>(2) Since this is about transforming the source data, I will also ignore the data being sent to the server with each request.</p>
+     <p>(3) I will assume the URL delivers the following JSON:</p>
+     <pre class="lang-js prettyprint-override"><code>[
+  {
+    "DT": "2021-10-19",
+    "HR": "00",
+    "TXN_COUNT": 138
+  },
+  {
+    "DT": "2021-10-19",
+    "HR": "01",
+    "TXN_COUNT": 235
+  },
+  {
+    "DT": "2021-10-19",
+    "HR": "02",
+    "TXN_COUNT": 111
+  },
+  {
+    "DT": "2021-10-19",
+    "HR": "03",
+    "TXN_COUNT": 120
+  },
+  {
+    "DT": "2021-10-19",
+    "HR": "04",
+    "TXN_COUNT": 120
+  },
+  {
+    "DT": "2021-10-19",
+    "HR": "05",
+    "TXN_COUNT": 120
+  },
+  {
+    "DT": "2021-10-19",
+    "HR": "06",
+    "TXN_COUNT": 318
+  },
+  {
+    "DT": "2021-10-19",
+    "HR": "07",
+    "TXN_COUNT": 505
+  },
+  {
+    "DT": "2021-10-19",
+    "HR": "08",
+    "TXN_COUNT": 294
+  }
+]
+</code></pre>
+     <p>This is based on what you provided in your notes, but with some clean-up to make it valid JSON.</p>
+     <p>Then I would use this JSON as follows:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).ready(function () {
+    populateTable();
+});
+
+function populateTable() {
+    $.ajax({
+        type: "POST",
+        method: "POST",
+        // my test URL:
+        url: "http://localhost:7000/GetTransactionCountByDay",
+        cache: false
+    }).done(function (result) {
+        var columnNames = [];
+        var tblData = [];
+        result.forEach(item =&gt; {
+          // build an object containing the column names:
+          columnNames.push( { title: item.HR } );
+          // build an array containing the one row data
+          tblData.push( item.TXN_COUNT );
+        });
+        
+        $('#txnTable').DataTable({
+            // note how the data is wrapped in another array,
+            // because the data needs to be an array of arrays
+            // for DataTables to process it (or an array of objects):
+            data: [ tblData ],
+            columns: columnNames
+        });
+    })
+}
+</code></pre>
+     <p>The end result looks like this (not all columns are shown in the screenshot):</p>
+     <p><a href="https://i.stack.imgur.com/39WN0.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/39WN0.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>One question: When I change selected date (SelDate parameter of web service) and call populateTable() again, I get datatable js error saying "Cannot read properties of undefined (reading 'style')"; presumably 'txnTable' being undefined. I added a 'destroy' before it to make sure it is recreated each time an no re-initialization is attempted, but no change.</span> <span> - </span> <span class="display-name">NoBullMan</span> <span> </span> <span class="date">20 Oct 2021 at 12:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I took the code in my answer and I added a button to call <code>populateTable()</code>, the <code>destroy: true</code> option, and your Ajax <code>data</code> option (with a hard-coded date). I was not able to recreate your problem. It worked as expected, when re-loading the DataTable. Maybe with a new question showing your code and describing how to recreate the problem, you will get better help from the community.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Oct 2021 at 13:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks. Will work on it for awhile and if still stumped will post a new question. I appreciate your help.</span> <span> - </span> <span class="display-name">NoBullMan</span> <span> </span> <span class="date">20 Oct 2021 at 13:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>New question posted: <a href="https://stackoverflow.com/questions/69647525/js-error-in-jquery-datatable-creation-after-initial-display" title="js error in jquery datatable creation after initial display">stackoverflow.com/questions/69647525/…</a></span> <span> - </span> <span class="display-name">NoBullMan</span> <span> </span> <span class="date">20 Oct 2021 at 14:05</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

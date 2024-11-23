@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>I have synonym matching working EXCEPT in quoted phrases</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>I have synonym matching working EXCEPT in quoted phrases</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>TrevorN</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Aug 2022 at 16:05</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73239047/i-have-synonym-matching-working-except-in-quoted-phrases">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Simple synonyms (<em>wordA</em> = <em>wordB</em>) are fine. When there are two or more synonyms (<em>wordA</em> = <em>wordB</em> = <em>wordC</em> ...), then <strong>phrase</strong> matching is only working for the first, unless the phrases have proximity modifiers.</p>
+    <p>I have a simple test case (it's delivered as an Ant project) which illustrates the problem.</p>
+    <h2>Materials</h2>
+    <p>You can download the test case here: <a href="https://www.dropbox.com/s/qhy9hfrnq1bcv3k/mydemo.with.libs.zip?dl=0" rel="nofollow noreferrer">mydemo.with.libs.zip (5MB)</a></p>
+    <p>That archive includes the Lucene 9.2 libraries which my test uses; if you prefer a copy without the JAR files you can download that from here: <a href="https://www.dropbox.com/s/rn4np7ja4wcpodl/mydemo.zip?dl=0" rel="nofollow noreferrer">mydemo.zip (9KB)</a></p>
+    <p>You can run the test case by unzipping the archive into an empty directory and running the Ant command <strong><code>ant rnsearch</code></strong></p>
+    <h2>Input</h2>
+    <p>When indexing the documents, the following synonym list is used (permuted as necessary):</p>
+    <pre><code>note,notes,notice,notification
+subtree,sub tree,sub-tree
+</code></pre>
+    <p>I have three documents, each containing a single sentence. The three sentences are:</p>
+    <pre><code>These release notes describe a document sub tree in a simple way.
+This release note describes a document subtree in a simple way.
+This release notice describes a document sub-tree in a simple way.
+</code></pre>
+    <h2>Problem</h2>
+    <p>I believe that any of the following searches should match all three documents:</p>
+    <pre><code>release note
+release notes
+release notice
+release notification
+"release note"
+"release notes"
+"release notice"
+"release notification"
+</code></pre>
+    <p>As it happens, the first four searches are fine, but the quoted phrases demonstrate a problem. The searches for "release note" and "release notes" match all three records, but "release notice" only matches one, and "release notification" does not match any.</p>
+    <p>However if I change the last two searches like so:</p>
+    <pre><code>"release notice"~1
+"release notification"~2
+</code></pre>
+    <p>then all three documents match.</p>
+    <p>What appears to be happening is that the first synonym is being given the same index position as the term, the second synonym has the position offset by 1, the third offset by 2, etc.</p>
+    <p>I believe that all the synonyms should be given the same position so that all four phrases match without the need for proximity modifiers at all.</p>
+    <p>Edit, here's the source of my analyzer:</p>
+    <pre><code>public class MyAnalyzer extends Analyzer {
+   public MyAnalyzer(String synlist) {
+      this.synlist = synlist;
+   }
+
+   @Override
+   protected TokenStreamComponents createComponents(String fieldName) {
+      WhitespaceTokenizer src = new WhitespaceTokenizer();
+      TokenStream result = new LowerCaseFilter(src);
+      if (synlist != null) {
+         result = new SynonymGraphFilter(result, getSynonyms(synlist), Boolean.TRUE);
+         result = new FlattenGraphFilter(result);
+      }
+      return new TokenStreamComponents(src, result);
+   }
+
+   private static SynonymMap getSynonyms(String synlist) {
+      boolean dedup = Boolean.TRUE;
+      SynonymMap synMap = null;
+      SynonymMap.Builder builder = new SynonymMap.Builder(dedup);
+      int cnt = 0;
+
+      try {
+         BufferedReader br = new BufferedReader(new FileReader(synlist));
+         String line;
+         try {
+            while ((line = br.readLine()) != null) {
+               processLine(builder,line);
+               cnt++;
+            }
+         } catch (IOException e) {
+            System.err.println(" caught " + e.getClass() + " while reading synonym list,\n with message " + e.getMessage());
+         }
+         System.out.println("Synonym load processed " + cnt + " lines");
+         br.close();
+      } catch (Exception e) {
+         System.err.println(" caught " + e.getClass() + " while loading synonym map,\n with message " + e.getMessage());
+      }
+      if (cnt &gt; 0) {
+         try {
+            synMap = builder.build();
+         } catch (IOException e) {
+            System.err.println(e);
+         }
+      }
+      return synMap;
+   }
+
+   private static void processLine(SynonymMap.Builder builder, String line) {
+      boolean keepOrig = Boolean.TRUE;
+      String terms[] = line.split(",");
+      if (terms.length &lt; 2) {
+         System.err.println("Synonym input must have at least two terms on a line: " + line);
+      } else {
+         String word = terms[0];
+         String[] synonymsOfWord = Arrays.copyOfRange(terms, 1, terms.length);
+         addSyns(builder, word, synonymsOfWord, keepOrig);
+      }
+   }
+
+   private static void addSyns(SynonymMap.Builder builder, String word, String[] syns, boolean keepOrig) {
+      CharsRefBuilder synset = new CharsRefBuilder();
+      SynonymMap.Builder.join(syns, synset);
+      CharsRef wordp = SynonymMap.Builder.join(word.split("\\s+"), new CharsRefBuilder());
+      builder.add(wordp, synset.get(), keepOrig);
+   }
+
+   private String synlist;
+}
+</code></pre>
+    <p>The analyzer includes synonyms when it builds the index, and does not add synonyms when it is used to process a query.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span><span class="tag">synonym</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Aug 2022 at 20:44</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>For the "note", "notes", "notice", "notification" list of synonyms:</strong></p>
+     <p>It is possible to build an index of the above synonyms so that every query listed in the question will find all three documents - including the phrase searches without the need for any <code>~n</code> proximity searches.</p>
+     <p>I see there is <a href="https://stackoverflow.com/q/73240494/12567365">a separate question</a> for the other list of synonyms "subtree", "sub tree", "sub-tree" - so I will skip those here (I expect the below approach <strong>will not work</strong> for those, but I would have to take a closer look).</p>
+     <hr>
+     <p>The solution is straightforward, and it's based on a realization that I was (in an earlier question) <strong>completely incorrect in an assumption I made</strong> about how to build the synonyms:</p>
+     <p>You can place multiple synonyms of a given word at the same position as the word, when building your indexed data. I incorrectly thought you needed to provide the synoyms as a list - but you can provide them one at a time as words.</p>
+     <hr>
+     <p>Here is the approach:</p>
+     <p>My analyzer:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer analyzer = new Analyzer() {
+    @Override
+    protected Analyzer.TokenStreamComponents createComponents(String fieldName) {
+        Tokenizer source = new StandardTokenizer();
+        TokenStream tokenStream = source;
+        tokenStream = new LowerCaseFilter(tokenStream);
+        tokenStream = new ASCIIFoldingFilter(tokenStream);
+        tokenStream = new SynonymGraphFilter(tokenStream, getSynonyms(), ignoreSynonymCase);
+        tokenStream = new FlattenGraphFilter(tokenStream);
+        return new Analyzer.TokenStreamComponents(source, tokenStream);
+    }
+};
+</code></pre>
+     <p>The <code>getSynonyms()</code> method used by the above analyzer, using the <code>note,notes,notice,notification</code> list:</p>
+     <pre class="lang-java prettyprint-override"><code>private SynonymMap getSynonyms() {
+    // de-duplicate rules when loading:
+    boolean dedup = Boolean.TRUE;
+    // include original word in index:
+    boolean includeOrig = Boolean.TRUE;
+
+    String[] synonyms = {"note", "notes", "notice", "notification"};
+
+    // build a synonym map where every word in the list is a synonym
+    // of every other word in the list:
+    SynonymMap.Builder synMapBuilder = new SynonymMap.Builder(dedup);        
+    for (String word : synonyms) {
+        for (String synonym : synonyms) {
+            if (!synonym.equals(word)) {
+                synMapBuilder.add(new CharsRef(word), new CharsRef(synonym), includeOrig);
+            }
+        }
+    }
+
+    SynonymMap synonymMap = null;
+    try {
+        synonymMap = synMapBuilder.build();
+    } catch (IOException ex) {
+        System.err.print(ex);
+    }
+    return synonymMap;
+}
+</code></pre>
+     <hr>
+     <p>I looked at the indexed data by using <code>org.apache.lucene.codecs.simpletext.SimpleTextCodec</code>, to generate human-readable indexes (just for testing purposes):</p>
+     <pre class="lang-java prettyprint-override"><code>IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
+iwc.setOpenMode(OpenMode.CREATE);
+iwc.setCodec(new SimpleTextCodec());
+</code></pre>
+     <p>This allowed me to see where the synonyms were inserted into the indexed data. So, for example, taking the word <code>note</code>, we see the following indexed entries:</p>
+     <pre><code>  term note
+    doc 0
+      freq 1
+      pos 2
+    doc 1
+      freq 1
+      pos 2
+    doc 2
+      freq 1
+      pos 2
+</code></pre>
+     <p>So, that tells us that all three documents contain <code>note</code> at token position 2 (the 3rd word).</p>
+     <p>And for <code>notification</code> we see exactly the same data:</p>
+     <pre><code>  term notification
+    doc 0
+      freq 1
+      pos 2
+    doc 1
+      freq 1
+      pos 2
+    doc 2
+      freq 1
+      pos 2
+</code></pre>
+     <p>We see this for all the words in the synonym list, which is why all 8 queries return all 3 documents.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to set the minimum length to 3 in the Lucene FrenchAnalyzer?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to set the minimum length to 3 in the Lucene FrenchAnalyzer?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user12993686</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 May 2020 at 16:02</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62026416/how-to-set-the-minimum-length-to-3-in-the-lucene-frenchanalyzer">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I can't figure out how to set the minimum character length to 3 in the Lucene French analyzer I create as below in Java:</p>
+    <pre><code>private final FrenchAnalyzer analyzer = new FrenchAnalyzer();
+</code></pre>
+    <p>Does anybody know how to do this?</p>
+    <p>Thanks, Christophe</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span><span class="tag">lexical-analysis</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jun 2020 at 22:37</span>
+     </div>
+    </div>
+    <div>
+     <p>The <code>FrenchAnalyzer</code> is declared as final, so it can't be extended. I would work around this by copying the source and adding a <a href="https://lucene.apache.org/core/8_3_0/analyzers-common/org/apache/lucene/analysis/miscellaneous/LengthFilter.html" rel="nofollow noreferrer"><code>LengthFilter</code></a> to the copy.</p>
+     <p>The steps are as follows (assuming you are using the latest version of Lucene):</p>
+     <ol>
+      <li>
+       <p>Get a copy of the source class from GitHub <a href="https://github.com/apache/lucene-solr/blob/master/lucene/analysis/common/src/java/org/apache/lucene/analysis/fr/FrenchAnalyzer.java" rel="nofollow noreferrer">here</a>.</p></li>
+      <li>
+       <p>Rename the class as appropriate (e.g. <code>CustomFrenchAnalyzer</code>) and change all the class's constructors accordingly.</p></li>
+      <li>
+       <p>Add the following import:</p></li>
+     </ol>
+     <pre><code>import org.apache.lucene.analysis.miscellaneous.LengthFilter;
+</code></pre>
+     <ol start="4">
+      <li>In the <code>createComponents</code> and <code>normalize</code> methods, add in the new length filter. For example, assuming you want to remove words which are less than 3 characters, as per your question:</li>
+     </ol>
+     <pre><code>@Override
+protected TokenStream normalize(String fieldName, TokenStream in) {
+    TokenStream result = new ElisionFilter(in, DEFAULT_ARTICLES);
+    result = new LowerCaseFilter(result);
+    // the following line is added:
+    result = new LengthFilter(result, 3, 9999);
+    return result;
+}
+</code></pre>
+     <p>Do the same for the <code>createComponents</code> method, also.</p>
+     <p>This way, your custom class will automatically take advantage of the other features built into the French Analyzer:</p>
+     <ul>
+      <li>the French elision filter</li>
+      <li>the default set of French <a href="https://github.com/apache/lucene-solr/blob/master/lucene/analysis/common/src/resources/org/apache/lucene/analysis/snowball/french_stop.txt" rel="nofollow noreferrer">stop-words</a> (bundled with the Lucene JAR).</li>
+      <li>and so on.</li>
+     </ul>
+     <p>And it can be constructed using any of the analyzer's non-empty constructors, if needed.</p>
+     <p>If you are not using a compatible version of Lucene, you will have to track down the relevant Git branch, or download the source JAR from the Lucene <a href="https://lucene.apache.org/core/downloads.html" rel="nofollow noreferrer">download page</a> and grab the source from there.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

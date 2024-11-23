@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to post Ajax Data to your server to update SharePoint list data</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to post Ajax Data to your server to update SharePoint list data</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>-1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>BeerusDev</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Sep 2020 at 17:52</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63852029/how-to-post-ajax-data-to-your-server-to-update-sharepoint-list-data">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have been working on this DataTable for a while now and have all the functionality I need except for one last thing. Right now my table reads in SharePoint list data from an AJAX "GET" Request, and populates it aswell as organizes it based on parent/child rows.</p>
+    <p>The last function I need my DataTable to do is to create a button that allows you to add a new row into the table, which will then auto-categorize it into the correct child row based off of the "Program &amp; Deliverable" categories. After it does that, I want to have the DataTable send the data to the corresponding SharePoint list, would this be done through an AJAX "POST" Request?</p>
+    <p>How can I go about achieving this? I am utterly lost at the moment.</p>
+    <p>Here is my code:</p>
+    <p></p>
+    <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+     <div class="snippet-code">
+      <pre class="snippet-code-js lang-js prettyprint-override"><code>function loadData() { //Initializing the AJAX Request function to load in the external list data from different subsites
+    //create an array of urls to run through the ajax request instead of having to do multiple AJAX Requests
+    var urls = ["url1","url2","url3","url4","url5","url6","url7","url8"];
+       
+    for (i=0; i &lt; urls.length; i++) { //for loop to run through the AJAX until all URLs have been reached
+      $.ajax({
+        url: urls[i],
+        'headers': { 'Accept': 'application/json;odata=nometadata' },
+        success: function (data) { // success function which will then execute "GETTING" the data to post it to a object array (data.value)
+          data = data;
+          var table = $('#myTable').DataTable();
+          table.rows.add( data.value ).draw();
+        }
+      }); 
+    }
+}
+
+$(document).ready(function() {
+    var collapsedGroups = {}; 
+    var top = '';
+    var parent = '';
+    
+  var table = $('#myTable').DataTable( {
+    "columns": [
+      { "data": "Program", visible: false },
+      { "data": "Deliverable", visible: false },
+      { "data": "To" },
+      { "data": "Date" },
+      { "data": "Approved" },
+      { "data": "Notes" }
+    ],
+    
+    dom: "&lt;'row'&lt;'col-sm-12 col-md-10'f&gt;&lt;'col-sm-12 col-md-2'B&gt;&gt;" +
+"&lt;'row'&lt;'col-sm-12'tr&gt;&gt;" +
+"&lt;'row'&lt;'col-sm-12 col-md-5'i&gt;&lt;'col-sm-12 col-md-7'p&gt;&gt;",
+     buttons: [{
+      extend: 'collection',
+      className: "btn-dark",
+      text: 'Export',
+      buttons:
+      [{
+      extend: "excel", className: "btn-dark"
+    },
+      {
+      extend: "pdf", className: "btn-dark"
+    },
+       {
+      extend: "print", className: "btn-dark"   
+    },
+      ],
+    }],
+    order: [[0, 'asc'], [1, 'asc'] ],   
+    rowGroup: {
+            dataSrc: [
+            'Program',
+            'Deliverable'
+            ],
+            startRender: function (rows,group,level){
+                var all;
+                if (level === 0) {
+                    top = group;
+                    all = group;
+                } else if (level === 1) {
+                    parent = top + group; 
+                    all = parent; 
+                    // if parent collapsed, nothing to do
+                    if (!collapsedGroups[top]) {
+                        return;
+                    }                   
+                } else {
+                    // if parent collapsed, nothing to do
+                    if (!collapsedGroups[parent]) {
+                        return;
+                    } 
+                    all = top + parent + group;
+                }
+
+                var collapsed = !collapsedGroups[all];
+                console.log('collapsed:', collapsed);
+              
+              rows.nodes().each(function(r) {
+                r.style.display = collapsed ? 'none' : '';
+              });
+              //Add category name to the &lt;tr&gt;.
+              return $('&lt;tr/&gt;')
+                .append('&lt;td colspan="8"&gt;' + group + ' (' + rows.count() + ')&lt;/td&gt;')
+                .attr('data-name', all)
+                .toggleClass('collapsed', collapsed);
+                
+            
+            }
+            
+        }
+  } );
+    
+ loadData();
+
+ $('#myTable tbody').on('click', 'tr.dtrg-start', function () {
+        var name = $(this).data('name');
+        collapsedGroups[name] = !collapsedGroups[name];
+        table.draw(false);
+    }); 
+var table = $('#example').DataTable( {
+
+var urls = ["url1","url2","url3","url4","url5",...];
+  
+for (i=0; i &lt; urls.length; i++) {     
+  ajax: {
+    url: urls[i],
+    method: "POST",
+    data: function( ) {
+      return dataToSend;
+    }
+  },
+  }
+} );
+    
+} );
+} );</code></pre>
+      <pre class="snippet-code-css lang-css prettyprint-override"><code>.btn-dark {
+    color: #fff;
+    background-color: #343a40;
+    border-color: #343a40;
+}
+div.container {
+    min-width: 980px;
+    margin: 0 auto;
+}
+.header {
+  padding: 10px;
+  text-align: center;
+}
+body {
+    font: 90%/1.45em "Helvetica Neue", HelveticaNeue, Verdana, Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 0;
+    color: #333;
+    background-color: #fff;
+}
+div.dt-button-collection {
+    position: static;
+}</code></pre>
+      <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;link rel ="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.css"/&gt;
+&lt;script src="https://code.jquery.com/jquery-1.12.4.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+&lt;script src="https://momentjs.com/downloads/moment.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.datatables.net/buttons/1.6.2/js/dataTables.buttons.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.flash.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.html5.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.print.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.datatables.net/rowgroup/1.1.2/js/dataTables.rowGroup.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.datatables.net/buttons/1.6.3/js/buttons.bootstrap4.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap4.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://code.jquery.com/ui/1.12.0/jquery-ui.min.js"&gt;&lt;/script&gt;
+&lt;link rel ="stylesheet" href="https://cdn.datatables.net/rowgroup/1.1.2/css/rowGroup.bootstrap4.min.css"/&gt;
+&lt;link rel ="stylsheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css"/&gt;
+&lt;link rel ="stylesheet" href="https://cdn.datatables.net/buttons/1.6.3/css/buttons.bootstrap4.min.css"/&gt;
+  &lt;h1&gt;&lt;strong&gt;Deliverables&lt;/strong&gt;&lt;/h1&gt;
+  &lt;p&gt;&lt;strong&gt;Click the Program/Deliverable names to Collapse/Expand the rows&lt;/strong&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class ="container"&gt;
+&lt;table id="myTable" class="table table-bordered" cellspacing="0" width="100%"&gt;
+  &lt;thead class="thead-dark"&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Program&lt;/th&gt;
+      &lt;th&gt;Deliverable&lt;/th&gt;
+      &lt;th&gt;To&lt;/th&gt;
+      &lt;th&gt;Date&lt;/th&gt;
+      &lt;th&gt;Approved&lt;/th&gt;
+      &lt;th&gt;Notes&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tfoot class="thead-dark"&gt;
+  &lt;tr&gt;
+      &lt;th&gt;Program&lt;/th&gt;
+      &lt;th&gt;Deliverable&lt;/th&gt;
+      &lt;th&gt;To&lt;/th&gt;
+      &lt;th&gt;Date&lt;/th&gt;
+      &lt;th&gt;Approved&lt;/th&gt;
+      &lt;th&gt;Notes&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/tfoot&gt;
+&lt;/table&gt;
+&lt;/div&gt;</code></pre>
+     </div>
+    </div>
+    <p></p>
+    <p>I believe this should be the correct function to send data to the SharePoint list from the DataTable, but it is currently useless because I cannot figure out how to add new rows/data to the datatable.</p>
+    <pre><code>function sendData() {
+    var urls = ["url1","url2","url3","url4","url5","url6","url7","url8"];
+        
+    var data1 = {
+           Program: 'Please provide the Program name here',
+           Deliverable: 'Please provide the type of deliverable here',
+           To: 'Please provide the recipients email here',
+           Date: 'Please provide the submission date here',
+           Approved: 'Please provide where or not the deliverable has been approved here',
+           Notes: Please provide notes about the deliverable here'
+    };
+     $.ajax({
+        for (i=0; i &lt; urls.length; i++) {
+        $.ajax({
+                   url: urls[i],
+                   method: "POST",
+                                 data: JSON.stringify(data),
+                   headers: { "Accept": "application/json; odata=verbose",
+                                   "X-RequestDigest": $("#__REQUESTDIGEST").val()                                 
+                   },
+                   success: function (data) {
+                              alert('Item added successfully');
+                  },
+                  error: function (error) {
+                      alert("Error: "+ JSON.stringify(error));
+                 }
+          });
+        }
+    });
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">ajax</span><span class="tag">sharepoint</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Sep 2020 at 18:53</span>
+     </div>
+    </div>
+    <div>
+     <p>You can post data to the server from inside a DataTales ajax request using the standard <a href="https://api.jquery.com/jquery.ajax/" rel="nofollow noreferrer">jQuery ajax</a> <code>data</code> option - but modified slightly to comply with how DataTables uses it.</p>
+     <p>The DataTables syntax for sending dynamically built data to the server is <a href="https://datatables.net/reference/option/ajax.data" rel="nofollow noreferrer">documented here</a>. The approach is this:</p>
+     <pre><code>ajax: {
+  type: "POST", // or "GET"
+  url: "http://whatever.com/endpoint",
+  data: function () {
+    return dataToSend; // dataToSend is just my JS variable
+  }
+}
+</code></pre>
+     <p>Note that the <code>data</code> option here is a <em>function</em> which returns the data to be sent to the server.</p>
+     <p>The data for the variable <code>dataToSend</code> can be prepared in various ways, depending on your specific needs and context.</p>
+     <p>For example, it can be the contents of a standard HTML <code>&lt;form&gt;</code> - the values of all the form's input fields. In this case, you will probably want to transform the form's data to JSON (e.g. using jQuery's <a href="https://api.jquery.com/serialize/" rel="nofollow noreferrer"><code>$.serialize()</code></a> function, or the <code>$.serializeArray()</code> function.</p>
+     <p>If you already have a JSON object in your JavaScript code, you can send it by setting the ajax <code>contentType</code> and stringifying your JSON - something like this:</p>
+     <pre><code>ajax: {
+  type: "POST", // or "GET"
+  url: "http://whatever.com/endpoint",
+  data: function () {
+    contentType: "application/json",
+    return JSON.stringify(dataToSend);
+  }
+}
+</code></pre>
+     <p>(The default content type would otherwise be <code>application/x-www-form-urlencoded</code>.)</p>
+     <p>Here is one example, where we have a simple form in the same page as a DataTable:</p>
+     <pre><code>&lt;form id ="formOne"&gt;
+    &lt;input id="fieldOne" type="text" name="fieldOne"&gt;&lt;/input&gt;
+    &lt;input id="fieldTwo" type="text" name="fieldTwo"&gt;&lt;/input&gt;
+    &lt;input type="submit" value="Submit"&gt;
+&lt;/form&gt;
+</code></pre>
+     <p>The form has two input fields and a submit button.</p>
+     <p>The DataTable ajax section is as follows:</p>
+     <pre><code>var table = $('#example').DataTable( {
+  ajax: {
+    url: "http://whatever.com/endpoint",
+    method: "POST",
+    data: function( ) {
+      return dataToSend;
+    }
+  },
+  // other items not shown
+} );
+</code></pre>
+     <p>When the page loads, the table is displayed as usual.</p>
+     <p>If the user fills in the form and hits the submit button, this action is intercepted by the following code:</p>
+     <pre><code>var dataToSend;
+
+$( "#formOne" ).on( "submit", function( event ) {
+  event.preventDefault(); // stops the standard form submission from happening
+  dataToSend = $( "#formOne" ).serializeArray();
+  console.log( dataToSend );
+  table.ajax.reload(); // calls the DataTables ajax request again
+});
+</code></pre>
+     <p>Of course, it is up to the server to process the resulting data inside this request. Because my example is a <code>POST</code> request, this would involve the server-side code accessing the form parameters data. How you do this depends on the server-side framework you are using.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Also, since I am using 8 urls, and running the AJAX through a for loop, would this still work the same? Also, so once the user fills out the form and it posts to the table, is it possible to have that item self sort to become the child row of whatever Program and Deliverable it is</span> <span> - </span> <span class="display-name">BeerusDev</span> <span> </span> <span class="date">11 Sep 2020 at 19:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I recommend getting it working with 1 URL, first of all. Maybe you will end up needing a separate ajax call for posting new data, followed by a refresh which calls the 8 data sources. Personally I would not try to add new data directly into DataTables. I would send it to the relevant Sharepoint site, and then have that data flow naturally back from Sharepoint to your DataTables web page - like you are already doing. But that's just me!</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">11 Sep 2020 at 19:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I see what you are saying that would probably make it less complicated on me to set it up that way. <a href="https://jsfiddle.net/4euzm8qn/" rel="nofollow noreferrer">jsfiddle.net/4euzm8qn</a></span> <span> - </span> <span class="display-name">BeerusDev</span> <span> </span> <span class="date">11 Sep 2020 at 19:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

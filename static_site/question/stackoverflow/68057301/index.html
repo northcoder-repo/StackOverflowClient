@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>API calls respecting rate-limits using counter with delays, how to? javascript google apps script</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>API calls respecting rate-limits using counter with delays, how to? javascript google apps script</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user1582208</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Jun 2021 at 15:20</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68057301/api-calls-respecting-rate-limits-using-counter-with-delays-how-to-javascript-g">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have about 50k lines of data that need to be queried over an API service. The service limites it's API calls as follows:</p>
+    <ul>
+     <li>per second: max 50</li>
+     <li>per minute: max 2.500</li>
+     <li>per hour: max 25.000</li>
+     <li>per day: max 50.000</li>
+     <li>per month: max 100.000</li>
+    </ul>
+    <p>I am focusing on the limits per second and minute for now, looping through all rows and stopping if the rate limit went over:</p>
+    <pre><code>var app = SpreadsheetApp;
+var sheet = app.getActiveSpreadsheet().getSheetByName("data");
+var maxRows = sheet.getLastRow();
+var maxColumns = sheet.getLastColumn();
+var data = sheet.getrange(2,1,maxRows,maxColumns).getValues();
+
+var rateLimitSec = 50;
+var rateLimitMin = 2500;
+var rateLimitSecUsed = 0;
+var rateLimitMinUsed = 0;
+
+function example () {
+    for ( 
+    i=0; 
+    (i&lt;=maxRows) || (rateLimitSecUsed&lt;rateLimitSec) || (rateLimitMinUsed&lt;=RateLimitMin);
+    i++
+  )
+    { // start loop code
+            // do the API request
+      rateLimitSecUsed = rateLimitSecUsed+1 // and increase Rate limit used marker
+      rateLimitMinUsed = rateLimitMinUsed+1
+      
+      if ( !(rateLimitMinUsed &lt; RateLimitMin) ) {
+        // stop for now, or add better solution later. show some warning;
+      } else if ( !( rateLimitSecUsed !&lt; rateLimitSec) ) {
+
+--&gt;&gt;    Utilities.sleep(1000); // HERE I WANT A DELAY FOR 1S, &lt;&lt;---
+
+        rateLimitSec = 0; // reset limit after delay.
+        example(); // call function again after delay
+      }
+      
+    } // end loop code
+}; // end function example
+</code></pre>
+    <p>This is not working as intended though. I read somewhere that this would not work because of asynchronicity, and that I would need to use the <a href="https://developers.google.com/apps-script/reference/lock/lock" rel="nofollow noreferrer">class lock</a>. However, I can't figure out how the lock class works. Can anyone help guide me in the right direction on this? Is the lock class the right solution and, if yes, how does it work?</p>
+    <p>Also, is my approach for keeping the rate limits in check good or are there better ways of doing this?</p>
+    <p>This should be a pretty common issue, but I can't find any decent examples on this.</p>
+    <p>EDIT: found some typo's in the example code, fixes what i found. Don't worry too much about all that, the focus of the question is "how do i add a delay between one loop and the next, to make sure I don't go over the API-limit?"</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">google-apps-script</span><span class="tag">google-sheets</span><span class="tag">rate-limiting</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Jun 2021 at 16:45</span>
+     </div>
+    </div>
+    <div>
+     <p>I would approach this logic in a different way - one which is much simpler, and which avoids that recursive call you currently are using (calling <code>example()</code> from within <code>example()</code>).</p>
+     <p>Let's assume you have between 25,000 and 50,000 rows of data to process. That means you need to stay within the "50,000 per day" limit - but you don't need to spread these call out across the entire 24 hour period. You can spread them across 2 hours, to avoid the "25,000 per hour" limit.</p>
+     <p>That is: up to 25,000 API calls within 7,200 seconds, or no more than 1 call every 0.144 seconds. Let's call that our "throttle value". We can even increase that number slightly to ensure we are safely within the allowed limit: 1 call every 0.2 seconds, which is 18,000 calls per hour (or whatever safety margin works for you).</p>
+     <p>In that case, we can use code like this:</p>
+     <pre class="lang-js prettyprint-override"><code>var maxRows = 48987; // calculated from the spreadsheet
+var throttle = 200; // millis
+
+function example() {
+  for (i = 1; i &lt;= maxRows; i++) {
+    // do your API call here
+    Utilities.sleep(throttle);
+  }
+}
+</code></pre>
+     <p>Now, if you have between 50,000 and 100,000 lines of data to handle, that requires a different "throttle value" calculation.</p>
+     <p>50,000 calls per day = 50,000 calls per 86,400 seconds = 1 call every 1,728 milliseconds (again, you can adjust for safety - let's say 1,800 millis.</p>
+     <p>You can modify the above code to account for this:</p>
+     <pre class="lang-js prettyprint-override"><code>var maxRows = ...; // calculated from the spreadsheet
+var throttle;
+
+if (maxRows &lt;= 100000 &amp;&amp; maxRows &gt; 50000) {
+  throttle = 1800;
+} else if (maxRows &lt;= 50000 &amp;&amp; maxRows &gt; 25000) {
+  throttle = 200;
+} // and more else/if statements as needed for different row counts...
+
+function example() {
+  for (i = 1; i &lt;= maxRows; i++) {
+    // do your API call here
+    Utilities.sleep(throttle);
+  }
+}
+</code></pre>
+     <p>You can certainly improve on this by using a switch statement for more throttle values, and by using variables instead of those hard-coded numbers - but this gives you the idea.</p>
+     <hr>
+     <p>This is deliberately <em>not</em> a throughput-optimized solution. It trades optimization for simplicity.</p>
+     <p>You could get better throughput by re-evaluating the "left-over" row count after processing an initial chunk of data. For example, if you have 50,123 rows of data then you could use one throttle value for the first 50,000 rows, and then a much better throttle value for the remaining 123 rows.</p>
+     <p>It also does not account for the time of day at which your process starts (I don't know what constitutes a "day" here - probably midnight UTC to midnight UTC.) But there is the potential for further optimizations based on the starting time, also.</p>
+     <p>I would keep it simple.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I was trying to avoid a "fixed" throttle value, since I want to use the "max available rate limit" at any time. So for example, taking only the 50/second and 2500/minute, I want to send out all those 50 calls right away, at the start of the second, and not wait a fixed amount of time between calls. This way, when I have less rows (for example 2000) I could get them all sent out in 2000/50 = 40 seconds, and not lower my execution speed to 41 calls per second (2500 limit / 60 seconds = ~41) and end up taking ~48 seconds. EDIT: justsaw this is already taken in account in your example. thanks :)</span> <span> - </span> <span class="display-name">user1582208</span> <span> </span> <span class="date">20 Jun 2021 at 16:53</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

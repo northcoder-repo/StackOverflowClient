@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>datatable remove column on export to pdf and excel</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>datatable remove column on export to pdf and excel</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>clovelm</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Aug 2021 at 17:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68896587/datatable-remove-column-on-export-to-pdf-and-excel">source</a>
+    </div>
+   </div>
+   <div>
+    <p>i have a problem when remove column before export to pdf,excel. and second problem that because of this column the reverse of column doesn't work right here is the code i use</p>
+    <p></p>
+    <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+     <div class="snippet-code">
+      <pre class="snippet-code-js lang-js prettyprint-override"><code>$(document).ready(function(){
+            var arrayCol = new Array();
+            var table = $('#example').DataTable({
+                dom: 'B&lt;"top"iflp&lt;"clear"&gt;&gt;rt&lt;"bottom"ip&lt;"clear"&gt;&gt;',
+                initComplete:function (  ) {
+                    var len = this.api().columns().count();
+                    var array =  Array.from(Array(len).keys());
+                    arrayCol = array.reverse();
+                  },
+            buttons: [
+      { 
+        extend: 'pdf',
+        text: 'To PDF',
+        exportOptions: {
+          rows: function ( idx, data, node ) {
+            return data.reverse();
+          },
+          format: {
+          columns: ':visible:not(.not-export-col)', 
+            header: function ( data, idx, node ) {
+              var headers = $('#example').DataTable().table().header();
+              var reversedHeaders = headers.innerText.split('\t').reverse();
+              return reversedHeaders[idx];
+            }
+          }
+        }
+      },
+               { 
+        extend: 'excel',
+        text: 'exel',
+        exportOptions: {
+        columns: ':visible:not(.not-export-col)', 
+          rows: function ( idx, data, node ) {
+            return data.reverse();
+          },
+          format: {
+            header: function ( data, idx, node ) {
+              var headers = $('#example').DataTable().table().header();
+              var reversedHeaders = headers.innerText.split('\t').reverse();
+              return reversedHeaders[idx];
+            }
+          }
+        }
+      }
+    ]
+                });
+        });</code></pre>
+     </div>
+    </div>
+    <p></p>
+    <p>and <a href="https://jsfiddle.net/xekv5Lwh/4/" rel="nofollow noreferrer">here</a> is live example</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Aug 2021 at 19:12</span>
+     </div>
+    </div>
+    <div>
+     <p>You can extend the approach used <a href="https://stackoverflow.com/a/68885988/12567365">here</a> to handle the extra requirement for suppressing one or more columns that you do not want to export.</p>
+     <p>Your use of the columns selector works well:</p>
+     <pre><code>columns: ':visible:not(.not-export-col)
+</code></pre>
+     <p>For building a list of the headers we want to export, the <code>initComplete</code> function can be used (so we only perform this process once).</p>
+     <p>We can also use the <code>initComplete</code> function to build an array of column indexes that we do <em>not</em> want to export:</p>
+     <pre class="lang-js prettyprint-override"><code>var ignorePositions = []; // column indexes of data NOT to be exported
+var reversedHeaders = []; // with "not-export" headings removed
+</code></pre>
+     <p>The function:</p>
+     <pre class="lang-js prettyprint-override"><code>initComplete:function (  ) {
+  var thead = $( '#example' ).DataTable().table().header();
+  var tds = $( thead ).find( 'th' ).each(function( index ) {
+    if ( ! $( this ).hasClass('not-export-col') ) {
+      reversedHeaders.push( $( this ).text() );
+    } else {
+      ignorePositions.push(index);
+    }
+  });
+  reversedHeaders.reverse(); // to give us the export order we want
+  ignorePositions.reverse(); // reversed for when we splice() - see below
+}
+</code></pre>
+     <p>The above code populates two arrays:</p>
+     <ul>
+      <li><code>reversedHeaders</code> - containing a list (in reverse) of the headings for those columns we will export.</li>
+      <li><code>ignorePositions</code> - containing a list of column indexes to be ignored. In our example, the only such column is the final one (index 6).</li>
+     </ul>
+     <p>Then we can use the above arrays in our modified <code>exportOptions</code> code:</p>
+     <pre><code>exportOptions: {
+  rows: function ( idx, data, node ) {
+    var keepRowData = [];
+    // we splice to remove those data fields we do not want to export:
+    ignorePositions.forEach(idx =&gt; data.splice(idx, 1) );
+      return data.reverse();
+  },
+  columns: ':visible:not(.not-export-col)',
+  format: { 
+    header: function ( data, idx, node ) {
+      return reversedHeaders[idx];
+    }
+  }
+}
+</code></pre>
+     <p>The only tricky part is the need to use <code>splice</code> to directly alter the original <code>data</code> array. This cuts out each unwanted element from the original data array, without creating a new data array.</p>
+     <p>Putting it all together:</p>
+     <pre><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+  &lt;!-- buttons --&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/1.6.5/css/buttons.dataTables.min.css"/&gt; 
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/dataTables.buttons.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.colVis.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.flash.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.html5.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.print.min.js"&gt;&lt;/script&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div class="container"&gt;
+      &lt;table id="example" class="display nowrap" width="100%"&gt;
+        &lt;thead&gt;
+          &lt;tr&gt;
+            &lt;th&gt;Name&lt;/th&gt;
+            &lt;th&gt;Position&lt;/th&gt;
+            &lt;th&gt;Office&lt;/th&gt;
+            &lt;th&gt;Age&lt;/th&gt;
+            &lt;th&gt;Start date&lt;/th&gt;
+            &lt;th&gt;Salary&lt;/th&gt;
+            &lt;th class="not-export-col"&gt;opr&lt;/th&gt;
+          &lt;/tr&gt;
+        &lt;/thead&gt;
+&lt;!--
+        &lt;tfoot&gt;
+          &lt;tr&gt;
+            &lt;th&gt;Name&lt;/th&gt;
+            &lt;th&gt;Position&lt;/th&gt;
+            &lt;th&gt;Office&lt;/th&gt;
+            &lt;th&gt;Age&lt;/th&gt;
+            &lt;th&gt;Start date&lt;/th&gt;
+            &lt;th&gt;Salary&lt;/th&gt;
+            &lt;th class="not-export-col"&gt;opr&lt;/th&gt;
+          &lt;/tr&gt;
+        &lt;/tfoot&gt;
+--&gt;
+        &lt;tbody&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Tiger Nixon&lt;/td&gt;
+            &lt;td&gt;System Architect&lt;/td&gt;
+            &lt;td&gt;Edinburgh&lt;/td&gt;
+            &lt;td&gt;61&lt;/td&gt;
+            &lt;td&gt;2011/04/25&lt;/td&gt;
+            &lt;td&gt;$3,120&lt;/td&gt;
+            &lt;td&gt;&lt;a href="www.google.com"&gt;&lt;i class="wb-edit"&gt;&lt;/i&gt;&lt;/a&gt;&lt;/td&gt;
+          &lt;/tr&gt;
+&lt;!--
+          &lt;tr&gt;
+            &lt;td&gt;Garrett Winters&lt;/td&gt;
+            &lt;td&gt;Director&lt;/td&gt;
+            &lt;td&gt;Edinburgh&lt;/td&gt;
+            &lt;td&gt;63&lt;/td&gt;
+            &lt;td&gt;2011/07/25&lt;/td&gt;
+            &lt;td&gt;$5,300&lt;/td&gt;
+            &lt;td&gt;&lt;a href="www.google.com"&gt;&lt;span class="iconify" data-icon="fa:edit"&gt;&lt;/span&gt;&lt;/a&gt;&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Ashton Cox&lt;/td&gt;
+            &lt;td&gt;Technical Author&lt;/td&gt;
+            &lt;td&gt;San Francisco&lt;/td&gt;
+            &lt;td&gt;66&lt;/td&gt;
+            &lt;td&gt;2009/01/12&lt;/td&gt;
+            &lt;td&gt;$4,800&lt;/td&gt;
+            &lt;td&gt;&lt;a href="www.google.com"&gt;&lt;span class="iconify" data-icon="fa:edit"&gt;&lt;/span&gt;&lt;/a&gt;&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Cedric Kelly&lt;/td&gt;
+            &lt;td&gt;Javascript Developer&lt;/td&gt;
+            &lt;td&gt;Edinburgh&lt;/td&gt;
+            &lt;td&gt;22&lt;/td&gt;
+            &lt;td&gt;2012/03/29&lt;/td&gt;
+            &lt;td&gt;$3,600&lt;/td&gt;
+            &lt;td&gt;&lt;a href="www.google.com"&gt;&lt;span class="iconify" data-icon="fa:edit"&gt;&lt;/span&gt;&lt;/a&gt;&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Jenna Elliott&lt;/td&gt;
+            &lt;td&gt;Financial Controller&lt;/td&gt;
+            &lt;td&gt;Edinburgh&lt;/td&gt;
+            &lt;td&gt;33&lt;/td&gt;
+            &lt;td&gt;2008/11/28&lt;/td&gt;
+            &lt;td&gt;$5,300&lt;/td&gt;
+            &lt;td&gt;&lt;a href="www.google.com"&gt;&lt;span class="iconify" data-icon="fa:edit"&gt;&lt;/span&gt;&lt;/a&gt;&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Donna Snider&lt;/td&gt;
+            &lt;td&gt;System Architect&lt;/td&gt;
+            &lt;td&gt;New York&lt;/td&gt;
+            &lt;td&gt;27&lt;/td&gt;
+            &lt;td&gt;2011/01/25&lt;/td&gt;
+            &lt;td&gt;$3,120&lt;/td&gt;
+            &lt;td&gt;&lt;a href="www.google.com"&gt;&lt;span class="iconify" data-icon="fa:edit"&gt;&lt;/span&gt;&lt;/a&gt;&lt;/td&gt;
+          &lt;/tr&gt;
+--&gt;
+        &lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+&lt;script&gt;
+
+$(document).ready(function() {
+  var ignorePositions = []; // column indexes of data NOT to be exported
+  var reversedHeaders = []; // with "not-export" headings removed
+
+  var table = $('#example').DataTable( {
+    dom: 'B&lt;"top"iflp&lt;"clear"&gt;&gt;rt&lt;"bottom"ip&lt;"clear"&gt;&gt;',
+    initComplete:function (  ) {
+      var thead = $( '#example' ).DataTable().table().header();
+      var tds = $( thead ).find( 'th' ).each(function( index ) {
+        if ( ! $( this ).hasClass('not-export-col') ) {
+          reversedHeaders.push( $( this ).text() );
+        } else {
+          ignorePositions.push(index);
+        }
+      });
+      reversedHeaders.reverse(); // to give us the export order we want
+      ignorePositions.reverse(); // reversed for when we splice() - see below
+    },
+    buttons: [
+      { 
+        extend: 'pdf',
+        text: 'To PDF',
+        exportOptions: {
+          rows: function ( idx, data, node ) {
+            var keepRowData = [];
+            // we splice to remove those data fields we do not want to export:
+            ignorePositions.forEach(idx =&gt; data.splice(idx, 1) );
+            return data.reverse();
+          },
+          columns: ':visible:not(.not-export-col)',
+          format: { 
+            header: function ( data, idx, node ) {
+              return reversedHeaders[idx];
+            }
+          }
+        }
+      }
+    ]
+  } );
+} );
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+     <p>The table data, which looks like this<a href="https://i.stack.imgur.com/npPCY.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/npPCY.png" alt="enter image description here"></a>:</p>
+     <p>Is exported to PDF like this:</p>
+     <p><a href="https://i.stack.imgur.com/B9Yvl.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/B9Yvl.png" alt="enter image description here"></a></p>
+     <hr>
+     <p>Final notes:</p>
+     <ol>
+      <li>
+       <p>I only implemented the PDF button in the above code. The Excel button code also needs to be added, but should be identical.</p></li>
+      <li>
+       <p>I commented out the <code>&lt;tfoot&gt;</code> section of the HTML table in my code. I think this means you will also need to add a <code>footer: function() { ... }</code> to your implementation, to match the <code>header: function() { ... }</code> code. I assume that would be as follows (but I did not test this):</p></li>
+     </ol>
+     <pre><code>format: { 
+  header: function ( data, idx, node ) {
+    return reversedHeaders[idx];
+  },
+  footer: function ( data, idx, node ) {
+    return reversedHeaders[idx];
+  }
+}
+</code></pre>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>I see the annoying alert. This is caused by my code which changes the length of the data row (when it splices out an element).</p>
+     <p>A second issue is that once a row has been reversed, it remains reversed - so, on the next export, the exported data is in the wrong order.</p>
+     <p>To address both of these is messy, and my proposed solution is limited:</p>
+     <p><strong>My solution assumes that you only want to hide the final column</strong>.</p>
+     <p>It also relies on you being able to detect when a row is reversed - and in my case this is done by checking for a specific value in the final location of the row data - again, not a very robust approach - but it is the only approach I can think of right now.</p>
+     <p>Here is the updated code:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).ready(function() {
+  var exportPositions = []; // column indexes of data NOT to be exported
+  var ignorePositions = []; // column indexes of data NOT to be exported
+  var reversedHeaders = []; // with "not-export" headings removed
+
+  var table = $('#example').DataTable( {
+    dom: 'B&lt;"top"iflp&lt;"clear"&gt;&gt;rt&lt;"bottom"ip&lt;"clear"&gt;&gt;',
+    initComplete:function (  ) {
+      var thead = $( '#example' ).DataTable().table().header();
+      var tds = $( thead ).find( 'th' ).each(function( index ) {
+        if ( ! $( this ).hasClass('not-export-col') ) {
+          reversedHeaders.push( $( this ).text() );
+          exportPositions.push(index);
+        } else {
+          ignorePositions.push(index);
+        }
+      });
+      reversedHeaders.reverse(); // to give us the export order we want
+      reversedHeaders.push('');
+      ignorePositions.reverse(); // reversed for when we splice() - see below
+    },
+    buttons: [
+      { 
+        extend: 'pdf',
+        text: 'To PDF',
+        exportOptions: {
+          rows: function ( idx, data, node ) {
+            if (data[data.length - 1] === '~') {
+              data.reverse(); // un-reverse an already reversed record
+              data.push(data.splice(0, 1)[0]); // move first element to end of the array
+            }
+            // we splice to remove those data fields we do not want to export:
+            ignorePositions.forEach(idx =&gt; {
+              data.splice(idx, 1);
+            } );
+            data.reverse();
+            ignorePositions.forEach(idx =&gt; {
+              data.push('~'); // pad the array back to its original length
+            } );
+            return data;
+          },
+          columns: exportPositions, // here we use the array we built earlier
+          format: { 
+            header: function ( data, idx, node ) {
+              return reversedHeaders[idx];
+            }
+          }
+        }
+      }
+    ]
+  } );
+} );
+</code></pre>
+     <p>If your actual implementation needs to hide multiple columns then this approach will probably not work for you. If I have any thoughts on a more robust solution, I will update the answer.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>excel in exporting for first time work but for second time doesn't work, and there's annoying alert appear how to solve it</span> <span> - </span> <span class="display-name">clovelm</span> <span> </span> <span class="date">23 Aug 2021 at 21:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I see what you mean - I have provided some updates.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">23 Aug 2021 at 23:53</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

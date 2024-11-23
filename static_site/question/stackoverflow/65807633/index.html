@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Change color of a cell after editing in datatable</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Change color of a cell after editing in datatable</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jss6</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Jan 2021 at 10:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65807633/change-color-of-a-cell-after-editing-in-datatable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a table in which I can edit and modify each cell.<br>
+      I would like to highlight the cell that I modified.<br>
+      At the moment I can only highlight the entire row but I don't have what I want to do.<br>
+      I use createdRow to make the cells editable and get the modified row.</p>
+    <p>How can I do to highlight that modified cell?</p>
+    <pre><code>var table  = $("#deploymentMap_table").DataTable({
+    data: constructRaws(dataSet),//tbody
+    paging:   false,
+    searching: false,
+    info: false,
+    fixedHeader: true,
+    scrollY: false,
+    scrollX: false,
+    responsive: false,
+    dom: 't', //display only the table
+    order: [[ 0, 'asc' ]],//order by 'service' col
+    columnDefs:[
+        {
+            targets:'_all',
+            render:function(data){
+                if(data == null) {return ""
+                } else {return data;}
+            }   
+        },
+        { targets: [0,1], "width" : "200px"},
+    ],
+    columns: constructColumns(dataSet),//thead 
+    dom: 'Bfrtip',
+    // attribute classname (background color) for services
+    rowCallback: function(row, data, index){
+        if ( data.code == 1 ) {
+            $('td', row).each( function ( value, index ) {
+                if($(this).contents().first().text()){
+                    $(this).addClass('td_colorCD');
+                }
+            } );
+        }
+        $(row).find('td:eq(0)').css('background-color', '#7f7f7f').css('color', '#fff').css('text-align', 'left');
+        $(row).find('td:eq(1)').css('background-color', '#7f7f7f').css('color', '#fff').css('text-align', 'left');
+
+        $.each(row.childNodes, function(i,value){
+            if(value.innerText == "NoUP"){
+                $(value).addClass('td_colorBSF');
+            }
+            else if(value.innerText){
+                $(value).addClass('td_color');
+            }
+        })
+    },
+    // Make all cell editable
+    createdRow: function(row, data, dataIndex, cells) {
+
+        console.log(cells);
+        let original
+
+        row.setAttribute('contenteditable', true)
+        row.setAttribute('spellcheck', false)
+
+        row.addEventListener('focus', function(e) {
+            original = e.target.textContent
+        })
+
+        row.addEventListener('blur', function(e) {
+
+            if (original !== e.target.textContent) {
+
+                $('td', row).removeClass();
+                $('td', row).addClass('td_color_change');
+
+                const r = table.row(e.target.parentElement)
+                r.invalidate();
+
+                var lign = e.target.innerText;
+                lign = lign.split('\t');
+
+                var nRow =  $('#deploymentMap_table thead tr')[0].innerText;
+                head = nRow.split('\n\t\n');
+
+                var newAR = mergeArrayObjects(head, lign);
+                console.log("newAR", newAR);
+
+                $(dataSet).each(function( index, values ) {
+                    if(newAR.service[0].Services == values.service_name){
+                        delete values.regions;
+                        values.regions = newAR.region;
+                        console.log(values);
+                    }
+                })
+                console.log("dataset", dataSet);
+            }
+        })
+    }
+});
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Jan 2021 at 16:50</span>
+     </div>
+    </div>
+    <div>
+     <p>I think the easiest way to handle this is to replace your <code>rowCallback</code> with a DataTables <a href="https://datatables.net/examples/advanced_init/events_live.html" rel="nofollow noreferrer">delegated event</a>.</p>
+     <p>Below is a simple example which would change the color of a specific cell when you leave that cell:</p>
+     <p>Step 1) The <code>onblur</code> event requires the cell to have a <code>tabindex</code> attribute. You can add this however you wish - but here is one way, in your existing code:</p>
+     <pre class="lang-js prettyprint-override"><code>$.each(row.childNodes, function(i,value){
+  $(value).attr('tabindex', i); // this line is new
+  // your existing code goes here
+})
+</code></pre>
+     <p>Note - this could be improved as it repeats tab indexes across rows. But it illustrates the approach.</p>
+     <p>Step 2: Add a new <code>onblur</code> event listener, after the end of your DataTable definition:</p>
+     <pre class="lang-js prettyprint-override"><code>$('#deploymentMap_table td').on('blur', function () {
+  this.classList.remove("td_color");
+  this.classList.add("td_color_change");  
+} );
+</code></pre>
+     <p>Step 3: The above code would need to be enhanced to include your edit-checking logic, which checks for an actual cell value change.</p>
+     <p>You can get the "before" cell values using this:</p>
+     <pre class="lang-js prettyprint-override"><code>table.cell( this ).data();
+</code></pre>
+     <p>And the "after" cell values using this - which gets the value from the HTML table (the DOM node), not from DataTables:</p>
+     <pre class="lang-js prettyprint-override"><code>table.cell( this ).node().textContent;
+</code></pre>
+     <p>The updated listener would be something like this:</p>
+     <pre class="lang-js prettyprint-override"><code>$('#deploymentMap_table td').on('blur', function () {
+  var cellValueStart = table.cell( this ).data();
+  var cellValueEnd = table.cell( this ).node().textContent;
+  //console.log( cellValueStart );
+  //console.log( cellValueEnd );
+  if (cellValueEnd !== cellValueStart) {
+    table.cell( this ).data(cellValueEnd);
+    this.classList.remove("td_color");
+    this.classList.add("td_color_change");
+  }
+} );
+</code></pre>
+     <p>The <code>table.cell( this ).data(cellValueEnd)</code> command updates the cell in DataTables so that it matches the value you typed into the HTML cell. If you do not do this, then the data in the DataTables object (behind the scenes) will be out-of-sync with the data in the HTML table (what you see on your screen).</p>
+     <p>Warning: This approach is basic. It does not cover the case where a user may do the following:</p>
+     <ol>
+      <li>Edit a cell from "A" to "B".</li>
+      <li>Leave the cell, so it is highlighted.</li>
+      <li>Return to the cell and edit it back from "B" to "A".</li>
+      <li>Leave the cell again.</li>
+     </ol>
+     <p>In this case, the cell will remain highlighted.</p>
+     <p>One way around this is to capture the original state of <em>every cell</em> when you first load the table - and then check each edit against the value in the original data. This can be done, if needed - but is outside the scope of this question. But it also depends on what you need to do with the data, after you have finished editing it. If this is important to you, then it may be worth asking a new question for that specific problem.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>thanks for the answer, ok to put the indexes in each td, ok for step2, I have changed the color (class) of the cell when I modify. Also for step3, I don't understand how to recover and save the change made on the cell, is this cll.invalidate (), can it work, if so, or put it?</span> <span> - </span> <span class="display-name">Jss6</span> <span> </span> <span class="date">22 Jan 2021 at 10:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Good point - I have added some clarifications for step 3. My original notes were too vague (and incorrect).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">22 Jan 2021 at 14:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

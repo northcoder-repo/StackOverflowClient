@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Upgrading to Spring boot from 2.7.5 to 3.0.4 - Thymeleaf broken, Dependency Injection broken (r2dbc)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Upgrading to Spring boot from 2.7.5 to 3.0.4 - Thymeleaf broken, Dependency Injection broken (r2dbc)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>JPeterson</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Mar 2023 at 07:04</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75798164/upgrading-to-spring-boot-from-2-7-5-to-3-0-4-thymeleaf-broken-dependency-inje">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm upgrading a Spring WebFlux based Reactive microservice from 2.7.4 to 3.0.4 and getting a handful of Thymeleaf errors.</p>
+    <ul>
+     <li>UI: Thymeleaf</li>
+     <li>DB: r2bdc + MySQL (w/ Flyway generating the DB).</li>
+    </ul>
+    <p>Upon further investigation; it seems like the upgrade path for 3.0 is possibly a bit more complex than I anticipated ... but I don't believe this is doing anything fairly complex or unique in comparison to other Spring projects.</p>
+    <pre class="lang-java prettyprint-override"><code>
+import com.smbdevops.brokenpreauthorize.entity.PrincipalEntity;
+import com.smbdevops.brokenpreauthorize.repository.PrincipalsRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import reactor.core.publisher.Mono;
+
+@Controller
+@RequiredArgsConstructor
+public class IndexController {
+
+    final PrincipalsRepository repository;
+
+    @GetMapping("")
+    @PreAuthorize("hasRole('USER')")
+    public Mono&lt;String&gt; indexAction(final Model model) {
+        return this.repository.findByUsername("exists")
+                .doOnNext(usr -&gt; {
+                    model.addAttribute("usr", usr);
+                })
+                .switchIfEmpty(this.repository.save(PrincipalEntity.builder()
+                        .username("exists")
+                        .profileDescription("in the database").build()))
+                .thenReturn("index");
+    }
+}
+</code></pre>
+    <p>with a thymeleaf html template as</p>
+    <pre class="lang-html prettyprint-override"><code>&lt;html xmlns:th="http://www.thymeleaf.org"&gt;
+&lt;h1&gt;Logged in. Should see user info&lt;/h1&gt;
+&lt;table&gt;
+    &lt;thead&gt;
+    &lt;tr&gt;
+        &lt;th&gt;Username&lt;/th&gt;
+        &lt;th&gt;Profile summary&lt;/th&gt;
+    &lt;/tr&gt;
+    &lt;/thead&gt;
+    &lt;tbody&gt;
+    &lt;tr&gt;
+        &lt;td th:text="${usr.username}"&gt;username goes here&lt;/td&gt;
+        &lt;td th:text="${usr.profileDescription}"&gt;Description goes here"&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/html&gt;
+</code></pre>
+    <p>would yield errors like,</p>
+    <pre><code>Mon Mar 20 23:59:59 PDT 2023
+[6e9ece63-8] There was an unexpected error (type=Internal Server Error, status=500).
+org.thymeleaf.exceptions.TemplateProcessingException: Exception evaluating SpringEL expression: "usr.username" (template: "index" - line 12, col 13)
+    at org.thymeleaf.spring6.expression.SPELVariableExpressionEvaluator.evaluate(SPELVariableExpressionEvaluator.java:292)
+    Suppressed: The stacktrace has been enhanced by Reactor, refer to additional information below: 
+Error has been observed at the following site(s):
+    *__checkpoint ⇢ Handler org.springframework.boot.autoconfigure.web.reactive.WelcomePageRouterFunctionFactory$$Lambda$1082/0x00000008010f2b58@f7cc765 [DispatcherHandler]
+    *__checkpoint ⇢ org.springframework.security.web.server.authorization.AuthorizationWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.authorization.ExceptionTranslationWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.authentication.logout.LogoutWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.savedrequest.ServerRequestCacheWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.context.SecurityContextServerWebExchangeWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.ui.LogoutPageGeneratingWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.ui.LoginPageGeneratingWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.authentication.AuthenticationWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.context.ReactorContextWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.csrf.CsrfWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.header.HttpHeaderWriterWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.config.web.server.ServerHttpSecurity$ServerWebExchangeReactorContextWebFilter [DefaultWebFilterChain]
+    *__checkpoint ⇢ org.springframework.security.web.server.WebFilterChainProxy [DefaultWebFilterChain]
+    *__checkpoint ⇢ HTTP GET "/" [ExceptionHandlingWebHandler]
+Original Stack Trace:
+
+... shortened...
+
+Caused by: org.springframework.expression.spel.SpelEvaluationException: EL1007E: Property or field 'username' cannot be found on null
+    at org.springframework.expression.spel.ast.PropertyOrFieldReference.readProperty(PropertyOrFieldReference.java:213)
+    at org.springframework.expression.spel.ast.PropertyOrFieldReference.getValueInternal(PropertyOrFieldReference.java:104)
+    at org.springframework.expression.spel.ast.PropertyOrFieldReference$AccessorLValue.getValue(PropertyOrFieldReference.java:405)
+    at org.springframework.expression.spel.ast.CompoundExpression.getValueInternal(CompoundExpression.java:92)
+    at org.springframework.expression.spel.ast.SpelNodeImpl.getValue(SpelNodeImpl.java:112)
+    at org.springframework.expression.spel.standard.SpelExpression.getValue(SpelExpression.java:338)
+    at org.thymeleaf.spring6.expression.SPELVariableExpressionEvaluator.evaluate(SPELVariableExpressionEvaluator.java:265)
+    at org.thymeleaf.standard.expression.VariableExpression.executeVariableExpression(VariableExpression.java:166)
+    at org.thymeleaf.standard.expression.SimpleExpression.executeSimple(SimpleExpression.java:66)
+    at org.thymeleaf.standard.expression.Expression.execute(Expression.java:109)
+    at org.thymeleaf.standard.expression.Expression.execute(Expression.java:138)
+
+
+</code></pre>
+    <p><a href="https://github.com/jackdpeterson/spring-boot-3-broken-thymeleaf-with-preauthorize" rel="nofollow noreferrer">Full code available on github</a></p>
+    <pre class="lang-xml prettyprint-override"><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+    &lt;parent&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-starter-parent&lt;/artifactId&gt;
+        &lt;version&gt;3.0.4&lt;/version&gt;
+        &lt;relativePath/&gt; &lt;!-- lookup parent from repository --&gt;
+    &lt;/parent&gt;
+    &lt;groupId&gt;com.smbdevops&lt;/groupId&gt;
+    &lt;artifactId&gt;broken-preauthorize&lt;/artifactId&gt;
+    &lt;version&gt;0.0.1-SNAPSHOT&lt;/version&gt;
+    &lt;name&gt;broken-preauthorize&lt;/name&gt;
+    &lt;description&gt;broken-preauthorize&lt;/description&gt;
+    &lt;properties&gt;
+        &lt;java.version&gt;17&lt;/java.version&gt;
+    &lt;/properties&gt;
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-data-r2dbc&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-security&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-webflux&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.flywaydb&lt;/groupId&gt;
+            &lt;artifactId&gt;flyway-core&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.flywaydb&lt;/groupId&gt;
+            &lt;artifactId&gt;flyway-mysql&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;io.asyncer&lt;/groupId&gt;
+            &lt;artifactId&gt;r2dbc-mysql&lt;/artifactId&gt;
+            &lt;version&gt;0.9.1&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.mysql&lt;/groupId&gt;
+            &lt;artifactId&gt;mysql-connector-j&lt;/artifactId&gt;
+            &lt;version&gt;8.0.32&lt;/version&gt;
+        &lt;/dependency&gt;
+
+
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.security&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-security-test&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.projectlombok&lt;/groupId&gt;
+            &lt;artifactId&gt;lombok&lt;/artifactId&gt;
+            &lt;version&gt;1.18.26&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-thymeleaf&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;build&gt;
+        &lt;plugins&gt;
+            &lt;plugin&gt;
+                &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;
+            &lt;/plugin&gt;
+        &lt;/plugins&gt;
+    &lt;/build&gt;
+&lt;/project&gt;
+</code></pre>
+    <p><strong>To clarify some additional comments:</strong></p>
+    <ul>
+     <li>JDK Version - Both the 2.7.x and the 3.0.x versions of this were started using Correto 17 (I've tried other JDKs as well, all within the 17 major release). 2.7.x works; 3.0.4 doesn't.</li>
+     <li>Even if I remove all of the fancy bits WebFlux + Thymeleaf appears to be broken. For the section below, which exhibits the same broken thymeleaf interpolation of attributes being added by the</li>
+    </ul>
+    <pre><code>Mono.just(obj).doOnNext(addToModel).then("index")
+</code></pre>
+    <p><strong>Simplified version also demonstrates the same behavior.</strong> <a href="https://i.stack.imgur.com/PAj1l.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/PAj1l.png" alt="enter image description here"></a></p>
+    <pre class="lang-xml prettyprint-override"><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+    &lt;parent&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-starter-parent&lt;/artifactId&gt;
+        &lt;version&gt;3.0.4&lt;/version&gt;
+        &lt;relativePath/&gt; &lt;!-- lookup parent from repository --&gt;
+    &lt;/parent&gt;
+    &lt;groupId&gt;com.example&lt;/groupId&gt;
+    &lt;artifactId&gt;demo&lt;/artifactId&gt;
+    &lt;version&gt;0.0.1-SNAPSHOT&lt;/version&gt;
+    &lt;name&gt;demo&lt;/name&gt;
+    &lt;description&gt;Demo project for Spring Boot&lt;/description&gt;
+    &lt;properties&gt;
+        &lt;java.version&gt;17&lt;/java.version&gt;
+    &lt;/properties&gt;
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-thymeleaf&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-webflux&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;io.projectreactor&lt;/groupId&gt;
+            &lt;artifactId&gt;reactor-test&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.projectlombok&lt;/groupId&gt;
+            &lt;artifactId&gt;lombok&lt;/artifactId&gt;
+            &lt;optional&gt;true&lt;/optional&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-security&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;build&gt;
+        &lt;plugins&gt;
+            &lt;plugin&gt;
+                &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;
+                &lt;configuration&gt;
+                    &lt;excludes&gt;
+                        &lt;exclude&gt;
+                            &lt;groupId&gt;org.projectlombok&lt;/groupId&gt;
+                            &lt;artifactId&gt;lombok&lt;/artifactId&gt;
+                        &lt;/exclude&gt;
+                    &lt;/excludes&gt;
+                &lt;/configuration&gt;
+            &lt;/plugin&gt;
+        &lt;/plugins&gt;
+    &lt;/build&gt;
+&lt;/project&gt;
+</code></pre>
+    <pre class="lang-java prettyprint-override"><code>package com.example.demo.entity;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
+@Builder
+public class PrincipalEntity {
+
+    private Long id;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private String username;
+    private String profileDescription;
+
+}
+</code></pre>
+    <pre class="lang-java prettyprint-override"><code>package com.example.demo.controller;
+
+
+import com.example.demo.entity.PrincipalEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import reactor.core.publisher.Mono;
+
+@Controller
+class IndexController {
+    @GetMapping("")
+    @PreAuthorize("hasRole('USER')")
+    public Mono&lt;String&gt; indexAction(final Model model) {
+        return Mono.just(PrincipalEntity.builder().username("testusername").profileDescription("some description"))
+                .doOnNext(usr -&gt; {
+                    model.addAttribute("usr", usr);
+                })
+                .thenReturn("index");
+    }
+}
+</code></pre>
+    <pre class="lang-java prettyprint-override"><code>package com.example.demo.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+
+@Configuration
+@EnableWebFluxSecurity
+@EnableReactiveMethodSecurity
+public class CustomSecurityConfiguration {
+
+    @Bean
+    public MapReactiveUserDetailsService userDetailsService() {
+        UserDetails user =
+                User.withDefaultPasswordEncoder()
+                        .username("user")
+                        .password("password")
+                        .roles("USER")
+                        .build();
+
+        return new MapReactiveUserDetailsService(user);
+    }
+
+    @Bean
+    public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
+        http
+                .authorizeExchange(exchanges -&gt; exchanges
+                        .anyExchange().authenticated()
+                )
+                .formLogin(Customizer.withDefaults())
+
+        ;
+        return http.build();
+    }
+
+
+}
+
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">spring</span><span class="tag">spring-boot</span><span class="tag">thymeleaf</span><span class="tag">spring-webflux</span><span class="tag">spring-data-r2dbc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Generally due to outsmarting the dependency management of the starters. Please add your pom or build file to the question.</span> <span> - </span> <span class="display-name">M. Deinum</span> <span> </span> <span class="date">21 Mar 2023 at 07:28</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>I also suspect you upgraded the java version from 8 to 17, which would require additional configuration for applying lombok to the compiler. The error you get indicates that there is no getter, and as you are heavily using lombok that is probably the issue. Mark lombok as provided (and remove the version). add the <code>maven-compiler-plugin</code> with an <code>annotationProcessor</code> configuration (see <a href="https://projectlombok.org/setup/maven" rel="nofollow noreferrer">projectlombok.org/setup/maven</a>)</span> <span> - </span> <span class="display-name">M. Deinum</span> <span> </span> <span class="date">21 Mar 2023 at 07:55</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thanks @M.Deinum for looking at this. I've edited the above and included an even more simplified version that removes <i>all</i> of the r2dbc, flyway, and other tidbits starting w/ start.spring.io and I can still reproduce the issue of thymeleaf not behaving as expected w/ a whitelabel error page on the simplest of model.addAttribute("key",value) inside of .doOnNext().then("templateName"); not working</span> <span> - </span> <span class="display-name">JPeterson</span> <span> </span> <span class="date">21 Mar 2023 at 19:33</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Mar 2023 at 20:57</span>
+     </div>
+    </div>
+    <div>
+     <p>I was able to recreate your error (although I simplified things by not using Lombok).</p>
+     <p>To fix the issue, I changed this:</p>
+     <pre><code>@GetMapping("")
+</code></pre>
+     <p>to this:</p>
+     <pre><code>@GetMapping("/")
+</code></pre>
+     <p>Now I see the expected HTML data:</p>
+     <pre><code>&lt;body&gt;&lt;h1&gt;Logged in. Should see user info&lt;/h1&gt;
+    &lt;table&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Username&lt;/th&gt;
+                &lt;th&gt;Profile summary&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;testusername&lt;/td&gt;
+                &lt;td&gt;some description&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+
+&lt;/body&gt;
+</code></pre>
+     <hr>
+     <p>Also, I used the following instead of your Lombok builder - just as a quick test:</p>
+     <pre><code>Mono.just(new PrincipalEntity("testusername", "some description"))
+</code></pre>
+     <p>But I wonder if you should be calling <code>.build()</code> at the end of your builder code, in your case.</p>
+     <hr>
+     <p>I would have expected <code>@GetMapping("")</code> to not cause a problem, because as the <a href="https://javaee.github.io/servlet-spec/downloads/servlet-4.0/servlet-4_0_FINAL.pdf" rel="nofollow noreferrer">servlet spec</a> says:</p>
+     <blockquote>
+      <p>The empty string ("") is a special URL pattern that exactly maps to the application's context root</p>
+     </blockquote>
+     <p>So, that part of the problem I can't explain.</p>
+     <p>But it does seem that the application will attempt to serve the <code>index.html</code> file as a <em>default</em> web page, in this case - and that means <strong>your <code>indexAction()</code> handler is never actually called, in your code</strong>, resulting in Thymeleaf trying to process a template with no model values.</p>
+     <p>Therefore <code>usr</code> ends up being <code>null</code>, of course, and you get the error message:</p>
+     <blockquote>
+      <p>Property or field 'username' cannot be found on null</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for that. I also found some weirdness w/ EnableReactiveMethodSecurity annotation. once I removed that I was able to get my repositories in rather than a NPE when adding PreAuthorize annotation. Much appreciated!</span> <span> - </span> <span class="display-name">JPeterson</span> <span> </span> <span class="date">24 Mar 2023 at 07:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

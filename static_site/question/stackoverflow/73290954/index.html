@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Make a GitHub-like file finder using Lucene</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Make a GitHub-like file finder using Lucene</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>ReallyNicePerson</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Aug 2022 at 11:18</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73290954/make-a-github-like-file-finder-using-lucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have to make a file finder using Lucene. I thought of using wild card query.</p>
+    <p>Text in a document: <code>lucene/queryparser/docs/xml/img/plus.gif</code></p>
+    <p>Search string: <code>lqdocspg</code></p>
+    <p>It should find:<br><strong>l</strong>ucene/<strong>q</strong>ueryparser/<strong>docs</strong>/xml/img/<strong>p</strong>lus.<strong>g</strong>if (it is the olny document for now, so it should return that it found 1 match.)</p>
+    <p>Here is my code:</p>
+    <pre><code>public static void main(String[] args) throws IOException, ParseException {
+    Analyzer analyzer = new StandardAnalyzer();
+
+    Path indexPath = Files.createTempDirectory("tempIndex");
+    Directory directory = FSDirectory.open(indexPath);
+    IndexWriterConfig config = new IndexWriterConfig(analyzer);
+    IndexWriter iwriter = new IndexWriter(directory, config);
+    Document doc = new Document();
+    String text = "lucene/queryparser/docs/xml/img/plus.gif";
+    doc.add(new Field("fieldname", text, TextField.TYPE_STORED));
+    iwriter.addDocument(doc);
+    iwriter.close();
+
+    // Now search the index:
+    DirectoryReader ireader = DirectoryReader.open(directory);
+    IndexSearcher isearcher = new IndexSearcher(ireader);
+    // Parse a simple query that searches for "text":
+    //QueryParser parser = new QueryParser("fieldname", analyzer);
+    //Query query = parser.parse("l*q*d*o*c*s*p*g*");
+    Query query = new WildcardQuery(new Term("fieldname", "*l"));
+    ScoreDoc[] hits = isearcher.search(query, 10).scoreDocs;
+    System.out.println(isearcher.doc(0).get("fieldname"));
+    System.out.println("Search terms found in :: " + hits.length + " files");
+    assertEquals(1, hits.length);
+
+
+
+    // Iterate through the results:
+    for (ScoreDoc hit : hits) {
+        Document hitDoc = isearcher.doc(hit.doc);
+        assertEquals("lucene/queryparser/docs/xml/img/plus.gif", hitDoc.get("fieldname"));
+    }
+    ireader.close();
+    directory.close();
+    IOUtils.rm(indexPath);
+}
+</code></pre>
+    <p>When i am passing <code>*l</code> or <code>l*</code> or <code>lucene* *lucene</code> or any different like <code>q*</code> it's working and returns that it found match in one file. But when im trying to pass what i want to find which is <code>*l*q*d*o*c*s*p*g*</code> it returns 0 found matches. I dont know what am i doing wrong. Asterisk means that between letters there can be anything right?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">search</span><span class="tag">lucene</span><span class="tag">query-parser</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>"<i>new to lucene and dont know where to start</i>" - I would start by reviewing the <a href="https://lucene.apache.org/core/9_3_0/demo/index.html" rel="nofollow noreferrer">official Lucene demo</a>. If you have a specific problem with a specific part of your code, you can share that as a <a href="https://stackoverflow.com/help/minimal-reproducible-example">minimal reproducible example</a>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">9 Aug 2022 at 14:27</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>(Also, separately, (a) it's not clear to me why the search string <code>l/id//gif</code> would be expected to find <code>lucene/index/docs/img/join.gif</code>; and (b) GitHub has a sophisticated set of <a href="https://github.com/search/advanced" rel="nofollow noreferrer">search options</a>. Are you saying you want to create something that does all of that?)</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">9 Aug 2022 at 14:33</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewJames I edited my post. Could You look at it?</span> <span> - </span> <span class="display-name">ReallyNicePerson</span> <span> </span> <span class="date">10 Aug 2022 at 12:00</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Aug 2022 at 15:07</span>
+     </div>
+    </div>
+    <div>
+     <p>The problem here is you are using a <code>TextField</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>doc.add(new Field("fieldname", text, TextField.TYPE_STORED));
+</code></pre>
+     <p>This field, when used with the standard analyzer, causes the contents of that field to be tokenized into the following separate tokens in the Lucene index (in alphabetic order):</p>
+     <p>Input value: <code>lucene/queryparser/docs/xml/img/plus.gif</code></p>
+     <p>Resulting indexed tokens:</p>
+     <ul>
+      <li><code>docs</code></li>
+      <li><code>img</code></li>
+      <li><code>lucene</code></li>
+      <li><code>plus.gif</code></li>
+      <li><code>queryparser</code></li>
+      <li><code>xml</code></li>
+     </ul>
+     <p>Now, when you consider your wildcard query <code>l*q*d*o*c*s*p*g*</code>, you can see that this single query term does not match any of the tokens in the index.</p>
+     <p>But a query such as <code>l*</code> matches one token: <code>lucene</code> - so that will find your one and only document.</p>
+     <hr>
+     <p>There are various ways to solve this - but in your specific case, given you want to treat <code>lucene/queryparser/docs/xml/img/plus.gif</code> as a single string, then you can use a <code>StringField</code> instead of a <code>TextField</code>. This class does not split the input into tokens. Instead it indexes the input without applying the Standard Analyzer.</p>
+     <pre class="lang-java prettyprint-override"><code>doc.add(new StringField(FIELD_NAME, documentBody, Field.Store.YES));
+</code></pre>
+     <p>This generates a single token in the index:</p>
+     <ul>
+      <li><code>lucene/queryparser/docs/xml/img/plus.gif</code></li>
+     </ul>
+     <p>Now you can see that your wildcard query <code>l*q*d*o*c*s*p*g*</code> should (and does) match that token.</p>
+     <hr>
+     <p>See the following:</p>
+     <ul>
+      <li><a href="https://lucene.apache.org/core/9_3_0/core/org/apache/lucene/document/Field.html" rel="nofollow noreferrer"><code>Field</code></a> - specifically, take a look at the list of subclasses. These are "predefined" fields you can use without needing to use <code>new Field(...)</code>- like my <code>new StringField(...)</code> example above.</li>
+      <li><a href="https://lucene.apache.org/core/9_3_0/core/org/apache/lucene/document/TextField.html" rel="nofollow noreferrer"><code>TextField</code></a> - "<em>A field that is indexed and tokenized, without term vectors. For example this would be used on a 'body' field, that contains the bulk of a document's text.</em>"</li>
+      <li><a href="https://lucene.apache.org/core/9_3_0/core/org/apache/lucene/document/StringField.html" rel="nofollow noreferrer"><code>StringField</code></a> - "<em>A field that is indexed but not tokenized: the entire String value is indexed as a single token.</em>"</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

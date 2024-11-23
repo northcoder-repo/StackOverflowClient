@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why Apache Commons Range#between doesn't work as expected with ZonedDateTime?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why Apache Commons Range#between doesn't work as expected with ZonedDateTime?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Ramazan</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Aug 2022 at 20:36</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73438037/why-apache-commons-rangebetween-doesnt-work-as-expected-with-zoneddatetime">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I expected the first one to be correct.</p>
+    <p>As <code>ZonedDateTime implements ChronoZonedDateTime&lt;LocalDate&gt;</code>, I tried to use latter as type parameter. I guess this didn't work due to type erasure, but I'm not sure.</p>
+    <p>But only third range is compiled correctly. Could you please explain why?</p>
+    <pre><code>import org.apache.commons.lang3.Range;
+
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.time.chrono.ChronoZonedDateTime;
+
+public class Test {
+
+    public static void main(String[] args) {
+        
+        Range&lt;ZonedDateTime&gt; range1 = Range.between(ZonedDateTime.now(), ZonedDateTime.now());
+        Range&lt;ChronoZonedDateTime&lt;LocalDate&gt;&gt; range2 = Range.between(ZonedDateTime.now(), ZonedDateTime.now());
+        Range&lt;ChronoZonedDateTime&lt;?&gt;&gt; range3 = Range.between(ZonedDateTime.now(), ZonedDateTime.now());
+    }
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">generics</span><span class="tag">apache-commons</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tim</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Feb 2023 at 06:35</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use:</p>
+     <p><code>Range.between(ZonedDateTime.now(), ZonedDateTime.now(), ChronoZonedDateTime::compareTo)</code></p>
+     <p>This will allow you to use either <code>Range&lt;ZonedDateTime&gt;</code> or <code>Range&lt;ChronoZonedDateTime&lt;LocalDate&gt;&gt;</code> as return type.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Aug 2022 at 01:01</span>
+     </div>
+    </div>
+    <div>
+     <p>The <code>Range.between(T fromInclusive, T toInclusive)</code> returns a <code>Range&lt;T&gt;</code> object, where <code>T</code> must extend <code>Comparable&lt;T&gt;</code>. We can see this from the <a href="https://commons.apache.org/proper/commons-lang/apidocs/org/apache/commons/lang3/Range.html#between-T-T-" rel="nofollow noreferrer">JavaDoc</a>.</p>
+     <p>You want to use <code>ZonedDateTime</code> objects for your <code>T</code>. And looking at <a href="https://docs.oracle.com/en/java/javase/17/docs/api//java.base/java/time/ZonedDateTime.html" rel="nofollow noreferrer">that JavaDoc</a>, we see that it implements <code>Comparable&lt;ChronoZonedDateTime&lt;?&gt;&gt;</code>.</p>
+     <p>That is why you have to use <code>Range&lt;ChronoZonedDateTime&lt;?&gt;&gt;</code> as the type for the returned value.</p>
+     <p>It's not type erasure which causes compilation errors with your first two examples. It's just the need to follow the APIs of the objects you are using. The first two examples don't meet the requirement to provide the correct generic object which implements <code>Comparable</code>.</p>
+     <hr>
+     <p>Another perspective:</p>
+     <p>The values of <code>T</code> from your original <code>between(T fromInclusive, T toInclusive)</code> need to be <a href="https://stackoverflow.com/q/5167928/12567365">naturally comparable</a>, just like the values in this much simpler example for the same generic method:</p>
+     <pre><code>Range&lt;Integer&gt; range = Range.between(1, 9);
+</code></pre>
+     <p>...where the Java <code>Integer</code> class implements <code>Comparable&lt;Integer&gt;</code>.</p>
+     <hr>
+     <p>You can use objects which are not naturally comparable, but then you have to <a href="https://commons.apache.org/proper/commons-lang/apidocs/org/apache/commons/lang3/Range.html#between-T-T-java.util.Comparator-" rel="nofollow noreferrer">provide your own comparator</a>:</p>
+     <pre><code>public static &lt;T&gt; Range&lt;T&gt; between(T fromInclusive, T toInclusive, Comparator&lt;T&gt; comparator)
+</code></pre>
+     <p>...and your comparator would have to provide the comparison rules.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

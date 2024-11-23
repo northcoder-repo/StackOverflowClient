@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jQuery DataTables - Search with exact match</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jQuery DataTables - Search with exact match</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Ashish</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Oct 2022 at 09:48</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74137805/jquery-datatables-search-with-exact-match">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have an HTML select box which will return me the proper value. Task uses select2 and datables My select box</p>
+    <pre><code>   &lt;select name="filter_model" id="filter_model" class="form-control" required multiple="multiple"&gt;
+      &lt;option value="Drafted"&gt;Drafted&lt;/option&gt;
+      &lt;option value="Ordered"&gt;Ordered&lt;/option&gt;
+      &lt;option value="Ordered (A)"&gt;Ordered (A)&lt;/option&gt;
+      &lt;option value="PreProduction"&gt;PreProduction&lt;/option&gt;
+      &lt;option value="PreProduction (C)"&gt;PreProduction (C)&lt;/option&gt;
+   &lt;/select&gt;
+</code></pre>
+    <p>And also I have a jQuery code.</p>
+    <pre><code>   var table = $('#editable').DataTable();
+   var data = $.map( $(this).select2('data'), function( value, key ) {
+                if(value.text !== '') {
+                   return value.text.trim();
+                 }
+   });
+   var val = data.join('|');
+   table.column(5).search(val).draw();
+</code></pre>
+    <p>When user selects Drafts, I get proper result. Selecting Order (A) or PreProduction (C), I get result I want. However, when user selects Order or PreProduction, I get two result (Order &amp; Order (A)) and (PreProduction &amp; PreProduction (C)). Someone Please help me.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span><span class="tag">jquery-select2</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Oct 2022 at 13:43</span>
+     </div>
+    </div>
+    <div>
+     <p>Finding only exact matches within a specific column of data requires you to use the DataTables <a href="https://datatables.net/reference/api/column().search()" rel="nofollow noreferrer"><code>search()</code></a> function with the <code>regex</code> parameter set to <code>true</code> (and you should disable the smart search parameter also):</p>
+     <pre><code>.search(searchTerm, true, false)
+</code></pre>
+     <p>You also need to wrap each Select2 term in a leading <code>^</code> and trailing <code>$</code> which tell the regex that the search term must match from the beginning of the column data all the way through to the end of the column data. It is this step which ensures that <code>Ordered</code> will not also find <code>Ordered (A)</code>.</p>
+     <p>Because parentheses have special meanings in regular expressions (for grouping), and because your select2 values contain parentheses, you have to escape these:</p>
+     <pre><code>replace('(', '\\(').replace(')', '\\)')
+</code></pre>
+     <p>You also need to handle the case where there are no select2 values selected. So that DataTables can reset its filter to "nothing filtered". DataTables expects to receive an empty string for this.</p>
+     <p>Now you can write the logic to process the select2 multi-selections:</p>
+     <pre class="lang-js prettyprint-override"><code>$('#filter_model').on('change.select2', function (e) {
+  var data = $.map( $(this).select2('data'), function( value ) {
+    return '^' + value.text.replace('(', '\\(').replace(')', '\\)').trim() + '$';
+  });
+  searchTerm = '';
+  if (data.length &gt; 0) {
+    searchTerm = data.join('|');
+  }
+  console.log( searchTerm );
+  table.column(5).search(searchTerm, true, false).draw();
+});
+</code></pre>
+     <p>Here is a runnable demo:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>$(document).ready(function() {
+
+  $('#filter_model').select2();
+
+  var table = $('#editable').DataTable();
+
+  $('#filter_model').on('change.select2', function (e) {
+    var data = $.map( $(this).select2('data'), function( value ) {
+      return '^' + value.text.replace('(', '\\(').replace(')', '\\)').trim() + '$';
+    });
+    searchTerm = '';
+    if (data.length &gt; 0) {
+      searchTerm = data.join('|');
+    }
+    //console.log( searchTerm );
+    table.column(5).search(searchTerm, true, false).draw();
+  });
+  
+} );</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;demo&lt;/title&gt;
+  
+    &lt;script src="https://code.jquery.com/jquery-3.6.0.js"&gt;&lt;/script&gt;
+
+    &lt;script src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+    &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css"&gt;
+    &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+    &lt;link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" /&gt;
+    &lt;script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"&gt;&lt;/script&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;select name="filter_model[]" id="filter_model" class="form-control" required multiple="multiple"&gt;
+        &lt;option value="Drafted"&gt;Drafted&lt;/option&gt;
+        &lt;option value="Ordered"&gt;Ordered&lt;/option&gt;
+        &lt;option value="Ordered (A)"&gt;Ordered (A)&lt;/option&gt;
+        &lt;option value="PreProduction"&gt;PreProduction&lt;/option&gt;
+        &lt;option value="PreProduction (C)"&gt;PreProduction (C)&lt;/option&gt;
+    &lt;/select&gt;
+
+    &lt;br&gt;&lt;br&gt;
+
+    &lt;table id="editable" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office in Country&lt;/th&gt;
+                &lt;th&gt;Age&lt;/th&gt;
+                &lt;th&gt;Start date&lt;/th&gt;
+                &lt;th&gt;Status&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Tiger Nixon&lt;/td&gt;
+                &lt;td&gt;System Architect&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;2011/04/25&lt;/td&gt;
+                &lt;td&gt;PreProduction&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Garrett Winters&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;63&lt;/td&gt;
+                &lt;td&gt;2011/07/25&lt;/td&gt;
+                &lt;td&gt;PreProduction (C)&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Ashton Cox&lt;/td&gt;
+                &lt;td&gt;Junior "Technical" Author&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;66&lt;/td&gt;
+                &lt;td&gt;2009/01/12&lt;/td&gt;
+                &lt;td&gt;Ordered&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Cedric Kelly&lt;/td&gt;
+                &lt;td&gt;Senior Javascript Developer&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;22&lt;/td&gt;
+                &lt;td&gt;2012/03/29&lt;/td&gt;
+                &lt;td&gt;Ordered (A)&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Airi Satou&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;33&lt;/td&gt;
+                &lt;td&gt;2008/11/28&lt;/td&gt;
+                &lt;td&gt;Drafted&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+
+&lt;/body&gt;
+
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>There's a commented-out logging statement in there. You can un-comment this to see each search term.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>Instead of this:</p>
+     <pre><code>replace('(', '\\(').replace(')', '\\)')
+</code></pre>
+     <p>...you may want to <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping" rel="nofollow noreferrer">consider this Mozilla Guide solution</a>:</p>
+     <blockquote>
+      <p><code>replace(/[.*+?^${}()|[\]\\]/g, '\\$&amp;')</code></p>
+      <p>where <code>$&amp;</code> means the whole matched string.</p>
+     </blockquote>
+     <p>It escapes every character which may have a special regex meaning in a string, not just <code>(</code> and <code>)</code>.</p>
+     <p>See also the discussions here: <a href="https://stackoverflow.com/q/3561493/12567365">Is there a RegExp.escape function in JavaScript?</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

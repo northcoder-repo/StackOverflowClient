@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene ignores / overwrite fuzzy edit distance in QueryParser</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene ignores / overwrite fuzzy edit distance in QueryParser</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>F.P</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Apr 2021 at 08:44</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67088386/lucene-ignores-overwrite-fuzzy-edit-distance-in-queryparser">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Given the following QueryParser with a FuzzySearch term in the query string:</p>
+    <pre><code>fun fuzzyquery() {
+    val query = QueryParser("term", GermanAnalyzer()).parse("field:search~4")
+    println(query)
+}
+</code></pre>
+    <p>The resulting Query will actually have this representation:</p>
+    <pre><code>field:search~2
+</code></pre>
+    <p>So, the <code>~4</code> gets rewritten to <code>~2</code>. I traced the code down to the following implementation:</p>
+    <p><strong>QueryParserBase</strong></p>
+    <pre class="lang-java prettyprint-override"><code>protected Query newFuzzyQuery(Term term, float minimumSimilarity, int prefixLength) {
+    String text = term.text();
+    int numEdits = FuzzyQuery.floatToEdits(minimumSimilarity, text.codePointCount(0, text.length()));
+    return new FuzzyQuery(term, numEdits, prefixLength);
+}
+</code></pre>
+    <p><strong>FuzzyQuery</strong></p>
+    <pre class="lang-java prettyprint-override"><code>public static int floatToEdits(float minimumSimilarity, int termLen) {
+    if (minimumSimilarity &gt;= 1.0F) {
+        return (int)Math.min(minimumSimilarity, 2.0F);
+    } else {
+        return minimumSimilarity == 0.0F ? 0 : Math.min((int)((1.0D - (double)minimumSimilarity) * (double)termLen), 2);
+    }
+}
+</code></pre>
+    <p>As is clearly visible, any value higher than 2 will always get reset to <code>2</code>. Why is this and how can I correctly get the fuzzy edit distance I want into the query parser?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Apr 2021 at 20:41</span>
+     </div>
+    </div>
+    <div>
+     <p>This may cross the border into "not an answer" - but it is too long for a comment (or a few comments):</p>
+     <p><strong><em>Why is this?</em></strong></p>
+     <p>That was a design decision, it would seem. It's mentioned in the documentation <a href="https://lucene.apache.org/core/8_8_2/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Fuzzy_Searches" rel="nofollow noreferrer">here</a>.</p>
+     <blockquote>
+      <p><em>"The value is between 0 and 2"</em></p>
+     </blockquote>
+     <p>There is an old article <a href="https://www.elastic.co/blog/found-fuzzy-search#a-simple-fuzzy-match" rel="nofollow noreferrer">here</a> which gives an explanation:</p>
+     <blockquote>
+      <p><em>"Larger differences are far more expensive to compute efficiently and are not processed by Lucene."</em>.</p>
+     </blockquote>
+     <p>I don't know how official that is, however.</p>
+     <p>More officially, from the JavaDoc for the <a href="https://lucene.apache.org/core/8_7_0/core/org/apache/lucene/search/FuzzyQuery.html" rel="nofollow noreferrer"><code>FuzzyQuery</code></a> class, it states:</p>
+     <blockquote>
+      <p><em>"At most, this query will match terms up to 2 edits. Higher distances (especially with transpositions enabled), are generally not useful and will match a significant amount of the term dictionary."</em></p>
+     </blockquote>
+     <p><strong><em>How can I correctly get the fuzzy edit distance I want into the query parser?</em></strong></p>
+     <p>You cannot, unless you customize the source code.</p>
+     <p>The best (least worst?) alternative, I think, is probably the one mentioned in the above referenced <code>FuzzyQuery</code> Javadoc:</p>
+     <blockquote>
+      <p><em>"If you really want this, consider using an n-gram indexing technique (such as the SpellChecker in the suggest module) instead."</em></p>
+     </blockquote>
+     <p>In this case, one price to be paid will be a potentially much larger index - and even then, n-grams are not really equivalent to edit distances. I don't know if this would meet your needs.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I think this is a perfectly acceptable answer. I also found this while researching further</span> <span> - </span> <span class="display-name">F.P</span> <span> </span> <span class="date">15 Apr 2021 at 09:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

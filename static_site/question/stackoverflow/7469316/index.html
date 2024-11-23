@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why is exception.printStackTrace() considered bad practice?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why is exception.printStackTrace() considered bad practice?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>141</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Chris Knight</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Sep 2011 at 10:12</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/7469316/why-is-exception-printstacktrace-considered-bad-practice">source</a>
+    </div>
+   </div>
+   <div>
+    <p>There is a lot of <a href="http://fahdshariff.blogspot.com/2010/10/redirect-stdout-to-logger.html" rel="noreferrer">material</a> out <a href="http://checkstyle.sourceforge.net/config_regexp.html" rel="noreferrer">there</a> which suggests that printing the stack trace of an exception is bad practice.</p>
+    <p>E.g. from the RegexpSingleline check in Checkstyle:</p>
+    <blockquote>
+     <p>This check can be used [...] to find common bad practice such as calling ex.printStacktrace()</p>
+    </blockquote>
+    <p>However, I'm struggling to find anywhere which gives a valid reason why since surely the stack trace is very useful in tracking down what caused the exception. Things that I am aware of:</p>
+    <ol>
+     <li>
+      <p>A stack trace should never be visible to end users (for user experience and security purposes)</p></li>
+     <li>
+      <p>Generating a stack trace is a relatively expensive process (though unlikely to be an issue in most 'exceptional' circumstances)</p></li>
+     <li>
+      <p>Many logging frameworks will print the stack trace for you (ours does not and no, we can't change it easily)</p></li>
+     <li>
+      <p>Printing the stack trace does not constitute error handling. It should be combined with other information logging and exception handling.</p></li>
+    </ol>
+    <p>What other reasons are there for avoiding printing a stack trace in your code?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">exception</span><span class="tag">stack-trace</span><span class="tag">printstacktrace</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>17</td>
+       <td><span>As someone who has to troubleshoot regularly, I would <i>never</i> omit printing a stacktrace when something has gone wrong. Yes, don't show it to the user, but yes, dump it to an error log.</span> <span> - </span> <span class="display-name">Paul Grime</span> <span> </span> <span class="date">19 Sep 2011 at 10:17</span></td>
+      </tr>
+      <tr>
+       <td>4</td>
+       <td><span>Do you really need other reasons? I think you've answered your own question fairly well. However, stacktrace should be printed in exceptional exceptions. :)</span> <span> - </span> <span class="display-name">Neil</span> <span> </span> <span class="date">19 Sep 2011 at 10:18</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span><a href="http://errorprone.info" rel="nofollow noreferrer">Error Prone</a> will now <a href="http://errorprone.info/bugpattern/CatchAndPrintStackTrace" rel="nofollow noreferrer">warn you about using <code>.printStackTrace()</code></a> in your code :)</span> <span> - </span> <span class="display-name">dimo414</span> <span> </span> <span class="date">22 Jan 2018 at 23:56</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>To avoid the tangled output stream problem referred by @Vineet Reynolds you can print it to the stdout: <code>e.printStackTrace(System.out);</code></span> <span> - </span> <span class="display-name">Traeyee</span> <span> </span> <span class="date">6 Jan 2020 at 10:55</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>141</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vineet Reynolds</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2011 at 12:09</span>
+     </div>
+    </div>
+    <div>
+     <p><code>Throwable.printStackTrace()</code> writes the stack trace to <code>System.err</code> PrintStream. The <code>System.err</code> stream and the underlying standard "error" output stream of the JVM process can be redirected by</p>
+     <ul>
+      <li>invoking <a href="http://download.oracle.com/javase/6/docs/api/java/lang/System.html#setErr%28java.io.PrintStream%29" rel="noreferrer"><code>System.setErr()</code></a> which changes the destination pointed to by <code>System.err</code>.</li>
+      <li>or by redirecting the process' error output stream. The error output stream may be redirected to a file/device 
+       <ul>
+        <li>whose contents may be ignored by personnel,</li>
+        <li>the file/device may not be capable of log rotation, inferring that a process restart is required to close the open file/device handle, before archiving the existing contents of the file/device.</li>
+        <li>or the file/device actually discards all data written to it, as is the case of <code>/dev/null</code>.</li>
+       </ul></li>
+     </ul>
+     <p>Inferring from the above, invoking <code>Throwable.printStackTrace()</code> constitutes valid (not good/great) exception handling behavior, only</p>
+     <ul>
+      <li>if you do not have <code>System.err</code> being reassigned throughout the duration of the application's lifetime,</li>
+      <li>and if you do not require log rotation while the application is running,</li>
+      <li>and if accepted/designed logging practice of the application is to write to <code>System.err</code> (and the JVM's standard error output stream).</li>
+     </ul>
+     <p>In most cases, the above conditions are not satisfied. One may not be aware of other code running in the JVM, and one cannot predict the size of the log file or the runtime duration of the process, and a well designed logging practice would revolve around writing "machine-parseable" log files (a preferable but optional feature in a logger) in a known destination, to aid in support.</p>
+     <p>Finally, one ought to remember that the output of <code>Throwable.printStackTrace()</code> would definitely get interleaved with other content written to <code>System.err</code> (and possibly even <code>System.out</code> if both are redirected to the same file/device). This is an annoyance (for single-threaded apps) that one must deal with, for the data around exceptions is not easily parseable in such an event. Worse, it is highly likely that a multi-threaded application will produce very confusing logs as <code>Throwable.printStackTrace()</code> <em>is not thread-safe</em>.</p>
+     <p>There is no synchronization mechanism to synchronize the writing of the stack trace to <code>System.err</code> when multiple threads invoke <code>Throwable.printStackTrace()</code> at the same time. Resolving this actually requires your code to synchronize on the monitor associated with <code>System.err</code> (and also <code>System.out</code>, if the destination file/device is the same), and that is rather heavy price to pay for log file sanity. To take an example, the <code>ConsoleHandler</code> and <code>StreamHandler</code> classes are responsible for appending log records to console, in the logging facility provided by <code>java.util.logging</code>; the actual operation of publishing log records is synchronized - every thread that attempts to publish a log record must also acquire the lock on the monitor associated with the <code>StreamHandler</code> instance. If you wish to have the same guarantee of having non-interleaved log records using <code>System.out</code>/<code>System.err</code>, you must ensure the same - the messages are published to these streams in a serializable manner.</p>
+     <p>Considering all of the above, and the very restricted scenarios in which <code>Throwable.printStackTrace()</code> is actually useful, it often turns out that invoking it is a bad practice.</p>
+     <hr>
+     <p>Extending the argument in the one of the previous paragraphs, it is also a poor choice to use <code>Throwable.printStackTrace</code> in conjunction with a logger that writes to the console. This is in part, due to the reason that the logger would synchronize on a different monitor, while your application would (possibly, if you don't want interleaved log records) synchronize on a different monitor. The argument also holds good when you use two different loggers that write to the same destination, in your application.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Great answer, thanks. However, while I agree that most of the time its noise or not necessary, there are those times when its absolutely critical.</span> <span> - </span> <span class="display-name">Chris Knight</span> <span> </span> <span class="date">19 Sep 2011 at 14:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Chris Yes, there are times when you cannot but use <code>System.out.println</code> and <code>Throwable.printStackTrace</code> and of course, developer judgement is required. I was a bit worried that the part about thread-safety was missed. If you look at most logger implementations, you'll notice that they synchronize the part where log records are written (even to the console), although they do not acquire monitors on <code>System.err</code> or <code>System.out</code>.</span> <span> - </span> <span class="display-name">Vineet Reynolds</span> <span> </span> <span class="date">19 Sep 2011 at 14:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Excellent point. I'd hate to try to look at two (or more) interlace stack traces! What joy that would be...</span> <span> - </span> <span class="display-name">Chris Knight</span> <span> </span> <span class="date">20 Sep 2011 at 08:55</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Would I be wrong to note that none of these reasons apply to the printStackTrace overrides that take a PrintStream or PrintWriter object as a parameter?</span> <span> - </span> <span class="display-name">ESRogs</span> <span> </span> <span class="date">16 Apr 2013 at 18:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@VineetReynolds I do have a follow up question. What did you mean by "System.err stream and the underlying <b>standard "error" output stream</b>? Aren't they the same?</span> <span> - </span> <span class="display-name">Geek</span> <span> </span> <span class="date">21 Jan 2014 at 13:09</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Geek, the latter is the process file descriptor with value 2. The former is just an abstraction.</span> <span> - </span> <span class="display-name">Vineet Reynolds</span> <span> </span> <span class="date">21 Jan 2014 at 13:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>In JDK source code of printStackTrace(), it use synchronized for lock the System.err PrintStream, so it should be a thread-safe method.</span> <span> - </span> <span class="display-name">EyouGo</span> <span> </span> <span class="date">27 Mar 2018 at 08:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><a href="https://en.wikipedia.org/wiki/Java_version_history#Java_SE_7" rel="nofollow noreferrer">JDK 7</a> was the latest version back in 2011, and <a href="https://java-browser.yawk.at/java/7/java/lang/Throwable.java#654" rel="nofollow noreferrer"><code>Throwable.printStackTrace()</code> synchronizes on the <code>PrintStream</code>'s lock</a>. <code>System.err</code> is one such <code>PrintStream</code>. Most of the content of the second and third edits is incorrect and should be rolled back. (The first version of the answer was actually helpful.)</span> <span> - </span> <span class="display-name">Daniel Le</span> <span> </span> <span class="date">26 Mar 2020 at 05:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This makes no sense, because leaving only a message in logs doesn't exhaust the topic of error cause. Sometimes without displaying stacktrace fixing a bug is impossible.</span> <span> - </span> <span class="display-name">Janusz Januszewski</span> <span> </span> <span class="date">3 Dec 2021 at 14:05</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>34</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tomasz Nurkiewicz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2011 at 10:23</span>
+     </div>
+    </div>
+    <div>
+     <p>You are touching multiple issues here:</p>
+     <blockquote>
+      <p>1) A stack trace should never be visibile to end users (for user experience and security purposes)</p>
+     </blockquote>
+     <p>Yes, it should be accessible to diagnose problems of end-users, but end-user should not see them for two reasons:</p>
+     <ul>
+      <li>They are very obscure and unreadable, the application will look very user-unfriendly.</li>
+      <li>Showing a stack trace to end-user might introduce a potential security risk. Correct me if I'm wrong, PHP actually prints function parameters in stack trace - brilliant, but very dangerous - if you would you get exception while connecting to the database, what are you likely to in the stacktrace?</li>
+     </ul>
+     <blockquote>
+      <p>2) Generating a stack trace is a relatively expensive process (though unlikely to be an issue in most 'exception'al circumstances)</p>
+     </blockquote>
+     <p>Generating a stack trace happens when the exception is being created/thrown (that's why throwing an exception comes with a price), printing is not that expensive. In fact you can override <code>Throwable#fillInStackTrace()</code> in your custom exception effectively making throwing an exception almost as cheap as a simple GOTO statement.</p>
+     <blockquote>
+      <p>3) Many logging frameworks will print the stack trace for you (ours does not and no, we can't change it easily)</p>
+     </blockquote>
+     <p>Very good point. The main issue here is: if the framework logs the exception for you, do nothing (but make sure it does!) If you want to log the exception yourself, use logging framework like <a href="http://logback.qos.ch" rel="noreferrer">Logback</a> or <a href="http://logging.apache.org/log4j/" rel="noreferrer">Log4J</a>, to not put them on the raw console because it is very hard to control it.</p>
+     <p>With logging framework you can easily redirect stack traces to file, console or even send them to a specified e-mail address. With hardcoded <code>printStackTrace()</code> you have to live with the <code>sysout</code>.</p>
+     <blockquote>
+      <p>4) Printing the stack trace does not constitute error handling. It should be combined with other information logging and exception handling.</p>
+     </blockquote>
+     <p>Again: log <code>SQLException</code> correctly (with the full stack trace, using logging framework) and show nice: "<em>Sorry, we are currently not able to process your request</em>" message. Do you really think the user is interested in the reasons? Have you seen StackOverflow error screen? It's very humorous, but does not reveal <em>any</em> details. However it ensures the user that the problem will be investigated.</p>
+     <p>But he <em>will</em> call you immediately and you need to be able to diagnose the problem. So you need both: proper exception logging and user-friendly messages.</p>
+     <hr>
+     <p>To wrap things up: <strong>always</strong> log exceptions (preferably using <a href="http://nurkiewicz.blogspot.com/2010/05/clean-code-clean-logs-log-exceptions.html" rel="noreferrer">logging framework</a>), but do not expose them to the end-user. Think carefully and about error-messages in your GUI, show stack traces only in development mode.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>your answer is the one that I got.</span> <span> - </span> <span class="display-name">Blasanka</span> <span> </span> <span class="date">6 Aug 2017 at 07:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>"most 'exception'al circumstances". nice.</span> <span> - </span> <span class="display-name">awwsmm</span> <span> </span> <span class="date">31 Jan 2018 at 09:52</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Suraj Chandran</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2011 at 10:18</span>
+     </div>
+    </div>
+    <div>
+     <p>First thing <strong>printStackTrace()</strong> is not expensive as you state, because the stack trace is filled when the exception is created itself.</p>
+     <p>The idea is to pass anything that goes to logs through a logger framework, so that the logging can be controlled. Hence instead of using printStackTrace, just use something like <code>Logger.log(msg, exception);</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>coobird</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2011 at 10:23</span>
+     </div>
+    </div>
+    <div>
+     <p>Printing the exception's stack trace in itself doesn't constitute bad practice, but <em>only</em> printing the stace trace when an exception occurs is probably the issue here -- often times, just printing a stack trace is not enough.</p>
+     <p>Also, there's a tendency to suspect that proper exception handling is not being performed if all that is being performed in a <code>catch</code> block is a <code>e.printStackTrace</code>. Improper handling could mean at best an problem is being ignored, and at worst a program that continues executing in an undefined or unexpected state.</p>
+     <p><strong>Example</strong></p>
+     <p>Let's consider the following example:</p>
+     <pre><code>try {
+  initializeState();
+
+} catch (TheSkyIsFallingEndOfTheWorldException e) {
+  e.printStackTrace();
+}
+
+continueProcessingAssumingThatTheStateIsCorrect();
+</code></pre>
+     <p>Here, we want to do some initialization processing before we continue on to some processing that requires that the initialization had taken place.</p>
+     <p>In the above code, the exception should have been caught and properly handled to prevent the program from proceeding to the <code>continueProcessingAssumingThatTheStateIsCorrect</code> method which we could assume would cause problems.</p>
+     <p>In many instances, <code>e.printStackTrace()</code> is an indication that some exception is being swallowed and processing is allowed to proceed as if no problem every occurred.</p>
+     <p><strong>Why has this become a problem?</strong></p>
+     <p>Probably one of the biggest reason that poor exception handling has become more prevalent is due to how IDEs such as Eclipse will auto-generate code that will perform a <code>e.printStackTrace</code> for the exception handling:</p>
+     <pre><code>try {
+  Thread.sleep(1000);
+} catch (InterruptedException e) {
+  // TODO Auto-generated catch block
+  e.printStackTrace();
+}
+</code></pre>
+     <p>(The above is an actual <code>try-catch</code> auto-generated by Eclipse to handle an <code>InterruptedException</code> thrown by <code>Thread.sleep</code>.)</p>
+     <p>For most applications, just printing the stack trace to standard error is probably not going to be sufficient. Improper exception handling could in many instances lead to an application running in a state that is unexpected and could be leading to unexpected and undefined behavior.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>This. Quite often just <i>not catching</i> the exception at all, at least on method level, is better than catching, doing print of stack trace and continuing as if no problem occurred.</span> <span> - </span> <span class="display-name">eis</span> <span> </span> <span class="date">28 Jul 2017 at 08:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>NPE</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2011 at 10:24</span>
+     </div>
+    </div>
+    <div>
+     <p>I think your list of reasons is a pretty comprehensive one.</p>
+     <p>One particularly bad example that I've encountered more than once goes like this:</p>
+     <pre><code>    try {
+      // do stuff
+    } catch (Exception e) {
+        e.printStackTrace(); // and swallow the exception
+    }
+</code></pre>
+     <p>The problem with the above code is that the handling consists <strong>entirely</strong> of the <code>printStackTrace</code> call: the exception isn't really handled properly nor is it allowed to escape.</p>
+     <p>On the other hand, as a rule I always log the stack trace whenever there's an unexpected exception in my code. Over the years this policy has saved me a lot of debugging time.</p>
+     <p>Finally, on a lighter note, <a href="https://web.archive.org/web/20121102160836/http://www.1729.com/blog/GodsPerfectException.html" rel="noreferrer">God's Perfect Exception</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>"exception is not allowed to escape" - did you mean that the exception is propagated up the stack ? how is logging different from printStackTrace() ?</span> <span> - </span> <span class="display-name">MasterJoe</span> <span> </span> <span class="date">19 Dec 2019 at 23:30</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>dead link, the exception wasn't perfect</span> <span> - </span> <span class="display-name">john k</span> <span> </span> <span class="date">19 Jan 2021 at 21:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@john ktejik <a href="http://thinkinghard.com/blog/GodsPerfectException.html" rel="nofollow noreferrer">try this one</a></span> <span> - </span> <span class="display-name">M.Ed</span> <span> </span> <span class="date">24 Jun 2022 at 17:01</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>OCB</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2011 at 10:20</span>
+     </div>
+    </div>
+    <div>
+     <p><code>printStackTrace()</code> prints to a console. In production settings, nobody is ever watching at that. Suraj is correct, should pass this information to a logger.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Valid point, though we carefully watch our production console output.</span> <span> - </span> <span class="display-name">Chris Knight</span> <span> </span> <span class="date">19 Sep 2011 at 11:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Can you explain what you mean by carefully watch? How and who? At what frequency?</span> <span> - </span> <span class="display-name">OCB</span> <span> </span> <span class="date">19 Sep 2011 at 12:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>By carefully watch, I should have said when requires. Its a rolling log file which is one of several ports of call if something goes wrong with our app.</span> <span> - </span> <span class="display-name">Chris Knight</span> <span> </span> <span class="date">19 Sep 2011 at 14:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>AVee</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2011 at 10:28</span>
+     </div>
+    </div>
+    <div>
+     <p>It is not bad practice because something is 'wrong' about PrintStackTrace(), but because it's 'code smell'. Most of the time the PrintStackTrace() call is there because somebody failed to properly handle the exception. Once you deal with the exception in a proper way you generally don't care about the StackTrace any more.</p>
+     <p>Additionally, displaying the stacktrace on stderr is generally only useful when debugging, not in production because very often stderr goes nowhere. Logging it makes more sense. But just replacing PrintStackTrace() with logging the exception still leaves you with an application which failed but keeps running like nothing happened.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hajo Thelen</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Sep 2011 at 10:19</span>
+     </div>
+    </div>
+    <div>
+     <p>In server applications the stacktrace blows up your stdout/stderr file. It may become larger and larger and is filled with useless data because usually you have no context and no timestamp and so on.</p>
+     <p>e.g. catalina.out when using tomcat as container</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Good point. Abusive use of printStackTrace() could blow our logging files, or at the very least fill it with reams of useless information</span> <span> - </span> <span class="display-name">Chris Knight</span> <span> </span> <span class="date">19 Sep 2011 at 10:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ChrisKnight - could you please suggest an article which explains how logging files could get blown up with useless info ? thanks.</span> <span> - </span> <span class="display-name">MasterJoe</span> <span> </span> <span class="date">19 Dec 2019 at 23:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>humkins</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Jul 2017 at 17:47</span>
+     </div>
+    </div>
+    <div>
+     <p>As some guys already mentioned here the problem is with the exception swallowing in case you just call <code>e.printStackTrace()</code> in the <code>catch</code> block. It won't stop the thread execution and will continue after the try block as in normal condition.</p>
+     <p>Instead of that you need either try to recover from the exception (in case it is recoverable), or to throw <code>RuntimeException</code>, or to bubble the exception to the caller in order to avoid silent crashes (for example, due to improper logger configuration).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

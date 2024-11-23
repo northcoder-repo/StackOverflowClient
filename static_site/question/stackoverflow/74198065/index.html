@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>In Lucene, how can I build index for stemmed text properly?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>In Lucene, how can I build index for stemmed text properly?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Xuan Chen</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Oct 2022 at 17:34</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74198065/in-lucene-how-can-i-build-index-for-stemmed-text-properly">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am building an index for about 1000 text files (containing titles, abstracts, paragraphs, etc) using Apache Lucene. I've already succeeded in building indexes and querying for words that match the text files. However, when I query for the word "forest" for instance, it doesn't return any results containing "forests".</p>
+    <p>Thus, I use Porter Stemming to get stemmed text and build the index for the derived text (not the original one). Also, I stem the words in the query using Porter. Here comes the problem. If I use the Highlighter in Lucene, the highlighted words that will be presented to users are the stemmed ones like "abund" which is expected to be the original word "abundant".</p>
+    <pre class="lang-java prettyprint-override"><code>// FIXME: using Porter, however the text has already changed when building index
+try {
+    String abstractString = TermPreprocessing.getStemmedTerms(xPath.evaluate(ABSTRACT_XPATH, XMLDocument).trim());
+    // Here, I use [org.tartarus.snowball.ext.PorterStemmer] to get stemmed the text
+    //     the [TextField] is not the original text
+    System.out.println(abstractString);
+    Field abstractField = new TextField("abstract", abstractString, Field.Store.YES);
+    luceneDocument.add(abstractField);
+} catch (Exception exception) {
+    exception.printStackTrace();
+}
+    // I build the index for original text, too
+</code></pre>
+    <p>I build an index for both the original and the stemmed text, which, of course, nearly double the size of the index files. Still, I fail to highlight the correct words, since I query for the stemmed text, but I would like to highlight the original one.</p>
+    <pre class="lang-java prettyprint-override"><code>// This is the way I query, stemming the words first
+public static void main(String[] args) throws IOException, ParseException {
+    // ... obtaining the directory
+    IndexReader indexReader = DirectoryReader.open(fsDirectory);
+    IndexSearcher indexSearcher = new IndexSearcher(indexReader);
+    StandardAnalyzer standardAnalyzer = new StandardAnalyzer();
+    MultiFieldQueryParser multiFieldQueryParser = new MultiFieldQueryParser(MULTI_FIELDS, standardAnalyzer);
+    Query query = multiFieldQueryParser.parse(getStemmedTerms(EXPRESSION)); // Here, I process the query string
+    TopDocs topDocs = indexSearcher.search(query, 20);
+
+    for (ScoreDoc scoreDoc : topDocs.scoreDocs) { ... }
+</code></pre>
+    <p>I've gone through some solutions on Google, however, due to Lucene version issues, they might not work. How to build index correctly if I use Porter Stemmer? Thank you very much.</p>
+    <p><a href="https://i.stack.imgur.com/lYFdK.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/lYFdK.png" alt="The environment and the description of the problem"></a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">indexing</span><span class="tag">lucene</span><span class="tag">porter-stemmer</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Oct 2022 at 18:11</span>
+     </div>
+    </div>
+    <div>
+     <p>An alternative approach is to use a custom analyzer, and then use the <a href="https://lucene.apache.org/core/9_4_0/analysis/common/org/apache/lucene/analysis/snowball/SnowballPorterFilterFactory.html" rel="nofollow noreferrer"><code>SnowballPorterFilterFactory</code></a> for both index creation and for queries (and for highlighting).</p>
+     <p>So, for example, as a re-usable class, using Lucene 9.4.0:</p>
+     <pre class="lang-java prettyprint-override"><code>import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilterFactory;
+import org.apache.lucene.analysis.core.LowerCaseFilterFactory;
+import org.apache.lucene.analysis.custom.CustomAnalyzer;
+import org.apache.lucene.analysis.en.EnglishPossessiveFilterFactory;
+import org.apache.lucene.analysis.core.StopFilterFactory;
+import org.apache.lucene.analysis.snowball.SnowballPorterFilterFactory;
+import org.apache.lucene.analysis.miscellaneous.KeywordRepeatFilterFactory;
+import org.apache.lucene.analysis.miscellaneous.RemoveDuplicatesTokenFilterFactory;
+import org.apache.lucene.analysis.standard.StandardTokenizerFactory;
+
+class MyAnalyzer {
+
+    public Analyzer get() throws IOException {
+
+        Map&lt;String, String&gt; snowballParams = new HashMap&lt;&gt;();
+        snowballParams.put("language", "English");
+
+        Map&lt;String, String&gt; stopMap = new HashMap&lt;&gt;();
+        stopMap.put("words", "stopwords.txt");
+        stopMap.put("format", "wordset");
+
+        return CustomAnalyzer.builder()
+                .withTokenizer(StandardTokenizerFactory.NAME)
+                .addTokenFilter(LowerCaseFilterFactory.NAME)
+                .addTokenFilter(StopFilterFactory.NAME, stopMap)
+                .addTokenFilter(ASCIIFoldingFilterFactory.NAME)
+                .addTokenFilter(EnglishPossessiveFilterFactory.NAME)
+                .addTokenFilter(KeywordRepeatFilterFactory.NAME)
+
+                // here is the Porter stemmer step:
+                .addTokenFilter(SnowballPorterFilterFactory.NAME, snowballParams)
+
+                .addTokenFilter(RemoveDuplicatesTokenFilterFactory.NAME)
+                .build();
+    }
+}
+</code></pre>
+     <p>At query time (and when highlighting), use the same custom analyzer.</p>
+     <p>You can obviously change which of the other filters you add/remove in the analyzer, to meet your specific needs. You do not necessarily need to use all the ones I have included in the above example.</p>
+     <hr>
+     <p>For highlighting, I use a custom highlighter based on <a href="https://lucene.apache.org/core/9_4_0/highlighter/org/apache/lucene/search/highlight/Highlighter.html" rel="nofollow noreferrer">Lucene's <code>Highlighter</code></a>, into which I also pass my custom analyzer.</p>
+     <p>This highlights the matched content of the original text - and not just the stem.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Button onClick inside DataTables doesn't show the correct url</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Button onClick inside DataTables doesn't show the correct url</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>anta40</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Oct 2020 at 03:10</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64364288/button-onclick-inside-datatables-doesnt-show-the-correct-url">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm displaying all the customer data using DataTables like this:</p>
+    <pre><code>&lt;script type="text/javascript" src="DataTables/datatables.min.js"&gt;&lt;/script&gt;
+    &lt;script&gt;
+    var theTable = null;
+
+    $(document).ready(function() {
+        theTable = $('#table-customer').DataTable({
+            "processing": true,
+            "serverSide": false,
+            "ordering": true, 
+            "order": [[ 0, 'asc' ]], 
+            "ajax":
+            {
+                "url": "http://localhost/myshop/showdata.php", 
+                "type": "GET"
+            },
+            "sAjaxDataProp": "data",
+            "deferRender": true,
+            "aLengthMenu": [[5, 10, 20, 50],[ 5, 10, 20, 50]], 
+            "columns": [
+                { data: "cust_id" }, 
+                { data: "cust_name" }, 
+                { data: "cust_addr" },
+                { data: "cust_email" },
+                { data: "cust_phone" },
+                { data: "cust_photo", sortable: true, render: function (o) { return '&lt;button id="btn1" onclick="displayImage(data)"&gt;Show&lt;/button&gt;';}
+            ]
+        });
+    });
+
+    function displayImage(link){
+      window.alert(link);
+    }
+
+    &lt;/script&gt;
+</code></pre>
+    <p>All information is displayed properly, except 1 thing: if you click any button on "customer photo" column, instead of showing an alert which shows its URL, nothing happens. Inspecting the page showed me this:</p>
+    <blockquote>
+     <p>Uncaught ReferenceError: data is not defined at HTMLButtonElement.onclick (view.html:1)</p>
+    </blockquote>
+    <p>How to fix this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Oct 2020 at 13:07</span>
+     </div>
+    </div>
+    <div>
+     <p>The <code>columns.data</code> render function builds a string which is returned:</p>
+     <pre><code>function (o) { return 'your string here, including data value'; }
+</code></pre>
+     <p>You have to (a) concatenate your data variable with the string literals you need; and (b) use the variable name you provided - I will use <code>data</code> instead of <code>o</code>:</p>
+     <pre><code>function (data) { return 'your string here, including ' + data + ' value'; }
+</code></pre>
+     <p>So, if we provide all the possible parameters allowed in the renderer, that becomes:</p>
+     <pre><code>{ 
+  "data": "cust_photo", 
+  "sortable": true, 
+  "render": function(data, type, row, meta) {
+    return '&lt;button id="btn1" onclick="displayImage(\'' + data + '\')"&gt;Show&lt;/button&gt;';
+  }
+}
+</code></pre>
+     <p>I use <code>\'</code> to ensure the value of the <code>data</code> variable is surrounded in single quotes.</p>
+     <p>(<strong>Note</strong> that in your question, the code is also missing a closing <code>}</code>.)</p>
+     <p>But to avoid potential issues with sorting and filtering, these column data render functions need to account for DataTable's use of <a href="https://datatables.net/manual/data/orthogonal-data" rel="nofollow noreferrer">orthogonal data</a>.</p>
+     <p>The <code>type</code> parameter can be used for this:</p>
+     <pre><code>{ 
+  "data": "cust_photo", 
+  "sortable": true, 
+  "render": function(data, type, row, meta) {
+    if (type === 'display') {
+      return '&lt;button id="btn1" onclick="displayImage(\'' + data + '\')"&gt;Show&lt;/button&gt;';
+    } else {
+      return data; // type is for sorting or filtering - just use the raw value
+    }
+  }
+}
+
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

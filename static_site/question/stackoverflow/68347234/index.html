@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene how can i add in QueryParser parametr InOrder=true?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene how can i add in QueryParser parametr InOrder=true?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Even</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Jul 2021 at 12:15</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68347234/lucene-how-can-i-add-in-queryparser-parametr-inorder-true">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a text of file:</p>
+    <pre><code>war force
+
+force war
+</code></pre>
+    <p>I do "split" and save word in TextWord:</p>
+    <pre><code>TextWord[0]: war
+TextWord[1]: force
+TextWord[2]: force
+TextWord[3]: war
+</code></pre>
+    <p>I want to find only "war force", but my search also finds "force war". I want the search to take into account 2 rules:</p>
+    <ol>
+     <li>Keep word order. (If my str of query = "war force" and I found only index 0 and 1. This "force war" would be wrong);</li>
+     <li>Slop = 0 (So that there are no words between the word "war" and "force" and correct is "war force", but this "war SOMEWORD force" would be wrong )</li>
+    </ol>
+    <p>I try this:</p>
+    <pre><code>Query query = parser.parse(" \"war force\"~0x "); 
+Query query = parser.parse(" \"war force\"~0 ");
+Query query = parser.parse("war AND force");
+Query query = parser.parse("war force");
+</code></pre>
+    <hr>
+    <p>But such requests do not give the desired result, tell me how you can do this?</p>
+    <hr>
+    <p>My code:</p>
+    <pre><code>        Analyzer customAnalyzer = CustomAnalyzer.builder()
+        .withTokenizer("standard")
+        .build();
+        
+        QueryParser parser = new QueryParser("tags", customAnalyzer);
+        Query query = parser.parse("\"war force\" AND NOT \"force war\""); 
+        IndexSearcher searcher = new IndexSearcher(reader); 
+        TopDocs docs = searcher.search(query, 10); 
+        System.out.println(" "); 
+        FastVectorHighlighter highlighter = new FastVectorHighlighter(); 
+        FieldQuery fieldQuery = highlighter.getFieldQuery(query);    
+        FieldTermStack stack = new FieldTermStack(reader, 0, "tags", fieldQuery);
+        
+        TermInfo myTermInfo = stack.pop();
+        while(myTermInfo != null){
+            System.out.println("word[" + myTermInfo.getPosition() + "]: " + myTermInfo.getText());
+            myTermInfo = stack.pop();
+        }
+
+</code></pre>
+    <p>My output:</p>
+    <pre><code>word[0]: war
+word[1]: force
+word[4]: force
+word[5]: war
+</code></pre>
+    <p>The result I need:</p>
+    <pre><code>word[0]: war
+word[1]: force
+</code></pre>
+    <p>I saw a documentation. If we have such a request: "Word1 Word2", and between these words there is no operator, then by default the OR operator is put. This means that the request "war force" will be equal to the request "force war", so it will be found: 1) "war force"; 2) "force war". And I don't know how to make sure that I have only this as a result: "war force". Tell me how to be? Am I missing something?</p>
+    <hr>
+    <p>And if I use highlighter, I have result:</p>
+    <pre><code>?&lt;b&gt;war&lt;/b&gt; &lt;b&gt;force&lt;/b&gt; bookcase bookcase1
+
+force war
+</code></pre>
+    <p>My code with highlighter:</p>
+    <pre><code>Analyzer customAnalyzer = CustomAnalyzer.builder()
+        .withTokenizer("standard")
+        .build();
+        
+        //... Above, create documents with two fields, one with term vectors (tv) and one without (notv)
+        IndexSearcher searcher = new IndexSearcher(reader);
+        QueryParser parser = new QueryParser("tags", customAnalyzer);
+        Query query = parser.parse(" \"war force\"~0 ");
+        //Query query = parser.parse("*Case");
+        //Query query = new PrefixQuery(new Term("tags", "book")); //Поиск чтобы слово начиналось на строку "book" - "bookcase"
+        
+        TopDocs hits = searcher.search(query, 10);
+
+        SimpleHTMLFormatter htmlFormatter = new SimpleHTMLFormatter("&lt;b&gt;", "&lt;/b&gt;");
+        Highlighter highlighter = new Highlighter(htmlFormatter, new QueryScorer(query));
+        for (int i = 0; i &lt; hits.scoreDocs.length; i++) {
+            int id = hits.scoreDocs[i].doc;
+            Document doc = searcher.doc(id);
+            String text = doc.get("tags");
+            TokenStream tokenStream = TokenSources.getAnyTokenStream(searcher.getIndexReader(), id, "tags", customAnalyzer);
+            TextFragment[] frag = highlighter.getBestTextFragments(tokenStream, text, true, 100);//highlighter.getBestFragments(tokenStream, text, 3, "...");
+            
+            for (int j = 0; j &lt; frag.length; j++) {
+                if ((frag[j] != null) &amp;&amp; (frag[j].getScore() &gt; 0)) {
+                    System.out.println((frag[j].toString()));
+                }
+            }
+            System.out.println("finish test");
+}
+</code></pre>
+    <p>But if I use highlighter, I don't have possition of found word.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>The query <code>"war force"~0</code> is the same as the query <code>"war force"</code>. Both queries will find documents containing the word <code>war</code> immediately followed by the word <code>force</code>. So, in Java (with the <code>"</code>s escaped), that is: <code>parser.parse("\"war force\"");</code>. This is, basically, your 2nd example query from your question.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">12 Jul 2021 at 13:08</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>If this is not working for you, you can provide more details helping to clarify why it is not working. When you say "my search also finds <code>force war</code>" - you need to show us an example where that actually happens. (Of course, if the document contains <code>war force</code> and also <code>force war</code>, then that document will be found.)</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">12 Jul 2021 at 13:08</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I have the rule: word order is important - so if my query "war force" and slop = 0, I wait result = "war force". But if result = "force war" so that error. What do u think about it?</span> <span> - </span> <span class="display-name">Even</span> <span> </span> <span class="date">12 Jul 2021 at 13:20</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I am sorry I don't really understand why you wrote that comment. It just repeats information which is already in the question. It doesn't provide any new information.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">12 Jul 2021 at 13:36</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>You said "(Of course, if the document contains war force and also force war, then that document will be found.)" - that result is error, I want to find only "war force". I meant it.</span> <span> - </span> <span class="display-name">Even</span> <span> </span> <span class="date">12 Jul 2021 at 13:48</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thank you for the clarification - now I understand your question a lot better.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">12 Jul 2021 at 14:39</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>If your query is <code>war force</code>, then yes that searches for the word <code>war</code> or the word <code>force</code>, or both words (and the order in which they are found does not matter). But that is not what you have. You have the query <code>"war force"</code>. That is a <i>phrase</i> (surrounded by <code>"</code> double quotes). There is no <code>OR</code> operator in the middle of a phrase. A phrase is treated as a single token.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">13 Jul 2021 at 12:48</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>I will take a look at your example code - but just to clarify: When you execute a search you will get the document. But now I see in your question you are using a <b>highlighter</b> - and that is different from just running a query. So, what is it you actually want? You want to retrieve only those <i>matching</i> words from the document? And you want to retrieve their positions?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">13 Jul 2021 at 12:53</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Yes - I will take a closer look at your code when I have some more time - I am interested to see if I can recreate your problem for myself.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">13 Jul 2021 at 12:58</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I want to get possition of my found words of query. If query = "war force" so I need result: [0] and [1]</span> <span> - </span> <span class="display-name">Even</span> <span> </span> <span class="date">13 Jul 2021 at 12:59</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thank you very much, i will wait for your comment</span> <span> - </span> <span class="display-name">Even</span> <span> </span> <span class="date">13 Jul 2021 at 13:01</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Do u want to move this discussion to chat?</span> <span> - </span> <span class="display-name">Even</span> <span> </span> <span class="date">13 Jul 2021 at 13:03</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I added notes to my answer.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">13 Jul 2021 at 14:03</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Jul 2021 at 14:38</span>
+     </div>
+    </div>
+    <div>
+     <p>To exclude a term or phrase, you can use the <code>-</code> operator (the "prohibit" operator):</p>
+     <pre><code>"war force" -"force war"
+</code></pre>
+     <p>So, in Java, this would be:</p>
+     <pre><code>Query query = parser.parse("\"war force\" -\"force war\""); 
+</code></pre>
+     <p>You can also use <code>AND NOT</code>:</p>
+     <pre><code>"war force" AND NOT "force war"
+</code></pre>
+     <p>You can see more details in the classic query parser <a href="https://lucene.apache.org/core/8_9_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html" rel="nofollow noreferrer">syntax documentation</a>.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>The question has changed a lot since you first asked it!</p>
+     <p>Now there are 2 new problems:</p>
+     <ol>
+      <li>
+       <p>Your query appears to be retrieving documents that it should not retrieve.</p></li>
+      <li>
+       <p>You cannot get the positions of matched terms.</p></li>
+     </ol>
+     <p><strong>Problem 1</strong></p>
+     <p>I cannot recreate this problem. Let's assume I have 2 documents in my index:</p>
+     <pre><code>Doc 1: State WEAPONRY war force word1 And force war Book WEAPONRY
+
+Doc 2: State WEAPONRY war force 123 War WORD1 Force And war Book WEAPONRY
+</code></pre>
+     <p>When I use the following query:</p>
+     <pre><code>"war force" AND NOT "force war"
+</code></pre>
+     <p>I find Doc 2, but not Doc 1 - which is correct.</p>
+     <p>I don't know why you are seeing incorrect/unexpected results. I guess it may be because your index contains unexpected data or may be using an unexpected indexing approach. There is nothing in the question which helps to explain this.</p>
+     <p><strong>Problem 2</strong></p>
+     <p>Now, your question contains two examples of using highlighters:</p>
+     <ul>
+      <li>the fast vector highlighter</li>
+      <li>the standard highlighter</li>
+     </ul>
+     <p>However, both of your code fragments will not report the positions of matched tokens. To do that you can use the approach shown in this answer:</p>
+     <p><a href="https://stackoverflow.com/questions/68239057/lucene-how-can-i-get-position-of-found-query/68246947#68246947">Lucene how can I get position of found query?</a></p>
+     <p>When I use that approach, and use the same data and query as shown above, I get the following results:</p>
+     <pre><code>Found term: war
+Position:   3
+
+Found term: force
+Position:   4
+</code></pre>
+     <p>And, again, this is correct: The matched terms are the 3rd and 4th words in the found document.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is a good approach, but I tested it and it still outputs this: ` word[0]: war word[1]: force word[4]: force word[5]: war `</span> <span> - </span> <span class="display-name">Even</span> <span> </span> <span class="date">13 Jul 2021 at 05:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Add new details, what do u think about it?</span> <span> - </span> <span class="display-name">Even</span> <span> </span> <span class="date">13 Jul 2021 at 06:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I add some information about a new attempt and result if I use highlighter instead fastvectorhighlighter.</span> <span> - </span> <span class="display-name">Even</span> <span> </span> <span class="date">13 Jul 2021 at 13:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

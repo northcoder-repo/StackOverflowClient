@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Does 'volatile' guarantee that any thread reads the most recently written value?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Does 'volatile' guarantee that any thread reads the most recently written value?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>6</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Mark</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Mar 2021 at 10:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66653558/does-volatile-guarantee-that-any-thread-reads-the-most-recently-written-value">source</a>
+    </div>
+   </div>
+   <div>
+    <p>From the book Effective Java:</p>
+    <blockquote>
+     <p>While the volatile modifier performs no mutual exclusion, it guarantees that any thread that reads the field will see the most recently written value</p>
+    </blockquote>
+    <p><a href="https://stackoverflow.com/q/106591">SO</a> and many other sources claim similar things.</p>
+    <p><strong>Is this true?</strong></p>
+    <p>I mean really true, not a close-enough model, or true only on x86, or only in Oracle JVMs, or some definition of "most recently written" that's not the standard English interpretation...</p>
+    <p>Other sources (<a href="https://stackoverflow.com/q/6526432">SO example</a>) have said that volatile in Java is like acquire/release semantics in C++. Which I think <a href="https://stackoverflow.com/q/48383867">do not</a> offer the guarantee from the quote.</p>
+    <p>I found that in the <a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.4.4" rel="noreferrer">JLS 17.4.4</a> it says "A write to a volatile variable v (§8.3.1.4) synchronizes-with all subsequent reads of v by any thread (where "subsequent" is defined according to the synchronization order)." But I don't quite understand.</p>
+    <p>There are quite some sources for and against this, so I'm hoping the answer is able to convince that many of those (on either side) are indeed wrong - for example reference or spec, or counter-example code.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">multithreading</span><span class="tag">shared-memory</span><span class="tag">volatile</span><span class="tag">specifications</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>"But I don't quite understand." What don't you understand? The JLS is the most authoritative reference for Java.</span> <span> - </span> <span class="display-name">Sweeper</span> <span> </span> <span class="date">16 Mar 2021 at 10:45</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Sweeper Don't understand whether that sentence means that other threads will immediately see the value, 'synchronizes-with' and 'subsequent' are not clear enough to me</span> <span> - </span> <span class="display-name">Mark</span> <span> </span> <span class="date">16 Mar 2021 at 10:49</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>"Is this true?" Yes. A volatile write happens-before a read of the same variable.</span> <span> - </span> <span class="display-name">Andy Turner</span> <span> </span> <span class="date">16 Mar 2021 at 10:49</span></td>
+      </tr>
+      <tr>
+       <td>4</td>
+       <td><span>"There are quite some sources for and against this" Please provide the sources against this.</span> <span> - </span> <span class="display-name">Andy Turner</span> <span> </span> <span class="date">16 Mar 2021 at 10:55</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span><i>"Other sources (SO example) have said that volatile in Java is like acquire/release semantics in C++."</i> - Actually, that question <b>asks</b> it, and neither of the answers actually answer that. (The accepted answer effectively says <i>"Here is the C# spec - you work it out!"</i>.) That hardly counts as a legitimate source of information.</span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">16 Mar 2021 at 10:58</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>You need to read it like this. If a load synchronizes with a particular store (so sees its value), then there is a happens before relation. So certain assumptions can be made about loads/store before the store and after the load. It doesn't say anything about recency.</span> <span> - </span> <span class="display-name">pveentjer</span> <span> </span> <span class="date">1 Apr 2021 at 12:15</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@pveentjer Sounds that's what.I got from your answer and it reasonable, thanks. But the answers seem to contradict each other so I'm hesitant to accept one.</span> <span> - </span> <span class="display-name">Mark</span> <span> </span> <span class="date">1 Apr 2021 at 12:24</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I would suggest digging into the meaning of sequential consistency. And also check out the following: <a href="https://jepsen.io/consistency/models/sequential" rel="nofollow noreferrer">jepsen.io/consistency/models/sequential</a> If real time order should be respected, one needs learnability. Also check the link I posted in my answer.</span> <span> - </span> <span class="display-name">pveentjer</span> <span> </span> <span class="date">1 Apr 2021 at 12:27</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>The answers don't need to contradict each other. On a practical level you could say that a read needs to see the most recent write because the only way to proof it didn't read the most recent value would be to hook up special measuring equipment. And the hardware will not postpone reads/writes indefinitely. Only on a theoretical level reads/writes are allowed to be skewed indefinitely.</span> <span> - </span> <span class="display-name">pveentjer</span> <span> </span> <span class="date">1 Apr 2021 at 12:29</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Andy Turner</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Mar 2021 at 10:51</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>Is this true?</p>
+      <p>I mean really true, not a close-enough model, or true only on x86, or only in Oracle JVMs, or some definition of "most recently written" that's not the standard English interpretation...</p>
+     </blockquote>
+     <p>Yes, at least in the sense that a correct implementation of Java gives you this guarantee.</p>
+     <p>Unless you are using some exotic, experimental Java compiler/JVM (*), you can essentially take this as true.</p>
+     <p>From <a href="https://docs.oracle.com/javase/specs/jls/se14/html/jls-17.html#jls-17.4.5" rel="noreferrer">JLS 17.4.5</a>:</p>
+     <blockquote>
+      <p>A write to a volatile field (§8.3.1.4) happens-before every subsequent read of that field.</p>
+     </blockquote>
+     <hr>
+     <p>(*) As <a href="https://stackoverflow.com/users/139985/stephen-c">Stephen C</a> <a href="https://stackoverflow.com/questions/66653558/does-volatile-guarantee-that-any-thread-reads-the-most-recently-written-value/66653732#comment117827013_66653732">points out</a>, such an exotic implementation that doesn't implement the memory model semantics described in the language spec can't usefully (or even legally) be described as "Java".</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>I would say that an exotic Java that didn't behave according to the revised memory model in Java 5 and later is "not Java". And Oracle's lawyers (who guard the use of the Java trademarks) would agree. If a language implementation doesn't pass the JTK compliance tests, you are not allowed to call it Java (™).</span> <span> - </span> <span class="display-name">Stephen C</span> <span> </span> <span class="date">16 Mar 2021 at 11:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>pveentjer</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Mar 2021 at 12:47</span>
+     </div>
+    </div>
+    <div>
+     <p>It is not true. JMM is based on sequential consistency and for sequential consistency real time ordering isn't guaranteed; for that you need linearizability. In other words, reads and writes can be skewed as long as the program order isn't violated (or as long is it can't be proven po was violated).</p>
+     <p>A read of volatile variable <code>a</code>, needs to see the most recent written value <strong>before it in the memory order.</strong> But that doesn't imply real time ordering.</p>
+     <p>Good read about the topic: <a href="https://concurrency-interest.altair.cs.oswego.narkive.com/G8KjyUtg/relativity-of-guarantees-provided-by-volatile" rel="nofollow noreferrer">https://concurrency-interest.altair.cs.oswego.narkive.com/G8KjyUtg/relativity-of-guarantees-provided-by-volatile</a>.</p>
+     <p>I'll make it concrete:</p>
+     <p>Imagine there are 2 CPU's and (volatile) variable A with initial value 0. CPU1 does a store A=1 and CPU2 does a load of A. And both CPUs have the cacheline containing A in SHARED state.</p>
+     <p>The store is first speculatively executed and written to the store buffer; eventually the store commits and retires, but since the stored value is still in the store buffer; it isn't visible yet to the CPU2. Till so far it wasn't required for the cacheline to be in an EXCLUSIVE/MODIFIED state, so the cacheline on CPU2 still contains the old value and hence CPU2 can still read the old value.</p>
+     <p>So in the real time order, the write of A is ordered before the read of A=0, but in the synchronization order, the write of A=1 is ordered after the read of A=0.</p>
+     <p>Only when the store leaves the store buffer and wants to enter the L1 cache, the request for ownership (RFO) is send to all other CPU's which set the cacheline containing A to INVALID on CPU2 (RFO prefetching I'll leave out of the discussion). If CPU2 would now read A, it is guaranteed to see A=1 (the request will block till CPU1 has completed the store to the L1 cache).</p>
+     <p>On acknowledgement of the RFO the cacheline is set to MODIFIED on CPU1 and the store is written to the L1 cache.</p>
+     <p>So there is a period of time between when the store is executed/retired and when it is visible to another CPU. But the only way to determine this is if you would add special measuring equipment to the CPUs.</p>
+     <p>I believe a similar delaying effect can happen on the reading side with invalidation queues.</p>
+     <p>In practice this will not be an issue because store buffers have a limited capacity and need to be drained eventually (so a write can't be invisible indefinitely). So in day to day usage you could say that a volatile read, reads the most recent write.</p>
+     <p>A java volatile write/read provides release/acquire semantics, but keep in mind that the volatile write/read is stronger than release/acquire semantics. A volatile write/read is sequential consistent and release/acquire semantics isn't.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I think that book was only implying sequential consistency behavior, as denoted by that "any thread", but otherwise I agree with you : the quote is in general wrong.</span> <span> - </span> <span class="display-name">Eugene</span> <span> </span> <span class="date">16 Mar 2021 at 15:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Eugene</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Mar 2021 at 15:56</span>
+     </div>
+    </div>
+    <div>
+     <p>The quote per-se is correct in terms of what is tries to prove, but it is incorrect on a broader view.</p>
+     <p>It tries to make a distinction of <code>sequential consistency</code> and <code>release/acquire semantics</code>, at least in my understanding. The difference is rather "thin" between these two terms, but very important. I have tried to simplify the difference at the beginning of <a href="https://stackoverflow.com/questions/65171886/double-check-locking-without-volatile-but-with-varhandle-release-acquire/65171887#65171887">this answer</a> or <a href="https://stackoverflow.com/questions/46889610/sequential-consistency-volatile-explanation/65099212#65099212">here</a>.</p>
+     <p>The author is trying to say that <code>volatile</code> offers that <code>sequential consistency</code>, as implied by that:</p>
+     <blockquote>
+      <p>"... it guarantees that <strong>any thread</strong>.."</p>
+     </blockquote>
+     <p>If you look at the <code>JLS</code>, it has this sentence:</p>
+     <blockquote>
+      <p>A write to a volatile field (§8.3.1.4) happens-before every subsequent read of that field.</p>
+     </blockquote>
+     <p>The tricky part there is that <em>subsequent</em> and it's meaning, and it has been discussed <a href="https://stackoverflow.com/questions/50873873/what-does-subsequent-read-mean-in-the-context-of-volatile-variables">here</a>. What is really wants to mean is "subsequent that observes that write". So <code>happens-before</code> is guaranteed when the <em>reader</em> observes the value that the <em>writer</em> has written.</p>
+     <p>This already implies that a write is not necessarily seen on the next read, and this can be the case where speculative execution is allowed. So in this regard, the quote is miss-leading.</p>
+     <p>The quote that you found:</p>
+     <blockquote>
+      <p>A write to a volatile variable v (§8.3.1.4) synchronizes-with all subsequent reads of v by any thread (where "subsequent" is defined according to the synchronization order)</p>
+     </blockquote>
+     <p>is a complicated to understand without a much broader context. In simple words, it established <code>synchronizes-with</code> order (and implicitly <code>happens-before</code>) between two threads, where <code>volatile v</code> variables is a <em>shared</em> variable. <a href="https://stackoverflow.com/a/65016214/1059372">here is an answer</a> where this has broader explanation and thus should make more sense.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

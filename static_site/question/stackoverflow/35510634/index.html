@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to use Thymeleaf th:text in reactJS</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to use Thymeleaf th:text in reactJS</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>15</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user1544640</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Feb 2016 at 16:57</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/35510634/how-to-use-thymeleaf-thtext-in-reactjs">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am running a springboot application with Thymeleaf and reactJS. All the HTML text are read from message.properties by using th:text in the pages, but when I have th:text in reactJS HTML block, reactJS seems angry about it.</p>
+    <pre><code>render() {
+  return (
+      &lt;input type="text" th:text="#{home.welcome}"&gt;
+  )
+}
+</code></pre>
+    <p>The error is:</p>
+    <pre><code>Namespace tags are not supported. ReactJSX is not XML.
+</code></pre>
+    <p>Is there a walkaround besides using dangerouslySetInnerHTML?</p>
+    <p>Thank you!</p>
+   </div>
+   <div class="tags">
+    <span class="tag">html</span><span class="tag">spring</span><span class="tag">reactjs</span><span class="tag">spring-boot</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>30</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>EugeneZ</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Feb 2016 at 00:52</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>There is no sane workaround.</strong></p>
+     <p>You are getting this error because Thymeleaf outputs XML, and JSX parsers do not parse XML.</p>
+     <p>You did this because JSX looks very, very similar to XML. But they are very, very different, and even if you somehow hacked Thymeleaf to strip namespaced attributes and managed to get a component to render, it would be merely a fleeting moment of duct-taped-together, jury-rigged code that <em>will</em> fall apart under further use.</p>
+     <p>This is a really, really bad idea because JSX is Javascript. You are generating Javascript on the fly. Just to name a few reasons this will not work in the long term:</p>
+     <ul>
+      <li>This makes your components difficult if not impossible to test.</li>
+      <li>Reasoning about application state will be a nightmare as you will struggle to figure out if the source of a certain state is coming from Thymeleaf or JS.</li>
+      <li>Your application will completely grind to a halt if Thymeleaf outputs bad JS.</li>
+      <li>These problems will all get worse with time (Thyme?) as as developers abuse the ease with which they can render server-side data to the client-side, leading to an insane application architecture.</li>
+     </ul>
+     <p>Do not do this. Just use Thymeleaf, or just use React.</p>
+     <p><strong>Sample Alternative:</strong> I primarily work on a React application backed by a Java backend. So I understand how someone could stumble upon this hybrid and think it might be a good idea. You are likely already using Thymeleaf and are trying to figure out how you can avoid rewriting your servlets but still get the power of React.</p>
+     <p>We were in a similar boat two years ago, except with an aging JSP frontend, but the difference is negligible. What we did (and it works well) is use a JSP page to bootstrap the entire React application. There is now <em>one</em> JSP page that we render to the user. This JSP page outputs JSON into a single <code>&lt;script&gt;</code> tag that contains some initial startup data that we would otherwise have to fetch immediately. This contains resources, properties, and just plain data.</p>
+     <p>We then output another <code>&lt;script&gt;</code> that points to the location of a compiled JS module containing the entire standalone React application. This application loads the JSON data once when it starts up and then makes backend calls for the rest. In some places, we have to use JSP for these, which is less than ideal but still better than your solution. What we do is have the JSP pages output a single attribute containing JSON. In this way (and with some careful pruning by our XHR library) we get a poor man's data interchange layer built atop a JSP framework we don't have time to change.</p>
+     <p>It is definitely not ideal, but it works well and we have benefited vastly from the many advantages of React. When we do have issues with this peculiar implementation, they are easy to isolate and resolve.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for your response, I am very new to front-end, and was just learning and experimenting with Thymeleaf and reactJS. I mainly use Thymeleaf for templating and internalization. I was following <a href="https://spring.io/guides/tutorials/react-and-spring-data-rest/" rel="nofollow noreferrer">spring.io/guides/tutorials/react-and-spring-data-rest</a>, and toke it for granted since it is a guide in spring.io</span> <span> - </span> <span class="display-name">user1544640</span> <span> </span> <span class="date">20 Feb 2016 at 04:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The guide tells you to put it ahead of the React div, by which they mean place it before the React container in the index.html file that bootstraps React.js. This is fine because it's an HTML file, not JSX, and React cannot interact with it. There are no examples of mixing the two. Welcome to React!</span> <span> - </span> <span class="display-name">EugeneZ</span> <span> </span> <span class="date">20 Feb 2016 at 05:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Dropping startup data in a script tag is perfect.</span> <span> - </span> <span class="display-name">geg</span> <span> </span> <span class="date">15 May 2016 at 23:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tamb</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Aug 2017 at 17:57</span>
+     </div>
+    </div>
+    <div>
+     <p>It is possible wrap ReactJS apps in Thymeleaf. Think if you want a static persistent part (like some links, or even just displayed data), you could use Thymeleaf. If you have a complicated part (something that requires DOM repaints, shared data, updates from UI/Sockets/whatever), you could use React.</p>
+     <p>If you need to pass state you could use Redux/other methods.</p>
+     <p>You could have your backend send data via a rest API to the React part and just render your simple parts as fragments or as whole chunks of plain HTML using Thymeleaf.</p>
+     <p>Remember, Thymeleaf is really just HTML. React is virtual DOM that renders as HTML. It's actually fairly easy to migrate one to the other. So you could write anything "Static" or that does not respond much to UI, in Thymeleaf/HTML. You could also just render those parts in React too, but without State.</p>
+     <p>Thymeleaf 3 allows you to <a href="https://github.com/jmiguelsamper/thymeleaf3-template-modes-example/blob/master/src/main/webapp/WEB-INF/js/common.js" rel="noreferrer">render variables from your Java to a separate JS file</a>. So that is also an option to pass into JSX</p>
+     <p><code>function showCode() { var code = /*[[${code}]]*/ '12345'; document.getElementById('code').innerHTML = code; }</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>uny</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Apr 2020 at 06:42</span>
+     </div>
+    </div>
+    <div>
+     <p>Now you can use data- prefix attributes (ex. <code>data-th-text="${message}"</code>). <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf.html#support-for-html5-friendly-attribute-and-element-names" rel="nofollow noreferrer">https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf.html#support-for-html5-friendly-attribute-and-element-names</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

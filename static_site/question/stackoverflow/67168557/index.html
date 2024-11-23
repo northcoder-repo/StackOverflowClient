@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to group child rows in Datatables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to group child rows in Datatables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user15500092</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Apr 2021 at 19:54</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67168557/how-to-group-child-rows-in-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a table that makes use of child rows where each row is expandable / collapsible, but my parent rows will have duplicate data.</p>
+    <p>I would like to group my child rows or child row, as they are called in the official <a href="https://datatables.net/examples/api/row_details.html" rel="nofollow noreferrer">Datatables</a> documentation , I have the following table where in the parent row there are the Purchase Order, Purchase Order Date, Currency and Status columns.</p>
+    <p>If you look, I have 3 purchase orders that correspond to the same identifier in this example is <strong>258</strong>, but each purchase order contains a secondary row with different information, that information is Receipt Date, No. Invoice, Item Code and Description.</p>
+    <pre><code>+-----------------------------------------------------------------------+
+|    | Purchase Order   |    Purchase Order Date   |Currency|   Status  |
++----+------------------+--------------------------+--------+-----------+
+|  + |        258       |       06/01/2020         |   USD  | Delivered |                                
++------+---------+------------+--------------------+-------------+------+
+|     Receipt Date      | No. Invoice |    Code Item    |  Description  |
++------+---------+-----------+---------------------+-------------+------+
+|       07/01/2020      |     617     |      CA0033     |       CT      |
++-----------------------------------------------------------------------+
+|  + |        258       |       06/01/2020         |   USD  | Delivered |
++-----------------------+--------------------------+--------+-----------+
+|     Receipt Date      | No. Invoice |    Code Item    |  Description  |
++-----------------------+-------------+-----------------+---------------+
+|       14/01/2020      |     620     |      CA0036     |      CTR      |
++-----------------------+-------------+-----------------+---------------+
+|  + |        258       |       06/01/2020         |   USD  | Delivered |
++-----------------------+--------------------------+--------+-----------+
+|      Receipt Date     | No. Invoice |    Code Item    |  Description  |
++-----------------------+-------------+-----------------+---------------+
+|       16/01/2020      |     626     |      CC0048     |      CTY      |
++-----------------------+-------------+-----------------+---------------+
+</code></pre>
+    <p>What I would like to achieve without repeating the <strong>Purchase Order</strong> is to group the secondary rows as follows.</p>
+    <pre><code>+-----------------------------------------------------------------------+
+|    | Purchase Order   |    Purchase Order Date   |Currency|   Status  |
++----+------------------+--------------------------+--------+-----------+
+|  + |        258       |       06/01/2020         |   USD  | Delivered |                                
++------+---------+------------+-------------------+-------------+-------+
+|      Receipt Date     | No. Invoice |    Code Item    |  Description  |
++------+---------+-----------+--------------------+-------------+-------+
+|       07/01/2020      |     617     |      CA0033     |       CT      |
++-----------------------+-------------+-----------------+---------------+
+|       14/01/2020      |     620     |      CA0036     |      CTR      |
++-----------------------+-------------+-----------------+---------------+
+|       16/01/2020      |     626     |      CC0048     |      CTY      |
++-----------------------+-------------+-----------------+---------------+
+</code></pre>
+    <p>If you look at the Purchase Order now it contains the information of the same 3 orders grouped together, this is what I want to get to.</p>
+    <p>The following is the code of my AJAX call which I use to build my tables.</p>
+    <pre><code>/* Formatting function for row details - modify as you need */
+function format(d) {
+    // `d` is the original data object for the row
+    console.log(d);
+    
+    return '&lt;table cellpadding="5" cellspacing="0" style="border-collapse: separate; border-spacing: 40px 5px;"&gt;' +
+        '&lt;tr&gt;' +      
+        '&lt;td&gt;&lt;strong&gt;Receipt Date: &lt;/strong&gt;&lt;/td&gt;' + '&lt;td&gt;&lt;strong&gt;No. Invoice:&lt;strong&gt;&lt;/td&gt;' +  '&lt;td&gt;&lt;strong&gt;Code Item:&lt;strong&gt;&lt;/td&gt;' +  '&lt;td&gt;&lt;strong&gt;Description:&lt;/strong&gt;&lt;/td&gt;' +
+        '&lt;/tr&gt;' +
+        '&lt;tr&gt;' +
+        '&lt;td&gt;' + d.ReceiptDate + '&lt;/td&gt;' + '&lt;td&gt;' + d.Invoice+ '&lt;/td&gt;' + '&lt;td&gt;' + d.CodeItem+ '&lt;/td&gt;' +  '&lt;td&gt;' + d.Description + '&lt;/td&gt;' +
+        '&lt;/tr&gt;' +    
+        '&lt;/table&gt;';     
+}
+
+
+$(document).ready(function () {
+    $('#example').dataTable( {
+        responsive : true,
+         ajax : {
+             "type": 'POST',
+             "url" : './test.php',  
+             "dataType": 'JSON',             
+             "cache": false,
+             "data": {
+                 'param' : 1,                           
+             },
+         },
+         language : {
+            "lengthMenu": "Mostrar _MENU_ registros",
+            "zeroRecords": "No se encontró nada",
+            "info": "Mostrando del _START_ al _END_ de un total de _TOTAL_",
+            "infoEmpty": "No hay registros",
+            "emptyTable": "No hay datos para mostrar",
+            "loadingRecords": "Cargando...",
+            "processing": "Procesando...",
+            "search": "Buscar:",
+            "infoFiltered": "(filtrado de un total de _MAX_ registros)",
+            "paginate": {
+                "first": "Primera",
+                "last": "Última",
+                "next": "Siguiente",
+                "previous": "Anterior"
+            }
+         },    
+         columns: [          
+             {
+                 "className":      'details-control',
+                 "orderable":      false,
+                 "data":           null,
+                 "defaultContent": ''
+             },
+             { "data" : "PurchaseOrder" },
+             { "data" : "PurcharOrderDate" },
+             { "data" : "Currency" },
+             { "data" : "Status" }                 
+        ],
+         order : [[1, 'desc']]
+    } );
+
+    
+    // Add event listener for opening and closing details
+    $('#example').on('click', 'td.details-control', function () {
+        var tr = $(this).closest('tr');
+        var row = $('#example').DataTable().row(tr);
+
+        if (row.child.isShown()) {
+            // This row is already open - close it
+            row.child.hide();
+            tr.removeClass('shown');
+        }
+        else {
+            // Open this row
+            row.child(format(row.data())).show();
+            tr.addClass('shown');
+        }
+    });
+
+});
+</code></pre>
+    <p>Consulting the <a href="https://datatables.net/examples/advanced_init/row_grouping.html" rel="nofollow noreferrer">Datatables</a> documentation it has a <a href="https://datatables.net/extensions/rowgroup/" rel="nofollow noreferrer">RowGroup</a> extension but I don't know if they can be grouped for child rows or child rows. I would be grateful to each of you if you can help me find a way out of this problem.</p>
+    <p><strong>UPDATE:</strong></p>
+    <p>Below I denormalize my JSON response provided by test.php as requested in the comment, this is done with the goal of getting access to all the data you want for each child row.</p>
+    <pre><code>[
+  {
+    "Purchase Order": 949,
+    "Purchase Order Date": "20/11/2019",
+    "Receipt Date": "12/12/2019",
+    "No. Invoice": 448,
+    "Code Item": "CC0048",
+    "Description": "CTR",
+    "Status": "Delivered",
+    "Currency": "USD"
+  },
+  {
+    "Purchase Order": 949,
+    "Purchase Order Date": "20/11/2019",
+    "Receipt Date": "13/12/2019",
+    "No. Invoice": 448,
+    "Code Item": "CC0048",
+    "Description": "CTR",
+    "Status": "Delivered",
+    "Currency": "USD"
+  },
+  {
+    "Purchase Order": 949,
+    "Purchase Order Date": "20/11/2019",
+    "Receipt Date": "14/12/2019",
+    "No. Invoice": 448,
+    "Code Item": "CC0048",
+    "Description": "UBC",
+    "Status": "Delivered",
+    "Currency": "USD"
+  },
+  {
+    "Purchase Order": 949,
+    "Purchase Order Date": "20/11/2019",
+    "Receipt Date": "15/12/2019",
+    "No. Invoice": 448,
+    "Code Item": "CC0048",
+    "Description": "UBC",
+    "Status": "Delivered",
+    "Currency": "USD"
+  },
+  {
+    "Purchase Order": 258,
+    "Purchase Order Date": "05/12/2019",
+    "Receipt Date": "17/12/2019",
+    "No. Invoice": 451,
+    "Code Item": "CA0033",
+    "Description": "CTY",
+    "Status": "Delivered",
+    "Currency": "USD"
+  },
+  {
+    "Purchase Order": 258,
+    "Purchase Order Date": "05/12/2019",
+    "Receipt Date": "18/12/2019",
+    "No. Invoice": 451,
+    "Code Item": "CA0033",
+    "Description": "CTY",
+    "Status": "Delivered",
+    "Currency": "USD"
+  },
+  {
+    "Purchase Order": 258,
+    "Purchase Order Date": "05/12/2019",
+    "Receipt Date": "19/12/2019",
+    "No. Invoice": 452,
+    "Code Item": "CA0033",
+    "Description": "CTY",
+    "Status": "Delivered",
+    "Currency": "USD"
+  },
+  {
+    "Purchase Order": 258,
+    "Purchase Order Date": "05/12/2019",
+    "Receipt Date": "20/12/2019",
+    "No. Invoice": 452,
+    "Code Item": "CA0033",
+    "Description": "CTY",
+    "Status": "Delivered",
+    "Currency": "USD"
+  },
+  {
+    "Purchase Order": 258,
+    "Purchase Order Date": "05/12/2019",
+    "Receipt Date": "21/12/2019",
+    "No. Invoice": 452,
+    "Code Item": "CA0033",
+    "Description": "CTY",
+    "Status": "Delivered",
+    "Currency": "USD"
+  }
+]
+</code></pre>
+    <p>It is important to remember that as parent row I require Purchase Order, Purchase Order Date, Currency and Status and as child row I require to locate Receipt Date, No. Invoice, Code Item and Description.</p>
+    <p><strong>UPDATE 2:</strong></p>
+    <p>I add php code to give a little more guidance to my question.</p>
+    <p><strong>Test.php</strong></p>
+    <pre><code>&lt;?php
+    header('Content-Type: text/html; charset=utf-8');
+    
+    $param = $_POST['param'];   
+    switch($param) {
+        case '1': 
+                $query = array();
+                include './db/conecct.php';
+                $sql = "select PURCHID as 'PurchaseOrder',
+                CREATEDDATETIME as 'PurchaseOrderDate',
+                MONEDA as 'Currency',
+                INVOICEDATE as 'ReceiptDate',
+                ITEMID  as 'CodeItem',
+                FACTURA as 'No. Invoice',
+                NAMEALIAS as 'Description',
+                PURCHSTATUS as 'Status'         
+                FROM PP_FACTURAS
+                $stmt = sqlsrv_query($conn, $sql, $params);
+                if ( $stmt === false) {
+                    die( print_r( sqlsrv_errors(), true) );
+                }   
+                while( $row = sqlsrv_fetch_array($stmt) ) {
+                    //print_r($row);
+                    $record = array(
+                       "PurchaseOrder"       =&gt; $row['PurchaseOrder'],
+                       "PurchaseOrderDate"  =&gt; $row['PurchaseOrderDate']-&gt;format('d/m/Y'),
+                       "Currency"        =&gt; $row['Currency'],
+                       "Status"            =&gt; $row['Status'],
+                       "PurchaseOrderDate"      =&gt; $row['PurchaseOrderDate'] != null ? $row['PurchaseOrderDate']-&gt;format('d/m/Y'):"",
+                       "No. Invoice"           =&gt; utf8_encode ($row['No. Invoice']),
+                       "CodeItem"          =&gt; utf8_encode ($row['CodeItem']), 
+                       "Description"        =&gt; utf8_encode ($row['Description']),           
+                    );
+                    array_push($query, $record);
+                }
+
+                sqlsrv_free_stmt( $stmt);       
+                sqlsrv_close($conn);
+
+                $json = array(
+                    "success"=&gt; count($query) &gt; 0 ? true : false,
+                    "data"=&gt;$query
+                );
+
+                echo json_encode($json);
+            break;
+</code></pre>
+    <p><strong>UPDATE 3:</strong></p>
+    <p>Try to do the answer and now I get the following error in console:</p>
+    <pre><code>Uncaught TypeError: originalJson is not iterable
+</code></pre>
+    <p>I attach the code with which I am supporting myself according to the answer:</p>
+    <pre><code>/* Formatting function for row details - modify as you need */
+function format(d) {
+    // `d` is the original data object for the row
+    console.log(d);
+
+    var tableHtml = '&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Receipt Date&lt;/th&gt;&lt;th&gt;Invoice No.&lt;/th&gt;&lt;th&gt;Item Code&lt;/th&gt;&lt;th&gt;Description&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;';
+
+       tableHtml = tableHtml + '&lt;tbody&gt;';
+
+        var rowHtml = '';
+        for (const rowData of d.details){
+            rowHtml = rowHtml + '&lt;tr&gt;&lt;td&gt;' + rowData.ReceiptDate + '&lt;/td&gt;&lt;td&gt;' + rowData.Invoice + '&lt;/td&gt;&lt;td&gt;' + rowData.CodeItem + '&lt;/td&gt;&lt;td&gt;' + rowData.Description + '&lt;/td&gt;&lt;/tr&gt;';
+        }
+        tableHtml = tableHtml + rowHtml + '&lt;/tbody&gt;&lt;/table&gt;';
+        return tableHtml;
+}
+
+
+function denormalize(originalJson) {
+    let denormalizedMap = new Map();
+
+    for (const element of originalJson) {
+        let headerInfo = (({
+            PurchaseOrder,
+            PurcharOrderDate,
+            Currency,
+            Status
+        }) =&gt; ({
+            PurchaseOrder,
+            PurcharOrderDate,
+            Currency,
+            Status
+        }))(element);
+        headerInfo.details = [];
+
+        let detailLine = (({
+            ReceiptDate,
+            Invoice,
+            CodeItem,
+            Description
+
+        }) =&gt; ({
+            ReceiptDate,
+            Invoice,
+            CodeItem,
+            Description
+        }))(element);
+
+        if (! denormalizedMap.has(element.PurchaseOrder)) {
+            denormalizedMap.set(element.PurchaseOrder, headerInfo);
+        }
+        denormalizedMap.get(element.PurchaseOrder).details.push(detailLine);
+    }
+
+    let denormalizeSource = Array.from(denormalizedMap.values());
+
+    return denormalizeSource;
+}
+
+$(document).ready(function () {
+    $('#example').dataTable( {
+        responsive : true,
+         ajax : {
+             "type": 'POST',
+             "url" : './test.php',  
+             "dataType": 'JSON',             
+             "cache": false,
+             "dataSrc" : function (json){
+                 console.log(json);
+                 return denormalize(json);
+             },
+         },    
+         columns: [          
+             {
+                 "className":      'details-control',
+                 "orderable":      false,
+                 "data":           null,
+                 "defaultContent": ''
+             },
+             { "data" : "PurchaseOrder" },
+             { "data" : "PurcharOrderDate" },
+             { "data" : "Currency" },
+             { "data" : "Status" }                
+     
+        ],
+         order : [[1, 'desc']],
+    } );
+
+    
+    // Add event listener for opening and closing details
+    $('#example').on('click', 'td.details-control', function () {
+        var tr = $(this).closest('tr');
+        var row = $('#example').DataTable().row(tr);
+
+        if (row.child.isShown()) {
+            // This row is already open - close it
+            row.child.hide();
+            tr.removeClass('shown');
+        }
+        else {
+            // Open this row
+            row.child(format(row.data())).show();
+            tr.addClass('shown');
+        }
+    });
+
+});
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">ajax</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>You can think of a DataTables "child" row as just extra data which was already part of the parent row's source data object. You only have access to that one source object when building a child (hence the comment in your code: "<i><code>d</code> is the original data object <b>for the row</b></i>"). You could denormalize your JSON response provided by <code>test.php</code> first (or post-process it using JavaScript), to get access to all the data you want for each child row. Then, <code>d</code> will contain all the data you need. This also solves the "duplicate parent rows" issue at the same time (no duplicate PO rows).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Apr 2021 at 21:27</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewjames You can check my last update add my processed JSON file so that you can access the data that will go in each row</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">20 Apr 2021 at 16:08</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I think there is a misunderstanding about what "denormalized" means here. The sample data in your question does not have one object per unique PO number. It still has many objects per unique PO. So, that is not going to help you. I do not use PHP, but I can show you what I mean using JS, if that helps.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Apr 2021 at 17:26</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewjames I understand, show me what you mean by JS, that would help me a lot</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">20 Apr 2021 at 17:29</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Apr 2021 at 18:20</span>
+     </div>
+    </div>
+    <div>
+     <p>Based on the original question, I assume the JSON provided by your ajax call looks like this:</p>
+     <pre class="lang-js prettyprint-override"><code>[
+  { "PurchaseOrder": 258,
+    "PurcharOrderDate": "06/01/2020",
+    "Currency": "USD",
+    "Status": "Delivered",
+    "ReceiptDate": "07/01/2020",
+    "Invoice": 617,
+    "CodeItem": "CA0033",
+    "Description": "CT"
+  },
+  { "PurchaseOrder": 258,
+    "PurcharOrderDate": "06/01/2020",
+    "Currency": "USD",
+    "Status": "Delivered",
+    "ReceiptDate": "04/01/2020",
+    "Invoice": 620,
+    "CodeItem": "CA0036",
+    "Description": "CTR"
+  },
+  { "PurchaseOrder": 258,
+    "PurcharOrderDate": "06/01/2020",
+    "Currency": "USD",
+    "Status": "Delivered",
+    "ReceiptDate": "16/01/2020",
+    "Invoice": 626,
+    "CodeItem": "CA0048",
+    "Description": "CTY"
+  },
+  { "PurchaseOrder": 261,
+    "PurcharOrderDate": "22/02/2020",
+    "Currency": "USD",
+    "Status": "Delivered",
+    "ReceiptDate": "03/03/2020",
+    "Invoice": 679,
+    "CodeItem": "CA0062",
+    "Description": "CTZ"
+  }
+];
+</code></pre>
+     <p>I added an extra row for PO number 261, just to make the data more varied.</p>
+     <p>You want to restructure this into a new array, where there is only one object per unique PO number (but where that object also contains multiple items for the related invoice records).</p>
+     <p>The following data achieves that:</p>
+     <pre class="lang-js prettyprint-override"><code>[
+  {
+    "PurchaseOrder": 258,
+    "PurcharOrderDate": "06/01/2020",
+    "Currency": "USD",
+    "Status": "Delivered",
+    "details": [{
+      "ReceiptDate": "07/01/2020",
+      "Invoice": 617,
+      "CodeItem": "CA0033",
+      "Description": "CT"
+    },
+    {
+      "ReceiptDate": "04/01/2020",
+      "Invoice": 620,
+      "CodeItem": "CA0036",
+      "Description": "CTR"
+    },
+    {
+      "ReceiptDate": "16/01/2020",
+      "Invoice": 626,
+      "CodeItem": "CA0048",
+      "Description": "CTY"
+    }]
+  },
+  {
+    "PurchaseOrder": 261,
+    "PurcharOrderDate": "22/02/2020",
+    "Currency": "USD",
+    "Status": "Delivered",
+    "details": [{
+      "ReceiptDate": "03/03/2020",
+      "Invoice": 679,
+      "CodeItem": "CA0062",
+      "Description": "CTZ"
+    }]
+  }
+]
+</code></pre>
+     <p>Now there are only 2 objects in the array (because there are only 2 unique PO numbers) - but each object contains a <code>details</code> sub-array with the line item details for the related PO number.</p>
+     <p>Now you have data you can use in your DataTable. The table will display 2 records, and you can build a sub-table from the sub-array for each DataTable "child".</p>
+     <p><a href="https://i.stack.imgur.com/pvoGP.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/pvoGP.png" alt="enter image description here"></a></p>
+     <p>There is a Fiddle showing the full details, including the JavaScript restructuring code, here:</p>
+     <p><a href="https://jsfiddle.net/ztu2ar0h/" rel="nofollow noreferrer">https://jsfiddle.net/ztu2ar0h/</a></p>
+     <p>It is missing the URL needed to actually fetch ajax data, so it will not run. (And it is missing the icons for opening and closing child rows.) But everything else is there.</p>
+     <hr>
+     <p><strong>Updates</strong></p>
+     <p><em>In response to comments made in the answer:</em></p>
+     <p>Your PHP code connects to your database, runs a query, and then builds a JSON response, which it sends to DataTables using <code>echo json_encode($json)</code>.</p>
+     <p>You do not actually <em>show</em> us what that JSON looks like. But like I say at the start of my answer, I make an <em>assumption</em> about what it looks like - and I show you that <em>assumed</em> JSON.</p>
+     <p>This is what your PHP code passes to the DataTable via the DataTable's ajax call.</p>
+     <p>So, all I am doing in my answer is taking that JSON (sent from PHP to the DataTable) and then re-arranging it into a more useful structure. I am doing this re-arranging inside the DataTable's ajax call:</p>
+     <pre><code>ajax: {
+  method: "GET",
+  url: // your URL goes here!,
+  dataSrc: function ( json ) { 
+    //console.log( json );
+    return restructure(json);
+  },
+},
+</code></pre>
+     <p>So, instead of using your raw JSON from your PHP code, I am first <em>re-arranging</em> that raw JSON, using the above JavaScript code, which uses my <code>restructure()</code> function.</p>
+     <p>This <em>re-arranged</em> JSON is what DataTables uses to build the table.</p>
+     <p>That's it. It really is as simple as that.</p>
+     <p>But like I said <em>"I do not use PHP, but I can show you what I mean using JS</em>". And that is what I did, in my Fiddle.</p>
+     <p>So, if you do not want to use the above approach, you are welcome to take my <code>restructure(json)</code> function and re-write it as PHP code. Then you can do the re-arranging of your raw JSON in your <code>Test.php</code> file yourself - and you can pass the <em>restructured</em> JSON from your PHP file to the DataTable.</p>
+     <p>It's up to you which approach you want to take. They both do the same thing.</p>
+     <p>(And there are no JSON files, anywhere, in either of these approaches.)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I see that here you use it with a JSON file for this I did it like this but for my real code I use a database query since the data is obtained from there, it is possible to do it with a database query</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">20 Apr 2021 at 18:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I put the JSON file as an example since from here I cannot make a direct connection to my database but basically it is the same data</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">20 Apr 2021 at 19:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>No, I did not use a JSON file. I used an ajax query, same as you.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Apr 2021 at 20:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Apparently your answer did not work for me since it is data obtained from a JSON file in my original code I use a database connection. I see myself in the need to add my PHP code so that all the data can be traversed, you can check in my last update.</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">21 Apr 2021 at 13:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Why do you think my data is sourced from a JSON file? (It is not.)</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Apr 2021 at 15:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>So how can we make them come from the data that I get in <code>test.php</code></span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">21 Apr 2021 at 16:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What do you mean by "them"?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Apr 2021 at 16:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I mean the data comes from my <code>test.php</code> file, that in the call to ajax in the URL point to <code>test.php</code></span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">21 Apr 2021 at 16:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I will try to add some notes to my answer. I think there is still a basic misunderstanding, here, about what my solution is doing and how you can use it.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Apr 2021 at 16:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The fiddle does not work, you can validate it again</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">21 Apr 2021 at 16:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I already told you that the fiddle does not work, in the original answer I wrote: Here is what I said: <i>"It is missing the URL needed to actually fetch ajax data, so it will not run."</i>. That is because there is no point in me sharing my URL with you (it runs only on my local PC). The fiddle is there to show you the code I created for you. Take that code and use <i>your own URL</i>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Apr 2021 at 16:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Let us <a href="https://chat.stackoverflow.com/rooms/231427/discussion-between-user11804298-and-andrewjames">continue this discussion in chat</a>.</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">21 Apr 2021 at 16:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What is it you want to discuss?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Apr 2021 at 16:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>(I will not be using chat for this. If I can help you in a couple of basic comments, here, I am happy to do so.)</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Apr 2021 at 16:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Try with your code and now I get the following error message in console <code>Uncaught TypeError: originalJson is not iterable</code></span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">21 Apr 2021 at 16:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>OK - I have no idea how you are trying to use my code, so there is no way for me to help you. I do not get that error when I run my code (obviously). I have tried my best to explain the approach, with detailed data and code. I have clearly failed to help you - for which I am sorry. You can always ask a new question, and maybe someone else will be in a better position to help you. I wish you good luck, and I am sorry it did not work out, this time.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Apr 2021 at 17:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I just added the code to my last update so you can have an idea of ​​how I am using it, additionally I want to thank you for your help and be so detailed</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">21 Apr 2021 at 17:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You checked my last update possibly I have something wrong in my code and it is for this reason that it does not work</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">21 Apr 2021 at 19:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>There is something new regarding your answer, I added the code in my last update and I get an error</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">22 Apr 2021 at 16:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>A fully normalized database does not repeat any data.. so I think denormalized does not mean what you think it means.</span> <span> - </span> <span class="display-name">Robbert Draaisma</span> <span> </span> <span class="date">23 Apr 2021 at 01:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you @RobbertDraaisma - that was a stupid mistake on my part. I have made some changes to the answer (but not the comments) to reflect your point.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">23 Apr 2021 at 13:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@andrewjames Any news regarding my last update, I am trying your answer but I get an error, can you validate it again please</span> <span> - </span> <span class="display-name">user15500092</span> <span> </span> <span class="date">23 Apr 2021 at 14:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

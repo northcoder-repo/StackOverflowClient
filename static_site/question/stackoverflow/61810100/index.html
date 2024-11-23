@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to Configure LetsEncrypt-Cerbot in a Standalone Container</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to Configure LetsEncrypt-Cerbot in a Standalone Container</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>FreeSoftwareServers</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 May 2020 at 01:18</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61810100/how-to-configure-letsencrypt-cerbot-in-a-standalone-container">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to find simple documentation on running certbot in a docker-container, but all I can find is complicated guides w/ running certbot + webserver etc. The official page is kinda useless... <a href="https://hub.docker.com/r/certbot/certbot/" rel="nofollow noreferrer">https://hub.docker.com/r/certbot/certbot/</a> .I already have webserver separate from my websites and I want to run certbot on it's own as well.</p>
+    <p>Can anybody give me some guidance on how I could generate certificates for <code>mysite.com</code> with a webroot of <code>/opt/mysite/html</code>.</p>
+    <p>As I already have services on port 443 and 80 I was thinking of using the "host-network" if needed for certbot, but I don't really understand why it needs access to 443 when my website is served over 443 already.</p>
+    <p>I have found something like so to generate a certbot container, but I have no idea how to "use it" or tell it to generate a cert for my site.</p>
+    <p>Eg:</p>
+    <pre><code>WD=/opt/certbot
+mkdir -p $WD/{mnt,setup,conf,www}
+cd $WD/setup
+cat &lt;&lt; 'EOF' &gt;docker-compose.yaml
+version: '3.7'
+
+services:
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - type: bind
+        source: /opt/certbot/conf
+        target: /etc/letsencrypt
+      - type: bind
+        source: /opt/certbot/www
+        target: /var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h &amp; wait $${!}; done;'"
+EOF
+chmod +x docker-compose.yaml
+</code></pre>
+    <p>This link has something close to what I need, (obviously somehow I need to give it my domain as an argument!)</p>
+    <p><a href="https://stackoverflow.com/questions/44020498/letsencrypt-docker-nginx">Letsencrypt + Docker + Nginx</a></p>
+    <pre><code> docker run -it --rm \
+  -v certs:/etc/letsencrypt \
+  -v certs-data:/data/letsencrypt \
+  deliverous/certbot \
+  certonly \
+  --webroot --webroot-path=/data/letsencrypt \
+  -d api.mydomain.com
+</code></pre>
+    <p>I like to keep everything pretty "isolated" so I'm looking to just have certbot run in it's own container and configure nginx/webserver to use the certs seperatley and not have certbot either autoconfigure nginx or run in the same stack as a webserver.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">docker</span><span class="tag">lets-encrypt</span><span class="tag">certbot</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>I've been struggling how to get my answer to have the container stay on and sleep for 12hr w/ my below answer. Currently I need to run container every ~90days and I generally find out after getting SSL error vs being proactive, but its just personal SSL, not work, so I haven't looked in a while.</span> <span> - </span> <span class="display-name">FreeSoftwareServers</span> <span> </span> <span class="date">28 Apr 2023 at 17:25</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>FreeSoftwareServers</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 May 2020 at 20:20</span>
+     </div>
+    </div>
+    <div>
+     <p>The <a href="https://hub.docker.com/r/certbot/certbot/dockerfile" rel="nofollow noreferrer">certbot dockerfile</a> gave me some insight.</p>
+     <p>Basically you can append the follow to your <code>docker-compose.yaml</code> and it is as if appending to <code>certbot</code> on the CLI.</p>
+     <p>Be aware of the <a href="https://letsencrypt.org/docs/rate-limits/" rel="nofollow noreferrer">"Rate Limit of 5 failed auths/hour"</a> and test w/ <code>staging</code></p>
+     <p>See <code>Entrypoint</code> of <code>DockerFile</code></p>
+     <pre><code>ENTRYPOINT [ "certbot" ]
+</code></pre>
+     <p><strong>Docker-Compose.yaml:</strong></p>
+     <pre><code>    command: certonly --webroot -w /var/www/html -d www.examplecom -d examplecom --non-interactive --agree-tos -m example@example.com
+</code></pre>
+     <p>Full Config Example:</p>
+     <pre><code>WD=/opt/certbot
+mkdir -p $WD/{setup,certbot_logs}
+cd $WD/setup
+cat &lt;&lt; 'EOF' &gt;docker-compose.yaml
+version: '3.7'
+
+services:
+ certbot:
+    container_name: certbot
+    hostname: certbot
+    image: certbot/certbot
+    volumes:
+      - type: bind
+        source: /opt/certbot/certbot_logs
+        target: /var/log/letsencrypt
+      - type: bind
+        source: /opt/nginx/ssl
+        target: /etc/letsencrypt
+      - type: bind
+        source: ${WEBROOT}
+        target: /var/www/html/
+
+    environment:
+      - 'TZ=${TZ}'
+
+    command: certonly --webroot -w /var/www/html -d ${DOMAIN} -d www.${DOMAIN} --non-interactive --agree-tos --register-unsafely-without-email ${STAGING}
+EOF
+chmod +x docker-compose.yaml
+cd $WD/setup
+</code></pre>
+     <p>Variables:</p>
+     <pre><code>cat &lt;&lt; 'EOF'&gt;.env
+WEBROOT=/opt/example/example_html
+DOMAIN=example.com
+STAGING=--staging
+TZ=America/Whitehorse
+EOF
+chmod +x .env
+</code></pre>
+     <p>NGinx:</p>
+     <p>Note: To start nginx w/ SSL you NEED certs, even if they are wrong. So I will use old certs to start nginx, then use certbot to get proper certs, then restart nginx loading correct certs. This is just for first setup.</p>
+     <pre><code>server {
+
+   listen 80;
+   listen [::]:80;
+   server_name www.example.com example.com;
+
+ location /.well-known/acme-challenge/ {
+
+   proxy_pass              http://localhost:8575/$request_uri;
+   include                 /etc/nginx/conf.d/proxy.conf;
+
+ }
+
+ location / {
+   return 301 https://$host$request_uri;
+ }
+
+}
+
+server {
+   listen 443 ssl;
+   listen        [::]:443;
+   server_name www.example.com example.com;
+
+#   ssl_certificate /etc/ssl/live/example.com/fullchain.pem;
+#   ssl_certificate_key /etc/ssl/live/example.com/privkey.pem;
+   ssl_certificate /etc/ssl/fake/fake.crt;
+   ssl_certificate_key /etc/ssl/fake/fake.key;
+
+ location / {
+
+   proxy_pass              http://localhost:8575/;
+   include                 /etc/nginx/conf.d/proxy.conf;
+ }
+)
+</code></pre>
+     <p>Updated Personal Blog --&gt; <a href="https://www.freesoftwareservers.com/display/FREES/Use+CertBot+-+LetsEncrypt+-+In+StandAlone+Docker+Container" rel="nofollow noreferrer">https://www.freesoftwareservers.com/display/FREES/Use+CertBot+-+LetsEncrypt+-+In+StandAlone+Docker+Container</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

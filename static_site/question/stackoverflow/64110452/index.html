@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Is there a way to hide a DataTables column based on its type?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Is there a way to hide a DataTables column based on its type?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Blaine Lafreniere</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Sep 2020 at 22:30</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64110452/is-there-a-way-to-hide-a-datatables-column-based-on-its-type">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have this code currently:</p>
+    <pre><code>
+drawCallback: function () {
+    let api = this.api();
+    // hide columns that add up to 0
+    api.columns().every(function (i) {
+        let sum = this.data().sum();
+        if (sum === 0 &amp;&amp; typeof sum === 'number' &amp;&amp; i !== 0) {
+            api.column(i).visible(0);
+        }
+    });
+}
+
+</code></pre>
+    <p>There is an issue with it, however... for one particular column where the values are just a single word, such as "Completed" or "Pending", it seems as though <code>this.data().sum();</code> will result in 0 rather than NaN.</p>
+    <p>The first two columns will result in NaN, seemingly because they are multi-word sentences, which is the only difference between these two columns.</p>
+    <p>This is a sample of the data</p>
+    <pre><code>&lt;td&gt;Foo Bar Jones Jonesy McFoo Department&lt;/td&gt;
+&lt;td&gt;ABC CityName Location Code XXFOO&lt;/td&gt;
+&lt;td data-sort="20201002"&gt;10/02/2020&lt;/td&gt;
+&lt;td&gt;Pending&lt;/td&gt;
+&lt;td&gt;(a variable number of columns with data that is some number that is possibly zero or greater)&lt;/td&gt;
+</code></pre>
+    <p>Isn't there some way to check the column type with <code>api.columns().every()</code>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Sep 2020 at 13:54</span>
+     </div>
+    </div>
+    <div>
+     <p>I am not able to recreate your specific error with single-word cell values vs. multi-word cell values. When I use <code>parseFloat('x')</code> vs. <code>parseFloat('x y z')</code>, they both evaluate to <code>NaN</code>.</p>
+     <p>(Also, I don't know how you implemented your <code>sum()</code> function, so that may explain what you are seeing.)</p>
+     <p>I am going to use the following example from <a href="https://datatables.net/examples/plug-ins/api" rel="nofollow noreferrer">here</a>, as a starting point for my <code>sum()</code> - but with a modification:</p>
+     <pre class="lang-js prettyprint-override"><code>$.fn.dataTable.Api.register( 'column().data().sum()', function () {
+    return this.reduce( function (a, b) {
+        var x = parseFloat( a ); // removed the 'or' operator: || 0;
+        var y = parseFloat( b ); // removed the 'or' operator: || 0;
+        return x + y;
+    } );
+} );
+</code></pre>
+     <p>My change (removing the "or" operators) ensures <code>NaN</code> values are not set to zero, but remain as <code>NaN</code> - which is what you need for your specialized <code>sum()</code> function.</p>
+     <p>Now, if I use this with your DataTable code, and some test data based on what you provided, I get the expected outcome:</p>
+     <p><a href="https://i.stack.imgur.com/kDeb9.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/kDeb9.png" alt="enter image description here"></a></p>
+     <p>As a side note, dates may be parsed into numbers OK, depending on the data format - which can explain why date columns can show up OK (they sum to a positive number).</p>
+     <p>Here is the full standalone demo, in case it helps.</p>
+     <p>In this example, all the data in the final column ("Val 3") are zeros - so that column is hidden. The column remains hidden if there are non-zero values which sum up to zero, also:</p>
+     <pre><code>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.min.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.min.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Dept&lt;/th&gt;
+                &lt;th&gt;Loc&lt;/th&gt;
+                &lt;th&gt;Date&lt;/th&gt;
+                &lt;th&gt;Status&lt;/th&gt;
+                &lt;th&gt;Val 1&lt;/th&gt;
+                &lt;th&gt;Val 2&lt;/th&gt;
+                &lt;th&gt;Val 3&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Foo Bar Jones Jonesy McFoo Department 1&lt;/td&gt;
+                &lt;td&gt;ABC CityName Location Code XXFOO&lt;/td&gt;
+                &lt;td data-sort="20200119"&gt;19/01/2020&lt;/td&gt;
+                &lt;td&gt;Active&lt;/td&gt;
+                &lt;td&gt;1&lt;/td&gt;
+                &lt;td&gt;1&lt;/td&gt;
+                &lt;td&gt;0&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Foo Bar Jones Jonesy McFoo Department 2&lt;/td&gt;
+                &lt;td&gt;DEF CityName Location Code XXFOO&lt;/td&gt;
+                &lt;td data-sort="20201002"&gt;10/02/2020&lt;/td&gt;
+                &lt;td&gt;Pending&lt;/td&gt;
+                &lt;td&gt;0&lt;/td&gt;
+                &lt;td&gt;2&lt;/td&gt;
+                &lt;td&gt;0&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;Foo Bar Jones Jonesy McFoo Department 3&lt;/td&gt;
+                &lt;td&gt;XYZ CityName Location Code XXFOO&lt;/td&gt;
+                &lt;td data-sort="20201016"&gt;16/02/2020&lt;/td&gt;
+                &lt;td&gt;Pending&lt;/td&gt;
+                &lt;td&gt;0&lt;/td&gt;
+                &lt;td&gt;1&lt;/td&gt;
+                &lt;td&gt;0&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;script type="text/javascript"&gt;
+
+$.fn.dataTable.Api.register( 'column().data().sum()', function () {
+  return this.reduce( function (a, b) {
+    var x = parseFloat( a );
+    var y = parseFloat( b );
+    return x + y;
+  } );
+} );
+
+  $(document).ready(function() {
+
+    var table = $('#example').DataTable( {
+      drawCallback: function () {
+        let api = this.api();
+        // hide columns that add up to 0
+        api.columns().every(function (i) {
+          let sum = this.data().sum();
+          if (sum === 0 &amp;&amp; typeof sum === 'number' &amp;&amp; i !== 0) {
+            api.column(i).visible(0);
+          }
+        });
+      }
+    } );
+
+  } );
+
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>The sum() function I was using was this one: <a href="https://datatables.net/plug-ins/api/sum()" rel="nofollow noreferrer">datatables.net/plug-ins/api/sum()</a> - this one removes any non-digit character. I've modified it to only remove '$' and ',' and now it works for my purposes.</span> <span> - </span> <span class="display-name">Blaine Lafreniere</span> <span> </span> <span class="date">29 Sep 2020 at 16:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I like your solution though, I'll accept it as the answer, and I think your solution is probably more correct.</span> <span> - </span> <span class="display-name">Blaine Lafreniere</span> <span> </span> <span class="date">29 Sep 2020 at 16:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

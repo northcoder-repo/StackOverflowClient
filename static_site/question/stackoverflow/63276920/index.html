@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene QueryParse discards " when parsing</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene QueryParse discards " when parsing</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>rhbc73</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>6 Aug 2020 at 04:37</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63276920/lucene-queryparse-discards-when-parsing">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a query <code>-license:"CC-BY-NC" AND -license:"CC-BY-ND 4.0 (Int)"</code> to be passed into PrecedenceQueryParser.parse like this:</p>
+    <pre><code>Query query = new PrecedenceQueryParser().parse(filter, '')
+</code></pre>
+    <p>But in the generated query you can see, clauses are like <code>-lincense:CC-BY-NC</code>, "" are lost.</p>
+    <p>Is there any settings to keep the ""?</p>
+    <p><a href="https://i.stack.imgur.com/zqp2W.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/zqp2W.png" alt="enter image description here"></a></p>
+    <p>===================== UPDATE ===========================</p>
+    <p>I understand that since I'm looking for a match of CC-BY-ND 4.0 (Int), without double quotes (double quotes are just used to make it a phrase). That's why query.clauses[1].query doesn't have "" around the CC-BY-ND 4.0 (Int)</p>
+    <p>Now I do this:</p>
+    <pre><code>    def bqb = new BooleanQuery.Builder()
+    clauses.each { clause -&gt;
+        bqb.add(clause.query, clause.prohibited ? BooleanClause.Occur.SHOULD : BooleanClause.Occur.MUST_NOT)
+    }
+
+    String s = bqb.build().toString()
+</code></pre>
+    <p>build a BooleanQuery and put clauses together,</p>
+    <p>the s then equals to <code>license:CC-BY-ND 4.0 (Int) license:CC-BY-NC</code></p>
+    <p>This is definitely not what I want, I need CC-BY-ND 4.0 (Int) to be surrounded by double-quotes. Is there any way to do that?</p>
+    <p>Gibbs's could be a solution but a bit tricky I think.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">solr</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Aug 2020 at 13:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Some additional information, to add to the answer provided by @gibbs:</p>
+     <p>When using the <a href="https://lucene.apache.org/core/8_3_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#package.description" rel="nofollow noreferrer">classic query parser syntax</a> (which is what is being used in the question), then the following characters all have special meanings and therefore may need to be escaped, in any of the search terms where they appear:</p>
+     <pre><code>+  -  &amp;&amp;  ||  !  (  )  {  }  [  ]  ^  "  ~  *  ?  :  \  /
+</code></pre>
+     <p>Note that in 2 cases, these are groups of characters: <code>&amp;&amp;</code> and <code>||</code>.</p>
+     <p>This list is documented <a href="https://lucene.apache.org/core/8_3_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Escaping_Special_Characters" rel="nofollow noreferrer">here</a>.</p>
+     <p>The easiest way to handle all these characters is to pass each search term to the <a href="https://lucene.apache.org/core/8_6_0/queryparser/org/apache/lucene/queryparser/classic/QueryParser.html" rel="nofollow noreferrer">classic <code>QueryParser</code></a>, before building the search expression:</p>
+     <pre><code>org.apache.lucene.queryparser.classic.QueryParser;
+</code></pre>
+     <p>For example:</p>
+     <pre><code>String escapedSearchTerm = QueryParser.escape(searchTerm)
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Gibbs</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Aug 2020 at 05:06</span>
+     </div>
+    </div>
+    <div>
+     <p>You need to escape them.</p>
+     <p>When you pass <code>-license:"CC-BY-NC" AND -license:"CC-BY-ND 4.0 (Int)"</code> this, use the below</p>
+     <pre><code>-license:"\"CC-BY-NC\"" AND -license:"\"CC-BY-ND 4.0 (Int)\""
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Glad, it helped. Happy coding</span> <span> - </span> <span class="display-name">Gibbs</span> <span> </span> <span class="date">6 Aug 2020 at 05:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi Gibbs, is there any documentation about this?</span> <span> - </span> <span class="display-name">rhbc73</span> <span> </span> <span class="date">6 Aug 2020 at 05:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>About this escaping part? or solr query?</span> <span> - </span> <span class="display-name">Gibbs</span> <span> </span> <span class="date">6 Aug 2020 at 05:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>escaping, I didn't see it mentioned anywhere.</span> <span> - </span> <span class="display-name">rhbc73</span> <span> </span> <span class="date">6 Aug 2020 at 05:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I will look for the reference. But solr is depending on Lucene. Lucene is written in java. In java, if you have to have quotes part of the string, you need to escape</span> <span> - </span> <span class="display-name">Gibbs</span> <span> </span> <span class="date">6 Aug 2020 at 05:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi Gibbs, what I'm wondering is, fq = -license:"CC-BY-NC" AND -license:"CC-BY-ND 4.0 (Int)" so why we don't do this -license:\"CC-BY-NC\" AND -license:\"CC-BY-ND 4.0 (Int)\". Actually this doesn't work and yours works.</span> <span> - </span> <span class="display-name">rhbc73</span> <span> </span> <span class="date">6 Aug 2020 at 06:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>No, query term should be enclosed by <code>"</code> for multi words, if words contains <code>"</code>, then escape</span> <span> - </span> <span class="display-name">Gibbs</span> <span> </span> <span class="date">6 Aug 2020 at 06:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi Gibbs, sorry I'm kind of confused. Say license is a string field and what I want to search is those exactly matching CC-BY-ND 4.0 (Int), so fq=license:"CC-BY-ND 4.0 (Int)", is it correct?</span> <span> - </span> <span class="display-name">rhbc73</span> <span> </span> <span class="date">6 Aug 2020 at 07:40</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@rhbc73 - in this case, your search term is a <i>phrase</i> consisting of a group of words, separated by spaces. To treat this as a single phrase when searching, then yes, you have to surround the phrase with double quotes. See the <a href="https://lucene.apache.org/core/8_3_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Terms" rel="nofollow noreferrer">terms</a> documentation.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">6 Aug 2020 at 13:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@rhbc73 comment from andrew explained very well</span> <span> - </span> <span class="display-name">Gibbs</span> <span> </span> <span class="date">6 Aug 2020 at 13:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@andrewjames, I understand if there's space and I want it to be treated as a single phrase I have to surround it with double-quotes. so fq=license:"CC-BY-ND 4.0 (Int)" is to find exact mathing of CC-BY-ND 4.0 (Int). But look at this -license:"\"CC-BY-NC\"" AND -license:"\"CC-BY-ND 4.0 (Int)\"", what the un-escaped " after the lincense: means</span> <span> - </span> <span class="display-name">rhbc73</span> <span> </span> <span class="date">6 Aug 2020 at 23:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Looking at the second term in your expression... It means you are searching for exactly the following: <code>"CC-BY-ND 4.0 (Int)"</code>(including those two double-quotes). It is exactly this phrase because (a) there are spaces in the phrase, and (b) the phrase contains escaped double-quotes, and (c) the entire phrase is enclosed in <i>unescaped</i> double-quotes. It is those 2 unescaped double-quotes which are acting as phrase delimiters - i.e. everything <i>inside</i> those 2 unescaped double quotes is your phrase.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">6 Aug 2020 at 23:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>For your <i>first</i> section <code>-license:"\"CC-BY-NC\""</code> - I have not tested it, but I think it would be the same as this: <code>-license:\"CC-BY-NC\"</code>. In other words, because there are no spaces, the two enclosing <i>unescaped</i> double-quotes are superfluous - it's a phrase with no spaces in it.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">6 Aug 2020 at 23:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi andrewjames, my fq = -license:"CC-BY-NC" AND -license:"CC-BY-ND 4.0 (Int)", ingore first part, I'm looking for exact matching of CC-BY-ND 4.0 (Int), because it has space so I have to surround it with double quotes. I see, that's why the parsed query clauses[1].query doesn't have double quotes around CC-BY-ND 4.0 (Int), because I'm searching something without double quotes</span> <span> - </span> <span class="display-name">rhbc73</span> <span> </span> <span class="date">7 Aug 2020 at 00:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@rhbc73 Yes - that sounds right.But in your original question you mentioned you wanted to keep the double-quotes. I'm not sure if you still have a problem or not...</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Aug 2020 at 00:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks, @andrewjames no question on this but still another issue. I'll update my question soon.</span> <span> - </span> <span class="display-name">rhbc73</span> <span> </span> <span class="date">7 Aug 2020 at 00:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi guys, I've decided to use @Gibbs's solution. As long as we find surrounding "" after : means we want to keep it after parsing so we'll escape them.</span> <span> - </span> <span class="display-name">rhbc73</span> <span> </span> <span class="date">7 Aug 2020 at 05:03</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

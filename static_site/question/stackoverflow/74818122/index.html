@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene operator precedence for boolean operators</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene operator precedence for boolean operators</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Doreen Miller</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Dec 2022 at 22:10</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74818122/lucene-operator-precedence-for-boolean-operators">source</a>
+    </div>
+   </div>
+   <div>
+    <p>What is the order of operations for boolean operators? Left to right? Right to left? Specific operators have higher priority?</p>
+    <p>For example, if I search for: jakarta OR apache AND website</p>
+    <p>What do I get? Is it Anything with "jakarta" as well as anything with both "apache" and "website"? Anything with "website" that also has either "jakarta" or "apache"? Something else?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span><span class="tag">operator-precedence</span><span class="tag">boolean-logic</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>welcome to stackoverflow! isn't operator precedence depends on the query parser you use?</span> <span> - </span> <span class="display-name">Bagus Tesa</span> <span> </span> <span class="date">15 Dec 2022 at 22:19</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Hi, it may depend on the programming language but I think usually AND has priority over OR, so your sentence is equivalent to: jakarta OR (apache AND website)</span> <span> - </span> <span class="display-name">Ermac</span> <span> </span> <span class="date">15 Dec 2022 at 22:24</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Dec 2022 at 01:55</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Short answer:</strong></p>
+     <p>In Lucene, the <code>AND</code> operator takes precedence over the <code>OR</code> operator. So, you are effectively doing this:</p>
+     <pre><code>jakarta OR (apache AND website)
+</code></pre>
+     <p>You can verify this for yourself by parsing your query string and seeing how it converts <code>AND</code> and <code>OR</code> to the "required" and "optional" operators.</p>
+     <p>And the <code>NOT</code> operator takes precendence over the <code>AND</code> operator, since we are discussing precedence.</p>
+     <p>But you need to be very careful when dealing with Lucene's so-called "boolean" operators, as they do not behave the way you may expect based on their collective name ("boolean").</p>
+     <p><em>(Unfortunately I have never seen any official documentation which provides a citation for these precedence rules - but instead I am relying on empirical observations. See below for more about that. If the documentation for this does exist, that would be great to see.)</em></p>
+     <hr>
+     <p><strong>Longer Answer</strong></p>
+     <p>One key thing to understand is that Lucene <a href="https://lucene.apache.org/core/9_4_2/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Boolean_operators" rel="nofollow noreferrer">boolean operators</a> are not really "boolean" in the sense that you may think, based on Boolean algebra, where you use parentheses to help avoid ambiguity (or where you need to know what rules a programming language may be applying) - and where everything evaluates to TRUE or FALSE.</p>
+     <p>Lucene boolean operators serve a subtly different purpose.</p>
+     <p>They are not <em>purely</em> concerned with TRUE/FALSE inclusion/exclusion, but <em>also</em> concerned with how to score results so that the more relevant results have higher scores than less relevant results.</p>
+     <p>The Lucene query <code>jakarta OR apache AND website</code> is equivalent to the following:</p>
+     <pre><code>jakarta +apache +website
+</code></pre>
+     <p>This means the document's field <em>must</em> contain <code>apache</code> and <code>website</code>, but <em>may also</em> include <code>jakarta</code> (for a higher relevance score).</p>
+     <p>You can see this for yourself by taking your original query string and parsing it:</p>
+     <pre><code>Query query = parser.parse(queryString);
+</code></pre>
+     <p>...and then printing the resulting string representation of the query. The <code>+</code> operator is the "required" operator. It:</p>
+     <blockquote>
+      <p>requires that the term after the "+" symbol exist somewhere in the field</p>
+     </blockquote>
+     <p>And the <em>lack</em> of a <code>+</code> operator means the default of "may" as in "may contain" - meaning the term is optional: it does not <em>need</em> to be present, if there is some other clause in the query which does match a document.</p>
+     <p>The use of <code>AND</code> forces the terms on either side of the <code>AND</code> to be required.</p>
+     <hr>
+     <p>You can encounter some potentially surprising situations.</p>
+     <p>Consider this:</p>
+     <pre><code>foo AND bar OR baz AND bat
+</code></pre>
+     <p>This parses to the following:</p>
+     <pre><code>+foo +bar +baz +bat
+</code></pre>
+     <p>This is because the <code>AND</code> operators are transformed to <code>+</code> operators for every term, rendering the <code>OR</code> redundant.</p>
+     <p>It's the same result as if you had written this:</p>
+     <pre><code>foo AND bar AND baz AND bat
+</code></pre>
+     <p>But not the same as this:</p>
+     <pre><code>(foo AND bar) OR (baz AND bat)
+</code></pre>
+     <p>which is parsed to this, where the parentheses are retained:</p>
+     <pre><code>(+foo +bar) (+baz +bat)
+</code></pre>
+     <hr>
+     <p><strong>Bottom Line:</strong></p>
+     <p>Use parentheses to explicitly make your intentions clear, when using <code>AND</code> and <code>OR</code> and also <code>NOT</code>.</p>
+     <hr>
+     <p>Regarding <code>NOT</code>, since we mentioned it - that takes prescendence over <code>AND</code>.</p>
+     <p>The query:</p>
+     <pre><code>foo AND bar NOT baz AND bat
+</code></pre>
+     <p>Is parsed as:</p>
+     <pre><code>+foo +bar -baz +bat
+</code></pre>
+     <p>So, a document field <em>must</em> contain <code>foo</code>, <code>bar</code> and <code>bat</code> - and must not contain <code>baz</code>.</p>
+     <hr>
+     <p>Why does this situation exist?</p>
+     <p>I don't know, but I <em>think</em> Lucene originally did not include <code>AND</code>, <code>OR</code> and <code>NOT</code> - but instead used <code>+</code> (must include), <code>-</code> (must not include) and "nothing" (may include). The so-called boolean operators <code>AND</code>, <code>OR</code>, <code>NOT</code> were added later on, as a kind of "syntactic sugar" for these original operators - introduced for people who were more familiar with <code>AND</code>, <code>OR</code> and <code>NOT</code> from other contexts. I'm basing this on the following thread:</p>
+     <p><a href="https://www.mail-archive.com/java-user@lucene.apache.org/msg11815.html" rel="nofollow noreferrer">Getting a Better Understanding of Lucene's Search Operators</a></p>
+     <p>A summary of that thread is included in <a href="https://stackoverflow.com/a/68959005/12567365">this answer</a> about the <code>NOT</code> operator.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,1055 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How does the 'Access-Control-Allow-Origin' header work?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How does the 'Access-Control-Allow-Origin' header work?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1534</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>mark</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 May 2012 at 13:23</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/10636611/how-does-the-access-control-allow-origin-header-work">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Apparently, I have completely misunderstood its semantics. I thought of something like this:</p>
+    <ol>
+     <li>A client downloads JavaScript code MyCode.js from <code>http://siteA</code> - <strong>the origin</strong>.</li>
+     <li>The response header of MyCode.js contains <strong>Access-Control-Allow-Origin: <code>http://siteB</code></strong>, which I thought meant that MyCode.js was allowed to make cross-origin references to the site B.</li>
+     <li>The client triggers some functionality of MyCode.js, which in turn make requests to <code>http://siteB</code>, which should be fine, despite being cross-origin requests.</li>
+    </ol>
+    <p>Well, I am wrong. It does not work like this at all. So, I have read <em><a href="http://en.wikipedia.org/wiki/Cross-origin_resource_sharing" rel="noreferrer">Cross-origin resource sharing</a></em> and attempted to read <em><a href="http://www.w3.org/TR/cors/" rel="noreferrer">Cross-Origin Resource Sharing in w3c recommendation</a></em>.</p>
+    <p>One thing is sure - I still do not understand how I am supposed to use this header.</p>
+    <p>I have full control of both site A and site B. How do I enable the JavaScript code downloaded from the site A to access resources on the site B using this header?</p>
+    <p>P.S.: I do not want to utilize <a href="https://en.wikipedia.org/wiki/JSONP" rel="noreferrer">JSONP</a>.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">cross-domain</span><span class="tag">cors</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>7</td>
+       <td><span>I'm not sure, but I believe that setting the header this way allows code on site B to fetch <code>http://siteA/MyCode.js</code>.</span> <span> - </span> <span class="display-name">pimvdb</span> <span> </span> <span class="date">17 May 2012 at 13:26</span></td>
+      </tr>
+      <tr>
+       <td>10</td>
+       <td><span>But how??? In order to get the header value one has to fetch the resource first, but the resource is cross-origin and so shouldn't the browser block the request in the first place?</span> <span> - </span> <span class="display-name">mark</span> <span> </span> <span class="date">17 May 2012 at 13:33</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>What you described actually resembles another practice, <a href="https://en.wikipedia.org/wiki/Content_Security_Policy" rel="nofollow noreferrer">Content Security Policy</a></span> <span> - </span> <span class="display-name">Alex</span> <span> </span> <span class="date">9 Jun 2016 at 17:03</span></td>
+      </tr>
+      <tr>
+       <td>9</td>
+       <td><span>@mark You don't have to fetch the resource in order to get the headers. The HTTP HEADER method will return headers-only. And in the case of CORS, a preflight check is done using the HTTP OPTIONS method which doesn't return the body either. apsillers answer describes this nicely <a href="https://stackoverflow.com/posts/10636765/revisions">stackoverflow.com/posts/10636765/revisions</a>.</span> <span> - </span> <span class="display-name">Matthew</span> <span> </span> <span class="date">9 Sep 2016 at 23:50</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1836</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>apsillers</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 May 2012 at 13:33</span>
+     </div>
+    </div>
+    <div>
+     <p><em>Access-Control-Allow-Origin</em> is a <a href="http://www.html5rocks.com/en/tutorials/cors/" rel="noreferrer">CORS (cross-origin resource sharing) header</a>.</p>
+     <p>When Site A tries to fetch content from Site B, Site B can send an <em>Access-Control-Allow-Origin</em> response header to tell the browser that the content of this page is accessible to certain origins. (An <em>origin</em> is a <a href="https://stackoverflow.com/a/19542686/710446">domain, plus a scheme and port number</a>.) By default, Site B's pages are <a href="https://en.wikipedia.org/wiki/Same-origin_policy" rel="noreferrer">not accessible to any other origin</a>; using the <em>Access-Control-Allow-Origin</em> header opens a door for cross-origin access by specific requesting origins.</p>
+     <p>For each resource/page that Site B wants to make accessible to Site A, Site B should serve its pages with the response header:</p>
+     <pre class="lang-none prettyprint-override"><code>Access-Control-Allow-Origin: http://siteA.com
+</code></pre>
+     <p>Modern browsers will not block cross-domain requests outright. If Site A requests a page from Site B, the browser will actually fetch the requested page <em>on the network level</em> and check if the response headers list Site A as a permitted requester domain. If Site B has not indicated that Site A is allowed to access this page, the browser will trigger the <code>XMLHttpRequest</code>'s <code>error</code> event and deny the response data to the requesting JavaScript code.</p>
+     <h3>Non-simple requests</h3>
+     <p>What happens on the network level can be <em>slightly</em> more complex than explained above. If the request is a <a href="http://www.html5rocks.com/en/tutorials/cors/#toc-handling-a-not-so-simple-request" rel="noreferrer">"non-simple" request</a>, the browser first sends a data-less "preflight" OPTIONS request, to verify that the server will accept the request. A request is non-simple when either (or both):</p>
+     <ul>
+      <li>using an HTTP verb other than GET or POST (e.g. PUT, DELETE)</li>
+      <li>using non-simple request headers; the only simple requests headers are:</li>
+      <li><code>Accept</code></li>
+      <li><code>Accept-Language</code></li>
+      <li><code>Content-Language</code></li>
+      <li><code>Content-Type</code> (this is only simple when its value is <code>application/x-www-form-urlencoded</code>, <code>multipart/form-data</code>, or <code>text/plain</code>)</li>
+     </ul>
+     <p>If the server responds to the OPTIONS preflight with appropriate response headers (<code>Access-Control-Allow-Headers</code> for non-simple headers, <code>Access-Control-Allow-Methods</code> for non-simple verbs) that match the non-simple verb and/or non-simple headers, then the browser sends the actual request.</p>
+     <p>Supposing that Site A wants to send a PUT request for <code>/somePage</code>, with a non-simple <code>Content-Type</code> value of <code>application/json</code>, the browser would first send a preflight request:</p>
+     <pre class="lang-none prettyprint-override"><code>OPTIONS /somePage HTTP/1.1
+Origin: http://siteA.com
+Access-Control-Request-Method: PUT
+Access-Control-Request-Headers: Content-Type
+</code></pre>
+     <p>Note that <code>Access-Control-Request-Method</code> and <code>Access-Control-Request-Headers</code> are added by the browser automatically; you do not need to add them. This OPTIONS preflight gets the successful response headers:</p>
+     <pre class="lang-none prettyprint-override"><code>Access-Control-Allow-Origin: http://siteA.com
+Access-Control-Allow-Methods: GET, POST, PUT
+Access-Control-Allow-Headers: Content-Type
+</code></pre>
+     <p>When sending the actual request (after preflight is done), the behavior is identical to how a simple request is handled. In other words, a non-simple request whose preflight is successful is treated the same as a simple request (i.e., the server must still send <code>Access-Control-Allow-Origin</code> again for the actual response).</p>
+     <p>The browsers sends the actual request:</p>
+     <pre class="lang-none prettyprint-override"><code>PUT /somePage HTTP/1.1
+Origin: http://siteA.com
+Content-Type: application/json
+
+{ "myRequestContent": "JSON is so great" }
+</code></pre>
+     <p>And the server sends back an <code>Access-Control-Allow-Origin</code>, just as it would for a simple request:</p>
+     <pre class="lang-none prettyprint-override"><code>Access-Control-Allow-Origin: http://siteA.com
+</code></pre>
+     <p>See <em><a href="https://stackoverflow.com/a/13400954/710446">Understanding XMLHttpRequest over CORS</a></em> for a little more information about non-simple requests.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>But MyCode.js cannot reach for site B in the first place! How will this header arrive at the client? BTW, kudos for the light life glider in the avatar.</span> <span> - </span> <span class="display-name">mark</span> <span> </span> <span class="date">17 May 2012 at 13:36</span></td>
+       </tr>
+       <tr>
+        <td>13</td>
+        <td><span>I edited with clarification: the browser actually does perform a network fetch on site B to check the <code>Access-Control-Allow-Origin</code> header, but it might not provide the response to the JS code on site A if the header doesn't allow site A to have it. (P.S. Thanks :) )</span> <span> - </span> <span class="display-name">apsillers</span> <span> </span> <span class="date">17 May 2012 at 13:41</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Indeed, I do not see any record of the download in Fiddler, unless the cross-origin request is approved. Interesting...</span> <span> - </span> <span class="display-name">mark</span> <span> </span> <span class="date">17 May 2012 at 14:18</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>So why can my browser make an HTTP get request when I type it in the URL and retrieve JSON data but my javascript client cannot?</span> <span> - </span> <span class="display-name">Jwan622</span> <span> </span> <span class="date">12 Jul 2015 at 12:06</span></td>
+       </tr>
+       <tr>
+        <td>44</td>
+        <td><span>@Jwan622 A fundamental "<i>why?</i>" question like that is probably out of scope for this particular answer, which is just about rules &amp; mechanics. Basically, the browser allows <i>you</i>, the human sitting at the computer, see any resource from any origin. It disallows scripts (which could be written by anyone) from reading resources from origins that are different from the origin of the page running the script. Some related questions are <a href="http://programmers.stackexchange.com/q/216605/">programmers.stackexchange.com/q/216605</a> and <a href="http://stackoverflow.com/q/6744283/">What is the threat model for the same origin policy?</a></span> <span> - </span> <span class="display-name">apsillers</span> <span> </span> <span class="date">12 Jul 2015 at 17:55</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>In case of using an authentication, <code>Access-Control-Allow-Origin</code> does not accept the <code>*</code> in some browsers (FF and Chrome AFAIK). So in this case you have to specify the value from the <code>Origin</code> header. Hope that this will help someone.</span> <span> - </span> <span class="display-name">Zsolti</span> <span> </span> <span class="date">9 Sep 2016 at 19:59</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Zsolti That is indeed <a href="https://www.w3.org/TR/cors/#resource-requests" rel="nofollow noreferrer">spec-compliant behavior</a> ("<i>The string "<code>*</code>" cannot be used for a resource that supports credentials.</i>"). See also <a href="http://stackoverflow.com/questions/19743396/cors-cannot-use-wildcard-in-access-control-allow-origin-when-credentials-flag-i">Cannot use wildcard in Access-Control-Allow-Origin when credentials flag is true</a></span> <span> - </span> <span class="display-name">apsillers</span> <span> </span> <span class="date">9 Sep 2016 at 20:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><a href="https://www.maxcdn.com/one/visual-glossary/cors/" rel="nofollow noreferrer">maxcdn.com/one/visual-glossary/cors</a> adds that "​The second domain determines whether or not to serve the content by validating the first domain, which is included as part of the request. The second domain then returns either the content or an error message back to the browser, bypassing the first domain entirely."</span> <span> - </span> <span class="display-name">Dan Dascalescu</span> <span> </span> <span class="date">22 Oct 2016 at 02:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This worked for me in c# System.Net.Http.HttpResponseMessage response = new HttpResponseMessage(); response.Headers.Add("Access-Control-Allow-Origin", "<a href="https://domain/page.html&quot;" rel="nofollow noreferrer">domain/page.html"</a>);</span> <span> - </span> <span class="display-name">Keith John Hutchison</span> <span> </span> <span class="date">22 Dec 2016 at 00:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>So this mean, if site A is not allowed by site B, and site B API does DB operations and input validation, so this will all be done and then request will be rejected at browser end, even though everything is done.</span> <span> - </span> <span class="display-name">NAVIN</span> <span> </span> <span class="date">29 Oct 2018 at 07:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How preFlight request escapes all input validations and db calls?</span> <span> - </span> <span class="display-name">NAVIN</span> <span> </span> <span class="date">29 Oct 2018 at 07:53</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@NAVIN "<i>this will all be done and then request will be rejected at browser end</i>" -- if I understand you, this is exactly what a preflight prevents. First, the browser sends a preflight OPTIONS, and it waits ito send the real request that will trigger some action on the server. If the server does <i>not</i> say, "Yes, send the real request," by sending appropriate an CORS response, then the browser will not send the real request.</span> <span> - </span> <span class="display-name">apsillers</span> <span> </span> <span class="date">29 Oct 2018 at 12:10</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I have few doubts regarding CORS: 1. So, if the sever API that we are trying to access the response does not enable CORS Filter access, do Chrome Plugins can work for by-passing? 2. What should I in my production environment for enabling this CORS filter? For Ex. If I am trying to access an API like, the Facebook API to login/ Google API to sign In to my webpage, how can these filter work, as they might have restricted the cross-domain access. So, in that case how can these filter by-pass done?</span> <span> - </span> <span class="display-name">Ashfaque Rifaye</span> <span> </span> <span class="date">3 Mar 2019 at 14:17</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Ashfaque (1) Chrome Extensions may <a href="https://developer.chrome.com/extensions/xhr" rel="nofollow noreferrer">request permission to access specific origins</a> in ways that normal web pages cannot. (2) Login APIs like OAuth don't use XHR/Ajax. They actually redirect the top-level page to some other page like <code>https://google.com/auth?token=...&amp;redirect=...</code> in a way that doesn't cause a cross-origin request.</span> <span> - </span> <span class="display-name">apsillers</span> <span> </span> <span class="date">3 Mar 2019 at 15:55</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>For completeness, to anyone that is using <code>access-control-allow-origin</code> dynamically (changing the URL value based on the requesting origin) instead of <code>*</code>, you must also include the header <code>Vary: Origin</code>. See <a href="https://fetch.spec.whatwg.org/#cors-protocol-and-http-caches" rel="nofollow noreferrer">fetch.spec.whatwg.org/#cors-protocol-and-http-caches</a></span> <span> - </span> <span class="display-name">Null</span> <span> </span> <span class="date">7 Jun 2019 at 20:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks to your explanation I could solve the CORS issue I had with pre-flight requests. I modified the Content-Type of the POST request to my server from "application/json" to "text/plain" to avoid the pre-flight requests from happening.</span> <span> - </span> <span class="display-name">Wanni</span> <span> </span> <span class="date">1 Jun 2020 at 10:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This post has been very useful to me, here is another page with information about CORS and the Access-Control-Allow-Origin header: <a href="https://portswigger.net/web-security/cors/access-control-allow-origin" rel="nofollow noreferrer">portswigger.net/web-security/cors/access-control-allow-origi‌​n</a></span> <span> - </span> <span class="display-name">Fernando Gabrieli</span> <span> </span> <span class="date">19 Aug 2020 at 22:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>While allowing <code>Access-Control-Allow-Origin</code> will effect the website security, some of the servers didn't allowed to do that, so what's the alternative?</span> <span> - </span> <span class="display-name">Awais</span> <span> </span> <span class="date">30 Mar 2021 at 10:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Awais If you're trying to do a croos-origin Ajax fetch, you probably want a <a href="https://stackoverflow.com/a/3076439/710446">reverse proxy</a>. There are also many other approaches on hat Q&amp;A, depending on what same-origin restriction you need to work around.</span> <span> - </span> <span class="display-name">apsillers</span> <span> </span> <span class="date">30 Mar 2021 at 11:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@apsillers Thanks for quick resposnse, I m not much aware of ajax etc i have my site on wordpress for which google is not caching it properly it refuse to load url of js and css due to which cache version is distorted <a href="https://awaismalik.tinytake.com/tt/NTI0NDA1M18xNjQwMTA1MA" rel="nofollow noreferrer">awaismalik.tinytake.com/tt/NTI0NDA1M18xNjQwMTA1MA</a></span> <span> - </span> <span class="display-name">Awais</span> <span> </span> <span class="date">30 Mar 2021 at 12:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>When you say Site A requests from Site B, does that mean that the client/browser requests a page from Site A and the browser requests from Site B?</span> <span> - </span> <span class="display-name">dougd_in_nc</span> <span> </span> <span class="date">25 Jan 2022 at 05:51</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@dougd_in_nc It means that the browser is displaying a page from Site A (e.g., a URL from Site A is in the address bar) and then a script running on that page tries to fetch and read a resource hosted by Site B (e.g., the site A page executes <code>fetch("https://siteB/something.txt")</code>).</span> <span> - </span> <span class="display-name">apsillers</span> <span> </span> <span class="date">25 Jan 2022 at 12:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I'm still trying to get my head around this. I have code on my site which tries to search images using freepik's api. I've been trying to set the headers on my server so my browser will allow responses from api.freepik.com, but it sounds like api.freepik.com needs to add my site to their allow list. Is that correct?</span> <span> - </span> <span class="display-name">maganthro</span> <span> </span> <span class="date">20 May 2022 at 21:56</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@maganthro That's correct. If Freepik doesn't serve CORS and you want to get around this, you have to run your own server which will fetch the Freepik API and serve the results to your web page with CORS or simply under the same origin.</span> <span> - </span> <span class="display-name">apsillers</span> <span> </span> <span class="date">20 May 2022 at 22:05</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>148</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Wayne Ye</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jan 2014 at 13:54</span>
+     </div>
+    </div>
+    <div>
+     <p>Cross-Origin Resource Sharing - <code>CORS</code> (A.K.A. Cross-Domain AJAX request) is an issue that most web developers might encounter, according to Same-Origin-Policy, browsers restrict client JavaScript in a security sandbox, usually JS cannot directly communicate with a remote server from a different domain. In the past developers created many tricky ways to achieve Cross-Domain resource request, most commonly using ways are:</p>
+     <ol>
+      <li>Use Flash/Silverlight or server side as a "proxy" to communicate with remote.</li>
+      <li>JSON With Padding (<a href="http://en.wikipedia.org/wiki/JSONP" rel="noreferrer">JSONP</a>).</li>
+      <li>Embeds remote server in an iframe and communicate through fragment or window.name, refer <a href="http://www.ibm.com/developerworks/library/wa-crossdomaincomm/#N10120" rel="noreferrer">here</a>.</li>
+     </ol>
+     <p>Those tricky ways have more or less some issues, for example JSONP might result in security hole if developers simply "eval" it, and #3 above, although it works, both domains should build strict contract between each other, it neither flexible nor elegant IMHO:)</p>
+     <p>W3C had introduced Cross-Origin Resource Sharing (CORS) as a standard solution to provide a safe, flexible and a recommended standard way to solve this issue.</p>
+     <p><strong>The Mechanism</strong></p>
+     <p>From a high level we can simply deem CORS as a contract between client AJAX call from domain A and a page hosted on domain B, a typical Cross-Origin request/response would be:</p>
+     <p><strong>DomainA AJAX request headers</strong></p>
+     <pre><code>Host DomainB.com
+User-Agent Mozilla/5.0 (Windows NT 6.1; WOW64; rv:2.0) Gecko/20100101 Firefox/4.0
+Accept text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8,application/json
+Accept-Language en-us;
+Accept-Encoding gzip, deflate
+Keep-Alive 115
+Origin http://DomainA.com 
+</code></pre>
+     <p><strong>DomainB response headers</strong></p>
+     <pre><code>Cache-Control private
+Content-Type application/json; charset=utf-8
+Access-Control-Allow-Origin DomainA.com
+Content-Length 87
+Proxy-Connection Keep-Alive
+Connection Keep-Alive
+</code></pre>
+     <p>The blue parts I marked above were the kernal facts, "Origin" request header "indicates where the cross-origin request or preflight request originates from", the "Access-Control-Allow-Origin" response header indicates this page allows remote request from DomainA (if the value is * indicate allows remote requests from any domain).</p>
+     <p>As I mentioned above, W3 recommended browser to implement a "<strong>preflight request</strong>" before submiting the actually Cross-Origin HTTP request, in a nutshell it is an HTTP <code>OPTIONS</code> request:</p>
+     <pre><code>OPTIONS DomainB.com/foo.aspx HTTP/1.1
+</code></pre>
+     <p>If foo.aspx supports OPTIONS HTTP verb, it might return response like below:</p>
+     <pre><code>HTTP/1.1 200 OK
+Date: Wed, 01 Mar 2011 15:38:19 GMT
+Access-Control-Allow-Origin: http://DomainA.com
+Access-Control-Allow-Methods: POST, GET, OPTIONS, HEAD
+Access-Control-Allow-Headers: X-Requested-With
+Access-Control-Max-Age: 1728000
+Connection: Keep-Alive
+Content-Type: application/json
+</code></pre>
+     <p>Only if the response contains "Access-Control-Allow-Origin" AND its value is "*" or contain the domain who submitted the CORS request, by satisfying this mandtory condition browser will submit the actual Cross-Domain request, and cache the result in "<strong>Preflight-Result-Cache</strong>".</p>
+     <p>I blogged about CORS three years ago: <a href="https://wayneye.me/Ajax-Cross-Origin-HTTP-request" rel="noreferrer">AJAX Cross-Origin HTTP request</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This answer made me realize why i was suddenly getting an issue without using this header for POST and GET requests. I had accidently opened the index.html file directly from disk, so the URL the client was accessing on node.js was thought to be cross-domain, while it was simply running on localhost. Accessing via the URL (as one would usually do) "solved" my issue...</span> <span> - </span> <span class="display-name">LuqJensen</span> <span> </span> <span class="date">8 Jan 2017 at 21:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have a public fetch API. But some people were telling to enable CORS as it blocks their requests. I know there is an npm package called cors. But I saw that many Public APIs do not have CORS enabled. I also read some articles about the security risks in CORS. <b>I was asking that will it be wrong to enable CORS</b>. Few people are calling the API from the client-side code that is running in the browsers. Any suggestion is gratefully accepted.</span> <span> - </span> <span class="display-name">Dron Bhattacharya</span> <span> </span> <span class="date">25 Feb 2022 at 06:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What I read on your last link: wayneye.com currently does not have any sponsors for you.</span> <span> - </span> <span class="display-name">Timo</span> <span> </span> <span class="date">18 Sep 2022 at 19:21</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Timo I updated link to: <a href="https://wayneye.me/Ajax-Cross-Origin-HTTP-request" rel="nofollow noreferrer">wayneye.me/Ajax-Cross-Origin-HTTP-request</a> Thanks :)</span> <span> - </span> <span class="display-name">Wayne Ye</span> <span> </span> <span class="date">19 Sep 2022 at 23:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>92</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Peyman Mohamadpour</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Mar 2017 at 06:39</span>
+     </div>
+    </div>
+    <div>
+     <p>According to <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS" rel="nofollow noreferrer">this</a> Mozilla Developer Network article,</p>
+     <blockquote>
+      <p>A resource makes a <strong>cross-origin HTTP request</strong> when it requests a resource from a different domain, or port than the one which the first resource itself serves.</p>
+     </blockquote>
+     <p><a href="https://i.stack.imgur.com/zn3sT.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/zn3sT.png" alt="Enter image description here"></a></p>
+     <p>An <strong>HTML page</strong> served from <code>http://domain-a.com</code> makes an <code>&lt;img&gt;</code> src request for <code>http://domain-b.com/image.jpg</code>. Many pages on the web today load resources like <strong>CSS style sheets</strong>, <strong>images</strong> and <strong>scripts</strong> from separate domains (thus it should be cool).</p>
+     <h3>Same-Origin Policy</h3>
+     <p>For security reasons, browsers restrict <strong>cross-origin HTTP</strong> requests <strong>initiated from within scripts</strong>. For example, <code>XMLHttpRequest</code> and <code>Fetch</code> follow the <strong>same-origin policy</strong>. So, a web application using <code>XMLHttpRequest</code> or <code>Fetch</code> could only make <strong>HTTP requests</strong> to <strong>its own domain</strong>.</p>
+     <h3>Cross-Origin Resource Sharing (CORS)</h3>
+     <p>To improve web applications, developers asked browser vendors to allow cross-domain requests.</p>
+     <p>The <strong>Cross-origin resource sharing (CORS)</strong> mechanism gives web servers <strong>cross-domain access controls</strong>, which enable secure cross-domain data transfers. Modern browsers use CORS in an API container - such as <code>XMLHttpRequest</code> or <code>fetch</code> - to mitigate risks of cross-origin HTTP requests.</p>
+     <h3>How CORS works (<em>Access-Control-Allow-Origin</em> header)</h3>
+     <p><a href="https://en.wikipedia.org/wiki/Cross-origin_resource_sharing" rel="nofollow noreferrer">Wikipedia</a>:</p>
+     <blockquote>
+      <p>The CORS standard describes new HTTP headers which provide browsers and servers a way to request remote URLs only when they have permission.</p>
+     </blockquote>
+     <blockquote>
+      <p>Although some validation and authorization can be performed by the server, <strong>it is generally the browser's responsibility</strong> to support these headers and honor the restrictions they impose.</p>
+     </blockquote>
+     <h3>Example</h3>
+     <ol>
+      <li>The browser sends the <code>OPTIONS</code> request with an <code>Origin HTTP</code> header.</li>
+     </ol>
+     <p>The value of this header is the domain that served the parent page. When a page from <code>http://www.example.com</code> attempts to access a user's data in <code>service.example.com</code>, the following request header would be sent to <code>service.example.com</code>:</p>
+     <pre class="lang-none prettyprint-override"><code>Origin: http://www.example.com
+</code></pre>
+     <ol start="2">
+      <li>The server at <code>service.example.com</code> may respond with:</li>
+     </ol>
+     <ul>
+      <li>
+       <p>An <code>Access-Control-Allow-Origin</code> (ACAO) header in its response indicating which origin sites are allowed. For example:</p>
+       <p><code>Access-Control-Allow-Origin: http://www.example.com</code></p></li>
+      <li>
+       <p>An error page if the server does not allow the cross-origin request</p></li>
+      <li>
+       <p>An <code>Access-Control-Allow-Origin</code> (ACAO) header with a wildcard that allows all domains:</p>
+       <p><code>Access-Control-Allow-Origin: *</code></p></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>How to set none are allowed to acees some thing like <code>Access-Control-Allow-Origin:null</code></span> <span> - </span> <span class="display-name">Subin Chalil</span> <span> </span> <span class="date">25 Aug 2017 at 06:18</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>When I don't want to allow anyone to access my resources through CORS, what value should I set for <code>Access-Control-Allow-Origin</code> ? I mean the negation of <code>Access-Control-Allow-Origin: *</code></span> <span> - </span> <span class="display-name">Subin Chalil</span> <span> </span> <span class="date">31 Aug 2017 at 13:54</span></td>
+       </tr>
+       <tr>
+        <td>10</td>
+        <td><span>Just dont set anything, for that purpose</span> <span> - </span> <span class="display-name">Peyman Mohamadpour</span> <span> </span> <span class="date">31 Aug 2017 at 13:56</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>where I put access-control</span> <span> - </span> <span class="display-name">Ganesan J</span> <span> </span> <span class="date">16 Feb 2021 at 11:36</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I your web server is Apache, then you may put in your <code>http-config</code> or <code>htaccess</code> files</span> <span> - </span> <span class="display-name">Peyman Mohamadpour</span> <span> </span> <span class="date">16 Feb 2021 at 11:42</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>49</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dom</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jan 2018 at 18:47</span>
+     </div>
+    </div>
+    <div>
+     <p>Whenever I start thinking about CORS, my intuition about which site hosts the headers is incorrect, just as you described in your question. For me, it helps to think about the purpose of the <a href="https://en.wikipedia.org/wiki/Same-origin_policy" rel="noreferrer">same-origin policy</a>.</p>
+     <p>The purpose of the same-origin policy is to protect you from malicious JavaScript on siteA.com accessing private information you've chosen to share only with siteB.com. Without the same-origin policy, JavaScript written by the authors of siteA.com could have your browser make requests to siteB.com, using your authentication cookies for siteB.com. In this way, siteA.com could steal the secret information you share with siteB.com.</p>
+     <p>Sometimes you need to work cross domain, which is where CORS comes in. CORS relaxes the same-origin policy for siteB.com, using the <code>Access-Control-Allow-Origin</code> header to list other domains (siteA.com) that are trusted to run JavaScript that can interact with siteB.com.</p>
+     <p>To understand which domain should serve the CORS headers, consider this. You visit <em>malicious.com</em>, which contains some JavaScript that tries to make a cross domain request to <em>mybank.com</em>. It should be up to <em>mybank.com</em>, not <em>malicious.com</em>, to decide whether or not it sets CORS headers that relax the same-origin policy, allowing the JavaScript from <em>malicious.com</em> to interact with it. If <em>malicous.com</em> could set its own CORS headers allowing its own JavaScript access to <em>mybank.com</em>, this would completely nullify the same-origin policy.</p>
+     <p>I think the reason for my bad intuition is the point of view I have when developing a site. It's <strong>my</strong> site, with all <strong>my</strong> JavaScript. Therefore, it isn't doing anything malicious, and it should be up to <strong>me</strong> to specify which other sites <strong>my</strong> JavaScript can interact with. When in fact I should be thinking: Which <strong>other</strong> sites' JavaScript are trying to interact with my site and should I use CORS to allow them?</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Given paragraph 2, do you have siteA, siteB backwards in paragraph 3? I could be misunderstanding, but the earlier paragraph seems to imply its siteA that is running the JS in question?</span> <span> - </span> <span class="display-name">cellepo</span> <span> </span> <span class="date">23 Apr 2020 at 03:50</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>From OP - "I think the reason for my bad intuition is the point of view I have when developing a site. It's my site, with all my JavaScript, therefore it isn't doing anything malicious and it should be up to me to specify which other sites my JavaScript can interact with. " - for those who first thought like this (as I did), there is another rule, one that is not CORS, for this: CSP (consent security policy) - using CSP you can specify which site/url your site is able to visit/reach.</span> <span> - </span> <span class="display-name">Pedro Gabriel Lima</span> <span> </span> <span class="date">10 Aug 2020 at 17:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ben</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Nov 2019 at 19:40</span>
+     </div>
+    </div>
+    <div>
+     <p>From my own experience, it's hard to find a simple explanation why CORS is even a concern.</p>
+     <p>Once you understand why it's there, the headers and discussion becomes a lot clearer. I'll give it a shot in a few lines.</p>
+     <hr>
+     <p>It's all about cookies. Cookies are stored on a client by their domain.</p>
+     <blockquote>
+      <p>An example story: On your computer, there's a cookie for <code>yourbank.com</code>. Maybe your session is in there.</p>
+     </blockquote>
+     <p><strong>Key point:</strong> When a client makes a request to the server, it will send the cookies stored under the domain for that request.</p>
+     <blockquote>
+      <p>You're logged in on your browser to <code>yourbank.com</code>. You request to see all your accounts, and cookies are sent for <code>yourbank.com</code>. <code>yourbank.com</code> receives the pile of cookies and sends back its response (your accounts).</p>
+     </blockquote>
+     <p>If another client makes a <em>cross origin</em> request to a server, those cookies are sent along, just as before. Ruh roh.</p>
+     <blockquote>
+      <p>You browse to <code>malicious.com</code>. Malicious makes a bunch of requests to different banks, including <code>yourbank.com</code>.</p>
+     </blockquote>
+     <p>Since the cookies are validated as expected, the server will authorize the response.</p>
+     <blockquote>
+      <p>Those cookies get gathered up and sent along - and now, <code>malicious.com</code> has a response from <code>yourbank</code>.</p>
+     </blockquote>
+     <p>Yikes.</p>
+     <hr>
+     <p>So now, a few questions and answers become apparent:</p>
+     <ul>
+      <li>
+       <p>"Why don't we just block the browser from doing that?" Yep. That's CORS.</p></li>
+      <li>
+       <p>"How do we get around it?" Have the server tell the request that CORS is OK.</p></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I like this answer and I feel like this is right, but I don't understand why it seems like it's only the front-end that throws an error, and the backend might still process the request. I wrote a question about it <a href="https://stackoverflow.com/questions/69559952/if-i-get-a-cross-origin-request-blocked-error-on-my-front-end-why-does-the-requ" title="if i get a cross origin request blocked error on my front end why does the requ">stackoverflow.com/questions/69559952/…</a></span> <span> - </span> <span class="display-name">Cameron</span> <span> </span> <span class="date">13 Oct 2021 at 17:41</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>The backend only sees one request, from one URL. The backend for <code>yourbank.com</code> doesn't (definitively) know that it's <code>malicious.com</code> making the request. The browser is the only place that keeps track of all of the different domains you've visited</span> <span> - </span> <span class="display-name">Ben</span> <span> </span> <span class="date">13 Oct 2021 at 21:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Wouldn't it make much more sense that the request is indeed allowed to pass, but the cookies that are sent are always from the requesting domain?</span> <span> - </span> <span class="display-name">Niton</span> <span> </span> <span class="date">25 Oct 2022 at 14:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Niton you understand it perfectly, they are. The problem is that <code>malicious.com</code> can send a request to <code>yourbank.com</code>...then the cookies are gathered up for <code>yourbank.com</code> and sent. The response then comes back to <code>malicious.com</code>.</span> <span> - </span> <span class="display-name">Ben</span> <span> </span> <span class="date">25 Oct 2022 at 23:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>OsamaBinLogin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Feb 2016 at 01:37</span>
+     </div>
+    </div>
+    <div>
+     <p><em>1. A client downloads javascript code MyCode.js from <a href="http://siteA" rel="noreferrer">http://siteA</a> - the origin.</em></p>
+     <p>The code that does the downloading - your html script tag or xhr from javascript or whatever - came from, let's say, <a href="http://siteZ" rel="noreferrer">http://siteZ</a>. And, when the browser requests MyCode.js, it sends an Origin: header saying "Origin: <a href="http://siteZ" rel="noreferrer">http://siteZ</a>", because it can see that you're requesting to siteA and siteZ != siteA. (You cannot stop or interfere with this.)</p>
+     <p><em>2. The response header of MyCode.js contains Access-Control-Allow-Origin: <a href="http://siteB" rel="noreferrer">http://siteB</a>, which I thought meant that MyCode.js was allowed to make cross-origin references to the site B.</em></p>
+     <p>no. It means, Only siteB is allowed to do this request. So your request for MyCode.js from siteZ gets an error instead, and the browser typically gives you nothing. But if you make your server return A-C-A-O: siteZ instead, you'll get MyCode.js . Or if it sends '*', that'll work, that'll let everybody in. Or if the server always sends the string from the Origin: header... but... for security, if you're afraid of hackers, your server should only allow origins on a shortlist, that are allowed to make those requests.</p>
+     <p>Then, MyCode.js comes from siteA. When it makes requests to siteB, they are all cross-origin, the browser sends Origin: siteA, and siteB has to take the siteA, recognize it's on the short list of allowed requesters, and send back A-C-A-O: siteA. Only then will the browser let your script get the result of those requests.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dhaval Jardosh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Oct 2017 at 15:53</span>
+     </div>
+    </div>
+    <div>
+     <p>Using <a href="https://en.wikipedia.org/wiki/React_(JavaScript_library)" rel="nofollow noreferrer">React</a> and <a href="https://github.com/mzabriskie/axios" rel="nofollow noreferrer">Axios</a>, join a proxy link to the URL and add a header as shown below:</p>
+     <p><code>https://cors-anywhere.herokuapp.com/</code> + <code>Your API URL</code></p>
+     <p>Just adding the <em>proxy</em> link will work, but it can also throw an error for <em>No Access</em> again. Hence it is better to add a header as shown below.</p>
+     <pre><code>axios.get(`https://cors-anywhere.herokuapp.com/[YOUR_API_URL]`,{headers: {'Access-Control-Allow-Origin': '*'}})
+      .then(response =&gt; console.log(response:data);
+  }
+</code></pre>
+     <h3><em>Warning</em>: Not to be used in production</h3>
+     <p>This is just a quick fix. If you're struggling with why you're not able to get a response, you <em>can</em> use this. But again it's <strong>not the best answer for production.</strong></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>31</td>
+        <td><span>Please don't do this. Using a proxy link is like handing over user cookies to a middle-man. Should be illegal IMHO</span> <span> - </span> <span class="display-name">anthonymonori</span> <span> </span> <span class="date">9 Dec 2017 at 10:12</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>this was useful for me! Except rather than using the * (which has security issues), I limited Access Control to the exact address i'm using to learn with... in my case '<a href="http://reqres.in/api/register" rel="nofollow noreferrer">reqres.in/api/register</a>'</span> <span> - </span> <span class="display-name">C-Note187</span> <span> </span> <span class="date">23 Jan 2020 at 12:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>In my case it was <a href="https://sampledataapi.com/API/index.php/getcountry" rel="nofollow noreferrer">sampledataapi.com/API/index.php/getcountry</a></span> <span> - </span> <span class="display-name">Rahul Koshti</span> <span> </span> <span class="date">17 Nov 2022 at 11:21</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>izik f</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Feb 2017 at 08:19</span>
+     </div>
+    </div>
+    <div>
+     <p>I worked with <a href="https://en.wikipedia.org/wiki/Express.js" rel="nofollow noreferrer">Express.js</a> 4, <a href="https://en.wikipedia.org/wiki/Node.js" rel="nofollow noreferrer">Node.js</a> 7.4 and <a href="https://en.wikipedia.org/wiki/Angular_(web_framework)" rel="nofollow noreferrer">Angular</a>, and I had the same problem. This helped me:</p>
+     <p>a) server side: in file <em>app.js</em> I add headers to all responses, like:</p>
+     <pre><code>app.use(function(req, res, next) {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
+</code></pre>
+     <p><strong>This must be before all routes</strong>.</p>
+     <p>I saw a lot of added this headers:</p>
+     <pre><code>res.header("Access-Control-Allow-Headers","*");
+res.header('Access-Control-Allow-Credentials', true);
+res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+</code></pre>
+     <p>But I don’t need that,</p>
+     <p>b) client side: in sending by <a href="https://en.wikipedia.org/wiki/Ajax_%28programming%29" rel="nofollow noreferrer">Ajax</a>, you need to add <em>"withCredentials: true,"</em> like:</p>
+     <pre><code>$http({
+     method: 'POST',
+     url: 'url',
+     withCredentials: true,
+     data : {}
+   }).then(function(response){
+       // Code
+   }, function (response) {
+       // Code
+});
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span><code>res.header('Access-Control-Allow-Origin', req.headers.origin);</code> is the same as <code>res.header('Access-Control-Allow-Origin', '*');</code></span> <span> - </span> <span class="display-name">The Aelfinn</span> <span> </span> <span class="date">17 Sep 2019 at 14:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>*</code> and <code>req.headers.origin</code> are not the same... <code>*</code> is not allowed when using credentials.</span> <span> - </span> <span class="display-name">Pipe</span> <span> </span> <span class="date">11 Aug 2022 at 19:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Melvin Guerrero</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Jan 2017 at 15:30</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are using PHP, try adding the following code at the beginning of the php file:</p>
+     <p>If you are using localhost, try this:</p>
+     <pre><code>header("Access-Control-Allow-Origin: *");
+</code></pre>
+     <p>If you are using external domains such as server, try this:</p>
+     <pre><code>header("Access-Control-Allow-Origin: http://www.website.com");
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Maurizio Brioschi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Feb 2017 at 16:32</span>
+     </div>
+    </div>
+    <div>
+     <p>If you want just to test a cross-domain application in which the browser blocks your request, then you can just open your browser in unsafe mode and test your application without changing your code and without making your code unsafe.</p>
+     <p>From <a href="https://en.wikipedia.org/wiki/MacOS" rel="nofollow noreferrer">macOS</a>, you can do this from the terminal line:</p>
+     <pre class="lang-none prettyprint-override"><code>open -a Google\ Chrome --args --disable-web-security --user-data-dir
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>peachykeen</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jan 2018 at 11:10</span>
+     </div>
+    </div>
+    <div>
+     <p>In Python, I have been using the <a href="https://flask-cors.readthedocs.io/en/latest/" rel="nofollow noreferrer"><em>Flask-CORS</em> library</a> with great success. It makes dealing with CORS super easy and painless. I added some code from the library's documentation below.</p>
+     <p>Installing:</p>
+     <pre><code>pip install -U flask-cors
+</code></pre>
+     <p>Simple example that allows CORS for all domains on all routes:</p>
+     <pre><code>from flask import Flask
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
+@app.route("/")
+def helloWorld():
+  return "Hello, cross-origin-world!"
+</code></pre>
+     <p>For more specific examples, see the documentation. I have used the simple example above to get around the CORS issue in an <a href="https://en.wikipedia.org/wiki/Ionic_(mobile_app_framework)" rel="nofollow noreferrer">Ionic</a> application I am building that has to access a separate flask server.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Juboraj Sarker</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Jan 2019 at 04:35</span>
+     </div>
+    </div>
+    <div>
+     <p>Simply paste the following code in your <em>web.config</em> file.</p>
+     <p>Noted that, you have to paste the following code under <code>&lt;system.webServer&gt;</code> tag</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;httpProtocol&gt;
+  &lt;customHeaders&gt;
+   &lt;add name="Access-Control-Allow-Origin" value="*" /&gt;
+   &lt;add name="Access-Control-Allow-Headers" value="Content-Type" /&gt;
+   &lt;add name="Access-Control-Allow-Methods" value="GET, POST, PUT, DELETE, OPTIONS" /&gt;
+  &lt;/customHeaders&gt;
+&lt;/httpProtocol&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This helped me. I was enabling cors in WebApiConfig.cs.but I used the above code and put it on the web. config and remove the WebApiConfig.cs code. It worked like charm. Thanks</span> <span> - </span> <span class="display-name">Mukesh Salaria</span> <span> </span> <span class="date">30 Jul 2021 at 11:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What system? <a href="https://en.wikipedia.org/wiki/Internet_Information_Services" rel="nofollow noreferrer">IIS</a>/<a href="https://en.wikipedia.org/wiki/ASP.NET" rel="nofollow noreferrer">ASP.NET</a>? <i><a href="https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/web-config?view=aspnetcore-6.0" rel="nofollow noreferrer">web.config file</a></i></span> <span> - </span> <span class="display-name">Peter Mortensen</span> <span> </span> <span class="date">18 Sep 2022 at 12:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ehsan Ali</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Mar 2021 at 09:49</span>
+     </div>
+    </div>
+    <div>
+     <p>I can't configure it on the back-end server, but with these extensions in the browsers, it works for me:</p>
+     <p><strong>For Firefox:</strong></p>
+     <p><a href="https://addons.mozilla.org/en-US/firefox/addon/cors-everywhere/" rel="nofollow noreferrer">CORS Everywhere</a></p>
+     <p><strong>For Google Chrome:</strong></p>
+     <p><a href="https://chrome.google.com/webstore/detail/allow-cors-access-control/lhobafahddgcelffkeicbaginigeejlf?hl=en-US" rel="nofollow noreferrer">Allow CORS: Access-Control-Allow-Origin</a></p>
+     <p>Note: CORS works for me with this configuration:</p>
+     <p><a href="https://i.stack.imgur.com/eDD7P.jpg" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/eDD7P.jpg" alt="Allow CORS options"></a></p>
+     <p><a href="https://i.stack.imgur.com/27QWb.jpg" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/27QWb.jpg" alt="CORS Everywhere options"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>suryadev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Nov 2016 at 02:39</span>
+     </div>
+    </div>
+    <div>
+     <p>For cross origin sharing, set header: <code>'Access-Control-Allow-Origin':'*';</code></p>
+     <p>Php: <code>header('Access-Control-Allow-Origin':'*');</code></p>
+     <p>Node: <code>app.use('Access-Control-Allow-Origin':'*');</code></p>
+     <p>This will allow to share content for different domain.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Kamil Kiełczewski</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 May 2020 at 09:33</span>
+     </div>
+    </div>
+    <div>
+     <h3>Nginx and Apache</h3>
+     <p>As an addition to <a href="https://stackoverflow.com/a/10636765/860099">apsiller's answer</a>, I would like to add a <a href="https://en.wikipedia.org/wiki/Cross-origin_resource_sharing#How_CORS_works" rel="nofollow noreferrer">wiki graph</a> which shows when a request is simple or not (and OPTIONS pre-flight request is send or not)</p>
+     <p><a href="https://i.stack.imgur.com/BTFel.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/BTFel.png" alt="Enter image description here"></a></p>
+     <p>For a simple request (e.g., <a href="https://en.wikipedia.org/wiki/Inline_linking" rel="nofollow noreferrer">hotlinking images</a>), you don't need to change your server configuration files, but you can add headers in the application (hosted on the server, e.g., in <a href="https://en.wikipedia.org/wiki/PHP" rel="nofollow noreferrer">PHP</a>) like Melvin Guerrero mentions in <a href="https://stackoverflow.com/a/41723271/860099">his answer</a> - but <a href="https://stackoverflow.com/a/46917668/860099">remember</a>: if you add full CORS headers in your server (configuration) and at same time you allow simple CORS in the application (e.g., PHP), this will not work at all.</p>
+     <p>And here are configurations for two popular servers:</p>
+     <ul>
+      <li>
+       <p>turn on <strong>CORS on Nginx</strong> (<em>nginx.conf</em> file)</p>
+       <p></p>
+       <div class="snippet" data-lang="js" data-hide="true" data-console="false" data-babel="false">
+        <div class="snippet-code snippet-currently-hidden">
+         <pre class="snippet-code-js lang-js prettyprint-override"><code>location ~ ^/index\.php(/|$) {
+   ...
+    add_header 'Access-Control-Allow-Origin' "$http_origin" always; # if you change "$http_origin" to "*" you shoud get same result - allow all domain to CORS (but better change it to your particular domain)
+    add_header 'Access-Control-Allow-Credentials' 'true' always;
+    if ($request_method = OPTIONS) {
+        add_header 'Access-Control-Allow-Origin' "$http_origin"; # DO NOT remove THIS LINES (doubled with outside 'if' above)
+        add_header 'Access-Control-Allow-Credentials' 'true';
+        add_header 'Access-Control-Max-Age' 1728000; # cache preflight value for 20 days
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';  # arbitrary methods
+        add_header 'Access-Control-Allow-Headers' 'My-First-Header,My-Second-Header,Authorization,Content-Type,Accept,Origin'; # arbitrary headers
+        add_header 'Content-Length' 0;
+        add_header 'Content-Type' 'text/plain charset=UTF-8';
+        return 204;
+    }
+}</code></pre>
+        </div>
+       </div>
+       <p></p></li>
+      <li>
+       <p>turn on <strong>CORS on Apache</strong> (<em><a href="https://en.wikipedia.org/wiki/.htaccess" rel="nofollow noreferrer">.htaccess</a></em> file)</p>
+       <p></p>
+       <div class="snippet" data-lang="js" data-hide="true" data-console="false" data-babel="false">
+        <div class="snippet-code snippet-currently-hidden">
+         <pre class="snippet-code-js lang-js prettyprint-override"><code># ------------------------------------------------------------------------------
+# | Cross-domain Ajax requests                                                 |
+# ------------------------------------------------------------------------------
+
+# Enable cross-origin Ajax requests.
+# http://code.google.com/p/html5security/wiki/CrossOriginRequestSecurity
+# http://enable-cors.org/
+
+# change * (allow any domain) below to your domain
+Header set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "POST, GET, OPTIONS, DELETE, PUT"
+Header always set Access-Control-Allow-Headers "My-First-Header,My-Second-Header,Authorization, content-type, csrf-token"
+Header always set Access-Control-Allow-Credentials "true"</code></pre>
+        </div>
+       </div>
+       <p></p></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alireza</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Jan 2019 at 11:49</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>The Access-Control-Allow-Origin response header indicates whether the response can be shared with requesting code from the given origin.</p>
+      <pre class="lang-none prettyprint-override"><code>Header type                 Response header
+-------------------------------------------
+Forbidden header name       no
+</code></pre>
+      <p>A response that tells the browser to allow code from any origin to access a resource will include the following:</p>
+      <pre class="lang-none prettyprint-override"><code>Access-Control-Allow-Origin: *
+</code></pre>
+     </blockquote>
+     <p>For more information, visit <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin" rel="nofollow noreferrer">Access-Control-Allow-Origin</a>...</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Related: <i><a href="https://meta.stackoverflow.com/questions/321299/">Answers entirely copied though properly attributed</a></i></span> <span> - </span> <span class="display-name">Peter Mortensen</span> <span> </span> <span class="date">18 Sep 2022 at 12:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Cyclion</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Jun 2020 at 11:30</span>
+     </div>
+    </div>
+    <div>
+     <h3><em>Note</em>: Only a temporary solution for testing</h3>
+     <p>For those who can't control the backend for <code>Options 405 Method Not Allowed</code>, here is a workaround for theChrome browser.</p>
+     <p>Execute in the command line:</p>
+     <p><code>"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir="path_to_profile"</code></p>
+     <p>Example:</p>
+     <p><code>"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir="C:\Users\vital\AppData\Local\Google\Chrome\User Data\Profile 2"</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Please also mention the SEVERE RISKS of doing this w.r.t security and possible data breach. Also, note that this is never a RECOMMENDED solution but just for testing something during development and that too very cautiously.</span> <span> - </span> <span class="display-name">Tushar Shukla</span> <span> </span> <span class="date">23 Dec 2020 at 05:59</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>You should never do this, its a breach of security and this will never help others to understand how to work with CORS. AVOID THIS AT ALL COST PLZ</span> <span> - </span> <span class="display-name">Vince</span> <span> </span> <span class="date">9 Mar 2021 at 15:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>rohit.khurmi095</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Oct 2021 at 17:01</span>
+     </div>
+    </div>
+    <div>
+     <p><em><strong>For .NET Core 3.1 API With Angular</strong></em></p>
+     <p><strong>Startup.cs</strong> : Add CORS</p>
+     <pre><code>    //SERVICES
+    public void ConfigureServices(IServiceCollection services){
+
+        //CORS (Cross Origin Resource Sharing)
+        //=====================================
+        services.AddCors();
+    }
+
+    //MIDDLEWARES
+    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+    {
+        app.UseRouting();
+
+        //ORDER: CORS -&gt; Authentication -&gt; Authorization)
+        //CORS (Cross Origin Resource Sharing)
+        //=====================================  
+        app.UseCors(x=&gt;x.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:4200"));
+
+        app.UseHttpsRedirection();
+    }
+}
+</code></pre>
+     <p><strong>Controller</strong> : Enable CORS For Authorized Controller</p>
+     <pre><code> //Authorize all methods inside this controller
+ [Authorize]
+ [EnableCors()]
+ public class UsersController : ControllerBase
+ {
+    //ActionMethods
+ }
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Matteus Barbosa</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Feb 2023 at 21:44</span>
+     </div>
+    </div>
+    <div>
+     <p>Most CORS issues are because you are trying to request via client side ajax from a react, angular, jquery apps that are frontend basic libs.</p>
+     <p>You must request from a backend application.</p>
+     <p>You are trying to request from a frontend API, but the API you are trying to consume is expecting this request to be made from a backend application and it will never accept client side requests.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I don't understand what you mean. How can a web server know if a request comes from frontend or from backend? It's all just another HTTP request.</span> <span> - </span> <span class="display-name">j.karlsson</span> <span> </span> <span class="date">20 Mar 2023 at 10:03</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

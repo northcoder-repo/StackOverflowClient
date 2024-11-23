@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Is bcrypt(strtolower(hex(md5(pass)))) ok for storing passwords?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Is bcrypt(strtolower(hex(md5(pass)))) ok for storing passwords?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>45</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user1067003</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 Jul 2020 at 13:32</span>
+    </div>
+    <div>
+     <a href="https://security.stackexchange.com/questions/234794/is-bcryptstrtolowerhexmd5pass-ok-for-storing-passwords">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a large database where passwords are stored as <code>strtolower(hex(md5(pass)))</code> (which is a bad way to store passwords, prone to rainbow tables, cheap to dictionary attack, no salt, etc.), and I'm tasked with switching from md5 to bcrypt,</p>
+    <p>I have to use a bcrypt implementation that silently truncates after 72 bytes, and silently truncates on the first null byte (whichever comes first), and <code>bcrypt(strtolower(hex(md5(pass))))</code> would not be prone to either of those issues.</p>
+    <p>Also it's possible to retroactively apply bcrypt to existing <code>strtolower(hex(md5(pass)))</code> password hashes, without requiring everyone to re-login/switch passwords.</p>
+    <p>Is it a bad idea? I don't think so, but still want to hear what this site has to say. Maybe there is something important I'm missing.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">passwords</span><span class="tag">hash</span><span class="tag">md5</span><span class="tag">bcrypt</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>92</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Royce Williams</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jul 2020 at 13:52</span>
+     </div>
+    </div>
+    <div>
+     <p>As a password cracker, I encourage all of my targets to use this technique. 😉</p>
+     <p>This (understandably!) seems like a good idea, but it turns out that against real-world attacks, <strong>wrapping an <em>unsalted</em> hash with bcrypt is demonstrably weaker than simply using bcrypt</strong>.</p>
+     <p>(EDIT: First, to be clear up front, <code>bcrypt(md5($pass))</code> is <em>much</em> better than <code>md5($pass)</code> alone - so none of this should be take to mean that this scheme should be left as is.)</p>
+     <p>Wrapping an unsalted hash is problematic from a real-world attack perspective because attackers can do this:</p>
+     <ol>
+      <li>Acquire existing MD5 passwords from leaks - <em>even MD5s that haven't been cracked yet</em></li>
+      <li>After simpler attacks have been exhausted, run these MD5s as a "wordlist" against your <code>bcrypt(md5($pass))</code> corpus, to identify uncracked bcrypts with known MD5s</li>
+      <li>crack those MD5s <strong>outside of bcrypt</strong> at much higher speed</li>
+     </ol>
+     <p>And yes - you do have to discover the MD5 inside the bcrypt first. But the crucial point is that <strong>that MD5 can be an otherwise uncracked MD5 that happens to be present in some other leak</strong>, which you can then attack at massively increased speeds.</p>
+     <p>This is not a theoretical attack. It is used all the time by advanced password crackers to successfully crack bcrypt hashes <em>that would otherwise be totally out of reach for the attacker</em>.</p>
+     <p>How this attack works is <strong>very</strong> non-intuitive for non-specialists, so I <strong>strongly</strong> encourage skeptics to experiment with a real-world scenario to understand how it works:</p>
+     <ol>
+      <li>Hash a 6-character random password with MD5.</li>
+      <li>Presume that this MD5 is already present in some other list of leaked passwords, proving that it has been used as a password at some point.</li>
+      <li>Try to attack the MD5 directly with brute force.</li>
+      <li>Wrap the MD5 in bcrypt and try to attack it directly with brute force.</li>
+      <li>Attack the same bcrypt-wrapped MD5, but this time pretend that you haven't cracked the MD5 yet, but instead use a "dictionary" of leaked MD5 that includes your MD5.</li>
+      <li>Once you've "discovered" that you have an MD5 in hand that is inside one of your bcrypts, attack the MD5, then pass the resulting plaintext to your bcrypt(md5($pass)) attack.</li>
+     </ol>
+     <p>Again, <em>very</em> non-intuitive, so play with it (and don't feel bad that it takes work to understand it; I argued vigorously against it with Jeremi Gosney <em>for an hour straight</em> before I finally got it!)</p>
+     <p>I don't believe that this technique has an "official" name, but I've been calling it <strong>"hash shucking"</strong> or just "shucking."</p>
+     <p>So depending on use case, it's totally understandable why wrapping bcrypt can be attractive (for example, to get beyond the 72-character bcrypt maximum, though <a href="https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pre-hashing-passwords" rel="noreferrer">this can be tricky for other reasons, including the 'null byte' problem</a>), or to migrate existing hashes.</p>
+     <p>So if someone needs to wrap a hash in bcrypt, the mitigation for this weakness should be clear by now: your inner hash must never appear in any other password storage system that might ever become available to an attacker. This means that you must <strong>make the inner hashes globally unique</strong>.</p>
+     <p>For your specific use case - in which you need to preserve existing hashes - there are a few options, including:</p>
+     <ul>
+      <li>adding a <em>global</em> pepper <em>within your web or DB framework</em> - so, <code>bcrypt($md5.$pepper)</code> This allows you to easily migrate existing MD5s, but that global pepper is still subject to being stolen (but if your web tier is segmented from your DB tier/auth, this might be an acceptable risk, YMMV);</li>
+      <li>adding a <em>global</em> pepper <em>using <a href="https://en.wikipedia.org/wiki/Hardware_security_module" rel="noreferrer">HSM</a> infrastructure</em> (storing the pepper in such a way that not even the web app can see, so it can't be stolen)</li>
+      <li>adding an extra <em>per-hash</em> salt (but you'd have to store it outside of the hash somehow, which starts to get tricky and verges into 'roll your own crypto' territory);</li>
+      <li>hashing the MD5s with a slow, salted hashing algorithm or HMAC <em>inside</em> the bcrypt layer (not recommended, I'm not even vaguely qualified to advise on how that might be done properly, but is possible - <a href="https://youtu.be/7dPRFoKteIU?t=168" rel="noreferrer">Facebook is doing it</a>, but some <em>very</em> smart people designed that);</li>
+     </ul>
+     <p>For more details, including some specific scenarios to illustrate why this is weaker than bcrypt alone, see <a href="https://superuser.com/questions/1561434/how-do-i-crack-a-double-encrypted-hash/1561612#1561612">my SuperUser answer here</a>, <a href="https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pre-hashing-passwords" rel="noreferrer">this OWASP guidance on "pre-hashing" passwords</a> which supports my assertion with more clarity, and <a href="https://www.youtube.com/watch?v=OQD3qDYMyYQ" rel="noreferrer">this talk by Sam Croley</a> discussing the technique.</p>
+     <p>Password upgrading in general can be tricky; see - <a href="https://security.stackexchange.com/questions/118114/should-passwords-be-automatically-reset-when-the-underlying-method-changes">this answer</a> and <a href="https://www.michalspacek.com/upgrading-existing-password-hashes" rel="noreferrer">Michal Špaček's page</a> on password storage upgrade strategies.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>12</td>
+        <td><span>interesting, it's basically using a md5-dictionary instead of using a password-dictionary, not that using a md5-dictionary for the attack is any cheaper than using a password-dictionary for the attack (but bruteforcing md5 is much cheaper than bruteforcing bcrypt), but you're practically saying <code>there's a chance the attacker has the md5 but not the password itself, and that makes it a bad idea to bcrypt(md5)</code> ?</span> <span> - </span> <span class="display-name">user1067003</span> <span> </span> <span class="date">17 Jul 2020 at 14:00</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span><b>YES!</b> It takes many people a <i>very</i> long time to get this subtle point (and some never do!) Major kudos for understanding it so quickly!</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">17 Jul 2020 at 14:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@RoyceWilliams: I don't see your point. In my opinion you essentially argue that <code>bcrypt(MD5(...))</code> is <b>not more secure</b> than only using bcrypt. While this is true it does not answer the actual question - which is about <code>bcrypt(MD5(...))</code> possibly being <b>less secure</b> than bcrypt alone. The question is about protecting existing badly hashed passwords, not about inventing a better hashing.</span> <span> - </span> <span class="display-name">Steffen Ullrich</span> <span> </span> <span class="date">17 Jul 2020 at 14:18</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@SteffenUllrich I am 100% arguing that it makes it <b>less</b> secure than bcrypt alone. I've worked very hard to make that clear in my answer ('weaker', 'otherwise totally out of reach for the attacker', etc.). How can I improve my answer to make this more clear?</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">17 Jul 2020 at 14:32</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>If I understand it right (from reading your superuser answer as well), doesn't this really boil down to a password reuse problem? If the md5 of my password is nowhere on the internet, then I guess I'm good, right?</span> <span> - </span> <span class="display-name">nobody</span> <span> </span> <span class="date">17 Jul 2020 at 14:41</span></td>
+       </tr>
+       <tr>
+        <td>12</td>
+        <td><span>Yes. As <i>an individual user</i>, you can influence the likelihood that <i>your own password</i> is protected by picking a strong password. (As I've said elsewhere "even a weak hash can protect a strong password.") But for people <i>writing software</i> to protect passwords - many of which are chosen poorly - we must design the system to protect even bad passwords, which includes reused passwords, or even passwords that happen to be rare but also happen to be poorly constructed.</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">17 Jul 2020 at 14:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I know I'm probably stupid but... how is this different from a dictionary attack? Instead of trying a list of known passwords, you try their md5s. If the md5 hasn't been cracked before, chances are that the password is strong enough to resist being cracked now.</span> <span> - </span> <span class="display-name">nobody</span> <span> </span> <span class="date">17 Jul 2020 at 14:55</span></td>
+       </tr>
+       <tr>
+        <td>16</td>
+        <td><span>Because there are plenty of MD5s in the wild that A) just happen to not have been cracked yet because they weren't interesting enough to stand out, but B) once an attacker can figure out that that MD5 is inside <i>a really interesting, high-value-target bcrypt</i>, they might spend <i>a lot more effort to crack that MD5</i>. So it's not just a dictionary attack; it's a dictionary attack <i>of passwords that are currently unknown but might be crackable with additional effort</i>. And that effort is <b>much</b> less than trying to crack that password <i>if it was only inside a pure bcrypt</i>.</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">17 Jul 2020 at 15:00</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Oh I think I see now. But how do we mitigate this?</span> <span> - </span> <span class="display-name">nobody</span> <span> </span> <span class="date">17 Jul 2020 at 15:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Very fair question - will update answer.</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">17 Jul 2020 at 15:04</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@RoyceWilliams: thanks, the link to the OWASP guide on pre-hashing cleared things up.</span> <span> - </span> <span class="display-name">Steffen Ullrich</span> <span> </span> <span class="date">17 Jul 2020 at 15:15</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@RoyceWilliams But in the OPs scenario, the hashes are simple md5s, no salt, no pepper. What do they do now?</span> <span> - </span> <span class="display-name">nobody</span> <span> </span> <span class="date">17 Jul 2020 at 18:06</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Might help if I actually answered the question. Got excited about the methodology. ;) Answer updated.</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">17 Jul 2020 at 20:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How about we do this for existing passwords, but update the hash on next login to bcrypt(salt + fold64(string)). The idea is fold64 does key-mixing only if the string is &gt; 64 chars in the first place and otherwise just returns its input.</span> <span> - </span> <span class="display-name">Joshua</span> <span> </span> <span class="date">17 Jul 2020 at 22:38</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Have I understood correctly if I summarize it by: <code>md5($pass)</code> &lt; <code>bcrypt(md5($pass))</code> &lt;&lt; <code>bcrypt($pass)</code>? If so, that would mean <code>bcrypt(md5($pass))</code> is generally not a good idea, but in the context of OP's question, it's a little bit better to use <code>bcrypt(md5($pass))</code> as it's an easy-and-quick implementation in the short-term?</span> <span> - </span> <span class="display-name">Evariste</span> <span> </span> <span class="date">18 Jul 2020 at 09:26</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Yes, I think that's a fair summary.</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">18 Jul 2020 at 15:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@RoyceWilliams I think I understand the attack you're describing, but I have a hard time seeing how it could be very practical. The point of bcrypt is to make it expensive to test password guesses, and that'd apply to testing leaked MD5s as well. Thus, while you could certainly test them, you shouldn't be able to test huge quantities of them (and I'd expect there <i>are</i> huge quantities of them).</span> <span> - </span> <span class="display-name">Gordon Davisson</span> <span> </span> <span class="date">20 Jul 2020 at 05:53</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>This is a great answer, and as the primary author of that OWASP cheat sheet it's really good to see this type of attack being more widely discussed. However, one change I would make to this answer is to emphasise that while <code>bcrypt(md5($pass))</code> isn't ideal, even without the additional suggestions it is still <b>orders of magnitude better</b> than the existing <code>md5($pass)</code>.</span> <span> - </span> <span class="display-name">rbsec</span> <span> </span> <span class="date">20 Jul 2020 at 10:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Concur 100% - updated to clarity. Good call, @rbsec.</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">20 Jul 2020 at 19:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>37</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>March Ho</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jul 2020 at 23:16</span>
+     </div>
+    </div>
+    <div>
+     <p>While Royce's answer is correct in that wrapped hashes are weaker than unwrapped pure bcrypt hashes, it must be noted that they are nevertheless significantly stronger than your current implementation with a weak hash algorithm and no salt, since an attacker would have to go through the effort of individually attacking each hash, instead of simply using precomputed rainbow tables on the entire database.</p>
+     <p>While it's probably not the best option to store the wrapped hashes long term, it is (as you noted) a good solution to immediately upgrade the security of your password database without forcing everyone to change their passwords. To avoid the vulnerability of a wrapped hash, you could upgrade the hash upon the first login to an un-wrapped hash, as <a href="https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pre-hashing-passwords" rel="noreferrer">described by OWASP</a>:</p>
+     <blockquote>
+      <p>An alternative approach is to use the existing password hashes as inputs for a more secure algorithm. For example if the application originally stored passwords as md5($password), this could be easily upgraded to bcrypt(md5($password)). Layering the hashes in this manner avoids the need to known the original password, however it can make the hashes easier to crack, as discussed in the Pre-Hashing Passwords section. As such, these hashes should be replaced with direct hashes of the users' passwords next time the users login.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>9</td>
+        <td><span>I gotta say ... that's a very good point. And IMO, as each existing successful login comes in, its hash could further be "upgraded" to simply be bcrypt($password), side-stepping the shucking problem. (This is on the assumption that 72-character passwords have no actual practical value and that plain bcrypt would do just fine; extra complexity to work around that maximum length has little value.)</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">18 Jul 2020 at 05:22</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Royce "This is on the assumption that 72-character passwords have no actual practical value" passphrases?</span> <span> - </span> <span class="display-name">Vaelus</span> <span> </span> <span class="date">18 Jul 2020 at 13:02</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Very fair question. Definitely better answered elsewhere, but I'd argue that the actual math (dictionary length + number of words chosen) means A) most risk models require neither count nor word length that forces total length much above 72, even for fast hashes, and B) if the goal of passphrases is be memorable, using a dictionary with dramatically long words reduces UX without useful increase in entropy. A six-word passphrase, drawn from a 20k dictionary, almost always fits under 72 characters - and even truncated, doesn't make the keyspace feasible for even high-resourced attackers.</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">18 Jul 2020 at 15:26</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>That being said, <b>the mission of hashing is to protect even weak passwords</b> as much as feasible. So if a naive user thinks that passphrases are good, and length is good, so "pneumonoultramicroscopicsilicovolcanoconiosis-antidisestabl‌​ishmentarianism-pseu‌​dopseudohypoparathyr‌​oidism-floccinaucini‌​hilipilification-sup‌​ercalifragilisticexp‌​ialidocious" must be a good password, then truncating such passwords at 72 results in significantly reduced entropy, and is a case worth considering. So ultimately, if there's a clean way to support arbitrary lengths, that would indeed be ideal.</span> <span> - </span> <span class="display-name">Royce Williams</span> <span> </span> <span class="date">18 Jul 2020 at 15:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Royce Goid point, I hadn't realized strong EFF diceware passwords actually fit in 72 chars.</span> <span> - </span> <span class="display-name">Vaelus</span> <span> </span> <span class="date">18 Jul 2020 at 21:14</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>thomasrutter</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Jul 2020 at 02:57</span>
+     </div>
+    </div>
+    <div>
+     <p>Transitioning from one hashing scheme to another is nothing really out of the ordinary, and is something that systems sometimes do. If you have a password hashing scheme that is less than ideal, and you want you improve it, you build it so that new passwords (including password reset from that point onwards) use the new hashing scheme, and old passwords have the old hashing scheme. You make sure that the record itself identifies which scheme is in use, and when a user logs in it's verified in the appropriate way (and can then be transitioned to the new hashing scheme). Gradually, as users come back and new users join, more and more users will be using the better hashing algorithm.</p>
+     <p>In your specific case, wrapping the md5 in a bcrypt can be thought of as an interim solution - something you can apply immediately to all existing hashes - whereas new hashes could use bcrypt <em>without</em> md5.</p>
+     <p>Once implemented, you have a think about whether you want to force old users across to the new scheme by forcing a password change on their account even if they haven't visited the site. To do so you would need to consider the following factors:</p>
+     <ul>
+      <li>
+       <p>How long will you wait before forcing a password change? For example, will you give 12 months after implementing the new scheme? Has a specific threat, exploit or issue with your current scheme meant that this should be done sooner?</p></li>
+      <li>
+       <p>For both returning users and users asked to change their password, will you require verification using another method such as email? If you are concerned the current password hashes could have been, or have been, compromised, you may want to try and verify using a verification contact method.</p></li>
+      <li>
+       <p>Will you allow users to use the same password again when transitioning to the new hashing scheme? Technically you could just let them log in using their existing password and silently update the hash at the time so the same password has a new hash. But if you have specific concerns about the security of the old scheme you may consider the old password compromised and not re-usable.</p></li>
+     </ul>
+     <p>Note that crypt() itself designs its hashes to be extensible in terms of algorithm and number of rounds, so that future changes to either can be transparent to you, with older hashes continuing to work as above and standardized way to tell which algorithm and number of rounds any given hash uses. So once you move to "$2y$"... crypt serialized hashes, future switches if they can be implemented in that format can be easier.</p>
+     <hr>
+     <p>Other answers have addressed whether bcrypt-wrapped-md5 is a good idea or not, I will merely add that while it may not be an immediate train wreck of an idea, it's still not ideal, and transitioning away from it as soon as you can is a good idea.</p>
+     <p>My issue with it is that the non-bcrypt-wrapped hashes may still exist in backups, old servers, or even have already fallen into the wrong hands. If the passwords haven't changed, then no matter how much more work it would be to crack the bcrypt-wrapped passwords, anybody who came upon an old dump of the bare md5 hashes could bypass that. So, that's not ideal and in this case a password change at some appropriate time is probably warranted for that reason.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>A key point you've missed here is that you don't need to wait for the user to <i>change</i> their password to upgrade the hash, only for the next time they <i>provide</i> it. This is the reasoning behind <a href="https://www.php.net/password_needs_rehash" rel="nofollow noreferrer">PHP's <code>password_needs_rehash</code> function</a>: whenever the user logs in, you have the plain text available, and can re-hash it and update your database if necessary. This is separate from the valid concern you mention of considering the old passwords compromised because of the risk of the old hashes leaking.</span> <span> - </span> <span class="display-name">IMSoP</span> <span> </span> <span class="date">20 Jul 2020 at 10:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>^ If you're reasonably sure the md5 hashes haven't leaked (yet), you could choose to log all of your users out; forcing them to log back in. This won't protect inactive users... but it's not as intrusive as requiring everyone to change their passwords.</span> <span> - </span> <span class="display-name">Stephan Bijzitter</span> <span> </span> <span class="date">20 Jul 2020 at 12:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@IMSoP very good point thanks, I'll update the answer to point that out</span> <span> - </span> <span class="display-name">thomasrutter</span> <span> </span> <span class="date">21 Jul 2020 at 03:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

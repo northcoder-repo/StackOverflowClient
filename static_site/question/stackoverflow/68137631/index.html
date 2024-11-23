@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Serialization difference of root element between xml and json</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Serialization difference of root element between xml and json</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Punit Vora</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Jun 2021 at 22:27</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68137631/serialization-difference-of-root-element-between-xml-and-json">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to establish what is the correct JSON serialization output for a set of classes we have. We use .Net XmlSerializer for XML and JSON.Net for JSON. For a set of classes like:</p>
+    <pre><code>public class User
+{
+    public AccountType[] Account {get; set;};
+}
+
+public class AccountType
+{
+    public AccountDetailType[] Detail {get; set;}
+}
+
+public class AccountDetailType
+{
+    //properties here
+}
+</code></pre>
+    <p>XML Serializer produces something like:</p>
+    <pre><code>&lt;User&gt;
+    &lt;Account&gt;
+        &lt;Detail&gt;
+        &lt;/Detail&gt;
+    &lt;/Account&gt;
+&lt;/User&gt;
+</code></pre>
+    <p>with the root level 'User' node, and <code>Json.Net JsonConvert.SerializeObject(object);</code> produces:</p>
+    <pre><code>   {
+      "account": 
+      [
+        {
+          "detail": 
+          [
+            {
+              
+            }
+          ],
+          
+        }
+      ], 
+    }
+</code></pre>
+    <p>Note that the parent 'User' type is 'missing' from the JSON output.</p>
+    <p>We are exchanging the xsd schema for this class hierarchy with a client, but when they generate the Java classes and serialize the object to JSON (do not know using which library), their JSON looks like:</p>
+    <pre><code>    {
+    "User": // is this correct?
+    {
+      "account":
+      [
+        {
+          "detail":
+          [
+            {
+            }
+          ],
+        }
+      ],
+    }
+}
+</code></pre>
+    <p>They insist that with the xsd we provided, they can only generate a JSON with the top level/ root element name 'User' in the JSON. I think it is just a problem with their serialization settings. I do not have the xsd sample right now.</p>
+    <p>Can someone please explain:</p>
+    <ol>
+     <li>which JSON output, with or without top level element, is correct or are both valid? XML always writes the root level node, is it 'optional' in JSON?</li>
+     <li>What could be a potential solution here? We want them to generate the JSON without the top level User node (they use Java). They insist their library always produces the top level 'User' node in the JSON output and can't do much about it!</li>
+    </ol>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">.net</span><span class="tag">xml</span><span class="tag">serialization</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>well... what sense makes to serialize the "User" as "root" object?, that looks like a <code>Map&lt;User&gt;</code> IMO, not a single User... for the solution, what's the library, can you post a minimal reproducible example of their code?</span> <span> - </span> <span class="display-name">Alberto Sinigaglia</span> <span> </span> <span class="date">25 Jun 2021 at 22:30</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@AlbertoSinigaglia I do not have access to client code or what library they are using. I am also trying to understand what is the right way to generate JSON from examples above? The one with 'User' or without, given the class structure above? Thanks.</span> <span> - </span> <span class="display-name">Punit Vora</span> <span> </span> <span class="date">25 Jun 2021 at 22:34</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I think the Java team is doing something wrong. See also: <a href="https://stackoverflow.com/questions/2107691/root-nodes-in-json">stackoverflow.com/questions/2107691/root-nodes-in-json</a></span> <span> - </span> <span class="display-name">Victor Wilson</span> <span> </span> <span class="date">26 Jun 2021 at 00:02</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jun 2021 at 00:25</span>
+     </div>
+    </div>
+    <div>
+     <p>I agree with @AlbertoSinigaglia's observation.</p>
+     <p>Both JSON structures (with and without the <code>"User":</code> value) are possible and can be considered technically "correct" (i.e. valid JSON).</p>
+     <p>The difference depends what object is used for serialization:</p>
+     <ul>
+      <li>a single <code>User</code> class; or</li>
+      <li>a <code>Map</code> containing the same <code>User</code> class.</li>
+     </ul>
+     <p>Let's assume we have the following two classes for testing (these are simplified slightly from your examples):</p>
+     <p><em>User.java:</em></p>
+     <pre class="lang-java prettyprint-override"><code>import java.util.List;
+
+public class User {
+    
+    private final List&lt;Account&gt; accounts;
+    
+    public User(List&lt;Account&gt; accounts) {
+        this.accounts = accounts;
+    }
+
+    public List&lt;Account&gt; getAccounts() {
+        return accounts;
+    }
+    
+}
+</code></pre>
+     <p><em>Account.java:</em></p>
+     <pre class="lang-java prettyprint-override"><code>public class Account {
+
+    private final String accountID;
+    
+    public Account(String accountID) {
+        this.accountID = accountID;
+    }
+
+    public String getAccountID() {
+        return accountID;
+    }
+    
+}
+</code></pre>
+     <p>We can then assemble a <code>User</code> test object as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>Account account1 = new Account("ABC123");
+Account account2 = new Account("XYZ789");
+List&lt;Account&gt; accounts = new ArrayList&lt;&gt;();
+accounts.add(account1);
+accounts.add(account2);
+User user = new User(accounts);
+</code></pre>
+     <p><em>How to Serialize to JSON?</em></p>
+     <p>Here I will use Jackson - but it doesn't really matter which library is used, as far as this question is concerned.</p>
+     <p>Here is my Jackson object mapper:</p>
+     <pre class="lang-java prettyprint-override"><code>ObjectMapper mapper = new ObjectMapper();
+</code></pre>
+     <p>I can serialize my <code>user</code> object as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>System.out.println(mapper.writeValueAsString(user));
+</code></pre>
+     <p>This generates the following JSON:</p>
+     <pre class="lang-js prettyprint-override"><code>{
+    "accounts": [{
+        "accountID": "ABC123"
+    }, {
+        "accountID": "XYZ789"
+    }]
+}
+</code></pre>
+     <p>As you can see, there is no mention of the "User" object here.</p>
+     <p>But I could choose instead to take my <code>user</code> object and place it in a <code>Map</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>Map&lt;String, User&gt; userContainer = new HashMap&lt;&gt;();
+userContainer.put("User", user);
+</code></pre>
+     <p>And now if I serialize this new map:</p>
+     <pre class="lang-java prettyprint-override"><code>System.out.println(mapper.writeValueAsString(userContainer));
+</code></pre>
+     <p>And this gives the following JSON:</p>
+     <pre class="lang-js prettyprint-override"><code>{
+    "User": {
+        "accounts": [{
+            "accountID": "ABC123"
+        }, {
+            "accountID": "XYZ789"
+        }]
+    }
+}
+</code></pre>
+     <p>And there is that <code>"User": { ... }</code> object you were questioning.</p>
+     <p>So, both approaches are valid, technically - with only a minor change in the serialization approach.</p>
+     <p><strong>My <em>personal</em> preference is the latter JSON - simply because it <em>explicitly</em> tells us that the containing object is a "user" object. That piece of information is missing from the first JSON.</strong></p>
+     <p>I don't really see why "<em>they can only generate a JSON with the top level/ root element name 'User' in the JSON.</em>" - but since we don't know how they are doing that, it's hard to argue for or against their statement. And we don't know why you need them to <em>not</em> generate that outer structure, so it's hard to argue for or against that, also.</p>
+     <p>So, for question 1: Yes they are both valid JSON representations, although one could be considered to be incomplete.</p>
+     <p>For question 2 I would say: If they include that outer object, then you can use a <code>Map</code> when you consume their JSON. If that's what you are doing. And then you can discard the map and just use the object (value) in the map.</p>
+     <p>If they are passing this JSON to a 3rd party, then I think it's less of a technical issue and more of an inter-team discussion/communications issue.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Michael Kay</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jun 2021 at 07:03</span>
+     </div>
+    </div>
+    <div>
+     <p>There is no "correct" serialization. The XML, JSON, and Java data models are different, and there are no standard mappings between them. Everyone implementing a mapping (between any two of the three) has to make decisions about how to handle the differences, and these decisions involve trade-offs. The only way to get the precise mapping you want is to implement it yourself. Better still, use a single representation throughout. I guess XRX architecture (XML on the client, XML on the server, Rest to bridge the two) isn't too fashionable nowadays, but it does cut out the 40% of the code in a typical application that's concerned solely with converting data from one representation into another.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

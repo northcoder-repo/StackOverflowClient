@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>openCSV with complex bean structure</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>openCSV with complex bean structure</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>4</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Iris Hunkeler</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Jun 2020 at 11:21</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62281443/opencsv-with-complex-bean-structure">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I try to map a nested bean structure with openCSV. I found the <a href="http://opencsv.sourceforge.net/#recursion_into_subordinate_beans" rel="nofollow noreferrer">@CsvRecurse</a> annotation, but this does not seem to work if a nested bean is used multiple times.</p>
+    <p>What options do I have to solve this?</p>
+    <p><strong>Example</strong> (adapted from the docs linked above)</p>
+    <p>Data structure to map :</p>
+    <pre><code>title,author1 given name,author1 surname,author2 given name,author2 surname
+Space Opera 2.0,Andrew,Jones,Hanna,Smith
+</code></pre>
+    <p>I would like to get the following beans</p>
+    <pre><code>public class Book {
+    @CsvBindByName
+    private String title;
+
+    // TODO: How to bind author1 and author2?
+    private Author author1;
+    private Author author2;
+
+    // Accessor methods go here.
+}
+
+public class Author {
+    // TODO: can I somehow use a prefix/Regex for the column here to differentiate between author1 and author2?
+    @CsvBindByName(column = "author[1/2] given name")
+    private String givenName;
+
+    @CsvBindByName(column = "author[1/2] surname")
+    private String surname;
+
+    // Accessor methods go here.
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">opencsv</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Captain Winters</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jun 2020 at 13:12</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use custom 'ColumnPositionMappingStrategy'. Override 'populateNewBean' method which takes String[] (row of csv) and can form any object out of it.</p>
+     <p><a href="https://stackoverflow.com/a/59250616/10812004">Like this</a></p>
+     <p>'@CsvRecurse' should work for Open OpenCSV 5.0 btw.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for your suggestion. I will check if a custom mapping strategy can solve my issue (but I will probably opt for <code>HeaderNameBaseMappingStrategy</code> since the order of the columns can change in the input). However, I would prefer to use <code>@CsvRecurse</code> if possible. But it does not seem to do what I need it to do: it only seems to apply to cases where there is max. 1 variable of the same class type, right? So it would work perfectly, if I had 1 <code>Author</code> variable. But is there a way to use it with 2 <code>Author</code> variables in my source bean?</span> <span> - </span> <span class="display-name">Iris Hunkeler</span> <span> </span> <span class="date">10 Jun 2020 at 06:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Jun 2020 at 21:28</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is another option:</p>
+     <p>The opencsv library has a lot of useful and flexible annotations, but in this specific case, I would not use any of them.</p>
+     <p>Instead, I would use the opencsv <a href="http://opencsv.sourceforge.net/apidocs/com/opencsv/CSVReaderHeaderAware.html" rel="nofollow noreferrer"><code>CSVReaderHeaderAware</code></a> class. Using this will allow you to keep your two <code>Book</code> and <code>Author</code> classes. The only thing I would change is to add constructors to each class as follows:</p>
+     <p>Book:</p>
+     <pre><code>public class Book {
+
+    private final String title;
+    private final Author author1;
+    private final Author author2;
+
+    public Book(String title, Author author1, Author author2) {
+        this.title = title;
+        this.author1 = author1;
+        this.author2 = author2;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public Author getAuthor1() {
+        return author1;
+    }
+
+    public Author getAuthor2() {
+        return author2;
+    }
+
+}
+</code></pre>
+     <p>Author:</p>
+     <pre><code>public class Author {
+
+    private final String givenName;
+    private final String surname;
+
+    public Author(String givenName, String surname) {
+        this.givenName = givenName;
+        this.surname = surname;
+    }
+
+    public String getGivenName() {
+        return givenName;
+    }
+
+    public String getSurname() {
+        return surname;
+    }
+
+}
+</code></pre>
+     <p>To populate a list of <code>Book</code> objects from a CSV file, do this:</p>
+     <pre><code>import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import com.opencsv.CSVReaderHeaderAware;
+import com.opencsv.exceptions.CsvValidationException;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+
+...
+
+    public static void main(String[] args) throws FileNotFoundException, 
+            IOException, CsvValidationException {
+        String bookFile = "/path/to/titles.csv";
+
+        CSVReaderHeaderAware csvReader = new CSVReaderHeaderAware(new FileReader(bookFile));
+
+        List&lt;Book&gt; books = new ArrayList();
+
+        Map&lt;String, String&gt; bookRecord;
+        while ((bookRecord = csvReader.readMap()) != null) {
+            books.add(handleBook(bookRecord));
+        }
+    }
+
+    private static Book handleBook(Map&lt;String, String&gt; bookRecord) {
+        Author author1 = new Author(
+                bookRecord.get("author1 given name"),
+                bookRecord.get("author1 surname")
+        );
+
+        Author author2 = new Author(
+                bookRecord.get("author2 given name"),
+                bookRecord.get("author2 surname")
+        );
+
+        return new Book(bookRecord.get("title"), author1, author2);
+    }
+</code></pre>
+     <p>Each row of data from the CSV file is read into a <code>Map</code> object, where the file headers are the map's <em>keys</em> (you need make sure the file headers are unique). The Map's corresponding <em>values</em> represent one row of data from the CSV file.</p>
+     <p>The only downside to this is you may need to cast string values to other data types - although not in this case, because the data items are already strings.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

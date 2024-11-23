@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Exception when executing JDBC query - Illegal instant due to time zone offset transition with Logstash</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Exception when executing JDBC query - Illegal instant due to time zone offset transition with Logstash</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Hasan Can Saral</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>2 Jun 2023 at 08:55</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76388627/exception-when-executing-jdbc-query-illegal-instant-due-to-time-zone-offset-tr">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have the following JDBC input:</p>
+    <pre><code>input {
+  jdbc {
+    id =&gt; "mypipeline"
+    jdbc_driver_class =&gt; "com.mysql.jdbc.Driver"
+    jdbc_driver_library =&gt; "/usr/share/logstash/drivers/mysql-connector-j-8.0.32.jar"
+    jdbc_connection_string =&gt; "my-connection-string"
+    jdbc_password =&gt; "my-user"
+    jdbc_user =&gt; "my-pass"
+    jdbc_fetch_size =&gt; 5000
+    schedule =&gt; "*/5 * * * *"
+    statement =&gt; "SELECT l.id, l.name, l.log_date FROM logs l WHERE l.created_at &gt;= :sql_last_value"
+  }
+}
+</code></pre>
+    <p>The log_date column is as follows:</p>
+    <pre><code>log_date DATE NULL DEFAULT NULL,
+</code></pre>
+    <p>Warning; <code>created_at</code> and <code>log_date</code> are not the same column. The query that's being executed is as follows:</p>
+    <pre><code>SELECT l.id, l.name, l.log_date FROM logs l WHERE l.created_at &gt;= '1970-01-01 02:00:00'
+</code></pre>
+    <p>which is wrong, since Istanbul does not go into DST, should be <code>'1970-01-01 03:00:00'</code> For values such as <code>1949-04-10</code> for log_date, I am receiving this error:</p>
+    <pre><code>[2023-06-02T11:50:30,470][WARN ][logstash.inputs.jdbc     ][main][mypipeline] Exception when executing JDBC query {:exception=&gt;Sequel::DatabaseError, :message=&gt;"Java::OrgJodaTime::IllegalInstantException: Illegal instant due to time zone offset transition (daylight savings time 'gap'): 1949-04-10T00:00:00.000 (Europe/Istanbul)", :cause=&gt;"#&lt;Java::OrgJodaTime::IllegalInstantException: Illegal instant due to time zone offset transition (daylight savings time 'gap'): 1949-04-10T00:00:00.000 (Europe/Istanbul)&gt;"}
+</code></pre>
+    <p>How do I resolve this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jdbc</span><span class="tag">logstash</span><span class="tag">jodatime</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jun 2023 at 13:44</span>
+     </div>
+    </div>
+    <div>
+     <p>"<em>Illegal instant due to time zone offset transition</em>" - Istanbul does not <em>currently</em> change between daylight saving time and standard time, but <a href="https://en.wikipedia.org/wiki/Time_in_Turkey" rel="nofollow noreferrer">it has done in the past</a>.</p>
+     <p>It is currently observing what is effectively DST year-round - and has done so since March 27th 2016, when the clocks moved forward by 1 hour from a UCT timezone offset of +2 hours to +3 hours.</p>
+     <hr>
+     <p>More specifically regarding the "<em>Illegal instant</em>" error: In 1949 on 10th April at midnight, the clocks moved forward by 1 hour - so the local time of <code>1949-04-10 00:00</code> never actually happened. That is why it is a "gap" value, as noted in the error message.</p>
+     <p>This time zone data is captured in the IANA <a href="https://www.iana.org/time-zones" rel="nofollow noreferrer">Time Zone Database</a> (TZDB), which I assume is what your application uses, behind the scenes (e.g. if you are using Joda-Time).</p>
+     <p>You can use an online tool such as <a href="https://www.timeanddate.com/time/change/turkey/istanbul?year=1949" rel="nofollow noreferrer">this one</a> (and probaby others):</p>
+     <p><a href="https://i.stack.imgur.com/Sa7fz.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/Sa7fz.png" alt="enter image description here"></a></p>
+     <p><strong>WARNING</strong> - I cannot vouch for the accuracy of the data on this web site, but it does match the TZDB rule for <em>this specific example</em>, which I extracted as follows using Java (which uses TZDB data):</p>
+     <pre><code> - on 1949-04-10 at 00:00
+ - the clocks moved forward by 1 hr (daylight saving)
+ - from TZ offset +02:00 to offset +03:00
+</code></pre>
+     <hr>
+     <p>Regarding your comment:</p>
+     <blockquote>
+      <p>"<em>should be '1970-01-01 03:00:00'</em>"</p>
+     </blockquote>
+     <p>For 1970, the TZDB indicates that there were no adjustments made. So, the effective offset from UTC was the one previously made in 1964:</p>
+     <pre><code> - on 1964-10-01 at 00:00
+ - the clocks moved back by 1 hr
+ - from TZ offset +03:00 to offset +02:00
+</code></pre>
+     <p>And that <code>+02:00</code> is what you are (correctly) seeing in your data for that 1970 datetime.</p>
+     <hr>
+     <p>If you want to avoid using a datetime which falls into one of these gaps (caused by the clocks moving forward), then you can do that programmatically - for example:</p>
+     <ul>
+      <li>Assuming Java (since you mention Joda-Time): <a href="https://stackoverflow.com/q/32862926/12567365">java.time discovering I'm in the daylight savings "gap"</a></li>
+     </ul>
+     <p>Other mainstream languages should have similar capabilities.</p>
+     <hr>
+     <p>Also, since you mentioned Joda, maybe you can consider using Java's <code>java.time</code> classes now (if you have a suitable version of Java), <a href="https://www.joda.org/joda-time/" rel="nofollow noreferrer">instead of using Joda-Time</a>:</p>
+     <blockquote>
+      <p>Note that from Java SE 8 onwards, users are asked to migrate to <code>java.time</code> (JSR-310) - a core part of the JDK which replaces this project.</p>
+     </blockquote>
+     <hr>
+     <p><strong>Specific solution to the case with Logstash</strong></p>
+     <p>Adding <code>jdbc_default_timezone =&gt; "GMT"</code> to Logstash configuration and altering the timezone of the host machine will make Logstash to query the database without getting this error.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Actually, Turkey is in permanent Daylight Saving Time (DST). Current year-round offset is +03:00. See <a href="https://en.wikipedia.org/wiki/Time_in_Turkey" rel="nofollow noreferrer">en.wikipedia.org/wiki/Time_in_Turkey</a> So your first sentence is misleading. Otherwise, good Answer.</span> <span> - </span> <span class="display-name">Basil Bourque</span> <span> </span> <span class="date">2 Jun 2023 at 14:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you @BasilBourque for the correction.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">2 Jun 2023 at 15:54</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@andrewJames I understand. However, I do not have the control of the source code, so what I did was to run logstash in GMT, and the error disappeared.</span> <span> - </span> <span class="display-name">Hasan Can Saral</span> <span> </span> <span class="date">6 Jun 2023 at 08:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BasilBourque that is correct. However, this was not the case before 2016, where Turkey altered between DST/non-DST.</span> <span> - </span> <span class="display-name">Hasan Can Saral</span> <span> </span> <span class="date">6 Jun 2023 at 08:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@andrewJames Your answer put me in the right direction, so I edited it to include a solution for the issue with Logstash and accepted your answer. Thanks.</span> <span> - </span> <span class="display-name">Hasan Can Saral</span> <span> </span> <span class="date">8 Jun 2023 at 19:26</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

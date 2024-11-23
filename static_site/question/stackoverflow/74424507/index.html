@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>WildFly environment variable parsing a JDBC string with semicolon</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>WildFly environment variable parsing a JDBC string with semicolon</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Alex G.</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 Nov 2022 at 20:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74424507/wildfly-environment-variable-parsing-a-jdbc-string-with-semicolon">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am having a heck of a time using an environment variable with a semicolon in a properties file read by WildFly (24) in Linux. One like:</p>
+    <p><code>DATABASE_JDBC_URL=jdbc:sqlserver://sqlserver.c3klg5a2ws.us-east-1.rds.amazonaws.com:1433;DatabaseName=ejbca;encrypt=false</code></p>
+    <p>The issue is that its truncating things at the semicolon if I don't use quotes so I end up with it trying to write to master since it thinks no database is specified.</p>
+    <p>I have it setup so that variable is in a file called datasource.properties that gets read from standalone.conf where this variable sits:</p>
+    <p><code>JAVA_OPTS="$JAVA_OPTS -DDATABASE_JDBC_URL=${DATABASE_JDBC_URL}"</code></p>
+    <p>It's read in with the following in standalone.conf:</p>
+    <pre><code>set -a
+. /opt/wildfly_config/datasource.properties
+set +a
+</code></pre>
+    <p>That in turn gets populated in standalone.xml with:</p>
+    <p><code>&lt;connection-url&gt;${env.DATABASE_JDBC_URL}&lt;/connection-url&gt;</code></p>
+    <p>I try putting it in quotes and oddly enough it doesn’t start at all. Standalone.sh is no longer able to parse it:</p>
+    <p><code>/opt/wildfly/bin/standalone.sh: line 338: --add-exports=java.desktop/sun.awt=ALL-UNNAMED: No such file or directory</code></p>
+    <p>So I then escape it in quotes like this:</p>
+    <p><code>DATABASE_JDBC_URL="jdbc:sqlserver://sqlserver.c3klg5a2ws.us-east-1.rds.amazonaws.com:1433\;DatabaseName=ejbca\;encrypt=false"</code></p>
+    <p>Startup looks good in the log output this way:</p>
+    <p><code>-DDATABASE_JDBC_URL=jdbc:sqlserver://sqlserver.c3klg5a2ws.us-east-1.rds.amazonaws.com:1433;DatabaseName=ejbca;encrypt=false</code></p>
+    <p>But then java doesn’t like it, for some reason it sees the escape ticks:</p>
+    <p><code>Caused by: com.microsoft.sqlserver.jdbc.SQLServerException: The port number 1433\ is not valid.</code></p>
+    <p>I can use sed to change the value in the standalone.xml, but all of the other properties I am doing work fine with the exception of this one and:</p>
+    <p><code>&lt;check-valid-connection-sql&gt;${env.DATABASE_CONNECTION_CHECK}&lt;/check-valid-connection-sql&gt;</code></p>
+    <p>Where that value is "SELECT 1;" which it also does not like. That one worked with "'SELECT 1;'" but this one does not. I tried single quotes as well. That also gives the parsing error above. Is there any way to read in this environment variable that keeps wildfly happy?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">sql-server</span><span class="tag">linux</span><span class="tag">bash</span><span class="tag">jdbc</span><span class="tag">wildfly</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Have you tried just wrapping it in quotes - without adding backslashes?</span> <span> - </span> <span class="display-name">AlwaysLearning</span> <span> </span> <span class="date">13 Nov 2022 at 22:00</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Aside... <code>encrypt=false</code> means that your database connections will not be encrypted, i.e.: your data will be "in the clear" on the wire and visible to any network sniffing appliance. I hope there's nothing sensitive in there.</span> <span> - </span> <span class="display-name">AlwaysLearning</span> <span> </span> <span class="date">13 Nov 2022 at 22:02</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@AlwaysLearning, keeping it simple to get it to work. I have, wrapping it in quotes results in the standalone.sh not being able to read the variable (for some reason): /opt/wildfly/bin/standalone.sh: line 338: --add-exports=java.desktop/sun.awt=ALL-UNNAMED: No such file or directory This is due to to it not being able to parse it I am sure. Almost seems like a bug in standalone.sh from WildFly.</span> <span> - </span> <span class="display-name">Alex G.</span> <span> </span> <span class="date">14 Nov 2022 at 00:07</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Suggestion: Have you tried escaping the semicolons in the connection string URL? According to the SQL Server <a href="https://learn.microsoft.com/en-us/sql/connect/jdbc/building-the-connection-url?view=sql-server-ver16#escaping-values-in-the-connection-url" rel="nofollow noreferrer">documentation</a>, you do this by enclosing the characters you want to escape in braces. "<i>For example, <code>{;}</code> escapes a semicolon.</i>" Not an answer because (a) I have not tried it and (b) there may be a duplicate question for this already (if I could only find it).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">14 Nov 2022 at 02:18</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewJames, nice find. I had not tried that. I just did by changing it to: "jdbc:sqlserver://sqlserver.c3klg5a2ws.us-east-1.rds.amazona‌​ws.com:1433{;}databa‌​seName=ejbca{;}encry‌​pt=false;sslProtocol‌​=TLSv1.2{;}" and got /opt/wildfly/bin/standalone.sh: eval: line 338: syntax error near unexpected token `}' FYI I did check the existing questions and they all revolved around using solutions in bash scripts and not in a properties file imported.</span> <span> - </span> <span class="display-name">Alex G.</span> <span> </span> <span class="date">14 Nov 2022 at 03:26</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Wait wait! I had the whole string in quotes! I tried removing the quotes and it went! @andrewJames you are amazing! THANK YOU! Please add the reply below and I will accept it! I cant believe I have not found more on this. I dont think many people are making JDBC strings variables, but those that are will find this useful!</span> <span> - </span> <span class="display-name">Alex G.</span> <span> </span> <span class="date">14 Nov 2022 at 03:33</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewJames, you wouldn't happen to know what Oracle would use would you?</span> <span> - </span> <span class="display-name">Alex G.</span> <span> </span> <span class="date">22 Nov 2022 at 19:54</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Sorry, I do not. You can ask a new question if you cannot find a specific existing SO answer. Be specific regarding the connection string, the JDBC driver version, any error messages, etc. And show what you have already tried.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">22 Nov 2022 at 20:16</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Nov 2022 at 12:21</span>
+     </div>
+    </div>
+    <div>
+     <p>You can enclose the characters you want to escape in <code>{</code> and <code>}</code> braces.</p>
+     <p>From the <a href="https://learn.microsoft.com/en-us/sql/connect/jdbc/building-the-connection-url?view=sql-server-ver16#escaping-values-in-the-connection-url" rel="nofollow noreferrer">SQL Server documentation</a>:</p>
+     <blockquote>
+      <p>For example, <code>{;}</code> escapes a semicolon.</p>
+     </blockquote>
+     <hr>
+     <p>Just to note: Different database vendors will most likely have different ways of escaping characters in their connection URLs. The above approach works for SQL Server. But just to give one different example, MySQL uses <a href="https://stackoverflow.com/q/13984567/12567365">URL encoding</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alex G.</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Nov 2022 at 01:40</span>
+     </div>
+    </div>
+    <div>
+     <p>A alternate solution was to change how the variables were created. Part of the problem I had was that sourcing them from a properties file made them properties and not variables. I ended up creating a /opt/wildfly/bin/start.sh script with:</p>
+     <pre><code>#!/bin/bash
+export DATABASE_JDBC_URL="jdbc:sqlserver://sqlserver.c3klg5a2ws.us-east-1.rds.amazonaws.com:1433;DatabaseName=ejbca;encrypt=false"
+/opt/wildfly/bin/standalone.sh
+</code></pre>
+     <p>I then changed the wildfly service point to that new start.sh script. No longer have any parsing issues as long as the variables are started in memory.</p>
+     <p>No escaping was needed after that.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

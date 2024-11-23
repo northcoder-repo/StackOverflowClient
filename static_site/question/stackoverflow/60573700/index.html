@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Combing error message for multiple field validation</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Combing error message for multiple field validation</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jane Hayes</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Mar 2020 at 01:54</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60573700/combing-error-message-for-multiple-field-validation">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I’m checking if two fields contain and invalid characters, if so, output an error message. This works fine when its just one field that is invalid but when both contain invalid characters, I need a single error message with details of both fields.</p>
+    <p>Example: Single invalid field = Fields contain invalid characters: account number '6637=958' Both field invalid = Fields contain invalid characters: account number '6637=958', sort code '01%657'</p>
+    <p>I can’t change the format of the error messages. Right now, I just use a stream to output the first error message. I would like to keep the solution simple but can only think of brute force ways to combine the messages.</p>
+    <pre><code>import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Pattern;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class AccountDetails {
+
+    @Pattern(regexp = "^[-0-9]*$", message="Fields contain invalid characters: account number '${validatedValue}'")
+    private String accountNumber;
+
+    @Pattern(regexp = "^[-0-9]*$", message="Fields contain invalid characters: sort code '${validatedValue}'")
+    @NotBlank
+    private String sortCode;
+
+    public AccountDetails() {}
+
+    public String getSortCode() {
+        return sortCode;
+    }
+
+    public void setSortCode(String sortCode) {
+        this.sortCode = sortCode;
+    }
+
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+
+    public void setAccountNumber(String accountNumber) {
+        this.accountNumber = accountNumber;
+    }
+}
+
+
+@ControllerAdvice
+public class ExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @Override
+    protected ResponseEntity&lt;Object&gt; handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
+                                                                  HttpHeaders headers,
+                                                                  HttpStatus status, WebRequest request) {
+
+        String errorMessage = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .findFirst()
+                .map(FieldError::getDefaultMessage)
+                .get();
+
+        final BankDetailsValidationModel validationResult = new BankDetailsValidationModel(false, false, errorMessage, "");
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(validationResult);
+    }
+}
+
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">java-stream</span><span class="tag">constraints</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Mar 2020 at 02:22</span>
+     </div>
+    </div>
+    <div>
+     <p>This can be done by defining a custom validation <em>at the class level</em>, rather than at the field level.</p>
+     <h2>An example:</h2>
+     <p>You have a <code>Person</code> class containing the fields <code>birthYear</code> and <code>deathYear</code>. The business rule requires the <code>birthYear</code> to be non-null if the <code>deathYear</code> is non-null. Otherwise, both fields can be null; or the <code>deathYear</code> can be null if the <code>birthYear</code> is not null.</p>
+     <p>In this example, we have a relationship between the two fields - in your case, you do not. But that does not change the basic approach: there is one validation, with one message, summarizing the state of both fields.</p>
+     <h2>The <code>Person</code> class:</h2>
+     <pre><code>@FirstOrBoth(firstField = "year of birth", secondField = "year of death", message = ValidationHandler.FIRST_OR_BOTH_MESSAGE)
+
+public class Person {
+
+    private Integer birthYear;
+    private Integer deathYear;
+
+    [...the rest of the class...]
+
+}
+</code></pre>
+     <h2>The <code>@FirstOrBoth</code> Annotation</h2>
+     <p>The above class uses a custom annotation: <code>@FirstOrBoth</code>:</p>
+     <pre><code>import java.lang.annotation.Target;
+import java.lang.annotation.Retention;
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import javax.validation.Constraint;
+import javax.validation.Payload;
+
+@Target(TYPE)
+@Retention(RUNTIME)
+@Constraint(validatedBy = FirstOrBothValidator.class)
+public @interface FirstOrBoth {
+
+    String message() default "Please provide values in both fields, or only in the first (or leave both blank).";
+
+    String firstField();
+
+    String secondField();
+
+    Class&lt;?&gt;[] groups() default {};
+
+    Class&lt;? extends Payload&gt;[] payload() default {};
+}
+</code></pre>
+     <h2>The <code>FirstOrBothValidator</code> Class</h2>
+     <p>The above annotation uses a custom validator:</p>
+     <pre><code>import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
+
+public class FirstOrBothValidator implements ConstraintValidator&lt;FirstOrBoth, Object&gt; {
+    @Override
+    public boolean isValid(Object obj, ConstraintValidatorContext cvc) {
+        Person person = (Person) obj;
+        // whatever validation logic you need goes here
+        // this is just for illustration:
+        return !(person.getBirthYear() == null &amp;&amp; person.getDeathYear() != null);
+    }
+}
+</code></pre>
+     <p>As you already know, you can insert data values into your validation message using placeholders.</p>
+     <p>Final note: You mention that you <em>can’t change the format of the error messages</em>.</p>
+     <p>This approach assumes you can at least concatenate the two messages into the single message for the class-level validation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks Andrew. I was hopping to avoid having to add class level validation.</span> <span> - </span> <span class="display-name">Jane Hayes</span> <span> </span> <span class="date">7 Mar 2020 at 11:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>OK - understood. In that case, I can only suggest (and I am making assumptions about your set-up here...) that you concatenate the messages when executing your <code>javax.validation.Validator</code> - and use <code>violation.getPropertyPath()</code> to get the messages for the two relevant fields. But maybe that is what you mean by "brute force".</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Mar 2020 at 19:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I think you're right about doing it at the class level tbh. Again, thanks for the help!</span> <span> - </span> <span class="display-name">Jane Hayes</span> <span> </span> <span class="date">7 Mar 2020 at 21:16</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

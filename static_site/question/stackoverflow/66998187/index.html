@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Redraw datatables with search</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Redraw datatables with search</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>rjcode</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Apr 2021 at 06:07</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66998187/redraw-datatables-with-search">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using <a href="https://datatables.net/" rel="nofollow noreferrer">DataTables</a>. I have added the below code when the page is loading and the table getting all data as expected.</p>
+    <pre><code>        var table = $('#expensesTable').DataTable({
+            responsive: true,
+            searchDelay: 500,
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: '/books/daybooks/datatable',
+                type: 'POST',
+            },
+            columns: [
+                {data: 'expense_id'},
+                {data: 'expense_date'},
+                {data: 'expense_description'},
+                {data: 'expense_amount'},
+                {data: 'vendor_name'},
+            ],
+       });
+
+</code></pre>
+    <p>Now, I have added a date range picker where it will search data in the server and response will be given back to query via Ajax.</p>
+    <pre><code>        $('#datepicker').on('apply.daterangepicker', function(ev, picker) {
+
+            var start = picker.startDate.format('YYYY-MM-DD');
+            var end = picker.endDate.format('YYYY-MM-DD');
+
+            jQuery.ajax({
+                type: "POST",
+                url: '/books/daybooks/datatable',
+                data: {start : start, end : end},
+                success: function(data)
+                {
+                    console.log(data);
+                } // Success End
+            }); //AJAX End
+          });
+
+</code></pre>
+    <p>Now i am getting all expected filter data as success, but now I need to redraw the table with newly got <code>data</code> after the filter of Ajax call.</p>
+    <p>if i use <code>$('#expensesTable').DataTable().draw();</code> then it will do draw without filter,</p>
+    <p>So i can draw table with filter data?</p>
+    <p>Thanks in advance.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">ajax</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Normally you can change the request using <code>table.ajax.url('new-url-here').load()</code>, but because you are using a POST request it's a bit different. I have seen posts <a href="https://datatables.net/forums/discussion/58907/ajax-url-load-how-to-use-post-request-method-instead-of-get" rel="nofollow noreferrer">such as this one</a> that say to set <code>ajax.data</code> using a function, but I haven't tried it myself.</span> <span> - </span> <span class="display-name">mark_b</span> <span> </span> <span class="date">8 Apr 2021 at 07:43</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Apr 2021 at 14:11</span>
+     </div>
+    </div>
+    <div>
+     <p>Instead of introducing a new ajax call (the jQuery ajax), you can re-use your existing DataTables ajax call when submitting your date range filter data.</p>
+     <p>To do this, you need to take the following steps:</p>
+     <p>(1) Update your DataTables ajax option:</p>
+     <pre class="lang-js prettyprint-override"><code>ajax: {
+  url: '/books/daybooks/datatable',
+  type: 'POST',
+  data: function () {
+    return { "start": start, "end" end };
+  }
+},
+</code></pre>
+     <p>This <code>data</code> function allows you to dynamically assign values to your request. They will be added as standard URL-encoded form data, in the usual way for POST requests.</p>
+     <p>See <a href="https://datatables.net/reference/option/ajax.data" rel="nofollow noreferrer">here</a> for more information. There are several different ways to use <code>ajax.data</code>. For example, if you were using <code>serverSide</code> processing (which you are not) then the above approach would not work correctly.</p>
+     <p>(2) To re-use your DataTables ajax call, you can use this:</p>
+     <pre><code>table.ajax.reload(); 
+</code></pre>
+     <p>See <a href="https://datatables.net/reference/api/ajax.reload()" rel="nofollow noreferrer">here</a> for more information.</p>
+     <p>This replaces your jQuery ajax call:</p>
+     <pre class="lang-js prettyprint-override"><code>var start;
+var end;
+
+$('#datepicker').on('apply.daterangepicker', function(ev, picker) {
+  start = picker.startDate.format('YYYY-MM-DD');
+  end = picker.endDate.format('YYYY-MM-DD');
+  table.ajax.reload(); 
+});
+</code></pre>
+     <p>When the table first loads (not using <code>reload()</code>), the filter values will be null.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>thanks for this nice info, i could not pass <code>start</code> and <code>end</code> to datatables ajax call, how can i send to datatable function?</span> <span> - </span> <span class="display-name">rjcode</span> <span> </span> <span class="date">8 Apr 2021 at 15:55</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>In my example code, I have separated out the variable declarations (<code>var start</code>) from their assignment (<code>start = ...</code>). Are you doing that?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">8 Apr 2021 at 16:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>ohhh ho...i really missed it...Now its working perfectly fine :-), Thank you.</span> <span> - </span> <span class="display-name">rjcode</span> <span> </span> <span class="date">8 Apr 2021 at 16:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Freud Chicken</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Mar 2023 at 17:38</span>
+     </div>
+    </div>
+    <div>
+     <p>If you have option 'serverSide' set, any draw() instruction will always do the ajax call as specified in the ajax option.</p>
+     <p>As far as the search API functionality is concerned, setting this option tell datatables that you want you search done on the server exclusively and render the dataset as received.</p>
+     <p>If you do not set 'serverSide' set, datatables will make the ajax call when you initiate the table once and apply any search() API call to filter and render the dataset in client memory.</p>
+     <p>If you want to reload fresh data from the server you can then make the ajax reload explicit</p>
+     <pre><code>// configure datatablewith serverSide false
+$('#expensesTable').DataTable(
+    {
+        'serverSide':false,
+        'ajax': 
+        {
+            'url': '&lt;someurlyieldingdata&gt;'
+        }
+    }
+);
+
+// do a search API call
+$('#expensesTable').DataTable().search('&lt;searchstring&gt;');
+
+// render with data in memory without ajax data relaod from server
+$('#expensesTable').DataTable().draw();
+
+
+// if fresh data become available, you can then do this
+// reload ajax data    
+$('#expensesTable').DataTable().ajax.reload();
+
+// render data in local memory
+$('#expensesTable').DataTable().draw();
+</code></pre>
+     <p>Any search instruction applied will survive the refreshing of data</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

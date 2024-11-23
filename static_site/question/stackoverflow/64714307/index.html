@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to use QueryParser for Lucene range queries (IntPoint/LongPoint)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to use QueryParser for Lucene range queries (IntPoint/LongPoint)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>swaechter</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>6 Nov 2020 at 12:00</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64714307/how-to-use-queryparser-for-lucene-range-queries-intpoint-longpoint">source</a>
+    </div>
+   </div>
+   <div>
+    <p>One thing I really like about Lucene is the query language where I/an application user) can write dynamic queries. I parse these queries via</p>
+    <pre><code>QueryParser parser = new QueryParser("", indexWriter.getAnalyzer());
+Query query = parser.parse("id:1 OR id:3");
+</code></pre>
+    <p>But this does not work for range queries like these one:</p>
+    <pre><code>Query query = parser.parse("value:[100 TO 202]"); // Returns nothing
+Query query = parser.parse("id:1 OR value:167"); // Returns only document with ID 1 and not 1 
+</code></pre>
+    <p>On the other hand, via API it works (But I give up the convenient way to just use the query as input):</p>
+    <pre><code>Query query = LongPoint.newRangeQuery("value", 100L, 202L); // Returns 1, 2 and 3
+</code></pre>
+    <p>Is this a bug in query parser or do I miss an important point, like QueryParser takes the lexical and not numerical value? How can I chance this without using the query API but parsing the string?</p>
+    <p>The question is a follow up to this question that pointed out the problem, but not the reason: <a href="https://stackoverflow.com/questions/62589849/lucene-longpoint-range-search-doesnt-work">Lucene LongPoint Range search doesn't work</a></p>
+    <p>Full code:</p>
+    <pre><code>package acme.prod;
+
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.*;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.RAMDirectory;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+public class LuceneRangeExample {
+
+    public static void main(String[] arguments) throws Exception {
+        // Create the index
+        Directory searchDirectoryIndex = new RAMDirectory();
+        IndexWriter indexWriter = new IndexWriter(searchDirectoryIndex, new IndexWriterConfig(new StandardAnalyzer()));
+
+        // Add several documents that have and ID and a value
+        List&lt;Long&gt; values = Arrays.asList(23L, 145L, 167L, 201L, 20100L);
+        int counter = 0;
+        for (Long value : values) {
+            Document document = new Document();
+            document.add(new StringField("id", Integer.toString(counter), Field.Store.YES));
+            document.add(new LongPoint("value", value));
+            document.add(new StoredField("value", Long.toString(value)));
+            indexWriter.addDocument(document);
+            indexWriter.commit();
+            counter++;
+        }
+
+        // Create the reader and search for the range 100 to 200
+        IndexReader indexReader = DirectoryReader.open(indexWriter);
+        IndexSearcher indexSearcher = new IndexSearcher(indexReader);
+        QueryParser parser = new QueryParser("", indexWriter.getAnalyzer());
+//        Query query = parser.parse("id:1 OR value:167");
+//        Query query = parser.parse("value:[100 TO 202]");
+        Query query = LongPoint.newRangeQuery("value", 100L, 202L);
+        TopDocs hits = indexSearcher.search(query, 100);
+        for (int i = 0; i &lt; hits.scoreDocs.length; i++) {
+            int docid = hits.scoreDocs[i].doc;
+            Document document = indexSearcher.doc(docid);
+            System.out.println("ID: " + document.get("id") + " with range value " + document.get("value"));
+        }
+    }
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Nov 2020 at 20:57</span>
+     </div>
+    </div>
+    <div>
+     <p>I think there are a few different things to note here:</p>
+     <p><strong>1. Using the classic parser</strong></p>
+     <p>As you show in your question, the classic parser supports range searches, as <a href="https://lucene.apache.org/core/8_3_1/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Range_Searches" rel="nofollow noreferrer">documented here</a>. But the key point to note in the documentation is:</p>
+     <blockquote>
+      <p><em>Sorting is done lexicographically.</em></p>
+     </blockquote>
+     <p>That is to say, it uses text-based sorting to determine whether a field's values are within the range or not.</p>
+     <p>However, your field is a <a href="https://lucene.apache.org/core/8_7_0/core/index.html" rel="nofollow noreferrer"><code>LongPoint</code></a> field (again, as you show in your code). This field stores your data as an <em>array</em> of longs, as shown in the constructor.</p>
+     <p>This is not lexicographical data - and even when you only have one value, it's not handled as string data.</p>
+     <p>I <em>assume</em> that this is why the following queries do not work as expected - but I am not 100% sure of this, because I did not find any documentation confirming this:</p>
+     <pre><code>Query query = parser.parse("id:1 OR value:167");
+Query query = parser.parse("value:[100 TO 202]");
+</code></pre>
+     <p>(I am slightly surprised that these queries do not throw errors).</p>
+     <p><strong>2. Using a <code>LongPoint</code> Query</strong></p>
+     <p>As you have also shown, you can use one of the specialized <code>LongPoint</code> queries to get the results you expect - in your case, you used <code>LongPoint.newRangeQuery("value", 100L, 202L);</code>.</p>
+     <p>But as you also note, you lose the benefits of the classic parser syntax.</p>
+     <p><strong>3. Using the Standard Query Parser</strong></p>
+     <p>This may be a good approach which allows you to continue using your preferred syntax, while also supporting number-based range searches.</p>
+     <p>The <a href="https://lucene.apache.org/core/8_7_0/queryparser/org/apache/lucene/queryparser/flexible/standard/StandardQueryParser.html" rel="nofollow noreferrer"><code>StandardQueryParser</code></a> is a newer alternative to the classic parser, but it uses the same syntax as the classic parser by default.</p>
+     <p>This parser lets you configure a "points config map", which tells the parser which fields to handle as numeric data, for operations such as range searches.</p>
+     <p>For example:</p>
+     <pre><code>import org.apache.lucene.queryparser.flexible.standard.StandardQueryParser;
+import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
+import java.text.DecimalFormat;
+import java.util.Map;
+import java.util.HashMap;
+
+...
+
+StandardQueryParser parser = new StandardQueryParser();
+parser.setAnalyzer(indexWriter.getAnalyzer());
+
+// Here I am just using the default decimal format - but you can provide
+// a specific format string, as needed:
+PointsConfig pointsConfig = new PointsConfig(new DecimalFormat(), Long.class);
+Map&lt;String, PointsConfig&gt; pointsConfigMap = new HashMap&lt;&gt;();
+pointsConfigMap.put("value", pointsConfig);
+parser.setPointsConfigMap(pointsConfigMap);
+
+Query query1 = parser.parse("value:[101 TO 203]", "");
+</code></pre>
+     <p>Running your index searcher code with the above query gives the following output:</p>
+     <pre><code>ID: 1 with range value 145
+ID: 2 with range value 167
+ID: 3 with range value 201
+</code></pre>
+     <p>Note that this correctly excludes the <code>20100L</code> value (which would be included if the query was using lexical sorting).</p>
+     <p>I don't know of any way to get the same results using only the classic query parser - but at least this is using the same query syntax that you would prefer to use.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks a lot for the detailed answer, I wasn't aware of the StandardQueryParser (Works great). Somehow I assumed that the search format is defined by the document field (LongPoint) and not the query itself, but that's not correct. In addition the same field name in different documents could be formatted/stored differently.</span> <span> - </span> <span class="display-name">swaechter</span> <span> </span> <span class="date">12 Nov 2020 at 08:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

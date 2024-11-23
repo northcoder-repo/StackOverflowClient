@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Using Thymeleaf TemplateEngine with Vert.x 3.9</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Using Thymeleaf TemplateEngine with Vert.x 3.9</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>MAY</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Apr 2020 at 16:21</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61174567/using-thymeleaf-templateengine-with-vert-x-3-9">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am new to Vertx. I am trying to create thymeleaf template engine in my application but it raises this error</p>
+    <blockquote>
+     <p><strong>java: incompatible types: io.vertx.core.Vertx cannot be converted to io.vertx.reactivex.core.Vertx</strong></p>
+    </blockquote>
+    <p>and if I cast <strong><code>vertx</code></strong> to <code>io.vertx.reactive.core.Vertx</code> then I get this error</p>
+    <blockquote>
+     <p><strong>java.lang.ClassCastException: io.vertx.core.impl.VertxImpl cannot be cast to io.vertx.reactivex.core.Vertx</strong></p>
+    </blockquote>
+    <p>Apart from that database connection is successful and if I remove TemplateEngine line code runs smoothly.</p>
+    <pre><code>package com.firstapp.main;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerResponse;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.mysqlclient.MySQLConnectOptions;
+import io.vertx.mysqlclient.MySQLPool;
+import io.vertx.reactivex.core.Vertx;
+import io.vertx.reactivex.ext.web.common.template.TemplateEngine;
+import io.vertx.reactivex.ext.web.handler.TemplateHandler;
+import io.vertx.reactivex.ext.web.templ.thymeleaf.ThymeleafTemplateEngine;
+import io.vertx.sqlclient.PoolOptions;
+import io.vertx.sqlclient.SqlConnection;
+
+public class MainVerticle extends AbstractVerticle {
+
+  private int server_port = 8080;
+
+  @Override
+  public void start(Promise&lt;Void&gt; startPromise) throws Exception {
+
+    Future&lt;Void&gt; handshake = prepareDatabase().compose(estb -&gt; startServer());
+    handshake.onComplete(startPromise);
+
+  }
+
+  private Future&lt;Void&gt; startServer(){
+    Promise&lt;Void&gt; promise = Promise.promise();
+
+    Router router = Router.router(vertx);
+    HttpServer server = vertx.createHttpServer();
+</code></pre>
+    <pre><code>TemplateEngine engine = ThymeleafTemplateEngine.create((Vertx) vertx);
+TemplateHandler handler = TemplateHandler.create(engine);
+</code></pre>
+    <pre><code>    router.route("/").handler(routingContext -&gt; {
+      HttpServerResponse response = routingContext.response();
+      response.putHeader("content-type", "text/html").end("&lt;h1&gt;First App&lt;/h1&gt;");
+    });
+
+    server.requestHandler(router).listen(config().getInteger("http.port", server_port), result -&gt; {
+      if(result.succeeded()){
+        System.out.println("Server Started at Port '"+server_port+"'");
+        promise.complete();
+      }
+      else{
+        System.out.println("Failed to Start Server");
+        promise.fail(result.cause());
+      }
+    });
+
+    return promise.future();
+  }
+
+  private Future&lt;Void&gt; prepareDatabase(){
+    Promise&lt;Void&gt; promise = Promise.promise();
+
+    MySQLConnectOptions connectOptions = new MySQLConnectOptions()
+      .setPort(3306)
+      .setHost("localhost")
+      .setDatabase("vertx_db")
+      .setUser("root")
+      .setPassword("");
+
+    PoolOptions poolOptions = new PoolOptions().setMaxSize(5);
+
+    MySQLPool client = MySQLPool.pool(vertx, connectOptions, poolOptions);
+
+    client.getConnection(connect -&gt; {
+      if (connect.failed()){
+        System.out.println("Failed to Connect to Database.");
+        promise.fail(connect.cause());
+      }
+      else{
+        SqlConnection conn = connect.result();
+        conn.close();
+        System.out.println("Database connection successful.");
+        promise.complete();
+      }
+    });
+
+    return promise.future();
+  }
+}
+
+</code></pre>
+    <p>Please guide me If you know how to fix. Thanks</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">thymeleaf</span><span class="tag">vert.x</span><span class="tag">vertx-verticle</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Apr 2020 at 16:54</span>
+     </div>
+    </div>
+    <div>
+     <p>Where are you importing the following <code>...reactivex...</code> classes from? (i.e. which JAR?):</p>
+     <pre><code>import io.vertx.reactivex.core.Vertx;
+import io.vertx.reactivex.ext.web.common.template.TemplateEngine;
+import io.vertx.reactivex.ext.web.handler.TemplateHandler;
+import io.vertx.reactivex.ext.web.templ.thymeleaf.ThymeleafTemplateEngine;
+</code></pre>
+     <p>It looks as if that JAR contains a class <code>io.vertx.reactivex.core.Vertx</code> which conflicts with the <code>Vertex</code> you need to use: <code>io.vertx.core.Vertx</code>.</p>
+     <p>Try removing that JAR from your project (or just from that class, if you need it elsewhere) and then using the following instead (presented as Maven dependencies):</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;io.vertx&lt;/groupId&gt;
+    &lt;artifactId&gt;vertx-core&lt;/artifactId&gt;
+    &lt;version&gt;3.9.0&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;io.vertx&lt;/groupId&gt;
+    &lt;artifactId&gt;vertx-web&lt;/artifactId&gt;
+    &lt;version&gt;3.9.0&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;io.vertx&lt;/groupId&gt;
+    &lt;artifactId&gt;vertx-web-templ-thymeleaf&lt;/artifactId&gt;
+    &lt;version&gt;3.9.0&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    [others, as needed - e.g. your SQL dependencies...]
+&lt;/dependency&gt;
+</code></pre>
+     <p>Then, you should only need to do something like this, to support Thymeleaf templating:</p>
+     <pre><code>import io.vertx.ext.web.templ.thymeleaf.ThymeleafTemplateEngine;
+
+...
+
+final ThymeleafTemplateEngine engine = ThymeleafTemplateEngine.create(vertx);
+</code></pre>
+     <p>And then use <code>engine.render()</code> to render your chosen template with its model data.</p>
+     <p>There is an example on GitHub <a href="https://github.com/vert-x3/vertx-examples/blob/master/web-examples/src/main/java/io/vertx/example/web/templating/thymeleaf/Server.java" rel="nofollow noreferrer">here</a>. The example also depends on the <code>Runner</code> class which is <a href="https://github.com/vert-x3/vertx-examples/blob/master/web-examples/src/main/java/io/vertx/example/util/Runner.java" rel="nofollow noreferrer">here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I guess there was some conflict so I remove <b>vertx-rx-java</b> dependency. Thanks for your help.</span> <span> - </span> <span class="display-name">MAY</span> <span> </span> <span class="date">12 Apr 2020 at 17:45</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

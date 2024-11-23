@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Get nested JSON object with GSON using retrofit</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Get nested JSON object with GSON using retrofit</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>117</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>mikelar</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Apr 2014 at 20:59</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/23070298/get-nested-json-object-with-gson-using-retrofit">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm consuming an API from my android app, and all the JSON responses are like this:</p>
+    <pre><code>{
+    'status': 'OK',
+    'reason': 'Everything was fine',
+    'content': {
+         &lt; some data here &gt;
+}
+</code></pre>
+    <p>The problem is that all my POJOs have a <code>status</code>, <code>reason</code> fields, and inside the <code>content</code> field is the real POJO I want.</p>
+    <p>Is there any way to create a custom converter of Gson to extract always the <code>content</code> field, so retrofit returns the appropiate POJO?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">android</span><span class="tag">json</span><span class="tag">gson</span><span class="tag">retrofit</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span><a href="https://sites.google.com/site/gson/gson-user-guide#TOC-Custom-Serialization-and-Deserialization" rel="nofollow noreferrer">sites.google.com/site/gson/…</a></span> <span> - </span> <span class="display-name">Brian Roach</span> <span> </span> <span class="date">14 Apr 2014 at 21:03</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I read the document but I don't see how to do it... :( I don't realise how to program the code to solve my problem</span> <span> - </span> <span class="display-name">mikelar</span> <span> </span> <span class="date">14 Apr 2014 at 21:37</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I'm curious why you wouldn't just format your POJO class to handle those status results.</span> <span> - </span> <span class="display-name">jj.</span> <span> </span> <span class="date">18 Mar 2016 at 21:09</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>171</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Brian Roach</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Apr 2014 at 21:50</span>
+     </div>
+    </div>
+    <div>
+     <p>You would write a custom deserializer that returns the embedded object.</p>
+     <p>Let's say your JSON is:</p>
+     <pre><code>{
+    "status":"OK",
+    "reason":"some reason",
+    "content" : 
+    {
+        "foo": 123,
+        "bar": "some value"
+    }
+}
+</code></pre>
+     <p>You'd then have a <code>Content</code> POJO:</p>
+     <pre><code>class Content
+{
+    public int foo;
+    public String bar;
+}
+</code></pre>
+     <p>Then you write a deserializer:</p>
+     <pre><code>class MyDeserializer implements JsonDeserializer&lt;Content&gt;
+{
+    @Override
+    public Content deserialize(JsonElement je, Type type, JsonDeserializationContext jdc)
+        throws JsonParseException
+    {
+        // Get the "content" element from the parsed JSON
+        JsonElement content = je.getAsJsonObject().get("content");
+
+        // Deserialize it. You use a new instance of Gson to avoid infinite recursion
+        // to this deserializer
+        return new Gson().fromJson(content, Content.class);
+
+    }
+}
+</code></pre>
+     <p>Now if you construct a <code>Gson</code> with <code>GsonBuilder</code> and register the deserializer:</p>
+     <pre><code>Gson gson = 
+    new GsonBuilder()
+        .registerTypeAdapter(Content.class, new MyDeserializer())
+        .create();
+</code></pre>
+     <p>You can deserialize your JSON straight to your <code>Content</code>:</p>
+     <pre><code>Content c = gson.fromJson(myJson, Content.class);
+</code></pre>
+     <p><strong>Edit to add from comments:</strong></p>
+     <p>If you have different types of messages but they all have the "content" field, you can make the Deserializer generic by doing:</p>
+     <pre><code>class MyDeserializer&lt;T&gt; implements JsonDeserializer&lt;T&gt;
+{
+    @Override
+    public T deserialize(JsonElement je, Type type, JsonDeserializationContext jdc)
+        throws JsonParseException
+    {
+        // Get the "content" element from the parsed JSON
+        JsonElement content = je.getAsJsonObject().get("content");
+
+        // Deserialize it. You use a new instance of Gson to avoid infinite recursion
+        // to this deserializer
+        return new Gson().fromJson(content, type);
+
+    }
+}
+</code></pre>
+     <p>You just have to register an instance for each of your types:</p>
+     <pre><code>Gson gson = 
+    new GsonBuilder()
+        .registerTypeAdapter(Content.class, new MyDeserializer&lt;Content&gt;())
+        .registerTypeAdapter(DiffContent.class, new MyDeserializer&lt;DiffContent&gt;())
+        .create();
+</code></pre>
+     <p>When you call <code>.fromJson()</code> the type is carried into the deserializer, so it should then work for all your types.</p>
+     <p>And finally when creating a Retrofit instance:</p>
+     <pre><code>Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(url)
+                .addConverterFactory(GsonConverterFactory.create(gson))
+                .build();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>wow, that's great! thanks! :D Is there any way to generalise the solution so I don't have to create one JsonDeserializer per each type of response?</span> <span> - </span> <span class="display-name">mikelar</span> <span> </span> <span class="date">14 Apr 2014 at 22:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@mikelar You mean the "content" part of the JSON is different types of objects?</span> <span> - </span> <span class="display-name">Brian Roach</span> <span> </span> <span class="date">14 Apr 2014 at 22:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>yes, exactly, the content field is different between different calls (<code>/user/1/</code>, <code>/photos/3/</code>, ...). Both calls have the same <code>status</code> and <code>reason</code> fields, but the <code>content</code> field is different</span> <span> - </span> <span class="display-name">mikelar</span> <span> </span> <span class="date">14 Apr 2014 at 22:06</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This is amazing! One thing to change: Gson gson = new GsonBuilder().create(); Instead of Gson gson = new GsonBuilder().build(); There are two instances of this.</span> <span> - </span> <span class="display-name">Nelson Osacky</span> <span> </span> <span class="date">24 Apr 2014 at 04:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>And don't forget that you can do RestAdapter restAdapter = new RestAdapter.Builder().setConverter(new GsonConverter(gson)).build();</span> <span> - </span> <span class="display-name">Nelson Osacky</span> <span> </span> <span class="date">24 Apr 2014 at 05:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>thanks, but how do you add this to retrofit?, how do you tell retrofit to use this class?</span> <span> - </span> <span class="display-name">frankelot</span> <span> </span> <span class="date">26 May 2014 at 13:05</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>@feresr you can call <code>setConverter(new GsonConverter(gson))</code> in Retrofit's <code>RestAdapter.Builder</code> class</span> <span> - </span> <span class="display-name">akhy</span> <span> </span> <span class="date">4 Jun 2014 at 10:27</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@BrianRoach thanks, nice answer.. should I register <code>Person.class</code> and <code>List&lt;Person&gt;.class</code>/<code>Person[].class</code> with separated Deserializer?</span> <span> - </span> <span class="display-name">akhy</span> <span> </span> <span class="date">4 Jun 2014 at 10:28</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Any possibility to get the "status" and "reason" too? For example if all the requests return them, can we have them in a super class and use subclasses which are the actual POJOs from "content"?</span> <span> - </span> <span class="display-name">Nima</span> <span> </span> <span class="date">27 Sep 2014 at 10:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Note that if you are using a FieldNamingPolicy you need to create the new instance of Gson inside of the Deserializer with a GsonBuilder as well and set the Policy there. It is not used if you set it to the builder that you set the type adapters to...</span> <span> - </span> <span class="display-name">Till - Appviewer.io</span> <span> </span> <span class="date">15 May 2015 at 17:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>In terms of code organisation, where is the best place to put the deserialiser class? Inside the model itself or in a separate package?</span> <span> - </span> <span class="display-name">W.K.S</span> <span> </span> <span class="date">27 Jun 2015 at 09:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>In this example, is order between foo and bar is fixed in JSON OR we can parse diff json strings with different order between foo and bar i.e { "foo": 123, "bar": "some value" } and {"bar": "some value" "foo": 123" } using same Content class ?</span> <span> - </span> <span class="display-name">user3851499</span> <span> </span> <span class="date">6 Aug 2016 at 15:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BrianRoach can you help me out with my issue aswell? Have a hard time trying to get a field in my nested json in the simplest way possible. here's my question : <a href="https://stackoverflow.com/questions/56501897/how-do-i-retrieve-json-from-a-deep-nested-object/56502457?noredirect=1#comment99603799_56502457" title="how do i retrieve json from a deep nested object">stackoverflow.com/questions/56501897/…</a></span> <span> - </span> <span class="display-name">user11455292</span> <span> </span> <span class="date">8 Jun 2019 at 18:20</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>KMarlow</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Jan 2015 at 01:45</span>
+     </div>
+    </div>
+    <div>
+     <p>@BrianRoach's solution is the correct solution. It is worth noting that in the special case where you have nested custom objects that both need a custom <code>TypeAdapter</code>, you must register the <code>TypeAdapter</code> with the <strong>new instance of GSON</strong>, otherwise the second <code>TypeAdapter</code> will never be called. This is because we are creating a new <code>Gson</code> instance inside our custom deserializer.</p>
+     <p>For example, if you had the following json:</p>
+     <pre><code>{
+    "status": "OK",
+    "reason": "some reason",
+    "content": {
+        "foo": 123,
+        "bar": "some value",
+        "subcontent": {
+            "useless": "field",
+            "data": {
+                "baz": "values"
+            }
+        }
+    }
+}
+</code></pre>
+     <p>And you wanted this JSON to be mapped to the following objects:</p>
+     <pre><code>class MainContent
+{
+    public int foo;
+    public String bar;
+    public SubContent subcontent;
+}
+
+class SubContent
+{
+    public String baz;
+}
+</code></pre>
+     <p>You would need to register the <code>SubContent</code>'s <code>TypeAdapter</code>. To be more robust, you could do the following:</p>
+     <pre><code>public class MyDeserializer&lt;T&gt; implements JsonDeserializer&lt;T&gt; {
+    private final Class mNestedClazz;
+    private final Object mNestedDeserializer;
+
+    public MyDeserializer(Class nestedClazz, Object nestedDeserializer) {
+        mNestedClazz = nestedClazz;
+        mNestedDeserializer = nestedDeserializer;
+    }
+
+    @Override
+    public T deserialize(JsonElement je, Type type, JsonDeserializationContext jdc) throws JsonParseException {
+        // Get the "content" element from the parsed JSON
+        JsonElement content = je.getAsJsonObject().get("content");
+
+        // Deserialize it. You use a new instance of Gson to avoid infinite recursion
+        // to this deserializer
+        GsonBuilder builder = new GsonBuilder();
+        if (mNestedClazz != null &amp;&amp; mNestedDeserializer != null) {
+            builder.registerTypeAdapter(mNestedClazz, mNestedDeserializer);
+        }
+        return builder.create().fromJson(content, type);
+
+    }
+}
+</code></pre>
+     <p>and then create it like so:</p>
+     <pre><code>MyDeserializer&lt;Content&gt; myDeserializer = new MyDeserializer&lt;Content&gt;(SubContent.class,
+                    new SubContentDeserializer());
+Gson gson = new GsonBuilder().registerTypeAdapter(Content.class, myDeserializer).create();
+</code></pre>
+     <p>This could easily be used for the nested "content" case as well by simply passing in a new instance of <code>MyDeserializer</code> with null values.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>What package is "Type" from? There are a million packages containing the class "Type". Thank you.</span> <span> - </span> <span class="display-name">Kyle Bridenstine</span> <span> </span> <span class="date">9 Jun 2015 at 01:55</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Mr.Tea It'll be <code>java.lang.reflect.Type</code></span> <span> - </span> <span class="display-name">aidan</span> <span> </span> <span class="date">15 Jun 2015 at 13:07</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Where is the SubContentDeserializer class? @KMarlow</span> <span> - </span> <span class="display-name">LogronJ</span> <span> </span> <span class="date">13 Dec 2018 at 09:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Matin Petrulak</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Nov 2016 at 10:24</span>
+     </div>
+    </div>
+    <div>
+     <p>Bit late but hopefully this will help someone.</p>
+     <p>Just create following TypeAdapterFactory.</p>
+     <pre><code>    public class ItemTypeAdapterFactory implements TypeAdapterFactory {
+
+      public &lt;T&gt; TypeAdapter&lt;T&gt; create(Gson gson, final TypeToken&lt;T&gt; type) {
+
+        final TypeAdapter&lt;T&gt; delegate = gson.getDelegateAdapter(this, type);
+        final TypeAdapter&lt;JsonElement&gt; elementAdapter = gson.getAdapter(JsonElement.class);
+
+        return new TypeAdapter&lt;T&gt;() {
+
+            public void write(JsonWriter out, T value) throws IOException {
+                delegate.write(out, value);
+            }
+
+            public T read(JsonReader in) throws IOException {
+
+                JsonElement jsonElement = elementAdapter.read(in);
+                if (jsonElement.isJsonObject()) {
+                    JsonObject jsonObject = jsonElement.getAsJsonObject();
+                    if (jsonObject.has("content")) {
+                        jsonElement = jsonObject.get("content");
+                    }
+                }
+
+                return delegate.fromJsonTree(jsonElement);
+            }
+        }.nullSafe();
+    }
+}
+</code></pre>
+     <p>and add it into your GSON builder :</p>
+     <pre><code>.registerTypeAdapterFactory(new ItemTypeAdapterFactory());
+</code></pre>
+     <p>or</p>
+     <pre><code> yourGsonBuilder.registerTypeAdapterFactory(new ItemTypeAdapterFactory());
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is exactly what I look. Because I have a lot of types wrapped with "data" node and I can't add TypeAdapter to each of them. Thanks!</span> <span> - </span> <span class="display-name">Sergey Irisov</span> <span> </span> <span class="date">26 Jun 2017 at 12:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@SergeyIrisov you are welcome. You can up vote this answer so it get higher :)</span> <span> - </span> <span class="display-name">Matin Petrulak</span> <span> </span> <span class="date">26 Jun 2017 at 15:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How to pass multiple <code>jsonElement</code> ?. like i have <code>content</code> , <code>content1</code>, etc.</span> <span> - </span> <span class="display-name">Sathish Kumar J</span> <span> </span> <span class="date">13 Dec 2017 at 02:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I think your back-end devs should change the structure and do not pass content, content1... What is the advantage of this approach?</span> <span> - </span> <span class="display-name">Matin Petrulak</span> <span> </span> <span class="date">13 Dec 2017 at 10:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you! This is the perfect answer. @Marin Petrulak: The advantage is that this form is future-proof for changes. "content" is the response content. In the future they may come new fields like "version", "lastUpdated", "sessionToken" and so on. If you didn't wrap your response content beforehand, you will run into a bunch of workarounds in your code to adapt to the new structure.</span> <span> - </span> <span class="display-name">muetzenflo</span> <span> </span> <span class="date">28 Jul 2019 at 09:52</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>rafakob</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Dec 2015 at 21:05</span>
+     </div>
+    </div>
+    <div>
+     <p>Had the same problem couple of days ago. I've solve this using response wrapper class and RxJava transformer, which I think is quite flexiable solution:</p>
+     <p><strong>Wrapper:</strong></p>
+     <pre><code>public class ApiResponse&lt;T&gt; {
+    public String status;
+    public String reason;
+    public T content;
+}
+</code></pre>
+     <p><strong>Custom exception to throw, when status is not OK:</strong></p>
+     <pre><code>public class ApiException extends RuntimeException {
+    private final String reason;
+
+    public ApiException(String reason) {
+        this.reason = reason;
+    }
+
+    public String getReason() {
+        return apiError;
+    }
+}
+</code></pre>
+     <p><strong>Rx transformer:</strong></p>
+     <pre><code>protected &lt;T&gt; Observable.Transformer&lt;ApiResponse&lt;T&gt;, T&gt; applySchedulersAndExtractData() {
+    return observable -&gt; observable
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .map(tApiResponse -&gt; {
+                if (!tApiResponse.status.equals("OK"))
+                    throw new ApiException(tApiResponse.reason);
+                else
+                    return tApiResponse.content;
+            });
+}
+</code></pre>
+     <p><strong>Example usage:</strong></p>
+     <pre><code>// Call definition:
+@GET("/api/getMyPojo")
+Observable&lt;ApiResponse&lt;MyPojo&gt;&gt; getConfig();
+
+// Call invoke:
+webservice.getMyPojo()
+        .compose(applySchedulersAndExtractData())
+        .subscribe(this::handleSuccess, this::handleError);
+
+
+private void handleSuccess(MyPojo mypojo) {
+    // handle success
+}
+
+private void handleError(Throwable t) {
+    getView().showSnackbar( ((ApiException) throwable).getReason() );
+}
+</code></pre>
+     <p>My topic: <a href="https://stackoverflow.com/questions/34288873/retrofit-2-rxjava-gson-global-deserialization-change-response-type">Retrofit 2 RxJava - Gson - "Global" deserialization, change response type</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>What does MyPojo look like?</span> <span> - </span> <span class="display-name">IgorGanapolsky</span> <span> </span> <span class="date">12 Jan 2016 at 19:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@IgorGanapolsky MyPojo can look however you want. It should match your content data retrieved from a server. Structure of this class should be adjusted to your serialization converter (Gson, Jackson etc.).</span> <span> - </span> <span class="display-name">rafakob</span> <span> </span> <span class="date">13 Jan 2016 at 07:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@rafakob can you help me out with my issue aswell? Have a hard time trying to get a field in my nested json in the simplest way possible. here's my question : <a href="https://stackoverflow.com/questions/56501897/how-do-i-retrieve-json-from-a-deep-nested-object/56502457?noredirect=1#comment99603799_56502457" title="how do i retrieve json from a deep nested object">stackoverflow.com/questions/56501897/…</a></span> <span> - </span> <span class="display-name">user11455292</span> <span> </span> <span class="date">8 Jun 2019 at 18:21</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>AYarulin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2014 at 21:13</span>
+     </div>
+    </div>
+    <div>
+     <p>Continuing Brian's idea, because we almost always have many REST resources each with it's own root, it could be useful to generalize deserialization:</p>
+     <pre><code> class RestDeserializer&lt;T&gt; implements JsonDeserializer&lt;T&gt; {
+
+    private Class&lt;T&gt; mClass;
+    private String mKey;
+
+    public RestDeserializer(Class&lt;T&gt; targetClass, String key) {
+        mClass = targetClass;
+        mKey = key;
+    }
+
+    @Override
+    public T deserialize(JsonElement je, Type type, JsonDeserializationContext jdc)
+            throws JsonParseException {
+        JsonElement content = je.getAsJsonObject().get(mKey);
+        return new Gson().fromJson(content, mClass);
+
+    }
+}
+</code></pre>
+     <p>Then to parse sample payload from above, we can register GSON deserializer:</p>
+     <pre><code>Gson gson = new GsonBuilder()
+    .registerTypeAdapter(Content.class, new RestDeserializer&lt;&gt;(Content.class, "content"))
+    .build();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Federico J Farina</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Oct 2016 at 05:02</span>
+     </div>
+    </div>
+    <div>
+     <p>A better solution could be this..</p>
+     <pre><code>public class ApiResponse&lt;T&gt; {
+    public T data;
+    public String status;
+    public String reason;
+}
+</code></pre>
+     <p>Then, define your service like this..</p>
+     <pre><code>Observable&lt;ApiResponse&lt;YourClass&gt;&gt; updateDevice(..);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Barry MSIH</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Dec 2015 at 02:53</span>
+     </div>
+    </div>
+    <div>
+     <p>This is the same solution as @AYarulin but assume the class name is the JSON key name. This way you only need to pass the Class name.</p>
+     <pre><code> class RestDeserializer&lt;T&gt; implements JsonDeserializer&lt;T&gt; {
+
+    private Class&lt;T&gt; mClass;
+    private String mKey;
+
+    public RestDeserializer(Class&lt;T&gt; targetClass) {
+        mClass = targetClass;
+        mKey = mClass.getSimpleName();
+    }
+
+    @Override
+    public T deserialize(JsonElement je, Type type, JsonDeserializationContext jdc)
+            throws JsonParseException {
+        JsonElement content = je.getAsJsonObject().get(mKey);
+        return new Gson().fromJson(content, mClass);
+
+    }
+}
+</code></pre>
+     <p>Then to parse sample payload from above, we can register GSON deserializer. This is problematic as the Key is case sensitive, so the case of the class name must match the case of the JSON key.</p>
+     <pre><code>Gson gson = new GsonBuilder()
+.registerTypeAdapter(Content.class, new RestDeserializer&lt;&gt;(Content.class))
+.build();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Varun Achar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Mar 2016 at 14:36</span>
+     </div>
+    </div>
+    <div>
+     <p>In my case, the "content" key would change for each response. Example:</p>
+     <pre><code>// Root is hotel
+{
+  status : "ok",
+  statusCode : 200,
+  hotels : [{
+    name : "Taj Palace",
+    location : {
+      lat : 12
+      lng : 77
+    }
+
+  }, {
+    name : "Plaza", 
+    location : {
+      lat : 12
+      lng : 77
+    }
+  }]
+}
+
+//Root is city
+
+{
+  status : "ok",
+  statusCode : 200,
+  city : {
+    name : "Vegas",
+    location : {
+      lat : 12
+      lng : 77
+    }
+}
+</code></pre>
+     <p>In such cases I used a similar solution as listed above but had to tweak it. You can see the gist <a href="https://gist.github.com/varunachar/e98a2c240eddc56053c5" rel="nofollow">here</a>. It's a little too large to post it here on SOF.</p>
+     <p>The annotation <code>@InnerKey("content")</code> is used and the rest of the code is to facilitate it's usage with Gson.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Can you help out with my question aswell. Have a hrd time getting a field from a nested json in the simplest possible way : <a href="https://stackoverflow.com/questions/56501897/how-do-i-retrieve-json-from-a-deep-nested-object/56502457?noredirect=1#comment99603799_56502457" title="how do i retrieve json from a deep nested object">stackoverflow.com/questions/56501897/…</a></span> <span> - </span> <span class="display-name">user11455292</span> <span> </span> <span class="date">8 Jun 2019 at 18:22</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>RamwiseMatt</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jan 2017 at 20:31</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's a Kotlin version based on the answers by Brian Roach and AYarulin.</p>
+     <pre><code>class RestDeserializer&lt;T&gt;(targetClass: Class&lt;T&gt;, key: String?) : JsonDeserializer&lt;T&gt; {
+    val targetClass = targetClass
+    val key = key
+
+    override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): T {
+        val data = json!!.asJsonObject.get(key ?: "")
+
+        return Gson().fromJson(data, targetClass)
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rohan Pawar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 May 2017 at 11:44</span>
+     </div>
+    </div>
+    <div>
+     <p>As per answer of @Brian Roach and @rafakob i done this in the following way</p>
+     <p>Json response from server</p>
+     <pre><code>{
+  "status": true,
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "fullname": "Rohan",
+    "role": 1
+  }
+}
+</code></pre>
+     <p>Common data handler class</p>
+     <pre><code>public class ApiResponse&lt;T&gt; {
+    @SerializedName("status")
+    public boolean status;
+
+    @SerializedName("code")
+    public int code;
+
+    @SerializedName("message")
+    public String reason;
+
+    @SerializedName("data")
+    public T content;
+}
+</code></pre>
+     <p>Custom serializer</p>
+     <pre><code>static class MyDeserializer&lt;T&gt; implements JsonDeserializer&lt;T&gt;
+{
+     @Override
+      public T deserialize(JsonElement je, Type type, JsonDeserializationContext jdc)
+                    throws JsonParseException
+      {
+          JsonElement content = je.getAsJsonObject();
+
+          // Deserialize it. You use a new instance of Gson to avoid infinite recursion
+          // to this deserializer
+          return new Gson().fromJson(content, type);
+
+      }
+}
+</code></pre>
+     <p>Gson object</p>
+     <pre><code>Gson gson = new GsonBuilder()
+                    .registerTypeAdapter(ApiResponse.class, new MyDeserializer&lt;ApiResponse&gt;())
+                    .create();
+</code></pre>
+     <p>Api call</p>
+     <pre><code> @FormUrlEncoded
+ @POST("/loginUser")
+ Observable&lt;ApiResponse&lt;Profile&gt;&gt; signIn(@Field("email") String username, @Field("password") String password);
+
+restService.signIn(username, password)
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribeOn(Schedulers.io())
+                .subscribe(new Observer&lt;ApiResponse&lt;Profile&gt;&gt;() {
+                    @Override
+                    public void onCompleted() {
+                        Log.i("login", "On complete");
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.i("login", e.toString());
+                    }
+
+                    @Override
+                    public void onNext(ApiResponse&lt;Profile&gt; response) {
+                         Profile profile= response.content;
+                         Log.i("login", profile.getFullname());
+                    }
+                });
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sayed Abolfazl Fatemi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Oct 2016 at 12:08</span>
+     </div>
+    </div>
+    <div>
+     <p>Don't forget <code>@SerializedName</code> and <code>@Expose</code> annotations for all Class members and Inner Class members that most deserialized from JSON by GSON.</p>
+     <p>Look at <a href="https://stackoverflow.com/a/40239512/1676736">https://stackoverflow.com/a/40239512/1676736</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vadzim</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jun 2019 at 11:19</span>
+     </div>
+    </div>
+    <div>
+     <p>Another simple solution:</p>
+     <pre><code>JsonObject parsed = (JsonObject) new JsonParser().parse(jsonString);
+Content content = gson.fromJson(parsed.get("content"), Content.class);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hossein</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Oct 2020 at 14:01</span>
+     </div>
+    </div>
+    <div>
+     <p>There is a simpler way, just consider <code>content</code> sub object as another class:</p>
+     <pre class="lang-kotlin prettyprint-override"><code>class Content {
+    var foo = 0
+    var bar: String? = null
+}
+
+class Response {
+    var statis: String? = null
+    var reason: String? = null
+    var content: Content? = null
+} 
+</code></pre>
+     <p>and now you can use <code>Response</code> type to deserialize json.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to group by year? (month and day already working)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to group by year? (month and day already working)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Verminous</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>31 Aug 2021 at 23:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/69006318/how-to-group-by-year-month-and-day-already-working">source</a>
+    </div>
+   </div>
+   <div>
+    <p>This is for a Google Sheet which uses GAS but I was advised to try Javascript Tag.</p>
+    <p>So I got this script which will read column 1 where I have the dates, and will group all rows by month and within these will group rows by day. This is because within each day I've got a row for every hour or 4 hours or so.</p>
+    <p>I need this script to also group by year as well. So it goes like: Year Row -&gt; Month Rows -&gt; Day Rows</p>
+    <p>Month and day rows are working. I can't get the year grouping to work. Any ideas where to start?</p>
+    <p>The script:</p>
+    <pre><code>function groupRow() {
+
+    const timeZone = "GMT+1";
+    const sheet = SpreadsheetApp.getActiveSheet();
+    const rowStart = 5;
+    const rows = sheet.getLastRow() - rowStart + 1;
+    const values = sheet.getRange(rowStart, 1, rows, 1).getValues().flat();
+    const o = [];
+
+    values.forEach((date, i) =&gt; {
+        const [m, d] = Utilities.formatDate(date, timeZone, "yyyyMM,dd").split(",");
+        if (!o[m]) {
+            o[m] = [];
+        }
+        if (!o[m][d]) {
+            o[m][d] = [];
+        }
+        o[m][d].push(rowStart + i);
+    });
+
+    for (var m in o) {
+     o[m] = Object.values(o[m]).sort((a,b) =&gt; parseInt(a) - parseInt(b));
+    }
+
+    Object.values(o).forEach(m =&gt; {
+        for (const d of m) {
+            if (d.length === 1) {
+            continue;
+            }
+            const range = `${ d[1] }:${ d.slice(-1)[0] }`;
+            sheet.getRange(range).shiftRowGroupDepth(1);
+        }
+        const a = m.flat();
+        if (a.length === 1) {
+            return;
+        }
+        const range = `${ a[1] }:${ a.slice(-1)[0] }`;
+        sheet.getRange(range).shiftRowGroupDepth(1);
+    });
+}
+</code></pre>
+    <p>Here's the link for dummy file: <a href="https://docs.google.com/spreadsheets/d/1ExXtmQ8nyuV1o_UtabVJ-TifIbORItFMWjtN6ZlruWc/edit?usp=sharing" rel="nofollow noreferrer">https://docs.google.com/spreadsheets/d/1ExXtmQ8nyuV1o_UtabVJ-TifIbORItFMWjtN6ZlruWc/edit?usp=sharing</a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">google-apps-script</span><span class="tag">google-sheets</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span><code>var collator = new Intl.Collator([], {numeric: true});</code> it doesn't need anymore.</span> <span> - </span> <span class="display-name">Yuri Khristich</span> <span> </span> <span class="date">1 Sep 2021 at 14:16</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Ok I deleted it.</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">1 Sep 2021 at 14:23</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Yuri Khristich</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Sep 2021 at 00:36</span>
+     </div>
+    </div>
+    <div>
+     <p>Well, it's me again. :) I can't sleep whenever there is some unsolved code.</p>
+     <p>It seems work to a degree:</p>
+     <pre><code>function groupRow() {
+
+  var timeZone = "GMT+1";
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var rowStart = 5;
+  var rows = sheet.getLastRow() - rowStart + 1;
+  var values = sheet.getRange(rowStart, 1, rows, 1).getValues().flat();
+  var o = {};
+
+  // make the object {'year': { 'month':[days] } }
+  values.forEach((date, i) =&gt; {
+      var [y, m, d] = Utilities.formatDate(date, timeZone, "yyyy,MM,dd").split(",");
+      // console.log(y, m, d);
+      if (!o[y]) o[y] = {};
+      if (!o[y][m]) o[y][m] = {};
+      if (!o[y][m][d]) o[y][m][d] = [];
+      o[y][m][d].push(rowStart + i);
+  });
+  
+  // convert the unordered object {year:{month:[days]}}
+  // into the ordered 3d-array [year[month[days]]]
+  const numsort = (a,b) =&gt; parseInt(a) - parseInt(b);
+  var years = Object.keys(o).sort(numsort)
+    .map(y =&gt; Object.keys(o[y]).sort(numsort)
+    .map(m =&gt; Object.values(o[y][m]).sort(numsort)));
+  
+  // group rows by years
+  years.forEach(y =&gt; shift_rows(y.map(m =&gt; m.flat()).flat(),sheet));
+
+  // group rows by months
+  years.flat().forEach(m =&gt; shift_rows(m.flat(),sheet));
+
+  // group rows by days
+  years.flat().flat().forEach(d =&gt; shift_rows(d.flat(),sheet));
+
+  function shift_rows(rows,sheet) {
+    if (rows.length === 1) return;
+    var range = `${ rows[1] }:${ rows.slice(-1) }`;
+    sheet.getRange(range).shiftRowGroupDepth(1);
+  }
+
+}
+</code></pre>
+     <p>But the code is really complicated already. It's need to test and... most likely, to rewrite it from scratch.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This works! Thanks so much. I am still learning how to code. I'm really at a very basic level still. This initial code I got from another member of SO and I have been using this script as an exercise into learning the logic behind coding in this case Javascript. I was trying to understand line by line of code the logic and what the different functions do etc.</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">1 Sep 2021 at 10:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have some questions:</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">1 Sep 2021 at 10:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Why does the code need to be rewritten if it works? In order to be faster or more efficient? You changed some variables from "const" to "var" why? I have many other questions but I don't know enough to know how to ask and probably are "stupid" questions.</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">1 Sep 2021 at 10:42</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>'const'/'var' is not matter in this case. I had tought there were errors due the constants in loops, and I replaced all 'const' with 'var'. But there were no errors. Technically to use 'const' and 'let' is a better style. I rewrote a part of the code because I failed to add the new functionality via little changes. Sometimes it can be fixed, sometimes it's easier to rebuilt. As for my remark about 'it's need to rewrite' -- I still have the vague felling that the algorithm is wrong and slow. I suspect it can be done way better. I can be wrong, though.</span> <span> - </span> <span class="display-name">Yuri Khristich</span> <span> </span> <span class="date">1 Sep 2021 at 11:29</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I know I'm wrong and it's not the best practice, but in such short scripts I'm used to use <code>const</code> mainly for arrow functions. It makes it easier to distinguish functions from variables (<code>var</code>).</span> <span> - </span> <span class="display-name">Yuri Khristich</span> <span> </span> <span class="date">1 Sep 2021 at 11:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks Yuri for taking the time to reply. So on to the next task. This time I will try to make this script not to duplicate row groups because what I am trying to do is: I've got another script which records new rows to the LOG every hour or 10 mins wtv. The purpose of the grouping function is to group everything when it runs the first time. When it runs next, if the rows are already grouped, this script would just group the newer ungrouped rows and either add them to the previous rows if belonging to the day or create new group and add the new one and the next ones to this new group. Complex?</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">1 Sep 2021 at 13:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Given that I knew nothing about grouping rows until yesterday... It's hard to tell something concrete. :) I don't know if there are such abilities in SpreasheetApp. It's need to see, to try, and then we'll go from there.</span> <span> - </span> <span class="display-name">Yuri Khristich</span> <span> </span> <span class="date">1 Sep 2021 at 14:14</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I will try to start out with an attempt at it and then create a new question.</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">1 Sep 2021 at 14:25</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Sep 2021 at 15:32</span>
+     </div>
+    </div>
+    <div>
+     <p>This approach to handling row groups tries to focus on readability/maintainability over efficiency, by minimizing array manipulation. If the code runs too slowly, then you can consider performance optimizations - but those can generally make the code harder to read.</p>
+     <p>It also tries to make the code easier to test by breaking it down into multiple separate functions, where each function tries to do as little logic as possible (I'm sure that could be improved &amp; simplified, even further).</p>
+     <p>It makes 3 passes over the dates data, one for each type of grouping (year, month, and date). That's the big compromise vs. efficiency.</p>
+     <p>I've presented it here as a runnable snippet with some hard-coded data, not as a full GAS script, since the core of the logic is pure JavaScript.</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>var src_data = [
+  'Thu Aug 26 2021 21:27:26 GMT-0400 (Eastern Daylight Time)',
+  'Fri Aug 27 2021 21:27:26 GMT-0400 (Eastern Daylight Time)',
+  'Fri Aug 27 2021 23:51:26 GMT-0400 (Eastern Daylight Time)',
+  'Sun Aug 29 2021 09:27:26 GMT-0400 (Eastern Daylight Time)',
+  'Sat Sep 04 2021 07:03:26 GMT-0400 (Eastern Daylight Time)',
+  'Sat Sep 04 2021 16:39:26 GMT-0400 (Eastern Daylight Time)',
+  'Fri Sep 17 2021 00:49:02 GMT-0400 (Eastern Daylight Time)',
+  'Fri Sep 17 2021 03:13:02 GMT-0400 (Eastern Daylight Time)',
+  'Wed Sep 22 2021 03:13:02 GMT-0400 (Eastern Daylight Time)',
+  'Tue Sep 28 2021 03:13:02 GMT-0400 (Eastern Daylight Time)',
+  'Wed Sep 29 2021 11:22:38 GMT-0400 (Eastern Daylight Time)',
+  'Wed Sep 29 2021 12:34:38 GMT-0400 (Eastern Daylight Time)',
+  'Mon Oct 11 2021 12:34:38 GMT-0400 (Eastern Daylight Time)',
+  'Tue Oct 12 2021 19:46:38 GMT-0400 (Eastern Daylight Time)',
+  'Thu Nov 04 2021 19:46:38 GMT-0400 (Eastern Daylight Time)',
+  'Mon Nov 29 2021 09:13:02 GMT-0500 (Eastern Standard Time)',
+  'Thu Dec 23 2021 22:39:26 GMT-0500 (Eastern Standard Time)',
+  'Mon Jan 17 2022 12:05:50 GMT-0500 (Eastern Standard Time)',
+  'Fri Feb 11 2022 01:32:14 GMT-0500 (Eastern Standard Time)',
+  'Mon Mar 07 2022 14:58:38 GMT-0500 (Eastern Standard Time)',
+  'Mon Mar 07 2022 14:58:39 GMT-0500 (Eastern Standard Time)' 
+];
+
+
+var dates = src_data.map(d =&gt; new Date(d));
+
+// The starting row of our data in the spreadsheet:
+var rowStart = 5;
+
+// We will compare each new date against the previous date to see
+// if the period has changed:
+var prevDate;
+
+// Build a range of potentially groupable dates, because they share the
+// same period. These are the array range start &amp; end positions:
+var rangeStart;
+var rangeEnd;
+
+// the type of grouping to create:
+var groupingPeriod;
+
+//
+// entry point:
+//
+groupDates('year');
+groupDates('month');
+groupDates('date');
+
+// process the array of dates:
+function groupDates(period) {
+  groupingPeriod = period;
+  console.log('finding groups by ' + period + ':') ;
+  dates.forEach((date, idx) =&gt; {
+    // The first date is a special case:
+    if (idx === 0) {
+      processInitialDate(date);
+    } else {
+      // everything which is not the first date:
+      processDate(date, idx);
+    }
+  } );
+}
+
+// Some initial set-up (and we know we cannot create
+// a group containing only the first date):
+function processInitialDate(date) {
+  prevDate = date;
+  rangeStart = 0;
+  rangeEnd = rangeStart;
+}
+
+// All dates except the first one:
+function processDate(date, idx) {
+  if (periodHasChanged(date, prevDate, groupingPeriod)) {
+      createGroup();
+      // start a new range:
+      rangeStart = rangeEnd +1; 
+      rangeEnd = rangeStart;
+  } else {
+    // extend the current range:
+    rangeEnd++;
+    // the final value in the array is a special case, which
+    // would otherwise not be processed (because there is no 
+    // "next" date to compare it against):
+    if (idx === dates.length -1) {
+      createGroup();
+    }
+  }
+  prevDate = date;
+}
+
+function periodHasChanged(currDate, prevDate, period) {
+  switch(period) {
+    case 'year':
+      var currPeriod = currDate.getYear();
+      var prevPeriod = prevDate.getYear();
+      break;
+    case 'month':
+      var currPeriod = currDate.getMonth();
+      var prevPeriod = prevDate.getMonth();
+      break;
+    case 'date':
+      var currPeriod = currDate.getDate();
+      var prevPeriod = prevDate.getDate();
+      break;
+  }
+  return currPeriod !== prevPeriod;
+}
+
+function createGroup() {
+  var rangeGroup = dates.slice(rangeStart, rangeEnd +1);
+  // only create the group if it contains at least 2 dates:
+  if (rangeGroup.length &gt; 1) {
+    // make the group here - but for testing, we just log it to the console:
+    // TODO - build the sheet range, by adjusting the array rangeStart 
+    // and rangeEnd values, using the rowStart value defined earlier.
+    //range.shiftRowGroupDepth(1); 
+    console.log( rangeGroup );
+  }
+}</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <hr>
+     <p>Here is the full GAS script I used:</p>
+     <pre><code>function groupingDemo() {
+  //const timeZone = "GMT+1";
+  rowStart = 5;
+  sheet = SpreadsheetApp.getActiveSheet();
+  rows = sheet.getLastRow() - rowStart + 1;
+  dates = sheet.getRange(rowStart, 1, rows, 1).getValues().flat();
+
+  groupDates(dates, 'year');
+  groupDates(dates, 'month');
+  groupDates(dates, 'date');
+}
+
+// spreadsheet items:
+var sheet;
+var rowStart;
+var dates;
+
+// We will compare each new date against the previous date to see
+// if the period has changed:
+var prevDate;
+
+// Build a range of potentially groupable dates, because they share the
+// same period. These are the array range start &amp; end positions:
+var rangeStart;
+var rangeEnd;
+
+// the type of grouping to create:
+var groupingPeriod;
+
+// process the array of dates:
+function groupDates(dates, period) {
+  groupingPeriod = period;
+  console.log('finding groups by ' + period + ':') ;
+  dates.forEach((date, idx) =&gt; {
+    // The first date is a special case:
+    if (idx === 0) {
+      processInitialDate(date);
+    } else {
+      // everything which is not the first date:
+      processDate(date, idx);
+    }
+  } );
+}
+
+// Some initial set-up (and we know we cannot create
+// a group containing only the first date):
+function processInitialDate(date) {
+  prevDate = date;
+  rangeStart = 0;
+  rangeEnd = rangeStart;
+}
+
+// All dates except the first one:
+function processDate(date, idx) {
+  if (periodHasChanged(date, prevDate, groupingPeriod)) {
+      createGroup();
+      // start a new range:
+      rangeStart = rangeEnd +1; 
+      rangeEnd = rangeStart;
+  } else {
+    // extend the current range:
+    rangeEnd++;
+    // the final value in the array is a special case, which
+    // would otherwise not be processed (because there is no 
+    // "next" date to compare it against):
+    if (idx === dates.length -1) {
+      createGroup();
+    }
+  }
+  prevDate = date;
+}
+
+function periodHasChanged(currDate, prevDate, period) {
+  switch(period) {
+    case 'year':
+      var currPeriod = currDate.getYear();
+      var prevPeriod = prevDate.getYear();
+      break;
+    case 'month':
+      var currPeriod = currDate.getMonth();
+      var prevPeriod = prevDate.getMonth();
+      break;
+    case 'date':
+      var currPeriod = currDate.getDate();
+      var prevPeriod = prevDate.getDate();
+      break;
+  }
+  return currPeriod !== prevPeriod;
+}
+
+function createGroup() {
+  const sheet = SpreadsheetApp.getActiveSheet();
+  var rangeGroup = dates.slice(rangeStart, rangeEnd +1);
+  // only create the group if it contains at least 2 dates:
+  if (rangeGroup.length &gt; 1) {
+    // make a new group (we use the "+1" to avoid contiguous groups being merged):
+    var range = `${ rowStart + rangeStart +1 }:${ rowStart + rangeEnd }`;
+    sheet.getRange(range).shiftRowGroupDepth(1);
+
+    // uncomment these to see what's going on:
+    //console.log( rangeGroup );
+    //console.log( 'sheet rows: ' + `${ rowStart + rangeStart +1 }:${ rowStart + rangeEnd }` )
+  }
+}
+</code></pre>
+     <p>The results:</p>
+     <p><a href="https://i.stack.imgur.com/WV3Ze.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/WV3Ze.png" alt="enter image description here"></a></p>
+     <p>And if you un-comment the logging statements, you see the following logs:</p>
+     <pre><code>
+finding groups by year:
+
+[ Thu Aug 26 2021 21:27:26 GMT-0400 (Eastern Daylight Time),
+  Fri Aug 27 2021 21:27:26 GMT-0400 (Eastern Daylight Time),
+  Fri Aug 27 2021 23:51:26 GMT-0400 (Eastern Daylight Time),
+  Sun Aug 29 2021 09:27:26 GMT-0400 (Eastern Daylight Time),
+  Sat Sep 04 2021 07:03:26 GMT-0400 (Eastern Daylight Time),
+  Sat Sep 04 2021 16:39:26 GMT-0400 (Eastern Daylight Time),
+  Fri Sep 17 2021 00:49:02 GMT-0400 (Eastern Daylight Time),
+  Fri Sep 17 2021 03:13:02 GMT-0400 (Eastern Daylight Time),
+  Wed Sep 22 2021 03:13:02 GMT-0400 (Eastern Daylight Time),
+  Tue Sep 28 2021 03:13:02 GMT-0400 (Eastern Daylight Time),
+  Wed Sep 29 2021 11:22:38 GMT-0400 (Eastern Daylight Time),
+  Wed Sep 29 2021 12:34:38 GMT-0400 (Eastern Daylight Time),
+  Mon Oct 11 2021 12:34:38 GMT-0400 (Eastern Daylight Time),
+  Tue Oct 12 2021 19:46:38 GMT-0400 (Eastern Daylight Time),
+  Thu Nov 04 2021 19:46:38 GMT-0400 (Eastern Daylight Time),
+  Mon Nov 29 2021 09:13:02 GMT-0500 (Eastern Standard Time),
+  Thu Dec 23 2021 22:39:26 GMT-0500 (Eastern Standard Time) ]
+
+sheet rows: 6:21
+
+[ Mon Jan 17 2022 12:05:50 GMT-0500 (Eastern Standard Time),
+  Fri Feb 11 2022 01:32:14 GMT-0500 (Eastern Standard Time),
+  Mon Mar 07 2022 14:58:38 GMT-0500 (Eastern Standard Time) ]
+
+sheet rows: 23:24
+
+finding groups by month:
+
+[ Thu Aug 26 2021 21:27:26 GMT-0400 (Eastern Daylight Time),
+  Fri Aug 27 2021 21:27:26 GMT-0400 (Eastern Daylight Time),
+  Fri Aug 27 2021 23:51:26 GMT-0400 (Eastern Daylight Time),
+  Sun Aug 29 2021 09:27:26 GMT-0400 (Eastern Daylight Time) ]
+
+sheet rows: 6:8
+
+[ Sat Sep 04 2021 07:03:26 GMT-0400 (Eastern Daylight Time),
+  Sat Sep 04 2021 16:39:26 GMT-0400 (Eastern Daylight Time),
+  Fri Sep 17 2021 00:49:02 GMT-0400 (Eastern Daylight Time),
+  Fri Sep 17 2021 03:13:02 GMT-0400 (Eastern Daylight Time),
+  Wed Sep 22 2021 03:13:02 GMT-0400 (Eastern Daylight Time),
+  Tue Sep 28 2021 03:13:02 GMT-0400 (Eastern Daylight Time),
+  Wed Sep 29 2021 11:22:38 GMT-0400 (Eastern Daylight Time),
+  Wed Sep 29 2021 12:34:38 GMT-0400 (Eastern Daylight Time) ]
+
+sheet rows: 10:16
+
+[ Mon Oct 11 2021 12:34:38 GMT-0400 (Eastern Daylight Time),
+  Tue Oct 12 2021 19:46:38 GMT-0400 (Eastern Daylight Time) ]
+
+sheet rows: 18:18
+
+[ Thu Nov 04 2021 19:46:38 GMT-0400 (Eastern Daylight Time),
+  Mon Nov 29 2021 09:13:02 GMT-0500 (Eastern Standard Time) ]
+
+sheet rows: 20:20
+
+finding groups by date:
+
+[ Fri Aug 27 2021 21:27:26 GMT-0400 (Eastern Daylight Time),
+  Fri Aug 27 2021 23:51:26 GMT-0400 (Eastern Daylight Time) ]
+
+sheet rows: 7:7
+
+[ Sat Sep 04 2021 07:03:26 GMT-0400 (Eastern Daylight Time),
+  Sat Sep 04 2021 16:39:26 GMT-0400 (Eastern Daylight Time) ]
+
+sheet rows: 10:10
+
+[ Fri Sep 17 2021 00:49:02 GMT-0400 (Eastern Daylight Time),
+  Fri Sep 17 2021 03:13:02 GMT-0400 (Eastern Daylight Time) ]
+
+sheet rows: 12:12
+
+[ Wed Sep 29 2021 11:22:38 GMT-0400 (Eastern Daylight Time),
+  Wed Sep 29 2021 12:34:38 GMT-0400 (Eastern Daylight Time) ]
+
+sheet rows: 16:16
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you Andrew. So according to your instructions at the bottom of the snippet I tried to define the rangeStart and rangeEnd values like so: <code>var sheet = SpreadsheetApp.getActiveSheet();</code> <code>var rangeEnd = sheet.getLastRow() - rowStart + 1;</code> <code>var rangeStart = sheet.getRange(rowStart, 1, rangeEnd, 1).getValues().flat();</code> Also the grouping function should be: <code>rangeGroup.shiftRowGroupDepth(1);</code> ?</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">1 Sep 2021 at 19:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I get a <i><code>TypeError: rangeStart.forEach is not a function</code></i> error</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">1 Sep 2021 at 19:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes - more or less. I provided the full GAS script.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">1 Sep 2021 at 19:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It works. I was thinking of a way not to duplicate rows and just group the new ones when it is executed again. I thought it could be a good idea to define the <code>rowStart</code>variable as the last row like <code>getLastRow()+1</code>or something. That way the function <code>groupingDemo()</code>would execute again but just for the new created rows. It does this but for example it does not recognize the Year group previously created on the 1st execution, so it does not join the new rows to that group neither does it do it for month and day groups created previously. It creates new group for the same year etc.</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">1 Sep 2021 at 21:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You want to merge newly added rows into existing groups? I don't think Sheets supports doing that... I think you have to delete groups and re-build. Which means you would probably have to delete &amp; rebuild all the groups for the current year, at the very least. I don't see any way to add to a group manually by editing the sheet, or programmatically. But I could be wrong.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">1 Sep 2021 at 23:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Maybe there is another way instead of merging groups: I can have 3 separate scripts or functions: 1st for day groups, 2nd for month groups and 3rd for year groups. Maybe I can compare last row with 2nd last row and determine if day changed. If yes just run the 1st script for day groups. If month changed run 2nd script for month which groups by day and month. If year changed run 3rd script which groups by day, month and year. I need to test if running the previous version which had no year group, works on a set of rows with a year group and so on.</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">2 Sep 2021 at 00:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Actually I just realized that that won't work. This is because the variable <code>rowStart</code> will make it so that everything gets grouped again from the 5th row downwards. So I guess the solution here is to make the <code>rowStart</code> to advance as rows are getting grouped. So this variable cannot remain fixed at the 5th row. It must be equal to the last grouped row +1. Now there must be a way to get which row was grouped last. And it needs to be a way that identifies the last row grouped by day, the last grouped by month and the last grouped by year and if none then = 5.</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">5 Sep 2021 at 20:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It works if I do : <code>rowStart = sheet.getLastRow() - 24;</code> this is because I use an hourly time trigger to execute the script. So the logger script adds 1 row every hour. So I get last row, subtract 24 rows (1 row per hour) and the script will only group rows from the resulting row forward. Problem is google triggers sometimes return errors and it might happen that sometimes I dont get exactly 24 rows but less. Also happens lately I get about 4 triggers in a row in a minute in my main file where I have 10min trigger. Also if I use this for month group, months have 28, 30, 31 days. It's a problem</span> <span> - </span> <span class="display-name">Verminous</span> <span> </span> <span class="date">5 Sep 2021 at 22:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

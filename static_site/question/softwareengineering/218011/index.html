@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How accurate is "Business logic should be in a service, not in a model"?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How accurate is "Business logic should be in a service, not in a model"?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>452</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jeroen Vannevel</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Nov 2013 at 21:54</span>
+    </div>
+    <div>
+     <a href="https://softwareengineering.stackexchange.com/questions/218011/how-accurate-is-business-logic-should-be-in-a-service-not-in-a-model">source</a>
+    </div>
+   </div>
+   <div>
+    <p><strong>Situation</strong></p>
+    <p>Earlier this evening I gave an <a href="https://stackoverflow.com/questions/19881435/editing-of-an-existing-object-should-be-done-in-repository-layer-or-in-service">answer</a> to a question on StackOverflow.</p>
+    <p><em>The question:</em></p>
+    <blockquote>
+     <p>Editing of an existing object should be done in repository layer or in service?</p>
+     <p>For example if I have a User that has debt. I want to change his debt. Should I do it in UserRepository or in service for example BuyingService by getting an object, editing it and saving it ?</p>
+    </blockquote>
+    <p><em>My answer:</em></p>
+    <blockquote>
+     <p>You should leave the responsibility of mutating an object to that same object and use the repository to retrieve this object.</p>
+    </blockquote>
+    <p><em>Example situation:</em></p>
+    <pre class="lang-cs prettyprint-override"><code>class User {
+    private int debt; // debt in cents
+    private string name;
+
+    // getters
+
+    public void makePayment(int cents){
+        debt -= cents;
+    }
+}
+
+class UserRepository {
+    public User GetUserByName(string name){
+        // Get appropriate user from database
+    }
+}
+</code></pre>
+    <p><em>A comment I received:</em></p>
+    <blockquote>
+     <p>Business logic should really be in a service. Not in a model.</p>
+    </blockquote>
+    <p><strong>What does the internet say?</strong></p>
+    <p>So, this got me searching since I've never really (consciously) used a service layer. I started reading up on the Service Layer pattern and the Unit Of Work pattern but so far I can't say I'm convinced a service layer has to be used.</p>
+    <p>Take for example <a href="http://martinfowler.com/bliki/AnemicDomainModel.html" rel="noreferrer">this article</a> by Martin Fowler on the anti-pattern of an Anemic Domain Model:</p>
+    <blockquote>
+     <p>There are objects, many named after the nouns in the domain space, and these objects are connected with the rich relationships and structure that true domain models have. The catch comes when you look at the behavior, and you realize that there is hardly any behavior on these objects, making them little more than bags of getters and setters. Indeed often these models come with design rules that say that you are not to put any domain logic in the the domain objects. Instead there are a set of service objects which capture all the domain logic. These services live on top of the domain model and use the domain model for data.</p>
+     <p>(...) The logic that should be in a domain object is domain logic - validations, calculations, business rules - whatever you like to call it.</p>
+    </blockquote>
+    <p>To me, this seemed exactly what the situation was about: I advocated the manipulation of an object's data by introducing methods inside that class that do just that. However I realize that this should be a given either way, and it probably has more to do with how these methods are invoked (using a repository).</p>
+    <p>I also had the feeling that in that article (see below), a Service Layer is more considered as a <a href="http://en.wikipedia.org/wiki/Facade_pattern" rel="noreferrer">façade</a> that delegates work to the underlying model, than an actual work-intensive layer.</p>
+    <blockquote>
+     <p>Application Layer [his name for Service Layer]: Defines the jobs the software is supposed to do and directs the expressive domain objects to work out problems. The tasks this layer is responsible for are meaningful to the business or necessary for interaction with the application layers of other systems. This layer is kept thin. It does not contain business rules or knowledge, but only coordinates tasks and delegates work to collaborations of domain objects in the next layer down. It does not have state reflecting the business situation, but it can have state that reflects the progress of a task for the user or the program.</p>
+    </blockquote>
+    <p>Which is reinforced <a href="http://msdn.microsoft.com/en-us/library/ee658090.aspx" rel="noreferrer">here</a>:</p>
+    <blockquote>
+     <p>Service interfaces. Services expose a service interface to which all inbound messages are sent. You can think of a service interface as a façade that exposes the business logic implemented in the application (typically, logic in the business layer) to potential consumers.</p>
+    </blockquote>
+    <p>And <a href="https://softwareengineering.stackexchange.com/questions/168517/recovering-an-anemic-domain-model-into-a-multitier-architecture">here</a>:</p>
+    <blockquote>
+     <p>The service layer should be devoid of any application or business logic and should focus primarily on a few concerns. It should wrap Business Layer calls, translate your Domain in a common language that your clients can understand, and handle the communication medium between server and requesting client.</p>
+    </blockquote>
+    <p>This is a serious contrast to <a href="https://stackoverflow.com/questions/9010088/on-properly-implementing-complex-service-layers?rq=1">other resources</a> that talk about the Service Layer:</p>
+    <blockquote>
+     <p>The service layer should consist of classes with methods that are units of work with actions that belong in the same transaction.</p>
+    </blockquote>
+    <p>Or the <a href="https://stackoverflow.com/questions/4270461/service-layer-in-java-swing-application?rq=1">second answer</a> to a question I've already linked:</p>
+    <blockquote>
+     <p>At some point, your application will want some business logic. Also, you might want to validate the input to make sure that there isn't something evil or nonperforming being requested. This logic belongs in your service layer.</p>
+    </blockquote>
+    <p><strong>"Solution"?</strong></p>
+    <p>Following the guidelines in <a href="https://softwareengineering.stackexchange.com/questions/211688/use-a-service-layer-with-mvc">this answer</a>, I came up with the following approach that uses a Service Layer:</p>
+    <pre class="lang-cs prettyprint-override"><code>class UserController : Controller {
+    private UserService _userService;
+
+    public UserController(UserService userService){
+        _userService = userService;
+    } 
+
+    public ActionResult MakeHimPay(string username, int amount) {
+        _userService.MakeHimPay(username, amount);
+        return RedirectToAction("ShowUserOverview");
+    }
+
+    public ActionResult ShowUserOverview() {
+        return View();
+    }
+}
+
+class UserService {
+    private IUserRepository _userRepository;
+
+    public UserService(IUserRepository userRepository) {
+        _userRepository = userRepository;
+    }
+
+    public void MakeHimPay(username, amount) {
+        _userRepository.GetUserByName(username).makePayment(amount);
+    }
+}
+
+class UserRepository {
+    public User GetUserByName(string name){
+        // Get appropriate user from database
+    }
+}
+
+class User {
+    private int debt; // debt in cents
+    private string name;
+
+    // getters
+
+    public void makePayment(int cents){
+        debt -= cents;
+    }
+}
+</code></pre>
+    <p><strong>Conclusion</strong></p>
+    <p>All together not much has changed here: code from the controller has moved to the service layer (which is a good thing, so there is an upside to this approach). However this doesn't look like it had anything to do with my original answer.</p>
+    <p>I realize design patterns are guidelines, not rules set in stone to be implemented whenever possible. Yet I have not found a definitive explanation of the service layer and how it should be regarded.</p>
+    <ul>
+     <li>
+      <p>Is it a means to simply extract logic from the controller and put it inside a service instead?</p></li>
+     <li>
+      <p>Is it supposed to form a contract between the controller and the domain?</p></li>
+     <li>
+      <p>Should there be a layer between the domain and the service layer?</p></li>
+    </ul>
+    <p>And, last but not least: following the original comment</p>
+    <blockquote>
+     <p>Business logic should really be in a service. Not in a model.</p>
+    </blockquote>
+    <ul>
+     <li>
+      <p>Is this correct?</p>
+      <ul>
+       <li>How would I introduce my business logic in a service instead of the model?</li>
+      </ul></li>
+    </ul>
+   </div>
+   <div class="tags">
+    <span class="tag">design-patterns</span><span class="tag">layers</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>6</td>
+       <td><span>I treat service layer as the place where to put the unavoidable part of transaction script acting upon aggregate roots. If my service layer becomes too complex that signals me that I move in direction of Anemic Model and my domain model needs attention and review. I also try to put the logic in SL which is not going to be duplicated by its nature.</span> <span> - </span> <span class="display-name">Pavel Voronin</span> <span> </span> <span class="date">12 Nov 2013 at 16:35</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I thought that services were part of the Model layer. Am I wrong in thinking that?</span> <span> - </span> <span class="display-name">Florian Margaine</span> <span> </span> <span class="date">13 Nov 2013 at 10:10</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I use a rule of thumb: don't depend on what you don't need; otherwise I may be (usually negatively) impacted by changes on the part I don't need. As a consequence, I end up with lots of clearly defined roles. My data objects contain behavior as long as all clients use it. Otherwise I move the behavior into classes implementing the required role.</span> <span> - </span> <span class="display-name">beluchin</span> <span> </span> <span class="date">30 Jun 2015 at 15:12</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Application flow control logic belongs in a controller. Data access logic belongs in a repository. Validation logic belongs in a service layer. A service layer is an additional layer in an ASP.NET MVC application that mediates communication between a controller and repository layer. The service layer contains business validation logic. repository.<a href="http://www.asp.net/mvc/overview/older-versions-1/models-data/validating-with-a-service-layer-cs" rel="nofollow noreferrer">asp.net/mvc/overview/older-versions-1/models-data‌​/…</a></span> <span> - </span> <span class="display-name">Kbdavis07</span> <span> </span> <span class="date">14 Jul 2016 at 10:03</span></td>
+      </tr>
+      <tr>
+       <td>5</td>
+       <td><span>IMHO, correct OOP-style domain model should indeed avoid "business services" and keep the business logic in the model. But practice shows that it's so tempting to create a huge business layer with distinctly named methods and also to put a transaction (or unit of work) around entire method. It's much easier to process multiple model classes in one business service method than to plan relations between those model classes, because then you would have some tough questions to answer: where is aggregate root? Where should I start/commit a database transaction? Etc.</span> <span> - </span> <span class="display-name">JustAMartin</span> <span> </span> <span class="date">21 Apr 2017 at 09:52</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Hi <a href="https://softwareengineering.stackexchange.com/users/82513">@Jeroen-Vannevel</a>, <a href="https://softwareengineering.stackexchange.com/users/71962">@Pavel-Voronin</a>, I would like to ask if there is supposed to be a <code>_userRepository.SaveUser()</code> after the <code>_userRepository.GetUserByName().makePayment()</code> in the code example above. Thanks!</span> <span> - </span> <span class="display-name">Jeremiah Flaga</span> <span> </span> <span class="date">30 Aug 2018 at 08:43</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>452</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Aaronaught</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Nov 2013 at 03:15</span>
+     </div>
+    </div>
+    <div>
+     <p>In order to define what a <em>service's</em> responsibilities are, you first need to define what a <em>service</em> is.</p>
+     <p><em>Service</em> is not a canonical or generic software term. In fact, the suffix <code>Service</code> on a class name is a lot like the much-maligned <a href="http://www.codinghorror.com/blog/2006/03/i-shall-call-it-somethingmanager.html">Manager</a>: It tells you almost nothing about what the object actually <em>does</em>.</p>
+     <p>In reality, what a service ought to do is highly architecture-specific:</p>
+     <ol>
+      <li>
+       <p>In a traditional layered architecture, <em>service</em> is literally synonymous with <em>business logic layer</em>. It's the layer between UI and Data. Therefore, <strong>all</strong> business rules go into services. The data layer should only understand basic CRUD operations, and the UI layer should deal only with the mapping of presentation DTOs to and from the business objects.</p></li>
+      <li>
+       <p>In an RPC-style distributed architecture (SOAP, UDDI, BPEL, etc.), the <em>service</em> is the logical version of a physical <em>endpoint</em>. It is essentially a collection of operations that the maintainer wishes to provide as a public API. Various best practices guides explain that a service <em>operation</em> should in fact be a business-level operation and not CRUD, and I tend to agree.</p>
+       <p>However, because routing <em>everything</em> through an actual remote service can seriously hurt performance, it's normally best <em>not</em> to have these services actually implement the business logic themselves; instead, they should wrap an "internal" set of business objects. A single service might involve one or several business objects.</p></li>
+      <li>
+       <p>In an MVP/MVC/MVVM/MV* architecture, <em>services</em> don't exist at all. Or if they do, the term is used to refer to any generic object that can be injected into a controller or view model. The business logic is in your <em>model</em>. If you want to create "service objects" to orchestrate complicated operations, that's seen as an implementation detail. A lot of people, sadly, implement MVC like this, but it's considered an anti-pattern (<a href="http://en.wikipedia.org/wiki/Anemic_domain_model">Anemic Domain Model</a>) because the model itself does nothing, it's just a bunch of properties for the UI.</p>
+       <p>Some people mistakenly think that taking a 100-line controller method and shoving it all into a service somehow makes for a better architecture. It really doesn't; all it does is add another, probably unnecessary layer of indirection. <em>Practically</em> speaking, the controller is still doing the work, it's just doing so through a poorly named "helper" object. I highly recommend Jimmy Bogard's <a href="http://vimeo.com/43598193">Wicked Domain Models</a> presentation for a clear example of how to turn an anemic domain model into a useful one. It involves careful examination of the models you're exposing and which operations are actually valid in a <em>business</em> context.</p>
+       <p>For example, if your database contains Orders, and you have a column for Total Amount, your application <em>probably</em> shouldn't be allowed to actually change that field to an arbitrary value, because (a) it's history and (b) it's supposed to be determined by what's <em>in</em> the order as well as perhaps some other time-sensitive data/rules. Creating a service to manage Orders does not necessarily solve this problem, because user code can <em>still</em> grab the actual Order object and change the amount on it. Instead, the order <em>itself</em> should be responsible for ensuring that it can only be altered in safe and consistent ways.</p></li>
+      <li>
+       <p>In DDD, services are meant specifically for the situation <a href="http://gorodinski.com/blog/2012/04/14/services-in-domain-driven-design-ddd/">when you have an operation that doesn't properly belong to any aggregate root</a>. You have to be careful here, because often the need for a service can imply that you didn't use the correct roots. But assuming you did, a service is used to coordinate operations across multiple roots, or sometimes to handle concerns that don't involve the domain model at all (such as, perhaps, writing information to a BI/OLAP database).</p>
+       <p>One notable aspect of the DDD service is that it is allowed to use <a href="http://martinfowler.com/eaaCatalog/transactionScript.html">transaction scripts</a>. When working on large applications, you're very likely to eventually run into instances where it's just way easier to accomplish something with a T-SQL or PL/SQL procedure than it is to fuss with the domain model. This is OK, and it belongs in a Service.</p>
+       <p>This is a radical departure from the layered-architecture definition of services. A service layer encapsulates domain objects; a DDD service encapsulates whatever <strong>isn't</strong> in the domain objects and doesn't make sense to be.</p></li>
+      <li>
+       <p>In a Service-Oriented Architecture, a <em>service</em> is considered to be the technical authority for a business capability. That means that it is the <em>exclusive</em> owner of a certain subset of the business data and nothing else is allowed to touch that data - not even to just <em>read</em> it.</p>
+       <p>By necessity, services are actually an end-to-end proposition in an SOA. Meaning, a service isn't so much a specific <em>component</em> as an entire <em>stack</em>, and your entire application (or your entire business) is a set of these services running side-by-side with no intersection except at the messaging and UI layers. Each service has its own data, its own business rules, and its own UI. They don't need to orchestrate with each other because they are supposed to be business-aligned - and, like the business itself, each service has its own set of responsibilities and operates more or less independently of the others.</p>
+       <p>So, by the SOA definition, every piece of business logic <em>anywhere</em> is contained within the service, but then again, so is the entire <em>system</em>. Services in an SOA can have <em>components</em>, and they can have <em>endpoints</em>, but it's fairly dangerous to call any piece of code a <em>service</em> because it conflicts with what the original "S" is supposed to mean.</p>
+       <p>Since SOA is generally pretty keen on messaging, the operations that you might have packaged in a <em>service</em> before are generally encapsulated in <em>handlers</em>, but the multiplicity is different. Each handler handles <em>one</em> message type, <em>one</em> operation. It's a strict interpretation of the <a href="http://en.wikipedia.org/wiki/Single_responsibility_principle">Single Responsibility Principle</a>, but makes for great maintainability because every possible operation is in its own class. So you don't really <em>need</em> centralized business logic, because commands represents business operations rather than technical ones.</p></li>
+     </ol>
+     <p>Ultimately, in any architecture you choose, there is going to be some component or layer that has most of the business logic. After all, if business logic is scattered all over the place then you just have spaghetti code. But whether or not you call that component a <em>service</em>, and how it's designed in terms of things like number or size of operations, depends on your architectural goals.</p>
+     <p>There's no right or wrong answer, only what applies to your situation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>14</td>
+        <td><span>Thank you for the very elaborate answer, you have clarified all I can think of. While the other answers are good to excellent quality as well, I believe this answer tops them all thus I will accept this one. I'll add it here for the other answers: exquisite quality and information, but sadly I'll only be able to give you an upvote.</span> <span> - </span> <span class="display-name">Jeroen Vannevel</span> <span> </span> <span class="date">14 Nov 2013 at 04:19</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>I don't agree with the fact that in a traditional layered architecture, service is a synonym to the business logic layer.</span> <span> - </span> <span class="display-name">CodeART</span> <span> </span> <span class="date">14 Nov 2013 at 08:46</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@CodeART: It is in a 3-tier architecture. I <i>have</i> seen 4-tier architectures where there is an "application layer" between the presentation and business layers, which is sometimes also called a "service" layer, but honestly, the only places I've ever seen this implemented <i>successfully</i> are huge sprawling infinitely-configurable run-your-whole-business-for-you products from the likes of SAP or Oracle, and I didn't think it was really worth mentioning here. I can add a clarification if you like.</span> <span> - </span> <span class="display-name">Aaronaught</span> <span> </span> <span class="date">14 Nov 2013 at 12:36</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>But if we take 100+ line controller (for example that controller accept message - then deserialize JSON object, make validation, apply business rules, save to db , return result object ) and move some logic to one of the that called service method doesn't that help us separately unit test each part of it painlessly ?</span> <span> - </span> <span class="display-name">artjom</span> <span> </span> <span class="date">6 Jan 2014 at 09:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@artjom: It <i>may</i> make it marginally easier to test, assuming that all of the individual operations that the controller performs aren't <i>already</i> abstracted in some way; serialization, validation, repositories, etc. are usually already hidden behind an interface. But that's still ignoring the anemic domain model problem and the fact that this logic should be part of the model, whereas "services" are more typically conceived and maintained as part of the controller layer. The latter still leads to code bloat, and using it to facilitate unit tests can lead to test bloat.</span> <span> - </span> <span class="display-name">Aaronaught</span> <span> </span> <span class="date">7 Jan 2014 at 03:18</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Aaronaught I wanted to clarify one thing if we have domain objects mapped to db via ORM and there are no business logic in them is this anemic domain model or no ?</span> <span> - </span> <span class="display-name">artjom</span> <span> </span> <span class="date">7 Jan 2014 at 08:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@artjom: If they have no business logic at all then they're pretty much just DTOs, not domain objects. In fact, in a case like that, I'd really urge you to make them pure DTOs; since they carry no additional semantic information, it's best to keep the nomenclature close to what's actually in the database in order to keep the relationships clear.</span> <span> - </span> <span class="display-name">Aaronaught</span> <span> </span> <span class="date">7 Jan 2014 at 12:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>In a tiered architecture you'd still have business objects which implement the business logic, not services. They'd be models or roots/entity in ddd. In fact, any aspects of ddd, tiered and mv-whatever overlap quite a bit.</span> <span> - </span> <span class="display-name">Andy</span> <span> </span> <span class="date">20 Nov 2014 at 01:26</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Regarding #4 - even in DDD, how would you load your domain objects from the persistence layer? you probably want to avoid calling your DAL directly from the UI/Controller, so you'd call some service layer (which will probably call the dal, and maybe do some validations before) to get your object, Is this correct?</span> <span> - </span> <span class="display-name">BornToCode</span> <span> </span> <span class="date">27 Jan 2016 at 17:30</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Regarding #3 I find that using Service-classes are useful when building RESTful services where one resource is presented along with related child entities for convenience and minimizing the number of requests needed by clients. Then I only have to combine returned values from different service classes without having to instanciate controllers in controllers.</span> <span> - </span> <span class="display-name">Gabriel Smoljar</span> <span> </span> <span class="date">4 Sep 2016 at 16:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BornToCode - You load domain objects (specifically aggregate roots) using another class of objects called Repositories. Repositories will in turn be invoked by Services.</span> <span> - </span> <span class="display-name">Ignacio Calvo</span> <span> </span> <span class="date">16 Nov 2016 at 16:41</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Aaronaught how did you get so smart? Seriously. Best practices books?</span> <span> - </span> <span class="display-name">Max</span> <span> </span> <span class="date">24 Dec 2017 at 12:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@artjom if your domain logic is detached from your domain objects then yes i think what you have there is what martin fowler describes as anemic domain model.</span> <span> - </span> <span class="display-name">Simon Wood</span> <span> </span> <span class="date">15 Jun 2019 at 17:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>46</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Daniel Kaplan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Nov 2013 at 22:29</span>
+     </div>
+    </div>
+    <div>
+     <p>As for your <strong>title</strong>, I don't think the question makes sense. The MVC Model consists of data and business logic. To say logic should be in the Service and not the Model is like saying, "The passenger should sit in the seat, not in the car".</p>
+     <p>Then again, the term "Model" is an overloaded term. Perhaps you didn't mean MVC Model but you meant model in the Data Transfer Object (DTO) sense. AKA an Entity. This is what Martin Fowler is talking about.</p>
+     <p>The way I see it, Martin Fowler is speaking of things in an ideal world. In the real world of Hibernate and JPA (in Java land) the DTOs are a super leaky abstraction. I'd love to put my business logic in my entity. It'd make things way cleaner. The problem is these entities can exist in a managed/cached state that is very difficult to understand and constantly prevents your efforts. To summarize my opinion: Martin Fowler is recommending the right way, but the ORMs prevent you from doing it.</p>
+     <p>I think Bob Martin has a more realistic suggestion and <a href="http://cleancoders.com/codecast/clean-code-episode-5/show">he gives it in this video that's not free</a>. He talks about keeping your DTOs free of logic. They simply hold the data and transfer it to another layer that's much more object oriented and doesn't use the DTOs directly. This avoids the leaky abstraction from biting you. The layer with the DTOs and the DTOs themselves are not OO. But once you get out of that layer, you get to be as OO as Martin Fowler advocates.</p>
+     <p>The benefit to this separation is it abstracts away the persistence layer. You could switch from JPA to JDBC (or vice versa) and none of the business logic would have to change. It just depends on the DTOs, it doesn't care <em>how</em> those DTOs get populated.</p>
+     <p>To <em>slightly</em> change topics, you need to consider the fact that SQL databases aren't object oriented. But ORMs usually have an entity - which is an object - per table. So right from the start you've already lost a battle. In my experience, you can never represent the Entity the exact way you want in an object oriented way.</p>
+     <p>As for "<strong>a</strong> service", Bob Martin would be against having a class named <code>FooBarService</code>. That's not object oriented. What does a service do? <em>Anything</em> related to <code>FooBars</code>. It may as well be labeled <code>FooBarUtils</code>. I think he'd advocate a service layer (a better name would be the business logic layer) but every class in that layer would have a meaningful name.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Agree with your point on ORMs; they propagate a lie that you map your entity directly to the db with them, when in reality an entity may be stored across several tables.</span> <span> - </span> <span class="display-name">Andy</span> <span> </span> <span class="date">20 Nov 2014 at 01:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Daniel Kaplan do you know what the updated link is for the Bob Martin video?</span> <span> - </span> <span class="display-name">Brian Morearty</span> <span> </span> <span class="date">18 Jan 2018 at 22:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The is it needed to have a layer that load the DTO from the data layer, conver it to the domain classes, call methods of the domain to do the business logic and finally persist the changes?</span> <span> - </span> <span class="display-name">Álvaro García</span> <span> </span> <span class="date">2 Aug 2022 at 17:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>27</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>CodeART</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Nov 2013 at 20:37</span>
+     </div>
+    </div>
+    <div>
+     <p>I'm working on the greenfield project right now and we had to make few architectural decisions just yesterday. Funnily enough I had to revisit few chapters of 'Patterns of Enterprise Application Architecture'.</p>
+     <p>This is what we came up with:</p>
+     <ul>
+      <li>Data layer. Queries and updates database. The layer is exposed through injectable repositories.</li>
+      <li>Domain layer. This is where the business logic lives. This layer makes a use of injectable repositories and is responsible for the majority of business logic. This is the core of the application that we will test thoroughly.</li>
+      <li>Service layer. This layer talks to the domain layer and serves the client requests. In our case the service layer is quite simple - it relays requests to the domain layer, handles security and few other cross cutting concerns. This is not much different to a controller in MVC application - controllers are small and simple.</li>
+      <li>Client layer. Talks to the service layer through SOAP.</li>
+     </ul>
+     <p>We end up with the following:</p>
+     <p>Client -&gt; Service -&gt; Domain -&gt; Data</p>
+     <p>We can replace client, service or data layer with reasonable amount of work. If your domain logic lived in the service and you've decided that you want to replace or even remove your service layer, then you'd have to move all of the business logic somewhere else. Such a requirement is rare, but it might happen.</p>
+     <p>Having said all this, I think this is pretty close to what Martin Fowler meant by saying</p>
+     <blockquote>
+      <p>These services live on top of the domain model and use the domain model for data.</p>
+     </blockquote>
+     <p>Diagram below illustrates this pretty well:</p>
+     <p><a href="http://martinfowler.com/eaaCatalog/serviceLayer.html">http://martinfowler.com/eaaCatalog/serviceLayer.html</a></p>
+     <blockquote>
+      <p><img src="https://i.stack.imgur.com/d1Y57.gif" alt="http://martinfowler.com/eaaCatalog/ServiceLayerSketch.gif" title="Service Layer sketch"></p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>You decided for SOAP just yesterday? Is that a requirement or did you just have no better idea?</span> <span> - </span> <span class="display-name">JensG</span> <span> </span> <span class="date">14 Nov 2013 at 00:15</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>REST won't cut it for our requirements. SOAP or REST, this doesn't make any difference to the answer. From my understanding, service is a gateway to domain logic.</span> <span> - </span> <span class="display-name">CodeART</span> <span> </span> <span class="date">14 Nov 2013 at 08:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Absolutely agree with the Gateway. SOAP is (standardized) bloatware, so I had to ask. And yes, no impact on question/answer either.</span> <span> - </span> <span class="display-name">JensG</span> <span> </span> <span class="date">14 Nov 2013 at 17:44</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>Do yourself a favor and kill your service layer. Your ui should use your domain directly. Ive seen this before and your domain invariably becomes a bunch of anemic dtos, not rich models.</span> <span> - </span> <span class="display-name">Andy</span> <span> </span> <span class="date">20 Nov 2014 at 01:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Those slides cover the explanation regarding service layer and this graphic above pretty neat: <a href="http://www.slideshare.net/ShwetaGhate2/domain-logic-patterns-of-software-architchture" rel="nofollow noreferrer">slideshare.net/ShwetaGhate2/…</a></span> <span> - </span> <span class="display-name">Marc Juchli</span> <span> </span> <span class="date">9 Jan 2015 at 12:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Andy but then wouldn't you have security and maybe http requests processing in your Domain Model?</span> <span> - </span> <span class="display-name">Alvaro Rodriguez Scelza</span> <span> </span> <span class="date">30 Nov 2021 at 14:22</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@AlvaroRodriguezScelza Authorization and authentication are business rules, so yes, you would. Can I edit a purchase order is a business decision, not a technical one, so your domain should be able to answer that question in a UI independent way. Http is conceptually part of the UI layer, so no, that happens in your UI layer.</span> <span> - </span> <span class="display-name">Andy</span> <span> </span> <span class="date">12 Jan 2022 at 20:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Andy I am agree that it is better in the UI to use the domain classes, but I have the doubt if the domain classes has to be responsible to persist the information or only do the business logic? Because sometimes I read domain classes should to be implemented thinking that is only in memory representation, so I understand that it should not concern about persistance.</span> <span> - </span> <span class="display-name">Álvaro García</span> <span> </span> <span class="date">2 Aug 2022 at 17:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ÁlvaroGarcía I think the domain objects need to handler their own persistence. The choices are let it do so and it "knows" more than it should, or have some other class handle it which would require breaking encapsulation. IMO breaking encapsulation is way worse than the DO knowing about the persistence layer. You tell your DO to "Save" and it figures out what exactly that means (insert, update, delete from DB). How that's done is all an internal implemenation detail, and you can mock away using DB abstractions (in .Net, IDbConnection, IDBCommand, etc.)</span> <span> - </span> <span class="display-name">Andy</span> <span> </span> <span class="date">7 Sep 2022 at 16:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ÁlvaroGarcía So stick to those interfaces. Breaking encapsulation means you need to expose things you normally wouldn't, and those things then typically end up getting used in your UI layer, making refactoring the DOs later harder. It also means you lose access control (the data layer has to put data into the DO to populate it, for example).</span> <span> - </span> <span class="display-name">Andy</span> <span> </span> <span class="date">7 Sep 2022 at 16:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Andy I was reading seeing this example in: <a href="https://github.com/dotnet-architecture/eShopOnContainers/blob/630cb35cfb974b13332b9dc7164c0c465bee9729/src/Services/Ordering/Ordering.API/Application/Commands/ShipOrderCommandHandler.cs" rel="nofollow noreferrer">github.com/dotnet-architecture/eShopOnContainers/blob/…</a>. In this, it goes in my way, the domain only do the core of the logic, when to get the data to update and when to persist the modifications done by the domain, it is responsability of the application layer, in this case, a handler in an ASP proyect.</span> <span> - </span> <span class="display-name">Álvaro García</span> <span> </span> <span class="date">7 Sep 2022 at 17:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ÁlvaroGarcía Yeah, that example looks like its mapping a business object directly to the DB with EntityFramework... which breaks encapsulation. Unless somethings changed with EF, you end up having to have your domain model match the DB table structure, and then you will use the same Order object everywhere, even in use cases were certain properties aren't needed/shouldn't be editable, it will be, because the property is also a field on the table. Only in the most trivial apps have I ever found that to be maintainable.</span> <span> - </span> <span class="display-name">Andy</span> <span> </span> <span class="date">14 Sep 2022 at 14:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ÁlvaroGarcía Also, having the application layer know about the repository ends in leaky abstractions; the domain should know the "units of work," the application shouldn't. I</span> <span> - </span> <span class="display-name">Andy</span> <span> </span> <span class="date">14 Sep 2022 at 14:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ÁlvaroGarcía This is how I suggest structuring things; the domain is built on the Csla framework: <a href="https://github.com/MarimerLLC/csla/blob/main/Samples/ProjectTracker/ProjectTracker.BusinessLibrary.Netstandard/ProjectEdit.cs" rel="nofollow noreferrer">github.com/MarimerLLC/csla/blob/main/Samples/ProjectTracker/‌​…</a></span> <span> - </span> <span class="display-name">Andy</span> <span> </span> <span class="date">14 Sep 2022 at 14:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Andy the new versions of EF Core adapts DDD very good, the domain classes doesn't need to mach 1:1 with the tables of the database. With fluent API, shadow properties and another techniques, the domain defines the classes, and it is entity framework who maps the classes from the domain to the tables of the database. Also, EF allows to map value objects. Yo can see some documentation here: <a href="https://docs.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/net-core-microservice-domain-model" rel="nofollow noreferrer">docs.microsoft.com/en-us/dotnet/architecture/microservices/…</a></span> <span> - </span> <span class="display-name">Álvaro García</span> <span> </span> <span class="date">14 Sep 2022 at 15:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Scott Whitlock</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Sep 2014 at 14:47</span>
+     </div>
+    </div>
+    <div>
+     <p>The easiest way to illustrate why programmers shy away from putting domain logic in the domain objects is that they're usually faced with a situation of "where do I put the validation logic?" Take this domain object for instance:</p>
+     <pre><code>public class MyEntity
+{
+    private int someProperty = 0;
+
+    public int SomeProperty
+    {
+        get { return this.someProperty; }
+        set
+        {
+            if(value &lt; 0) throw new ArgumentOutOfRangeException("value");
+            this.someProperty = value;
+        }
+    }
+}
+</code></pre>
+     <p>So we have some basic validation logic in the setter (cannot be negative). The problem is that you can't really re-use this logic. Somewhere there's a screen or a ViewModel or a Controller that needs to do validation <em>before</em> it actually commits the change to the domain object, because it needs to inform the user either before or when they click the Save button that they can't do that, and <em>why</em>. Testing for an exception when you call the setter is an ugly hack because you really should have done all the validation before you even started the transaction.</p>
+     <p>That's why people move the validation logic some kind of service, such as <code>MyEntityValidator</code>. Then the entity and the calling logic can both get a reference to the validation service and re-use it.</p>
+     <p>If you <em>don't</em> do that and you still want to re-use validation logic, you end up putting it in static methods of the entity class:</p>
+     <pre><code>public class MyEntity
+{
+    private int someProperty = 0;
+
+    public int SomeProperty
+    {
+        get { return this.someProperty; }
+        set
+        {
+            string message;
+            if(!TryValidateSomeProperty(value, out message)) 
+            {
+                throw new ArgumentOutOfRangeException("value", message);
+            }
+            this.someProperty = value;
+        }
+    }
+
+    public static bool TryValidateSomeProperty(int value, out string message)
+    {
+        if(value &lt; 0)
+        {
+            message = "Some Property cannot be negative.";
+            return false;
+        }
+        message = string.Empty;
+        return true;
+    }
+}
+</code></pre>
+     <p>This would make your domain model less "anemic", and keep the validation logic next to the property, which is great, but I don't think anyone really likes the static methods.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>So what is the best solution for validation in your opinion?</span> <span> - </span> <span class="display-name">Flashrunner</span> <span> </span> <span class="date">5 Sep 2016 at 16:26</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@Flashrunner - my validation logic is definitively in the business logic layer, but is also duplicated in the entity and database layers in some cases. The business layer handles it nicely by informing the user, etc., but the other layers just throw errors/exceptions and keep the programmer (myself) from making mistakes that corrupt data.</span> <span> - </span> <span class="display-name">Scott Whitlock</span> <span> </span> <span class="date">5 Sep 2016 at 16:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ScottWhitlock You think it is a good idea for having the validation logic duplicated or on your case even triplicated?</span> <span> - </span> <span class="display-name">fabpico</span> <span> </span> <span class="date">28 Apr 2020 at 10:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@FabianPicone - Having an entity model doesn't preclude some process accessing the database directly, so I want to put a constraint on the database. But allowing someone to create an entity and submit it to the database that violates that constraint is inefficient and creates cryptic error messages, so I duplicate that constraint in my entity model and throw an exception for the entity model user (a programmer). That other programmer can't display my exception message in the user's native language, or doesn't want the overhead of the web service call to see if my logic throws an exception.</span> <span> - </span> <span class="display-name">Scott Whitlock</span> <span> </span> <span class="date">28 Apr 2020 at 18:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>firelore</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Nov 2013 at 00:55</span>
+     </div>
+    </div>
+    <div>
+     <p>This is one of those things that really depends on the use case. The overall point of a service layer is to consolidate business logic together. This means that several controllers can call the same UserService.MakeHimPay() without actually caring about how the payment is done. What goes on in the service may be as simple as modifying an object property or it may be doing complex logic dealing with other services (i.e., calling out to third party services, calling validation logic, or even just simply saving something to the database.)</p>
+     <p>This doesn't mean you have to strip ALL logic from the domain objects. Sometimes it just makes more sense to have a method on the domain object do some calculations on itself. In your final example, the service is a redundant layer over the repository/domain object. It provides a nice buffer against requirements changes, but it really isn't necessary. If you think you need a service, try having that do the simple "modify property X on object Y" logic instead of the domain object. Logic on the domain classes tends to fall into the "calculate this value from fields" rather than exposing all fields via getters/setters.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Your stance in favor of a service layer with business logic makes a lot of sense, but this still leaves some questions. In my post I have quoted several respectable sources which talk about the service layer as a façade void of any business logic. This is in direct contrast with your answer, could you perhaps clarify this difference?</span> <span> - </span> <span class="display-name">Jeroen Vannevel</span> <span> </span> <span class="date">11 Nov 2013 at 05:18</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>I find that it really depends on the TYPE of business logic and other factors, such as the language being used. Some business logic doesn't fit on the domain objects very well. One example is filtering/sorting results after pulling them back from the database. It IS business logic, but it doesn't make sense on the domain object. I find that services are best-used for simple logic or transforming the results and logic on the domain is most useful when it deals with saving data or calculating data from the object.</span> <span> - </span> <span class="display-name">firelore</span> <span> </span> <span class="date">12 Nov 2013 at 04:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Carlos A Merighe - Utah</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Apr 2015 at 12:28</span>
+     </div>
+    </div>
+    <div>
+     <p>I think the answer is clear if you read <a href="http://www.martinfowler.com/bliki/AnemicDomainModel.html" rel="noreferrer">Martin Fowler's Anemic Domain Model article</a>.</p>
+     <p>Removing the business logic, which is the domain, from the domain model is essentially breaking object oriented design.</p>
+     <p>Let's review the most basic object oriented concept: An object encapsulates data and operations. For instance, closing an account is an operation that an account object should perform on itself; therefore, having a service layer perform that operation is not an object oriented solution. It is procedural, and it is what Martin Fowler is referring to when he is talking about an anemic domain model.</p>
+     <p>If you have a service layer close the account, rather than having the account object close itself, you don't have a real account object. Your account "object" is merely a data structure. What you end up with, as Martin Fowler suggests, is a bunch of bags with getters and setters.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>There is one largely overseen downside of rich models. And that is developers pulling in anything slightly related into the model. Is the state of open/closed an attribute of the account? What about the owner? And the bank? Should they all be referenced by the account? Would I close an account by talking to a bank or through the account directly? With anemic models, those connections are not an inherent part of the models, but are rather created when working with those models in other classes (call them services, or managers).</span> <span> - </span> <span class="display-name">Hubert Grzeskowiak</span> <span> </span> <span class="date">23 May 2019 at 08:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@HubertGrzeskowiak 1. Why are they downsides? 2. Where do you draw the line?</span> <span> - </span> <span class="display-name">Piotr Golacki</span> <span> </span> <span class="date">3 Oct 2022 at 10:20</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@PiotrGolacki pulling too much into one class has the downside of creating god classes and mixing responsibilities, maybe even mixing up domains. I personally found it much easier to work with lightweight entities and tightly coupled service classes that work with one or more of these entities. Each service can take over a specific responsibility or capability. That said, there is always still coupling, but you still want to spread it a bit among multiple classes, or even packages/modules. As to where to draw the line, it's unfortunately more subjective than the pattern of anemic models.</span> <span> - </span> <span class="display-name">Hubert Grzeskowiak</span> <span> </span> <span class="date">6 Oct 2022 at 05:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mr Cochese</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Nov 2013 at 23:57</span>
+     </div>
+    </div>
+    <div>
+     <p>How would you implement your business logic in the service layer? When you make a payment from a user, you a creating a payment, not just deducting a value from a property.</p>
+     <p>Your make payment method needs to create a payment record, add to that user's debt and persist all of this in your repositories. Doing this in a service method is incredibly straightforward, and you can also wrap the whole operation in a transaction. Doing the same in an aggregated domain model is much more problematic.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>He is not creating a payment record though. That's why in his case this business logic should live in the entity. But if he had to create a payment record - you are right, the payment business logic would live elsewhere.</span> <span> - </span> <span class="display-name">anton1980</span> <span> </span> <span class="date">12 Feb 2020 at 03:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>WolfgangSenff</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Nov 2013 at 19:52</span>
+     </div>
+    </div>
+    <div>
+     <p>The tl;dr version:<br>
+       My experiences and opinions say that any objects which have business logic should be part of the domain model. The data model should likely not have any logic whatsoever. Services should likely tie the two together, and deal with cross-cutting concerns (databases, logging, etc.). However, the <a href="https://softwareengineering.stackexchange.com/a/218394/31260">accepted answer</a> is the most practical one.</p>
+     <p>The longer version, which has kind of been alluded to by others, is that there is an equivocation on the word "model". The post switches between data model and domain model as if they're the same, which is a very common mistake. There may also be a slight equivocation on the word "service".</p>
+     <p>In practical terms, you should not have a service which makes changes to any domain objects; the reason for this is that your service will likely have some method for every property on your object in order to change the value of that property. This is a problem because then, if you have an interface for your object (or even if not), the service is no longer following the Open-Closed Principle; instead, whenever you add more data to your model (regardless of domain vs data), you end up having to add more functions to your service. There are certain ways around it, but this is the most common reason I've seen "enterprise" applications fail, especially when those organizations think that "enterprise" means "have an interface for every object in the system". Can you imagine adding new methods to an interface, then to two or three different implementations (the in-app one, the mock implementation, and debug one, the in-memory one?), just for a single property on your model? Sounds like a terrible idea to me.</p>
+     <p>There's a longer problem here that I won't go into, but the gist is this: Hardcore object-oriented programming says that no one outside of the relevant object should be able to change the value of a property within the object, nor even "see" the value of the property within the object. This can be alleviated by making the data read-only. You can still run into issues like when a lot of people make use of the data even as read-only and you have to change the type of that data. It's possible that all the consumers will have to change to accommodate that. This is why, when you make APIs to be consumed by anyone and everyone, you're advised not to have public or even protected properties/data; it's the very reason OOP was invented, ultimately.</p>
+     <p>I think the majority of the answers here, aside from the one marked accepted, are all clouding the issue. The one marked accepted is good, but I still felt the need to reply and agree that bullet 4 is the way to go, in general.</p>
+     <blockquote>
+      <p>In DDD, services are meant specifically for the situation when you have an operation that doesn't properly belong to any aggregate root. You have to be careful here, because often the need for a service can imply that you didn't use the correct roots. But assuming you did, a service is used to coordinate operations across multiple roots, or sometimes to handle concerns that don't involve the domain model at all...</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sunny</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Nov 2013 at 08:17</span>
+     </div>
+    </div>
+    <div>
+     <p>The answer is that it depends on the use case. But in most generic scenarios, I would adhere to business logic laying in the service layer. The example that you have provided is a really simple one. However once you start thinking of decoupled systems or services and adding transactional behaviour on top of it you really want it to happen as part of the service layer.</p>
+     <p>The sources you have quoted for service layer being devoid of any business logic introduces another layer which is the business layer. In many scenarios the service layer and business layer are compressed into one. It really depends on how you want to design your system. You can get the job done in three layers and keep decorating on and adding noise.</p>
+     <p>What you can ideally do is <strong><em>model services which encompass business logic to work on domain models to persist state</em></strong>. You should try to decouple services as much as possible.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vadim Samokhin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Nov 2017 at 13:19</span>
+     </div>
+    </div>
+    <div>
+     <p>The concept of Service layer can be viewed from DDD perspective. Aaronaught mentioned it in his answer, I just elaborate on it a bit.</p>
+     <p>Common approach there is to have a controller that is specific to a type of client. Say, it could be a web-browser, it could be some other application, it could be a functional test. The request and response formats might vary. So I use application service as a tool for utilizing a <a href="http://alistair.cockburn.us/Hexagonal+architecture" rel="nofollow noreferrer">Hexagonal architecture</a>. I inject there infrastructure classes specific to a concrete request. For example, that's how my controller serving web-browser requests could look like:</p>
+     <pre><code>class WebBroserController
+{
+    public function purchaseOrder()
+    {
+        $data = $_POST;
+
+        $responseData =
+            new PurchaseOrderApplicationService(
+                new PayPalClient(),
+                new OrderRepository()
+            )
+        ;
+
+        $response = new HtmlView($responseData);
+    }
+}
+</code></pre>
+     <p>If I'm writing a functional test, I want to use a fake payment client and probably I wouldn't need an html response. So my controller could look like that:</p>
+     <pre><code>class FunctionalTestController
+{
+    public function purchaseOrder()
+    {
+        $data = $_POST;
+
+        $responseData =
+            new PurchaseOrderApplicationService(
+                new FakePayPalClient(),
+                new OrderRepository(),
+                $data
+            )
+        ;
+
+        return new JsonData($responseData);
+    }
+}
+</code></pre>
+     <p>So application service is an environment that I set up for running business-logic. It's where the model classes are called -- agnostically of an infrastructure implementation.</p>
+     <p>So, answering your questions from this perspective:</p>
+     <blockquote>
+      <p>Is it a means to simply extract logic from the controller and put it inside a service instead?</p>
+     </blockquote>
+     <p>No.</p>
+     <blockquote>
+      <p>Is it supposed to form a contract between the controller and the domain?</p>
+     </blockquote>
+     <p>Well, one can call it so.</p>
+     <blockquote>
+      <p>Should there be a layer between the domain and the service layer?</p>
+     </blockquote>
+     <p>Nope.</p>
+     <hr>
+     <p>There is a radically different approach though that totally denies the use of any kind of service. For example, David West in his book <a href="https://rads.stackoverflow.com/amzn/click/0735619654" rel="nofollow noreferrer">Object Thinking</a> claims that any object should have all necessary resources to do its job. This approach results in, for example, <a href="https://medium.com/@wrong.about/you-dont-need-an-orm-7ef83bd1b37d" rel="nofollow noreferrer">discarding any ORM</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This answer pretty exemplary explains 2 <b>good reasons</b> for having a <i>service abstraction</i> (e.g. class, module): #1 unit testable ; #2 reusability. Both can be changed and reused isolated from the entity (without touching it).</span> <span> - </span> <span class="display-name">hc_dev</span> <span> </span> <span class="date">11 Apr 2020 at 10:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>stonemetal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Nov 2013 at 21:37</span>
+     </div>
+    </div>
+    <div>
+     <p>In MVC Model is defined as the business logic. Claiming it should be somewhere else is incorrect unless he is not using MVC. I view service layers as similar to a module system. It allows you to bundle up a set of related functionality into a nice package. The internals of that service layer would have a model doing the same work as yours.</p>
+     <blockquote>
+      <p>The model consists of application data, business rules, logic, and functions. <a href="http://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller" rel="nofollow">http://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller</a></p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>magallanes</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Sep 2014 at 12:28</span>
+     </div>
+    </div>
+    <div>
+     <p>For the record.</p>
+     <p>SRP:</p>
+     <ol>
+      <li>Model = Data, here goes the setter and getters.</li>
+      <li>Logic/Services = here goes the decisions.</li>
+      <li>Repository/DAO = here we permantenty store or retrieve the information.</li>
+     </ol>
+     <p>In this case, is OK to do the next steps:</p>
+     <p><strong>If the debt will not require some calculation:</strong></p>
+     <pre><code>userObject.Debt = 9999;
+</code></pre>
+     <p><strong>However, if it requires some calculation then:</strong></p>
+     <pre><code>userObject.Debt= UserService.CalculateDebt(userObject)
+</code></pre>
+     <p>or also</p>
+     <pre><code>UserService.UpdateDebt(userObject)
+</code></pre>
+     <p><strong>But also, if the calculation is done in the persistence layer, such a store procedure then</strong></p>
+     <pre><code>UserRepository.UpdateDebt(userObject)
+</code></pre>
+     <p>In this case, i we want to retrieve the user from the database and to update the debt then, we should do it in several step (in fact, two) and it's not requires to wrap/encapsulate it in a service's function.</p>
+     <pre><code>User userObject=UserRepository.GetUserByName(somename);
+UserService.UpdateDebt(userObject)
+</code></pre>
+     <p>And if it requires to store it then, we can add a third step</p>
+     <pre><code>User userObject=UserRepository.GetUserByName(somename);
+UserService.UpdateDebt(userObject)
+UserRepository.Save(userobject);
+</code></pre>
+     <p><strong>About the solution proposed</strong></p>
+     <p>a) We shouldn't be afraid to left the end-developer to write a couple of instead of encapsulate it in a function.</p>
+     <p>b) And about Interface, some developers love interface and they are fine but in several cases, they aren't need at all.</p>
+     <p>c) The goal of a service is to create one without attributes, mainly because we can use Shared/Static functions. It's also easy to unit test.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>how does this answer the question asked: <i>How accurate is “Business logic should be in a service, not in a model”?</i></span> <span> - </span> <span class="display-name">gnat</span> <span> </span> <span class="date">11 Sep 2014 at 12:36</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>What kind of Sentence is <code>"We shouldn't be afraid to left the end-developer to write a couple of instead of encapsulate it in a function.</code>"? I can only quote Lewis Black "if it weren't for my horse I wouldn't have spent that year in college".</span> <span> - </span> <span class="display-name">Malachi</span> <span> </span> <span class="date">7 Oct 2014 at 21:42</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

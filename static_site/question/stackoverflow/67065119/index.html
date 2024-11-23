@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why don't instance fields need to be final or effectively final to be used in lambda expressions?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why don't instance fields need to be final or effectively final to be used in lambda expressions?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>30</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>DamianGDO</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Apr 2021 at 20:15</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67065119/why-dont-instance-fields-need-to-be-final-or-effectively-final-to-be-used-in-la">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm practicing lambda expressions in Java. I know local variables need to be final or effectively final according to the Oracle documentation for Java SE 16 <a href="https://docs.oracle.com/javase/specs/jls/se16/html/jls-15.html#jls-15.27.2" rel="noreferrer">Lambda Body </a>:</p>
+    <blockquote>
+     <p>Any local variable, formal parameter, or exception parameter used but not declared in a lambda expression must either be final or effectively final (§4.12.4), as specified in §6.5.6.1.</p>
+    </blockquote>
+    <p>It doesn't say why though. Searching I found this similar question <a href="https://stackoverflow.com/questions/50456920/why-does-variables-in-lambdas-have-to-be-final-or-effectively-final">Why do variables in lambdas have to be final or effectively final?</a>, where StackOverflow user "snr" responded with the next quote:</p>
+    <blockquote>
+     <p>Local variables in Java have until now been immune to race conditions and visibility problems because they are accessible only to the thread executing the method in which they are declared. But a lambda can be passed from the thread that created it to a different thread, and that immunity would therefore be lost if the lambda, evaluated by the second thread, were given the ability to mutate local variables.</p>
+    </blockquote>
+    <ul>
+     <li>Source: <a href="http://www.lambdafaq.org/what-are-the-reasons-for-the-restriction-to-effective-immutability/" rel="noreferrer">Why the restriction on local variable capture?</a></li>
+    </ul>
+    <p>This is what I understand: a method can only be executed by one thread (let's say thread_1) at a time. This ensures the local variables of that particular method are modified only by thread_1. On the other hand, a lambda can be passed to a different thread (thread_2), so... if thread_1 finishes with the lambda expression and keeps executing the rest of the method it could change the values of the local variables, and, at the same time, thread_2 could be changing the same variables within the lambda expression. Then, that's why this restriction exists (local variables need to be final or effectively final).</p>
+    <p>Sorry for the long explanation. Am I getting this right?</p>
+    <p>But the next questions would be:</p>
+    <ul>
+     <li>Why isn't this case applicable to instance variables?</li>
+     <li>What could happen if thread_1 changes instance variables at the same time as thread_2 (even if they are not executing a lambda expression)?</li>
+     <li>Are instance variables protected in another way?</li>
+    </ul>
+    <p>I don't have much experience with Java. Sorry if my questions have obvious answers.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lambda</span><span class="tag">instance-variables</span><span class="tag">local-variables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>There are some good explanations with example here - <a href="https://www.baeldung.com/java-lambda-effectively-final-local-variables" rel="nofollow noreferrer">baeldung.com/java-lambda-effectively-final-local-variables</a>, not sure whether you have read it</span> <span> - </span> <span class="display-name">aksappy</span> <span> </span> <span class="date">12 Apr 2021 at 20:32</span></td>
+      </tr>
+      <tr>
+       <td>7</td>
+       <td><span>"a method can only be executed by one thread (let's say thread_1) at a time" =&gt; nope, however the local variables are "initialised and separate" each time the method is executed.</span> <span> - </span> <span class="display-name">assylias</span> <span> </span> <span class="date">12 Apr 2021 at 20:32</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Local variables are handled differently to fields. A reference to a field is certain given a reference to its containing object. Not so with a local variable when its value changes.</span> <span> - </span> <span class="display-name">Bohemian</span> <span> </span> <span class="date">12 Apr 2021 at 20:39</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>44</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Louis Wasserman</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Apr 2021 at 21:05</span>
+     </div>
+    </div>
+    <div>
+     <p>The issue has nothing to do with thread safety, really. There's a simple, straightforward answer to why instance variables can always be captured: <code>this</code> is always effectively final. That is, there is always one known fixed object at the time of the creation of a lambda accessing an instance variable. Remember that an instance variable named <code>foo</code> is <em>always</em> effectively equivalent to <code>this.foo</code>.</p>
+     <p>So</p>
+     <pre><code>class MyClass {
+  private int foo;
+  public void doThingWithLambda() {
+    doThing(() -&gt; { System.out.println(foo); })
+  }
+}
+</code></pre>
+     <p>can have the lambda rewritten as <code>doThing(() -&gt; System.out.println(this.foo); })</code> and is therefore equivalent to</p>
+     <pre><code>class MyClass {
+  private int foo;
+  public void doThingWithLambda() {
+    final MyClass me = this;
+    doThing(() -&gt; { System.out.println(me.foo); })
+  }
+}
+</code></pre>
+     <p>...except <code>this</code> is already final and doesn't need to be copied to another local variable (though the lambda will capture the reference).</p>
+     <p>All of the normal thread-safety caveats apply, of course. If your lambdas get passed to multiple threads and modify variables, then exactly the same things would happen if lambdas weren't used, and no extra thread-safety applies beyond the thread safety of your variables (e.g. if they are volatile) or if your lambdas use other mechanisms to safely access the variables. Lambdas do nothing special about thread-safety at all, and they don't do anything special with instance variables, either; they just capture a reference to <code>this</code> instead of to the instance variable.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>This answer is at least partially incorrect. The JLS itself notes the issue of concurrency. And <code>this</code> is a keyword representing a value, not a variable that can be effectively final. From the JLS: <i>"Similar rules on variable use apply in the body of an inner class (§8.1.3). The restriction to effectively final variables prohibits access to <b>dynamically-changing local variables</b>, whose capture would likely introduce <b>concurrency problems</b>."</i></span> <span> - </span> <span class="display-name">Andy Thomas</span> <span> </span> <span class="date">13 Apr 2021 at 16:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>is "<code>this</code> is effectively final" a basic assertion of JLS? where is that derived from?</span> <span> - </span> <span class="display-name">cat</span> <span> </span> <span class="date">13 Apr 2021 at 20:00</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@cat: It can be used as a reference, and it never changes. It's not literally a variable, but it behaves like a final variable as far as everything in this post discusses.</span> <span> - </span> <span class="display-name">Louis Wasserman</span> <span> </span> <span class="date">13 Apr 2021 at 20:05</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>I think this answer could be better if you first explain that lambdas capture local variables by <i>copying</i> their value -- hence why they must be effectively final; otherwise a caller could observe that their value didn't match. So, since <code>this</code> is "effectively effectively final," the lambda can capture it by copying the reference.</span> <span> - </span> <span class="display-name">Chris Bouchard</span> <span> </span> <span class="date">14 Apr 2021 at 01:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Kirk Woll</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Apr 2021 at 23:59</span>
+     </div>
+    </div>
+    <div>
+     <p>The other answers already provide great context around why this is a limitation in Java. I'd like to offer some background on how other languages deal with this when they don't enforce the requirement that local variables be considered immutable (i.e. <code>final</code>).</p>
+     <p>The main point suggested is that "heap" values (i.e. fields) are intrinsically accessible from other threads, whereas "stack" values (i.e. local variables) are intrinsically accessible only from within the method that declared the values. This is true. So since fields are stored on the heap, they can be mutated after the method has completed. In contrast, stack values go away as soon as the method finishes.</p>
+     <p>Java chooses to honor these semantics, so a local variable must never be modified after the method completes. This is a fair design decision. However, some languages <em>do</em> choose to allow mutation to local variables after the method exits. So how can that be?</p>
+     <p>In C# (the language I'm most familiar with, but other languages such as JavaScript also allow these constructs) when you reference a local variable inside of a lambda, the compiler <em>detects</em> that and behind the scenes actually generates a whole new class to store the local variable. So instead of the variable being declared on the stack, the compiler detects that it's been referenced inside of a lambda, and so instead instantiates that class to store the value. So this (behind the scenes) behavior turns the stack value into a heap value. (you can actually decompile such code and see these compiler generated classes)</p>
+     <p>This decision isn't without cost. It's obviously more expensive to instantiate a class just to house, for example, an integer. In Java, you are guaranteed this will never happen. In a language such as C#, it requires careful reasoning to know whether your variable has been "lifted" into that generated class.</p>
+     <p>So ultimately the rationale becomes one of a design decision. In Java you can't shoot yourself in the foot. In C# they decided that most of the time the performance consequences aren't that big of a deal.</p>
+     <p>That said, C#'s decision has often been a source of confusion and bugs, particularly around the loop iterator variable in a <code>for</code> loop (the loop variable <code>i</code> can (and must) be mutated) and passed to a lambda, as described in Eric Lippert's <a href="https://ericlippert.com/2009/11/12/closing-over-the-loop-variable-considered-harmful-part-one/" rel="noreferrer">blog post</a>. It was so problematic that they decided to introduce a (rare) breaking change to the compiler for the <code>foreach</code> variant.</p>
+     <p>On the other hand, I've enjoyed the freedom to mutate local variables inside of a lamda in C#. But neither decision comes without cost.</p>
+     <p>This answer is definitely not trying to advocate on either decision, but I thought it was worthwhile to elaborate on some of these design choices.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>Small correction: in C#, a variable is lifted to the closure class even if it is not mutated in the lambda. Suffices if it is just referenced.</span> <span> - </span> <span class="display-name">ach</span> <span> </span> <span class="date">13 Apr 2021 at 09:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ach thanks for the correction, right you are! I've made the requisite edits.</span> <span> - </span> <span class="display-name">Kirk Woll</span> <span> </span> <span class="date">13 Apr 2021 at 12:07</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>This behavior has more consequences than performance. It implies that suddenly, the programmer is responsible for ensuring the thread safety of local variables. In Java, the local variables are immune to data races, which doesn’t apply when you can turn local variables into shared mutable variables. But you can’t, for example, declare a local variable as <code>volatile</code> in Java. That’s not possible, as it was never needed. Since you also can’t synchronize on the instance of the synthetic class, ensuring thread safe local variables suddenly becomes more complicated than ensuring thread safe fields.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">13 Apr 2021 at 14:13</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@ach: When I was on the C# team -- almost ten years ago now -- we considered doing some optimizations which would distinguish between mutated vs merely read outer variables of a lambda, and capture the latter "by value" rather than capturing the variable. I never ended up making such optimizations; it sounds like the team has not done so in the years since, but I would not be surprised at all if they do so someday.</span> <span> - </span> <span class="display-name">Eric Lippert</span> <span> </span> <span class="date">13 Apr 2021 at 18:14</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Similarly we considered optimizations for generating multiple closure classes; it is fairly common to have two lambdas whose outer variables are disjoint but they get one closure, which means that the lifetimes of all outer variables are extended to the lifetime of the longest-lived delegate, which is unnecessary and surprising. I don't know if that optimization was ever implemented.</span> <span> - </span> <span class="display-name">Eric Lippert</span> <span> </span> <span class="date">13 Apr 2021 at 18:16</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Holger: Your points are correct and well taken, but its worthwhile to note that since C# 2.0 it has always been the case that local variables can be modified in unexpected ways and unexpected orders, and you need neither anonymous methods nor lambdas nor even multithreading to fall victim to such races. Coroutines -- iterator blocks in C# 2.0 and async methods in C# 6.0 -- also have the property that they hoist locals to the heap and extend their lifetimes because coroutine activations do not form a stack.</span> <span> - </span> <span class="display-name">Eric Lippert</span> <span> </span> <span class="date">13 Apr 2021 at 18:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@EricLippert: Even if some variables are shared, a compiler could create a class for each subset of variables that is shared by a different collection of closures, and then have each closure hold references to any such class objects that it actually needs.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">13 Apr 2021 at 19:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@supercat That, of course, has a different trade-off: creation of closures and access of a captured variable become even slower.</span> <span> - </span> <span class="display-name">Joker_vD</span> <span> </span> <span class="date">13 Apr 2021 at 22:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Joker_vD: Those are trade-offs, but IMHO semantics should have priority over performance. Though I also happen to think the right approach would have been to require that closures expressly indicate what variables they are closing over, and whether the closure is by value, by reference, or compiler's choice.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">13 Apr 2021 at 22:45</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@supercat: Re: as many closure classes as there are subsets of outer vars, yes, that was exactly the optimization we considered.</span> <span> - </span> <span class="display-name">Eric Lippert</span> <span> </span> <span class="date">14 Apr 2021 at 02:26</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@supercat: Re: indicating in the language: when we were designing lambdas for C# 3.0 Herb Sutter randomly stopped by my office and we had a very entertaining conversation about how C++ was doing exactly that, and what the pros and cons were. Obviously the C# team decided on not adding a syntax for indicating desired closure semantics. In retrospect, I kinda wish that we had made it easier to statically detect and disallow LINQ query comprehensions that closed over modifiable variables, as that turned out to be a rich source of user errors.</span> <span> - </span> <span class="display-name">Eric Lippert</span> <span> </span> <span class="date">14 Apr 2021 at 02:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@supercat: (I am still not sure what exactly motivated Herb to stop by that one time; I assume that someone told him that we were pondering this problem when he happened to be in Redmond.)</span> <span> - </span> <span class="display-name">Eric Lippert</span> <span> </span> <span class="date">14 Apr 2021 at 02:35</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Joker_vD: I note that the same tradeoff exists for the "transparent identifiers" introduced by query comprehension rewriting. They desugar into types where you can end up drilling down through several levels of dereferencing to get to a variable. But if you're building a big query with a lot of SelectMany clauses, odds are pretty good that time spent accessing the range variables is going to be the least of your performance worries.</span> <span> - </span> <span class="display-name">Eric Lippert</span> <span> </span> <span class="date">14 Apr 2021 at 02:37</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@EricLippert yes, for C#, the road has been taken which makes it easier to decide to repeat it for other features. For Java, this does not apply, which makes staying with only sharing (effectively) final local variables variables attractive. Which means that supercat’s idea of letting the programmer decide exists in Java. Just use a local variable for “by value” semantic or explicitly create the class holding the variable for “by reference” semantic.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">14 Apr 2021 at 07:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@EricLippert, I think that that a captured variable is not modified inside a lambda does not suffice as a condition that allows its copying. The variable may be modified 1) in the lambda itself, 2) in another lambda that captures it, and 3) in the function itself. Also, modification by itself does not impede such an optimization if we can prove that other "threads" are not observing the variable's value (e. g. <code>{ int i = ...; i += 1; ... () =&gt; { i += 1; }; }</code>.</span> <span> - </span> <span class="display-name">ach</span> <span> </span> <span class="date">14 Apr 2021 at 19:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ach: That's correct, and there are also aliasing concerns when you throw <code>in</code>, <code>out</code>, <code>ref</code> calling conventions into the mix, and of course it is not legal in the CLR to close over an aliased parameter, and so it goes. There's a lot of stuff you've got to keep track of which is why we never got around to making that optimization on my watch.</span> <span> - </span> <span class="display-name">Eric Lippert</span> <span> </span> <span class="date">14 Apr 2021 at 20:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Holger In all Java codebases I've seen (all 3 of those!), the "by reference" semantics is usually done by passing a 1-element long array around. Much shorter than creating a dedicated class every time.</span> <span> - </span> <span class="display-name">Joker_vD</span> <span> </span> <span class="date">14 Apr 2021 at 21:41</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Joker_vD passing an array may be shorter in source code but can be slightly less efficient at runtime. Still, it’s an often used approach. My comment was not meant to be exhaustive regarding the possibilities to denote the by-reference semantics, all it wanted to say, is that the choice exists.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">15 Apr 2021 at 08:10</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ach but all of these potentially modifying uses are within the same syntactical unit (the scope of the local variable), so it’s possible to prove the existence or absence. After all, even when Java takes the different route of forbidding mutation, it’s relying on the ability to spot such modifications, to deny them. It has no <code>out</code> or <code>ref</code> parameters, though, but a compiler should know when a parameter variable is of that kind. So, such a check is possible. Proving that no other thread can see a variable is a different beast.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">15 Apr 2021 at 08:14</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>18</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Arvind Kumar Avinash</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Apr 2021 at 21:01</span>
+     </div>
+    </div>
+    <div>
+     <p>Instance variables are stored in the heap space whereas local variables are stored in the stack space. Each thread maintains its own stack and hence the local variables are not shared across the threads. On the other hand, the heap space is shared by all threads and therefore, multiple threads can modify an instance variable. There are various mechanisms to make the data thread-safe and you can find many related discussions on this platform. Just for the sake of completeness, I've quoted below an excerpt from <a href="http://web.mit.edu/6.005/www/fa14/classes/18-thread-safety/" rel="noreferrer">http://web.mit.edu/6.005/www/fa14/classes/18-thread-safety/</a></p>
+     <blockquote>
+      <p>There are basically four ways to make variable access safe in shared-memory concurrency:</p>
+      <ul>
+       <li><strong>Confinement</strong>. Don’t share the variable between threads. This idea is called confinement, and we’ll explore it today.</li>
+       <li><strong>Immutability</strong>. Make the shared data immutable. We’ve talked a lot about immutability already, but there are some additional constraints for concurrent programming that we’ll talk about in this reading.</li>
+       <li><strong>Threadsafe data type</strong>. Encapsulate the shared data in an existing threadsafe data type that does the coordination for you. We’ll talk about that today.</li>
+       <li><strong>Synchronization</strong>. Use synchronization to keep the threads from accessing the variable at the same time. Synchronization is what you need to build your own threadsafe data type.</li>
+      </ul>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>15</td>
+        <td><span>How does this answer the question?</span> <span> - </span> <span class="display-name">akuzminykh</span> <span> </span> <span class="date">12 Apr 2021 at 21:05</span></td>
+       </tr>
+       <tr>
+        <td>9</td>
+        <td><span>@akuzminykh - What else are you looking for?</span> <span> - </span> <span class="display-name">Arvind Kumar Avinash</span> <span> </span> <span class="date">12 Apr 2021 at 21:06</span></td>
+       </tr>
+       <tr>
+        <td>8</td>
+        <td><span>You talk about heap and stack but you don't talk about why local variables need to be <code>final</code> and fields don't. The question is rather theoretical and I think it deserves a more extensive and instructive explanation than this.</span> <span> - </span> <span class="display-name">akuzminykh</span> <span> </span> <span class="date">12 Apr 2021 at 21:19</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@akuzminykh - The OP has already done good research and this answer is focused on the questions listed at the end. The rest of the explanation is there in the referred links.</span> <span> - </span> <span class="display-name">Arvind Kumar Avinash</span> <span> </span> <span class="date">12 Apr 2021 at 21:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

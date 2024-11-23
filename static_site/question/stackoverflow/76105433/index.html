@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>undefined labels in chart.js</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>undefined labels in chart.js</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Bilge Kaan Özkan</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Apr 2023 at 21:08</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76105433/undefined-labels-in-chart-js">source</a>
+    </div>
+   </div>
+   <div>
+    <p><a href="https://i.stack.imgur.com/nMlKW.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/nMlKW.png" alt="enter image description here"></a></p>
+    <pre><code>$(document).ready(function(){
+
+    fetch_data();
+
+    var hour_chart;
+
+    function fetch_data(start_date = '', end_date = '')
+    {
+        var dataTable = $('#order_table').DataTable({
+            "processing" : true,
+            "serverSide" : true,
+            'columns': [
+                                { data: 'project_name' , "width" : "20%"},
+                                { data: 'total' , "width" : "20%"},
+
+                            ],
+
+            "ajax" : {
+                type:"POST",
+                data:{start_date:start_date, end_date:end_date} ,         
+
+            },
+            
+            "drawCallback" : function(settings)
+            {
+                var hours_date = [];
+                var hour = [];
+
+                for(var count = 0; count &lt; settings.aoData.length; count++)
+                {
+                    hours_date.push(settings.aoData[count]._aData[0]);
+                    hour.push(parseFloat(settings.aoData[count]._aData[1]));
+                }
+
+                
+            
+
+                var chart_data = {
+                    labels:hours_date,
+                    datasets:[
+                        {
+                            label : 'Hours',
+                            backgroundColor : 'rgb(255, 205, 86)',
+                            color : '#fff',
+                            data:hour
+                        }
+                    ]   
+                };
+
+                var group_chart3 = $('#bar_chart');
+
+                if(hour_chart)
+                {
+                    hour_chart.destroy();
+                }
+
+                hour_chart = new Chart(group_chart3, {
+                    type:'bar',
+                    data:chart_data
+                });
+            }
+        });
+    }
+
+</code></pre>
+    <p>I'm trying to take the data in the table and create a graph with jquery, but I couldn't do it.</p>
+    <p><a href="https://i.stack.imgur.com/PPSbX.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/PPSbX.png" alt="enter image description here"></a></p>
+    <p>I don't know what aoData and _aData do. Count counts correctly and 4 labels are produced, but the names are not written properly and the corresponding hours data does not work on the graph in the same way</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span><span class="tag">chart.js</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Apr 2023 at 22:37</span>
+     </div>
+    </div>
+    <div>
+     <p>The simplest fix is to change these lines of code from this:</p>
+     <pre class="lang-js prettyprint-override"><code>hours_date.push(settings.aoData[count]._aData[0]);
+hour.push(parseFloat(settings.aoData[count]._aData[1]));
+</code></pre>
+     <p>...to this:</p>
+     <pre class="lang-js prettyprint-override"><code>hours_date.push(settings.aoData[count]._aData.project_name);
+hour.push(parseFloat(settings.aoData[count]._aData.total));
+</code></pre>
+     <p>Then you will (or should) get this:</p>
+     <p><a href="https://i.stack.imgur.com/MyoJD.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/MyoJD.png" alt="enter image description here"></a></p>
+     <hr>
+     <p><strong>Explanation</strong></p>
+     <p>Your JSON data source has row data as an array of objects - for example:</p>
+     <pre class="lang-js prettyprint-override"><code>[ { "project_name": "AUDI", "total": 118 },
+{ "project_name": "BMW", "total": 60 },
+{ "project_name": "FALLON", "total": 40 },
+{ "project_name": "TOG", "total": 217 } ]
+</code></pre>
+     <p>That is why you need to refer to that data using the item names such as <code>_aData.project_name</code>.</p>
+     <p>The example (you maybe copied from somewhere) was almost certainly using an array of arrays:</p>
+     <pre class="lang-js prettyprint-override"><code>[ ["AUDI", 118 ],
+[ "BMW", 60 ],
+[ "FALLON", 40 ],
+[ "TOG", 217 ] ]
+</code></pre>
+     <p>So that is why the code in your question uses array indexes <code>[0]</code> and <code>[1]</code>.</p>
+     <hr>
+     <p><strong>Final Thought</strong></p>
+     <p>It's probably better to avoid using the <code>settings</code> values <code>aoData</code> and <code>_aData</code> as these are internal variable names - and they are a bit cryptic. As a refactoring exercise, you could change this to use the DataTables API - for example <a href="https://datatables.net/reference/api/rows().data()" rel="nofollow noreferrer"><code>rows().data()</code></a>.</p>
+     <p>That is a bit more work, but results in clearer code, at the end.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks, I will try your suggestion. Also thank you for your help :)</span> <span> - </span> <span class="display-name">Bilge Kaan Özkan</span> <span> </span> <span class="date">26 Apr 2023 at 12:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,1351 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How does the Windows Command Interpreter (CMD.EXE) parse scripts?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How does the Windows Command Interpreter (CMD.EXE) parse scripts?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>179</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Benoit</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Nov 2010 at 07:38</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/4094699/how-does-the-windows-command-interpreter-cmd-exe-parse-scripts">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I ran into <a href="https://ss64.com" rel="nofollow noreferrer">ss64.com</a> which provides good help regarding how to write batch scripts that the Windows Command Interpreter will run.</p>
+    <p>However, I have been unable to find a good explanation of the <strong>grammar</strong> of batch scripts, how things expand or do not expand, and how to escape things.</p>
+    <p>Here are sample questions that I have not been able to solve:</p>
+    <ul>
+     <li>How is the quote system managed? I made a <a href="http://tinyperl.sourceforge.net/" rel="nofollow noreferrer">TinyPerl</a> script<br>
+       ( <code>foreach $i (@ARGV) { print '*' . $i ; }</code> ), compiled it and called it this way : 
+      <ul>
+       <li><code>my_script.exe "a ""b"" c"</code> → output is <code>*a "b*c</code></li>
+       <li><code>my_script.exe """a b c"""</code> → output it <code>*"a*b*c"</code></li>
+      </ul></li>
+     <li>How does the internal <code>echo</code> command work? What is expanded inside that command?</li>
+     <li>Why do I have to use <code>for [...] %%I</code> in file scripts, but <code>for [...] %I</code> in interactive sessions?</li>
+     <li>What are the escape characters, and in what context? How to escape a percent sign? For example, how can I echo <code>%PROCESSOR_ARCHITECTURE%</code> literally? I found that <code>echo.exe %""PROCESSOR_ARCHITECTURE%</code> works, is there a better solution?</li>
+     <li>How do pairs of <code>%</code> match? Example: 
+      <ul>
+       <li><code>set b=a</code> , <code>echo %a %b% c%</code> → <code>%a a c%</code></li>
+       <li><code>set a =b</code>, <code>echo %a %b% c%</code> → <code>bb% c%</code></li>
+      </ul></li>
+     <li>How do I ensure a variable passes to a command as a single argument if ever this variable contains double quotes?</li>
+     <li>How are variables stored when using the <code>set</code> command? For example, if I do <code>set a=a" b</code> and then <code>echo.%a%</code> I obtain <code>a" b</code>. If I however use <code>echo.exe</code> from the UnxUtils, I get <code>a b</code>. How comes <code>%a%</code> expands in a different way?</li>
+    </ul>
+   </div>
+   <div class="tags">
+    <span class="tag">windows</span><span class="tag">parsing</span><span class="tag">batch-file</span><span class="tag">cmd</span><span class="tag">variable-expansion</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Rob van der Woude has an <a href="http://www.robvanderwoude.com/batchfiles.php" rel="nofollow noreferrer">awesome Batch scripting and Windows Command prompt reference</a> on his site.</span> <span> - </span> <span class="display-name">JBRWilkinson</span> <span> </span> <span class="date">4 Nov 2010 at 10:50</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>262</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>jeb</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Nov 2010 at 09:04</span>
+     </div>
+    </div>
+    <div>
+     <p>We performed experiments to investigate the grammar of batch scripts. We also investigated differences between batch and command line mode.</p>
+     <h2>Batch Line Parser:</h2>
+     <p>Here is a brief overview of phases in the batch file line parser:</p>
+     <p><strong>Phase 0) Read Line:</strong></p>
+     <p><strong>Phase 1) Percent Expansion:</strong></p>
+     <p><strong>Phase 2) Process special characters, tokenize, and build a cached command block:</strong> This is a complex process that is affected by things such as quotes, special characters, token delimiters, and caret escapes.</p>
+     <p><strong>Phase 3) Echo the parsed command(s)</strong> Only if the command block did not begin with <code>@</code>, and ECHO was ON at the start of the preceding step.</p>
+     <p><strong>Phase 4) FOR <code>%X</code> variable expansion:</strong> Only if a FOR command is active and the commands after DO are being processed.</p>
+     <p><strong>Phase 5) Delayed Expansion:</strong> Only if delayed expansion is enabled</p>
+     <p><strong>Phase 5.3) Pipe processing:</strong> Only if commands are on either side of a pipe</p>
+     <p><strong>Phase 5.5) Execute Redirection:</strong></p>
+     <p><strong>Phase 6) CALL processing/Caret doubling:</strong> Only if the command token is CALL</p>
+     <p><strong>Phase 7) Execute:</strong> The command is executed <br></p>
+     <hr>
+     <p>Here are details for each phase:</p>
+     <p>Note that the phases described below are only a model of how the batch parser works. The actual cmd.exe internals may not reflect these phases. But this model is effective at predicting behavior of batch scripts.</p>
+     <p><strong>Phase 0) Read Line:</strong> Read line of input through first <code>&lt;LF&gt;</code>.</p>
+     <ul>
+      <li>When reading a line to be parsed as a command, <code>&lt;Ctrl-Z&gt;</code> (0x1A) is read as <code>&lt;LF&gt;</code> (LineFeed 0x0A)</li>
+      <li>When GOTO or CALL reads lines while scanning for a :label, <code>&lt;Ctrl-Z&gt;</code>, is treated as itself - it is <em><strong>not</strong></em> converted to <code>&lt;LF&gt;</code></li>
+     </ul>
+     <p><strong>Phase 1) Percent Expansion:</strong></p>
+     <ul>
+      <li>A double <code>%%</code> is replaced by a single <code>%</code></li>
+      <li>Expansion of arguments (<code>%*</code>, <code>%1</code>, <code>%2</code>, etc.)</li>
+      <li>Expansion of <code>%var%</code>, if var does not exist replace it with nothing</li>
+      <li>Line is truncated at first <code>&lt;LF&gt;</code> not within <code>%var%</code> expansion</li>
+      <li><em>For a complete explanation read the first half of this from dbenham <a href="https://stackoverflow.com/a/7970912/1012053">Same thread: Percent Phase</a></em></li>
+     </ul>
+     <p><strong>Phase 2) Process special characters, tokenize, and build a cached command block:</strong> This is a complex process that is affected by things such as quotes, special characters, token delimiters, and caret escapes. What follows is an approximation of this process.</p>
+     <p>There are concepts that are important throughout this phase.</p>
+     <ul>
+      <li>A token is simply a string of characters that is treated as a unit.</li>
+      <li>Tokens are separated by token delimiters. The standard token delimiters are <code>&lt;space&gt;</code> <code>&lt;tab&gt;</code> <code>;</code> <code>,</code> <code>=</code> <code>&lt;0x0B&gt;</code> <code>&lt;0x0C&gt;</code> and <code>&lt;0xFF&gt;</code><br>
+        Consecutive token delimiters are treated as one - there are no empty tokens between token delimiters</li>
+      <li>There are no token delimiters within a quoted string. The entire quoted string is always treated as part of a single token. A single token may consist of a combination of quoted strings and unquoted characters.</li>
+     </ul>
+     <p>The following characters may have special meaning in this phase, depending on context: <code>&lt;CR&gt;</code> <code>^</code> <code>(</code> <code>@</code> <code>&amp;</code> <code>|</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;LF&gt;</code> <code>&lt;space&gt;</code> <code>&lt;tab&gt;</code> <code>;</code> <code>,</code> <code>=</code> <code>&lt;0x0B&gt;</code> <code>&lt;0x0C&gt;</code> <code>&lt;0xFF&gt;</code></p>
+     <p>Look at each character from left to right:</p>
+     <ul>
+      <li>If <code>&lt;CR&gt;</code> then remove it, as if it were never there (except for weird <a href="https://www.dostips.com/forum/viewtopic.php?t=9429" rel="noreferrer">redirection behavior</a>)</li>
+      <li>If a caret (<code>^</code>), the next character is escaped, and the escaping caret is removed. Escaped characters lose all special meaning (except for <code>&lt;LF&gt;</code>).</li>
+      <li>If a quote (<code>"</code>), toggle the quote flag. If the quote flag is active, then only <code>"</code> and <code>&lt;LF&gt;</code> are special. All other characters lose their special meaning until the next quote toggles the quote flag off. It is not possible to escape the closing quote. All quoted characters are always within the same token.</li>
+      <li><code>&lt;LF&gt;</code> always turns off the quote flag. Other behaviors vary depending on context, but quotes never alter the behavior of <code>&lt;LF&gt;</code>. 
+       <ul>
+        <li>Escaped <code>&lt;LF&gt;</code>
+         <ul>
+          <li><code>&lt;LF&gt;</code> is stripped</li>
+          <li>The next character is escaped. If at the end of line buffer, then the next line is read and processed by phases 1 and 1.5 and appended to the current one before escaping the next character. If the next character is <code>&lt;LF&gt;</code>, then it is treated as a literal, meaning this process is not recursive.</li>
+         </ul></li>
+        <li>Unescaped <code>&lt;LF&gt;</code> not within parentheses 
+         <ul>
+          <li><code>&lt;LF&gt;</code> is stripped and parsing of the current line is terminated.</li>
+          <li>Any remaining characters in the line buffer are simply ignored.</li>
+         </ul></li>
+        <li>Unescaped <code>&lt;LF&gt;</code> within a FOR IN parenthesized block 
+         <ul>
+          <li><code>&lt;LF&gt;</code> is converted into a <code>&lt;space&gt;</code></li>
+          <li>If at the end of the line buffer, then the next line is read and appended to the current one.</li>
+         </ul></li>
+        <li>Unescaped <code>&lt;LF&gt;</code> within a parenthesized command block 
+         <ul>
+          <li><code>&lt;LF&gt;</code> is converted into <code>&lt;LF&gt;&lt;space&gt;</code>, and the <code>&lt;space&gt;</code> is treated as part of the next line of the command block.</li>
+          <li>If at the end of line buffer, then the next line is read and appended to the space.</li>
+         </ul></li>
+       </ul></li>
+      <li>If one of the special characters <code>&amp;</code> <code>|</code> <code>&lt;</code> or <code>&gt;</code>, split the line at this point in order to handle pipes, command concatenation, and redirection. 
+       <ul>
+        <li>In the case of a pipe (<code>|</code>), each side is a separate command (or command block) that gets special handling in phase 5.3</li>
+        <li>In the case of <code>&amp;</code>, <code>&amp;&amp;</code>, or <code>||</code> command concatenation, each side of the concatenation is treated as a separate command.</li>
+        <li>In the case of <code>&lt;</code>, <code>&lt;&lt;</code>, <code>&gt;</code>, or <code>&gt;&gt;</code> redirection, the redirection clause is parsed, temporarily removed, and then appended to the end of the current command. A redirection clause consists of an optional file handle digit, the redirection operator, and the redirection destination token. 
+         <ul>
+          <li>If the token that precedes the redirection operator is a single unescaped digit, then the digit specifies the file handle to be redirected. If the handle token is not found, then output redirection defaults to 1 (stdout), and input redirection defaults to 0 (stdin).</li>
+         </ul></li>
+       </ul></li>
+      <li>If the very first token for this command (prior to moving redirection to the end) begins with <code>@</code>, then the <code>@</code> has special meaning. (<code>@</code> is not special in any other context) 
+       <ul>
+        <li>The special <code>@</code> is removed.</li>
+        <li>If ECHO is ON, then this command, along with any following concatenated commands on this line, are excluded from the phase 3 echo. If the <code>@</code> is before an opening <code>(</code>, then the entire parenthesized block is excluded from the phase 3 echo.</li>
+       </ul></li>
+      <li>Process parenthesis (provides for compound statements across multiple lines): 
+       <ul>
+        <li>If the parser is not looking for a command token, then <code>(</code> is not special.</li>
+        <li>If the parser is looking for a command token and finds <code>(</code>, then start a new compound statement and increment the parenthesis counter</li>
+        <li>If the parenthesis counter is &gt; 0 then <code>)</code> terminates the compound statement and decrements the parenthesis counter.</li>
+        <li>If the line end is reached and the parenthesis counter is &gt; 0 then the next line will be appended to the compound statement (starts again with phase 0)</li>
+        <li>If the parenthesis counter is 0 and the parser is looking for a command, then <code>)</code> functions similar to a <code>REM</code> statement as long as it is immediately followed by a token delimiter, special character, newline, or end-of-file 
+         <ul>
+          <li>All special characters lose their meaning except <code>^</code> (line concatenation is possible)</li>
+          <li>Once the end of the logical line is reached, the entire "command" is discarded.</li>
+         </ul></li>
+       </ul></li>
+      <li>Each command is parsed into a series of tokens. The first token is always treated as a command token (after special <code>@</code> have been stripped and redirection moved to the end). 
+       <ul>
+        <li>Leading token delimiters prior to the command token are stripped</li>
+        <li>When parsing the command token, <code>(</code> functions as a command token delimiter, in addition to the standard token delimiters</li>
+        <li>The handling of subsequent tokens depends on the command.</li>
+       </ul></li>
+      <li>Most commands simply concatenate all arguments after the command token into a single argument token. All argument token delimiters are preserved. Argument options are typically not parsed until phase 7.</li>
+      <li>Three commands get special handling - IF, FOR, and REM 
+       <ul>
+        <li>IF is split into two or three distinct parts that are processed independently. A syntax error in the IF construction will result in a fatal syntax error. 
+         <ul>
+          <li>The comparison operation is the actual command that flows all the way through to phase 7 
+           <ul>
+            <li>All IF options are fully parsed in phase 2.</li>
+            <li>Consecutive token delimiters collapse into a single space.</li>
+            <li>Depending on the comparison operator, there will be one or two value tokens that are identified.</li>
+           </ul></li>
+          <li>The True command block is the set of commands after the condition, and is parsed like any other command block. If ELSE is to be used, then the True block must be parenthesized.</li>
+          <li>The optional False command block is the set of commands after ELSE. Again, this command block is parsed normally.</li>
+          <li>The True and False command blocks do not automatically flow into the subsequent phases. Their subsequent processing is controled by phase 7.</li>
+         </ul></li>
+        <li>FOR is split in two after the DO. A syntax error in the FOR construction will result in a fatal syntax error. 
+         <ul>
+          <li>The portion through DO is the actual FOR iteration command that flows all the way through phase 7 
+           <ul>
+            <li>All FOR options are fully parsed in phase 2.</li>
+            <li>The IN parenthesized clause treats <code>&lt;LF&gt;</code> as <code>&lt;space&gt;</code>. After the IN clause is parsed, all tokens are concatenated together to form a single token.</li>
+            <li>Consecutive unescaped/unquoted token delimiters collapse into a single space throughout the FOR command through DO.</li>
+           </ul></li>
+          <li>The portion after DO is a command block that is parsed normally. Subsequent processing of the DO command block is controled by the iteration in phase 7.</li>
+         </ul></li>
+        <li>REM detected in phase 2 is treated dramatically different than all other commands. 
+         <ul>
+          <li>Only one argument token is parsed - the parser ignores characters after the first argument token.</li>
+          <li>The REM command may appear in phase 3 output, but the command is never executed, and the original argument text is echoed - escaping carets are not removed, except... 
+           <ul>
+            <li>If there is only one argument token that ends with an unescaped <code>^</code> that ends the line, then the argument token is thrown away, and the subsequent line is parsed and appended to the REM. This repeats until there is more than one token, or the last character is not <code>^</code>.</li>
+           </ul></li>
+         </ul></li>
+       </ul></li>
+      <li>If the command token begins with <code>:</code>, and this is the first round of phase 2 (not a restart due to CALL in phase 6) then 
+       <ul>
+        <li>The token is normally treated as an <em>Unexecuted Label</em>. 
+         <ul>
+          <li>The remainder of the line is parsed, however <code>)</code>, <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code> and <code>|</code> no longer have special meaning. The entire remainder of the line is considered to be part of the label "command".</li>
+          <li>The <code>^</code> continues to be special, meaning that line continuation can be used to append the subsequent line to the label.</li>
+          <li>An <em>Unexecuted Label</em> within a parenthesized block will result in a fatal syntax error unless it is immediately followed by a command or <em>Executed Label</em> on the next line. 
+           <ul>
+            <li><code>(</code> no longer has special meaning for the first command that follows the <em>Unexecuted Label</em>.</li>
+           </ul></li>
+          <li>The command is aborted after label parsing is complete. Subsequent phases do not take place for the label</li>
+         </ul></li>
+        <li>There are three exceptions that can cause a label found in phase 2 to be treated as an <em>Executed Label</em> that continues parsing through phase 7. 
+         <ul>
+          <li>There is redirection that precedes the label token, and there is a <code>|</code> pipe or <code>&amp;</code>, <code>&amp;&amp;</code>, or <code>||</code> command concatenation on the line.</li>
+          <li>There is redirection that precedes the label token, and the command is within a parenthesized block.</li>
+          <li>The label token is the very first command on a line within a parenthesized block, and the line above ended with an <em>Unexecuted Label</em>.</li>
+         </ul></li>
+        <li>The following occurs when an <em>Executed Label</em> is discovered in phase 2 
+         <ul>
+          <li>The label, its arguments, and its redirection are all excluded from any echo output in phase 3</li>
+          <li>Any subsequent concatenated commands on the line are fully parsed and executed.</li>
+         </ul></li>
+        <li>For more information about <em>Executed Labels</em> vs. <em>Unexecuted Labels</em>, see <a href="https://www.dostips.com/forum/viewtopic.php?f=3&amp;t=3803&amp;p=55405#p55405" rel="noreferrer">https://www.dostips.com/forum/viewtopic.php?f=3&amp;t=3803&amp;p=55405#p55405</a></li>
+       </ul></li>
+     </ul>
+     <p><strong>Phase 3) Echo the parsed command(s)</strong> Only if the command block did not begin with <code>@</code>, and ECHO was ON at the start of the preceding step.</p>
+     <p><strong>Phase 4) FOR <code>%X</code> variable expansion:</strong> Only if a FOR command is active and the commands after DO are being processed.</p>
+     <ul>
+      <li>At this point, phase 1 of batch processing will have already converted a FOR variable like <code>%%X</code> into <code>%X</code>. The command line has different percent expansion rules for phase 1. This is the reason that command lines use <code>%X</code> but batch files use <code>%%X</code> for FOR variables.</li>
+      <li>FOR variable names are case sensitive, but <code>~modifiers</code> are not case sensitive.</li>
+      <li><code>~modifiers</code> take precedence over variable names. If a character following <code>~</code> is both a modifier and a valid FOR variable name, and there exists a subsequent character that is an active FOR variable name, then the character is interpreted as a modifier.</li>
+      <li>FOR variable names are global, but only within the context of a DO clause. If a routine is CALLed from within a FOR DO clause, then the FOR variables are not expanded within the CALLed routine. But if the routine has its own FOR command, then <em><strong>all</strong></em> currently defined FOR variables are accessible to the inner DO commands.</li>
+      <li>FOR variable names can be reused within nested FORs. The inner FOR value takes precedence, but once the INNER FOR closes, then the outer FOR value is restored.</li>
+      <li>If ECHO was ON at the start of this phase, then phase 3) is repeated to show the parsed DO commands after the FOR variables have been expanded.</li>
+     </ul>
+     <p><em><strong>---- From this point onward, each command identified in phase 2 is processed separately.<br>
+         ---- Phases 5 through 7 are completed for one command before moving on to the next.</strong></em></p>
+     <p><strong>Phase 5) Delayed Expansion:</strong> Only if delayed expansion is on, the command is not in a <a href="https://stackoverflow.com/q/8192318/1012053">parenthesized block on either side of a pipe</a>, and the command is not a <a href="https://www.dostips.com/forum/viewtopic.php?f=3&amp;t=7761" rel="noreferrer">"naked" batch script</a> (script name without parentheses, CALL, command concatenation, or pipe).</p>
+     <ul>
+      <li>Each token for a command is parsed for delayed expansion independently. 
+       <ul>
+        <li>Most commands parse two or more tokens - the command token, the arguments token, and each redirection destination token.</li>
+        <li>The FOR command parses the IN clause token only.</li>
+        <li>The IF command parses the comparison values only - either one or two, depending on the comparison operator.</li>
+       </ul></li>
+      <li>For each parsed token, first check if it contains any <code>!</code>. If not, then the token is not parsed - important for <code>^</code> characters. If the token does contain <code>!</code>, then scan each character from left to right: 
+       <ul>
+        <li>If it is a caret (<code>^</code>) the next character has no special meaning, the caret itself is removed</li>
+        <li>If it is an exclamation mark, search for the next exclamation mark (carets are not observed anymore), expand to the value of the variable. 
+         <ul>
+          <li>Consecutive opening <code>!</code> are collapsed into a single <code>!</code></li>
+          <li>Any remaining unpaired <code>!</code> is removed</li>
+         </ul></li>
+        <li>Expanding vars at this stage is "safe", because special characters are not detected anymore (even <code>&lt;CR&gt;</code> or <code>&lt;LF&gt;</code>)</li>
+        <li><em>For a more complete explanation, read the 2nd half of this from dbenham <a href="https://stackoverflow.com/a/7970912/1012053">same thread - Exclamation Point Phase</a></em></li>
+       </ul></li>
+     </ul>
+     <p><strong>Phase 5.3) Pipe processing:</strong> Only if commands are on either side of a pipe<br>
+       Each side of the pipe is processed independently and asynchronously.</p>
+     <ul>
+      <li>If command is internal to cmd.exe, or it is a batch file, or if it is a parenthesized command block, then it is executed in a new cmd.exe thread via <code>%comspec% /S /D /c" commandBlock"</code>, so the command block gets a phase restart, but this time in command line mode. 
+       <ul>
+        <li>If a parenthesized command block, then all <code>&lt;LF&gt;</code> with a command before and after are converted to <code>&lt;space&gt;&amp;</code>. Other <code>&lt;LF&gt;</code> are stripped.</li>
+       </ul></li>
+      <li>This is the end of processing for the pipe commands.</li>
+      <li>See <a href="https://stackoverflow.com/q/8192318/1012053">Why does delayed expansion fail when inside a piped block of code?</a> for more about pipe parsing and processing</li>
+     </ul>
+     <p><strong>Phase 5.5) Execute Redirection:</strong> Any redirection that was discovered in phase 2 is now executed.</p>
+     <ul>
+      <li>The results of phases 4 and 5 can impact the redirection that was discovered in phase 2.</li>
+      <li>If the redirection fails, then the remainder of the command is aborted. <a href="https://stackoverflow.com/q/10354016/1012053">Note that failed redirection does not set ERRORLEVEL to 1 unless <code>||</code> is used</a>.</li>
+     </ul>
+     <p><strong>Phase 6) CALL processing/Caret doubling:</strong> Only if the command token is CALL, or if the text before the first occurring standard token delimiter is CALL. If CALL is parsed from a larger command token, then the unused portion is prepended to the arguments token before proceeding.</p>
+     <ul>
+      <li>Scan the arguments token for an unquoted <code>/?</code>. If found anywhere within the tokens, then abort phase 6 and proceed to Phase 7, where the HELP for CALL will be printed.</li>
+      <li>Remove the first <code>CALL</code>, so multiple CALL's can be stacked</li>
+      <li>Double all carets</li>
+      <li>Restart phases 1, 1.5, and 2, but do not continue to phase 3 
+       <ul>
+        <li>Any doubled carets are reduced back to one caret as long as they are not quoted. But unfortunately, quoted carets remain doubled.</li>
+        <li>Phase 1 changes a bit - Expansion errors in step 1.2 or 1.3 abort the CALL, but the error is not fatal - batch processing continues.</li>
+        <li>Phase 2 tasks are altered a bit 
+         <ul>
+          <li>Any newly appearing unquoted, unescaped redirection that was not detected in the first round of phase 2 is detected, but it is removed (including the file name) without actually performing the redirection</li>
+          <li>Any newly appearing unquoted, unescaped caret at the end of the line is removed without performing line continuation</li>
+          <li>The CALL is aborted without error if any of the following are detected 
+           <ul>
+            <li>Newly appearing unquoted, unescaped <code>&amp;</code> or <code>|</code></li>
+            <li>The resultant command token begins with unquoted, unescaped <code>(</code></li>
+            <li>The very first token after the removed CALL began with <code>@</code></li>
+           </ul></li>
+          <li>If the resultant command is a seemingly valid IF or FOR, then execution will subsequently fail with an error stating that <code>IF</code> or <code>FOR</code> is not recognized as an internal or external command.</li>
+          <li>Of course the CALL is not aborted in this 2nd round of phase 2 if the resultant command token is a label beginning with <code>:</code>.</li>
+         </ul></li>
+       </ul></li>
+      <li>If the resultant command token is CALL, then restart Phase 6 (repeats until no more CALL)</li>
+      <li>If the resultant command token is a batch script or a :label, then execution of the CALL is fully handled by the remainder of Phase 6. 
+       <ul>
+        <li>Push the current batch script file position on the call stack so that execution can resume from the correct position when the CALL is completed.</li>
+        <li>Setup the %0, %1, %2, ...%N and %* argument tokens for the CALL, using all resultant tokens</li>
+        <li>If the command token is a label that begins with <code>:</code>, then 
+         <ul>
+          <li>Restart Phase 5. This can impact what :label is CALLed. But since the %0 etc. tokens have already been setup, it will not alter the arguments that are passed to the CALLed routine.</li>
+          <li>Execute GOTO label to position the file pointer at the beginning of the subroutine (ignore any other tokens that may follow the :label) See Phase 7 for rules on how GOTO works. 
+           <ul>
+            <li>If the :label token is missing, or the :label is not found, then the call stack is immediately popped to restore the saved file position, and the CALL is aborted.</li>
+            <li>If the :label happens to contain /?, then GOTO help is printed instead of searching for the :label. The file pointer does not move, such that code after the CALL is executed twice, once in the CALL context, and then again after the CALL return. See <a href="https://stackoverflow.com/q/31987023/1012053">Why CALL prints the GOTO help message in this script?And why command after that are executed twice?</a> for more info.</li>
+           </ul></li>
+         </ul></li>
+        <li>Else transfer control to the specified batch script.</li>
+        <li>Execution of the CALLed :label or script continues until either EXIT /B or end-of-file is reached, at which point the CALL stack is popped and execution resumes from the saved file position.<br>
+          Phase 7 is not executed for CALLed scripts or :labels.</li>
+       </ul></li>
+      <li>Else the result of phase 6 falls through into phase 7 for execution.</li>
+     </ul>
+     <p><strong>Phase 7) Execute:</strong> The command is executed</p>
+     <ul>
+      <li><strong>7.1 - Execute internal command</strong> - If the command token is quoted, then skip this step. Otherwise, attempt to parse out an internal command and execute. 
+       <ul>
+        <li>The following tests are made to determine if an unquoted command token represents an internal command: 
+         <ul>
+          <li>If the command token exactly matches an internal command, then execute it.</li>
+          <li>Else break the command token before the first occurrence of <code>+</code> <code>/</code> <code>[</code> <code>]</code> <code>&lt;space&gt;</code> <code>&lt;tab&gt;</code> <code>,</code> <code>;</code> or <code>=</code><br>
+            If the preceding text is an internal command, then remember that command 
+           <ul>
+            <li>If in command line mode, or if the command is from a parenthesized block, IF true or false command block, FOR DO command block, or involved with command concatenation, then execute the internal command</li>
+            <li>Else (must be a stand-alone command in batch mode) scan the current folder and the PATH for a .COM, .EXE, .BAT, or .CMD file whose base name matches the original command token 
+             <ul>
+              <li>If the first matching file is a .BAT or .CMD, then goto 7.3.exec and execute that script</li>
+              <li>Else (match not found or first match is .EXE or .COM) execute the remembered internal command</li>
+             </ul></li>
+           </ul></li>
+          <li>Else break the command token before the first occurrence of <code>.</code> <code>\</code> or <code>:</code><br>
+            If the preceding text is not an internal command, then goto 7.2<br>
+            Else the preceding text may be an internal command. Remember this command.</li>
+          <li>Break the command token before the first occurrence of <code>+</code> <code>/</code> <code>[</code> <code>]</code> <code>&lt;space&gt;</code> <code>&lt;tab&gt;</code> <code>,</code> <code>;</code> or <code>=</code><br>
+            If the preceding text is a path to an existing file, then goto 7.2<br>
+            Else execute the remembered internal command.</li>
+         </ul></li>
+        <li>If an internal command is parsed from a larger command token, then the unused portion of the command token is included in the argument list</li>
+        <li>Just because a command token is parsed as an internal command does not mean that it will execute successfully. Each internal command has its own rules as to how the arguments and options are parsed, and what syntax is allowed.</li>
+        <li>All internal commands will print help instead of performing their function if <code>/?</code> is detected. Most recognize <code>/?</code> if it appears anywhere in the arguments. But a few commands like ECHO and SET only print help if the first argument token begins with <code>/?</code>.</li>
+        <li>SET has some interesting semantics: 
+         <ul>
+          <li>If a SET command has a quote before the variable name and extensions are enabled<br><code>set "name=content" ignored</code> <strong>--&gt;</strong> value=<code>content</code><br>
+            then the text between the first equal sign and the last quote is used as the content (first equal and last quote excluded). Text after the last quote is ignored. If there is no quote after the equal sign, then the rest of the line is used as content.</li>
+          <li>If a SET command does not have a quote before the name<br><code>set name="content" not ignored</code> <strong>--&gt;</strong> value=<code>"content" not ignored</code><br>
+            then the entire remainder of the line after the equal is used as content, including any and all quotes that may be present.</li>
+         </ul></li>
+        <li>An IF comparison is evaluated, and depending on whether the condition is true or false, the appropriate already parsed dependent command block is processed, starting with phase 5.</li>
+        <li>The IN clause of a FOR command is iterated appropriately. 
+         <ul>
+          <li>If this is a FOR /F that iterates the output of a command block, then: 
+           <ul>
+            <li>The IN clause is executed in a new cmd.exe process via CMD /C.</li>
+            <li>The command block must go through the entire parsing process a second time, but this time in a command line context</li>
+            <li>ECHO will start out ON, and delayed expansion will usually start out disabled (dependent on the registry setting)</li>
+            <li>All environment changes made by the IN clause command block will be lost once the child cmd.exe process terminates</li>
+           </ul></li>
+          <li>For each iteration: 
+           <ul>
+            <li>The FOR variable values are defined</li>
+            <li>The already parsed DO command block is then processed, starting with phase 4.</li>
+           </ul></li>
+         </ul></li>
+        <li>GOTO uses the following logic to locate the :label 
+         <ul>
+          <li>Parse the label from the first argument token</li>
+          <li>Scan for the next occurrence of the label 
+           <ul>
+            <li>Start from the current file position</li>
+            <li>If end of file is reached, then loop back to the beginning of file and continue to the original starting point.</li>
+           </ul></li>
+          <li>The scan stops at the first occurrence of the label that it finds, and the file pointer is set to the line immediately following the label. Execution of the script resumes from that point. Note that a successful true GOTO will immediately abort any parsed block of code, including FOR loops.</li>
+          <li>If the label is not found, or the label token is missing, then the GOTO fails, an error message is printed, and the call stack is popped. This effectively functions as an EXIT /B, except any already parsed commands in the current command block that follow the GOTO are still executed, but in the context of the CALLer (the context that exists after EXIT /B)</li>
+          <li>See <a href="https://www.dostips.com/forum/viewtopic.php?t=3803" rel="noreferrer">https://www.dostips.com/forum/viewtopic.php?t=3803</a> for a more precise description of label parsing rules, and <a href="https://www.dostips.com/forum/viewtopic.php?t=8988" rel="noreferrer">https://www.dostips.com/forum/viewtopic.php?t=8988</a> for label scanning rules.</li>
+         </ul></li>
+        <li>RENAME and COPY both accept wildcards for the source and target paths. But Microsoft does a terrible job documenting how the wildcards work, especially for the target path. A useful set of wildcard rules may be found at <a href="https://superuser.com/q/475874/109090">How does the Windows RENAME command interpret wildcards?</a></li>
+       </ul></li>
+      <li><strong>7.2 - Execute volume change</strong> - Else if the command token does not begin with a quote, is exactly two characters long, and the 2nd character is a colon, then change the volume 
+       <ul>
+        <li>All argument tokens are ignored</li>
+        <li>If the volume specified by the first character cannot be found, then abort with an error</li>
+        <li>A command token of <code>::</code> will always result in an error unless SUBST is used to define a volume for <code>::</code><br>
+          If SUBST is used to define a volume for <code>::</code>, then the volume will be changed, it will not be treated as a label.</li>
+       </ul></li>
+      <li><strong>7.3 - Execute external command</strong> - Else try to treat the command as an external command. 
+       <ul>
+        <li>If in command line mode and the command is not quoted and does not begin with a volume specification, white-space, <code>,</code>, <code>;</code>, <code>=</code> or <code>+</code> then break the command token at the first occurrence of <code>&lt;space&gt;</code> <code>,</code> <code>;</code> or <code>=</code> and prepend the remainder to the argument token(s).</li>
+        <li>If the 2nd character of the command token is a colon, then verify the volume specified by the 1st character can be found.<br>
+          If the volume cannot be found, then abort with an error.</li>
+        <li>If in batch mode and the command token begins with <code>:</code>, then goto 7.4<br>
+          Note that if the label token begins with <code>::</code>, then this will not be reached because the preceding step will have aborted with an error unless SUBST is used to define a volume for <code>::</code>.</li>
+        <li>Identify the external command to execute. 
+         <ul>
+          <li>This is a complex process that may involve the current volume, current directory, PATH variable, PATHEXT variable, and or file associations.</li>
+          <li>If a valid external command cannot be identified, then abort with an error.</li>
+         </ul></li>
+        <li>If in command line mode and the command token begins with <code>:</code>, then goto 7.4<br>
+          Note that this is rarely reached because the preceding step will have aborted with an error unless the command token begins with <code>::</code>, and SUBST is used to define a volume for <code>::</code>, and the entire command token is a valid path to an external command.</li>
+        <li><strong>7.3.exec</strong> - Execute the external command.</li>
+       </ul></li>
+      <li><strong>7.4 - Ignore a label</strong> - Ignore the command and all its arguments if the command token begins with <code>:</code>.<br>
+        Rules in 7.2 and 7.3 may prevent a label from reaching this point.</li>
+     </ul>
+     <hr>
+     <h2>Command Line Parser:</h2>
+     <p>Works like the BatchLine-Parser, except:</p>
+     <p><strong>Phase 1) Percent Expansion:</strong></p>
+     <ul>
+      <li>No <code>%*</code>, <code>%1</code> etc. argument expansion</li>
+      <li>If var is undefined, then <code>%var%</code> is left unchanged.</li>
+      <li>No special handling of <code>%%</code>. If var=content, then <code>%%var%%</code> expands to <code>%content%</code>.</li>
+     </ul>
+     <p><strong>Phase 3) Echo the parsed command(s)</strong></p>
+     <ul>
+      <li>This is not performed after phase 2. It is only performed after phase 4 for the FOR DO command block.</li>
+     </ul>
+     <p><strong>Phase 5) Delayed Expansion:</strong> only if DelayedExpansion is enabled</p>
+     <ul>
+      <li>If var is undefined, then <code>!var!</code> is left unchanged.</li>
+     </ul>
+     <p><strong>Phase 7) Execute Command</strong></p>
+     <ul>
+      <li>Attempts to CALL or GOTO a :label result in an error.</li>
+      <li>As already documented in phase 7, an executed label may result in an error under different scenarios. 
+       <ul>
+        <li>Batch executed labels can only cause an error if they begin with <code>::</code></li>
+        <li>Command line executed labels almost always result in an error</li>
+       </ul></li>
+     </ul>
+     <hr>
+     <h2>Parsing of integer values</h2>
+     <p>There are many different contexts where cmd.exe parses integer values from strings, and the rules are inconsistent:</p>
+     <ul>
+      <li><code>SET /A</code></li>
+      <li><code>IF</code></li>
+      <li><code>%var:~n,m%</code> (variable substring expansion)</li>
+      <li><code>FOR /F "TOKENS=n"</code></li>
+      <li><code>FOR /F "SKIP=n"</code></li>
+      <li><code>FOR /L %%A in (n1 n2 n3)</code></li>
+      <li><code>EXIT [/B] n</code></li>
+     </ul>
+     <p>Details for these rules may be found at <a href="https://www.dostips.com/forum/viewtopic.php?t=3758" rel="noreferrer">Rules for how CMD.EXE parses numbers</a></p>
+     <hr>
+     <p>For anyone wishing to improve the cmd.exe parsing rules, there is a <a href="https://www.dostips.com/forum/viewtopic.php?f=3&amp;t=8355" rel="noreferrer">discussion topic on the DosTips forum</a> where issues can be reported and suggestions made.</p>
+     <p>Jan Erik (jeb) - Original author and discoverer of phases<br>
+       Dave Benham (dbenham) - Much additional content and editing</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>Hello jeb, thank you for your insight… It might be hard to understand, but I will try to think it through! You seem to have performed much tests! Thank you for translating (<a href="http://www.administrator.de/Die_Geheimnisse_des_Batch_Zeilen_Interpreters.html" rel="nofollow noreferrer">administrator.de/…</a>)</span> <span> - </span> <span class="display-name">Benoit</span> <span> </span> <span class="date">4 Nov 2010 at 09:19</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Batch phase 5) - %%a will have already been changed to %a in Phase 1, so for-loop expansion really expands %a. Also, I added a more detailed explanation of Batch phase 1 in an answer below (I don't have edit privilege)</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">1 Nov 2011 at 18:26</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Jeb - perhaps phase 0 could be moved and combined with phase 6? That makes more sense to me, or is there a reason why they are separated like that?</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">19 Mar 2012 at 14:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@dbenham Which parsing applies when cmd.exe is used to execute a command by the <code>_popen</code> or <code>system</code> functions? I think that these work using <code>cmd /c command line</code>. What logic parses the part after the <code>/c</code>?</span> <span> - </span> <span class="display-name">Kaz</span> <span> </span> <span class="date">15 Apr 2015 at 18:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@jeb I'm in the middle of it. Also, I cannot seem to be able to find a reference in any of the answers here to the quoting rules applied to the command. That is to say, <code>cmd.exe</code> does process double quotes, so that commands which contain spaces can be issued. It doesn't process double quotes in the rest of the command line.</span> <span> - </span> <span class="display-name">Kaz</span> <span> </span> <span class="date">15 Apr 2015 at 21:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@jeb, not sure if the following phase 2 statement is true: <i>»If the parenthesis counter is = 0, and the parser is looking for a commmand, then <code>)</code> and all remaining characters on line are ignored«</i>; I think the extra <code>)</code> is simply no longer treated as a special character in this case; what do you think?</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">14 Jan 2016 at 18:09</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@aschipfl - I updated that section. The <code>)</code> really does function almost like a <code>REM</code> command when the parenthesis counter is 0. Try both of these from the command line: <code>) Ignore this</code>, and <code>echo OK &amp; ) Ignore this</code></span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">29 Jun 2016 at 15:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you, @dbenham! So there is only one thing left that is not clear to me: <i>phase 5: "If it is a caret (<code>^</code>) the next character has no special meaning, the caret itself is removed"</i>; which characters are considered <i>special</i> at that point? I believe there are only <code>^</code> and <code>!</code>, because all the others have already been recognised in phase 2 (<code>"</code> <code>&amp;</code> <code>|</code> <code>&lt;</code> <code>&gt;</code> <code>(</code> <code>)</code> <code>&lt;LF&gt;</code>), am I right? I mean, this was the only way I could explain why I had to do <code>echo ^^!</code> to get a literal <code>!</code> echoed, and why <code>^^^</code> in front of any other char. simply became <code>^</code> without changing the meaning of the char....</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">29 Jun 2016 at 17:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@aschipfl - That is exactly what jeb is referring to.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">29 Jun 2016 at 18:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I'm not sure about the point 2.2 <i>"If it is a caret (^) the next character has no special meaning,"</i> in case there's a quote (") after it. It's possible that it is so, but if it is the quotes are still interpreted specially by many commands, for example<code>echo ^"x^"</code> gives the same result as <code>echo "x"</code>, and <code>if ^"%1^"</code> is very different from <code>if "%1"</code> (the first one works even when the argument is quoted and contains spaces, the second one not - e.g. passing a first argument <code>" "</code> a command <code>if "^%1^"==""</code>works and the result is true, while with <code>if "%1"==""</code> an error is risen).</span> <span> - </span> <span class="display-name">gbr</span> <span> </span> <span class="date">30 Jun 2016 at 14:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@gbr, also quotes lose their special meaning in case they are escaped by preceding <code>^</code>, so the quote flag is not toggled in that case; for example, set a <code>VAR</code> to <code>",",</code> (the <code>,</code> is a token separator just like <i>space</i>) and do comparisons like <code>if "%VAR%"==""</code> and <code>if ^"%VAR%^"==""</code>; you will see that both variants fail... <code>echo</code> does not care about quotes on its own, so it works even with my example, <code>echo %VAR%</code>...</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">18 Jul 2016 at 10:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>...to continue the explanation, @gbr, <code>if</code> needs to recognise and to distinguish between the left comparison expression, the comparison operator, the right comparison expression and the command to execute conditionally, for which it uses the token separators <i>space</i>, <i>tab</i>, <code>,</code>, <code>;</code>, <code>=</code> and non-break space (char. code <code>0xFF</code>); in contrast, <code>echo</code> does not need to detect any parts individually, so it interpretes everything after as a single string...</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">18 Jul 2016 at 10:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@jeb, when I get the description of phase 5 right, the caret handling (<i>"If it is a caret (<code>^</code>) the next character has no special meaning, the caret itself is removed"</i>) is done <b>only</b> in case there is <b>at least one <code>!</code></b> in the entire string or command line, so if there is no <code>!</code> at all (when entering phase 5), no such second caret escaping occurs, it that true?</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">18 Jul 2016 at 11:01</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@aschipfl yes that's correct, therfore you see sometimes 'set "var=%expr%" ! ' the last exclamation mark will be removed but forces phase 5</span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">18 Jul 2016 at 12:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Ah, that explains why I sometimes have to double the <code>^</code> in <code>for /F %%L in ('findstr /N /R "^" "&lt;&lt;file&gt;&gt;"') do</code> and sometimes not: as soon as <code>&lt;&lt;file&gt;&gt;</code> is a delayed expanded variable, a single <code>^</code> disappears... thank you very much!</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">18 Jul 2016 at 15:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>EDIT - <b>Phase 2)</b> Added detection of label, plus link to description of some label detection complications. <b>Phase 5)</b> Added link to a more detailed explanation, as well as a link to known cases where rules fail. <b>Phase 6)</b> Refined the rules, and added a link to known cases where rules fail.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">29 Dec 2017 at 23:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>EDIT - Added <b>Phase 0</b> which reads a line and converts <code>&lt;Ctrl-Z&gt;</code> into <code>&lt;LF&gt;</code></span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">30 Dec 2017 at 04:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@dbenham Thanks for clarfiying the points, but I think the complete text becomes a bit too long. Perhaps it could splitted into a short overview and a detailed explanation?</span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">31 Dec 2017 at 13:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Is this all guess work based on black-box testing or did you actually get a debugger out and verify cmd.exe's actual internal behavior?</span> <span> - </span> <span class="display-name">jwdonahue</span> <span> </span> <span class="date">3 Jan 2018 at 00:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@jwdonahue I done it completly without debugger. As said, I made, many, many tests. It took months to realize how the phases work. And still the rules aren't complete</span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">3 Jan 2018 at 07:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>some of cmd's parsing rule is described <a href="https://blogs.msdn.microsoft.com/twistylittlepassagesallalike/2011/04/23/everyone-quotes-command-line-arguments-the-wrong-way/" rel="nofollow noreferrer">here</a></span> <span> - </span> <span class="display-name">phuclv</span> <span> </span> <span class="date">12 Mar 2018 at 11:40</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span><b>Phase 7.1</b>: I think it would be worth mentioning that for the special <code>set</code> semantics <code>set "name=content" ignored</code> the command extensions need to be enabled, otherwise a syntax error arises: what do you think, @dbenham or @jeb?</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">16 May 2018 at 21:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You're welcome, @dbenham! I noticed the size limit as I tried to update it on my own ;-); anyway, on the other hand, it might good I couldn't do it, as I'm not sure how far all the rules regard the case of disabled command extensions (particularly because the term is never mentioned in the whole answer anywhere, not even for the delayed expansion phase which only exists with enabled extensions)...</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">17 May 2018 at 23:43</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@aschipfl In my opinion, the SET-syntax it's not related to the batch parser phases, more to a special parser of the SET-command. But better discuss this on <a href="https://www.dostips.com/forum/viewtopic.php?f=3&amp;t=8355&amp;p=56790#p56790" rel="nofollow noreferrer">dostips</a></span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">18 May 2018 at 08:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Edits: Phase 6 change - expansion errors in phase 1 after CALL are not fatal. Phase 1 changed to account for issues at <a href="https://www.dostips.com/forum/viewtopic.php?f=3&amp;t=7763&amp;p=59807#p59807" rel="nofollow noreferrer">dostips.com/forum/…</a>. Phase 7.3 changed to account for issues at <a href="https://www.dostips.com/forum/viewtopic.php?f=3&amp;t=9124" rel="nofollow noreferrer">dostips.com/forum/viewtopic.php?f=3&amp;t=9124</a></span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">13 Jun 2019 at 03:36</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>random trivia, one of the strangest things to me is file batch file is read a line at a time. If you edit the file while the batch file is running the running batch file will pick up your changes as it's running. This means editing long running batch files (like a build script) can be an issue. You start a 10 minute build, then add some new features or echos to the script in your editor and if you hit save you'll likely break the running build.</span> <span> - </span> <span class="display-name">gman</span> <span> </span> <span class="date">13 Jun 2019 at 04:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The 'command string' in a FOR /F loop is not a 'quoted string' -- delimiters are elided from inside the single-quoted text: FOR /F %R IN ('DIR=A.*') DO echo %R becomes FOR /F %R IN ('DIR A.*') DO echo %R</span> <span> - </span> <span class="display-name">david</span> <span> </span> <span class="date">6 May 2021 at 09:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@david I don't get your point, how is it related to the parsing phases? For discussions, better use <a href="https://www.dostips.com/forum/viewforum.php?f=3" rel="nofollow noreferrer">dostips.com</a></span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">6 May 2021 at 11:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes, it's not clear from the answer at what stage of parsing tokenization of a FOR /F bracketed single-quoted command line occurs. Probably phase 2: perhaps the ( ) makes it a compound statement, clearly single-quotes aren't a 'quoted string', but I don't see the place where it says "and all token delimiters are replaced with space".</span> <span> - </span> <span class="display-name">david</span> <span> </span> <span class="date">7 May 2021 at 01:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@david - No, not the compound command statement section, but rather the section in phase 2 that discusses special processing for IF, FOR, and REM. Within the FOR section there is a statement that reads: <i>"Consecutive unescaped/unquoted token delimiters collapse into a single space throughout the FOR command through DO."</i> That includes the parenthesized single quoted command. Also remember that the parenthesized command will go through phase 2 multiple times because it eventually is executed in a new cmd.exe process.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">30 Sep 2021 at 14:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>65</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mike Clark</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Nov 2010 at 08:26</span>
+     </div>
+    </div>
+    <div>
+     <p>When invoking a command from a command window, tokenization of the command line arguments is not done by <code>cmd.exe</code> (a.k.a. "the shell"). Most often the tokenization is done by the newly formed processes' C/C++ runtime, but this is not necessarily so -- for example, if the new process was not written in C/C++, or if the new process chooses to ignore <code>argv</code> and process the raw commandline for itself (e.g. with <a href="http://msdn.microsoft.com/en-us/library/windows/desktop/ms683156.aspx" rel="noreferrer">GetCommandLine()</a>). At the OS level, Windows passes command lines untokenized as a single string to new processes. This is in contrast to most *nix shells, where the shell tokenizes arguments in a consistent, predictable way before passing them to the newly formed process. All this means that you may experience wildly divergent argument tokenization behavior across different programs on Windows, as individual programs often take argument tokenization into their own hands.</p>
+     <p>If it sounds like anarchy, it kind of is. However, since a large number of Windows programs <em>do</em> utilize the Microsoft C/C++ runtime's <code>argv</code>, it may be generally useful to understand <a href="http://msdn.microsoft.com/en-us/library/a1y7w461.aspx" rel="noreferrer">how the MSVCRT tokenizes</a> arguments. Here is an excerpt:</p>
+     <ul>
+      <li>Arguments are delimited by white space, which is either a space or a tab.</li>
+      <li>A string surrounded by double quotation marks is interpreted as a single argument, regardless of white space contained within. A quoted string can be embedded in an argument. Note that the caret (^) is not recognized as an escape character or delimiter.</li>
+      <li>A double quotation mark preceded by a backslash, \", is interpreted as a literal double quotation mark (").</li>
+      <li>Backslashes are interpreted literally, unless they immediately precede a double quotation mark.</li>
+      <li>If an even number of backslashes is followed by a double quotation mark, then one backslash () is placed in the argv array for every pair of backslashes (\), and the double quotation mark (") is interpreted as a string delimiter.</li>
+      <li>If an odd number of backslashes is followed by a double quotation mark, then one backslash () is placed in the argv array for every pair of backslashes (\) and the double quotation mark is interpreted as an escape sequence by the remaining backslash, causing a literal double quotation mark (") to be placed in argv.</li>
+     </ul>
+     <hr>
+     <p>The Microsoft "batch language" (<code>.bat</code>) is no exception to this anarchic environment, and it has developed its own unique rules for tokenization and escaping. It also looks like cmd.exe's command prompt does do some preprocessing of the command line argument (mostly for variable substitution and escaping) before passing the argument off to the newly executing process. You can read more about the low-level details of the batch language and cmd escaping in the excellent answers by jeb and dbenham on this page.</p>
+     <hr>
+     <p>Let's build a simple command line utility in C and see what it says about your test cases:</p>
+     <pre class="lang-c prettyprint-override"><code>int main(int argc, char* argv[]) {
+    int i;
+    for (i = 0; i &lt; argc; i++) {
+        printf("argv[%d][%s]\n", i, argv[i]);
+    }
+    return 0;
+}
+</code></pre>
+     <p>(Notes: argv[0] is always the name of the executable, and is omitted below for brevity. Tested on Windows XP SP3. Compiled with Visual Studio 2005.)</p>
+     <pre><code>&gt; test.exe "a ""b"" c"
+argv[1][a "b" c]
+
+&gt; test.exe """a b c"""
+argv[1]["a b c"]
+
+&gt; test.exe "a"" b c
+argv[1][a" b c]
+</code></pre>
+     <p>And a few of my own tests:</p>
+     <pre><code>&gt; test.exe a "b" c
+argv[1][a]
+argv[2][b]
+argv[3][c]
+
+&gt; test.exe a "b c" "d e
+argv[1][a]
+argv[2][b c]
+argv[3][d e]
+
+&gt; test.exe a \"b\" c
+argv[1][a]
+argv[2]["b"]
+argv[3][c]
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for your answer. It puzzles me even more to see that TinyPerl will not output what your program outputs, and I have difficulties to understand how <code>[a "b" c]</code> could become <code>[a "b] [c]</code> doing post-processing.</span> <span> - </span> <span class="display-name">Benoit</span> <span> </span> <span class="date">4 Nov 2010 at 08:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Now that I think about it, this tokenization of the command line is probably done entirely by the C runtime. An executable could be written such that it doesn't even use the C runtime, in which case I think it would have to deal with the command line verbatim, and be responsible for doing its own tokenization (if it wanted to.) Or even if your application does use the C runtime, you could choose to ignore argc and argv and just get the raw command line via e.g. Win32 <code>GetCommandLine</code>. Perhaps TinyPerl is ignoring argv and simply tokenizing the raw command line by its own rules.</span> <span> - </span> <span class="display-name">Mike Clark</span> <span> </span> <span class="date">4 Nov 2010 at 09:46</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>"Remember that from Win32's point of view, the command line is just a string that is copied into the address space of the new process. How the launching process and the new process interpret this string is governed not by rules but by convention." -Raymond Chen <a href="http://blogs.msdn.com/b/oldnewthing/archive/2009/11/25/9928372.aspx" rel="nofollow noreferrer">blogs.msdn.com/b/oldnewthing/archive/2009/11/25/9928372.aspx</a></span> <span> - </span> <span class="display-name">Mike Clark</span> <span> </span> <span class="date">4 Nov 2010 at 09:51</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Thank you for that truly nice answer. That explains a lot in my opinion. And that also explains why I sometimes find that truly crappy to work with Windows…</span> <span> - </span> <span class="display-name">Benoit</span> <span> </span> <span class="date">4 Nov 2010 at 14:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I found <a href="http://msdn.microsoft.com/en-us/library/bb776391%28v=VS.85%29.aspx" rel="nofollow noreferrer">this</a> regarding backslashes and quotes during transformation from commandline to argv's, for Win32 C++ programs. Backslashes count is only divided by two when the last backslash is followed by a dblquote, and the dblquote terminates a string when there is an even number of backslashes before.</span> <span> - </span> <span class="display-name">Benoit</span> <span> </span> <span class="date">5 Nov 2010 at 10:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Benoit not sure why you think anything is counting backslashes, but also <a href="http://superuser.com/questions/182454/using-backslash-to-escape-characters-in-cmd-exe" title="using backslash to escape characters in cmd exe">superuser.com/questions/182454/…</a> and look here <a href="https://msdn.microsoft.com/en-us/library/a1y7w461.aspx" rel="nofollow noreferrer">msdn.microsoft.com/en-us/library/a1y7w461.aspx</a> it has a description about the backslashes and double quotes. . And there can be sonething to know there about even vs odd number of backslashes one after another like `\\\\\`</span> <span> - </span> <span class="display-name">barlop</span> <span> </span> <span class="date">31 Jul 2015 at 17:05</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>This is great information, but the Microsoft documentation is incomplete! (big surprise) The actual missing rules are documented at <a href="http://www.daviddeley.com/autohotkey/parameters/parameters.htm#WINCRULES" rel="nofollow noreferrer">daviddeley.com/autohotkey/parameters/parameters.htm#WINCRULE‌​S</a>.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">18 Feb 2019 at 19:53</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>57</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>dbenham</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Nov 2011 at 18:16</span>
+     </div>
+    </div>
+    <div>
+     <h1>Percent Expansion Rules</h1>
+     <p>Here is an expanded explanation of Phase 1 in <a href="https://stackoverflow.com/a/4095133/1012053">jeb's answer</a> (valid for both batch mode and command line mode).</p>
+     <p><strong>Phase 1) Percent Expansion</strong> Starting from left, scan each character for <code>%</code> or <code>&lt;LF&gt;</code>. If found then</p>
+     <ul>
+      <li><strong>1.05 (truncate line at <code>&lt;LF&gt;</code>)</strong></li>
+      <li>If the character is <code>&lt;LF&gt;</code> then 
+       <ul>
+        <li>Drop (ignore) the remainder of the line from the <code>&lt;LF&gt;</code> onward</li>
+        <li>Goto Phase 2.0</li>
+       </ul></li>
+      <li>Else the character must be <code>%</code>, so proceed to 1.1</li>
+      <li><strong>1.1 (escape <code>%</code>)</strong> <em>skipped if command line mode</em></li>
+      <li>If batch mode and followed by another <code>%</code> then<br>
+        Replace <code>%%</code> with single <code>%</code> and continue scan</li>
+      <li><strong>1.2 (expand argument)</strong> <em>skipped if command line mode</em></li>
+      <li>Else if batch mode then 
+       <ul>
+        <li>If followed by <code>*</code> and command extensions are enabled then<br>
+          Replace <code>%*</code> with the text of all command line arguments (Replace with nothing if there are no arguments) and continue scan.</li>
+        <li>Else if followed by <code>&lt;digit&gt;</code> then<br>
+          Replace <code>%&lt;digit&gt;</code> with argument value (replace with nothing if undefined) and continue scan.</li>
+        <li>Else if followed by <code>~</code> and command extensions are enabled then 
+         <ul>
+          <li>If followed by optional valid list of argument modifiers followed by required <code>&lt;digit&gt;</code> then<br>
+            Replace <code>%~[modifiers]&lt;digit&gt;</code> with modified argument value (replace with nothing if not defined or if specified $PATH: modifier is not defined) and continue scan.<br><em>Note: modifiers are case insensitive and can appear multiple times in any order, except $PATH: modifier can only appear once and must be the last modifier before the <code>&lt;digit&gt;</code></em></li>
+          <li>Else invalid modified argument syntax raises <em><strong>fatal error: All parsed commands are aborted, and batch processing aborts if in batch mode!</strong></em></li>
+         </ul></li>
+       </ul></li>
+      <li><strong>1.3 (expand variable)</strong></li>
+      <li>Else if command extensions are disabled then<br>
+        Look at next string of characters, breaking before <code>%</code> or end of buffer, and call them VAR (may be an empty list) 
+       <ul>
+        <li>If next character is <code>%</code> then 
+         <ul>
+          <li>If VAR is defined then<br>
+            Replace <code>%VAR%</code> with value of VAR and continue scan</li>
+          <li>Else if batch mode then<br>
+            Remove <code>%VAR%</code> and continue scan</li>
+          <li>Else goto 1.4</li>
+         </ul></li>
+        <li>Else goto 1.4</li>
+       </ul></li>
+      <li>Else if command extensions are enabled then<br>
+        Look at next string of characters, breaking before <code>%</code> <code>:</code> or end of buffer, and call them VAR (may be an empty list). If VAR breaks before <code>:</code> and the subsequent character is <code>%</code> then include <code>:</code> as the last character in VAR and break before <code>%</code>. 
+       <ul>
+        <li>If next character is <code>%</code> then 
+         <ul>
+          <li>If VAR is defined then<br>
+            Replace <code>%VAR%</code> with value of VAR and continue scan</li>
+          <li>Else if batch mode then<br>
+            Remove <code>%VAR%</code> and continue scan</li>
+          <li>Else goto 1.4</li>
+         </ul></li>
+        <li>Else if next character is <code>:</code> then 
+         <ul>
+          <li>If VAR is undefined then 
+           <ul>
+            <li>If batch mode then<br>
+              Remove <code>%VAR:</code> and continue scan.</li>
+            <li>Else goto 1.4</li>
+           </ul></li>
+          <li>Else if next character is <code>~</code> then 
+           <ul>
+            <li>If next string of characters matches pattern of <code>[integer][,[integer]]%</code> then<br>
+              Replace <code>%VAR:~[integer][,[integer]]%</code> with substring of value of VAR (possibly resulting in empty string) and continue scan.</li>
+            <li>Else goto 1.4</li>
+           </ul></li>
+          <li>Else if followed by <code>=</code> or <code>*=</code> then<br>
+            Invalid variable search and replace syntax raises <em><strong>fatal error: All parsed commands are aborted, and batch processing aborts if in batch mode!</strong></em></li>
+          <li>Else if next string of characters matches pattern of <code>[*]search=[replace]%</code>, where search may include any set of characters except <code>=</code>, and replace may include any set of characters except <code>%</code>, then<br>
+            Replace <code>%VAR:[*]search=[replace]%</code> with value of VAR after performing search and replace (possibly resulting in empty string) and continue scan</li>
+          <li>Else goto 1.4</li>
+         </ul></li>
+       </ul></li>
+      <li><strong>1.4 (strip %)</strong>
+       <ul>
+        <li>Else If batch mode then<br>
+          Remove <code>%</code> and continue scan starting with the next character after the <code>%</code></li>
+        <li>Else preserve the leading <code>%</code> and continue scan starting with the next character after the preserved leading <code>%</code></li>
+       </ul></li>
+     </ul>
+     <p>The above helps explain why this batch</p>
+     <pre><code>@echo off
+setlocal enableDelayedExpansion
+set "1var=varA"
+set "~f1var=varB"
+call :test "arg1"
+exit /b  
+::
+:test "arg1"
+echo %%1var%% = %1var%
+echo ^^^!1var^^^! = !1var!
+echo --------
+echo %%~f1var%% = %~f1var%
+echo ^^^!~f1var^^^! = !~f1var!
+exit /b
+</code></pre>
+     <p>Gives these results:</p>
+     <pre><code>%1var% = "arg1"var
+!1var! = varA
+--------
+%~f1var% = P:\arg1var
+!~f1var! = varB
+</code></pre>
+     <p><em><strong>Note 1</strong></em> - Phase 1 occurs prior to the recognition of REM statements. This is very important because it means even a remark can generate a fatal error if it has invalid argument expansion syntax or invalid variable search and replace syntax!</p>
+     <pre><code>@echo off
+rem %~x This generates a fatal argument expansion error
+echo this line is never reached
+</code></pre>
+     <p><em><strong>Note 2</strong></em> - Another interesting consequence of the % parsing rules: Variables containing : in the name can be defined, but they cannot be expanded unless command extensions are disabled. There is one exception - a variable name containing a single colon at the end can be expanded while command extensions are enabled. However, you cannot perform substring or search and replace operations on variable names ending with a colon. The batch file below (courtesy of jeb) demonstrates this behavior</p>
+     <pre><code>@echo off
+setlocal
+set var=content
+set var:=Special
+set var::=double colon
+set var:~0,2=tricky
+set var::~0,2=unfortunate
+echo %var%
+echo %var:%
+echo %var::%
+echo %var:~0,2%
+echo %var::~0,2%
+echo Now with DisableExtensions
+setlocal DisableExtensions
+echo %var%
+echo %var:%
+echo %var::%
+echo %var:~0,2%
+echo %var::~0,2%
+</code></pre>
+     <p><em><strong>Note 3</strong></em> - An interesting outcome of the order of the parsing rules that jeb lays out in his post: When performing find and replace with delayed expansion, special characters in both the find and replace terms must be escaped or quoted. But the situation is different for percent expansion - the find term must not be escaped (though it can be quoted). The percent replace string may or may not require escape or quote, depending on your intent.</p>
+     <pre><code>@echo off
+setlocal enableDelayedExpansion
+set "var=this &amp; that"
+echo %var:&amp;=and%
+echo "%var:&amp;=and%"
+echo !var:^&amp;=and!
+echo "!var:&amp;=and!"
+</code></pre>
+     <hr>
+     <h1>Delayed Expansion Rules</h1>
+     <p>Here is an expanded, and more accurate explanation of Phase 5 in <a href="https://stackoverflow.com/a/4095133/1012053">jeb's answer</a> (valid for both batch mode and command line mode)</p>
+     <p><strong>Phase 5) Delayed Expansion</strong></p>
+     <p>This phase is skipped if any of the following conditions apply:</p>
+     <ul>
+      <li>Delayed expansion is disabled.</li>
+      <li>The command is within a parenthesized block on either side of a pipe.</li>
+      <li>The incoming command token is a "naked" batch script, meaning it is not associated with <code>CALL</code>, parenthesized block, any form of command concatenation (<code>&amp;</code>, <code>&amp;&amp;</code> or <code>||</code>), or a pipe <code>|</code>.</li>
+     </ul>
+     <p>The delayed expansion process is applied to tokens independently. A command may have multiple tokens:</p>
+     <ul>
+      <li>The command token. For most commands the command name itself is a token. But a few commands have specialized regions that are considered a TOKEN for Phase 5. 
+       <ul>
+        <li><code>for ... in(TOKEN) do</code></li>
+        <li><code>if defined TOKEN</code></li>
+        <li><code>if exists TOKEN</code></li>
+        <li><code>if errorlevel TOKEN</code></li>
+        <li><code>if cmdextversion TOKEN</code></li>
+        <li><code>if TOKEN comparison TOKEN</code>, where comparison is one of <code>==</code>, <code>equ</code>, <code>neq</code>, <code>lss</code>, <code>leq</code>, <code>gtr</code>, or <code>geq</code></li>
+       </ul></li>
+      <li>The arguments token</li>
+      <li>The destination token of redirection (one per redirection)</li>
+     </ul>
+     <p>No change is made to tokens that do not contain <code>!</code>.</p>
+     <p>For each token that does contain at least one <code>!</code>, scan each character from left to right for <code>^</code> or <code>!</code>, and if found, then</p>
+     <ul>
+      <li><strong>5.1 (caret escape)</strong> Needed for <code>!</code> or <code>^</code> literals</li>
+      <li>If character is a caret <code>^</code> then 
+       <ul>
+        <li>Remove the <code>^</code></li>
+        <li>Scan the next character and preserve it as a literal</li>
+        <li>Continue the scan</li>
+       </ul></li>
+      <li><strong>5.2 (expand variable)</strong></li>
+      <li>If character is <code>!</code>, then 
+       <ul>
+        <li>If command extensions are disabled then<br>
+          Look at next string of characters, breaking before <code>!</code> or <code>&lt;LF&gt;</code>, and call them VAR (may be an empty list) 
+         <ul>
+          <li>If next character is <code>!</code> then 
+           <ul>
+            <li>If VAR is defined, then<br>
+              Replace <code>!VAR!</code> with value of VAR and continue scan</li>
+            <li>Else if batch mode then<br>
+              Remove <code>!VAR!</code> and continue scan</li>
+            <li>Else goto 5.2.1</li>
+           </ul></li>
+          <li>Else goto 5.2.1</li>
+         </ul></li>
+        <li>Else if command extensions are enabled then<br>
+          Look at next string of characters, breaking before <code>!</code>, <code>:</code>, or <code>&lt;LF&gt;</code>, and call them VAR (may be an empty list). If VAR breaks before <code>:</code> and the subsequent character is <code>!</code> then include <code>:</code> as the last character in VAR and break before <code>!</code>
+         <ul>
+          <li>If next character is <code>!</code> then 
+           <ul>
+            <li>If VAR exists, then<br>
+              Replace <code>!VAR!</code> with value of VAR and continue scan</li>
+            <li>Else if batch mode then<br>
+              Remove <code>!VAR!</code> and continue scan</li>
+            <li>Else goto 5.2.1</li>
+           </ul></li>
+          <li>Else if next character is <code>:</code> then 
+           <ul>
+            <li>If VAR is undefined then 
+             <ul>
+              <li>If batch mode then<br>
+                Remove <code>!VAR:</code> and continue scan</li>
+              <li>Else goto 5.2.1</li>
+             </ul></li>
+            <li>Else if next character is <code>~</code> then 
+             <ul>
+              <li>If next string of characters matches pattern of <code>[integer][,[integer]]!</code> then Replace <code>!VAR:~[integer][,[integer]]!</code> with substring of value of VAR (possibly resulting in empty string) and continue scan.</li>
+              <li>Else goto 5.2.1</li>
+             </ul></li>
+            <li>Else if next string of characters matches pattern of <code>[*]search=[replace]!</code>, where search may include any set of characters except <code>=</code>, and replace may include any set of characters except <code>!</code>, then<br>
+              Replace <code>!VAR:[*]search=[replace]!</code> with value of VAR after performing search and replace (possibly resulting in an empty string) and continue scan</li>
+            <li>Else goto 5.2.1</li>
+           </ul></li>
+          <li>Else goto 5.2.1</li>
+         </ul></li>
+        <li>5.2.1 
+         <ul>
+          <li>If batch mode then remove the leading <code>!</code><br>
+            Else preserve the leading <code>!</code></li>
+          <li>Continue the scan starting with the next character after the preserved leading <code>!</code></li>
+         </ul></li>
+       </ul></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>+1, Only the colon syntax and rules are missing here for <code>%definedVar:a=b%</code> vs <code>%undefinedVar:a=b%</code> and the <code>%var:~0x17,-010%</code> forms</span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">1 Nov 2011 at 19:03</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Good point - I expanded the variable expansion section to address your concerns. I also expanded the argument expansion section to fill in some missing details.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">2 Nov 2011 at 05:41</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>After getting some additional private feedback from jeb, I added a rule for variable names ending with colon, and added note 2. I also added note 3 simply because I thought it was interesting and important.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">3 Nov 2011 at 18:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Added <code>%*</code> expansion to phase 1.2</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">19 Mar 2012 at 15:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@129130 - Shell script highlighting is not appropriate for Windows batch files. I rolled back the edit to the prior version.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">5 Aug 2014 at 20:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>perhaps a note that <code>shift</code> does not change value of <code>%*</code> would be a good addition - it does not seem obvious.</span> <span> - </span> <span class="display-name">Skip R</span> <span> </span> <span class="date">3 Apr 2016 at 17:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>EDIT - Modified search/replace rules in step 1.3 based on information at <a href="http://www.dostips.com/forum/viewtopic.php?f=3&amp;t=7234" rel="nofollow noreferrer">dostips.com/forum/viewtopic.php?f=3&amp;t=7234</a></span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">22 Jun 2016 at 19:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This is slightly out of scope and (I think) unintended behavior, but it might be worth mentioning that <code>call set ...</code> alters the parsing/processing of the set statement. (this is the case, at least, with the versions in Windows XP-Windows 10) Assuming the <code>VARNAME</code> variable is "VARA" and <code>SUBSTR</code> is "_NT", <code>call set %VARNAME%=%%OS:%SUBSTR%=ZZ%%</code> would expand to and execute: <code>set VARA=%OS:_NT=ZZ%</code></span> <span> - </span> <span class="display-name">Charles Grunwald</span> <span> </span> <span class="date">26 Jun 2016 at 09:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@CharlesGrunwald - That is not out of scope, but it is already accounted for. This answer is intended to be combined with <a href="http://stackoverflow.com/a/4095133/1012053">jeb's answer</a>, and phase 1 coupled with phase 6 predicts the behavior you describe. Whether originally intended by MS or not, this behavior is frequently exploited by advanced batch programmers.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">26 Jun 2016 at 14:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>For the substring expansion syntax <code>%VAR:~[integer][,[integer]]%</code> (phase 1.3) it would be worth mentioning that <code>integer</code> could also be hexadecimal (preceding <code>0x</code>) or octal numbers (leading <code>0</code>), don't you think?</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">18 Jul 2016 at 10:19</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@aschipfl - Yeah, I considered going into more detail about that, but didn't want to go down that rabbit hole. I was intentionally non-committal when I used the term [integer].There is more info at <a href="http://www.dostips.com/forum/viewtopic.php?t=3758" rel="nofollow noreferrer">Rules for how does CMD.EXE parses numbers</a>.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">18 Jul 2016 at 10:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The <code>%</code> sign seems not to be allowed in the <code>search</code> string portion of the substring replacement syntax <code>%VAR:[*]search=[replace]%</code> (phase 1.3); I think this should be mentioned...</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">20 Jul 2016 at 00:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@aschipfl - Not true! I intentionally worded 1.3 as I did because it is allowed. See <a href="http://www.dostips.com/forum/viewtopic.php?f=3&amp;t=7234" rel="nofollow noreferrer">New/unknown behaviour in percent/delayed expansion</a>.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">20 Jul 2016 at 00:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Alright, thanks! sorry for drawing a wrong conclusion! I tried with a single <code>%</code> as the search string which failed, but it works if the search string begins with a character other than <code>%</code>; in case of the <code>:*</code> syntax, the <code>%</code> may even occur as the first character in the search string, which is the behaviour your post reflects...</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">20 Jul 2016 at 07:57</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I'm missing the expansion rules for the cmd context, like that there are no reserved characters for the first character of the variable name like <code>%&lt;digit&gt;</code>, <code>%*</code> or <code>%~</code>. And the behaviour changes for undefined variables. Perhaps you need to open a second answer</span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">16 Mar 2017 at 10:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@jeb - Rather than start a new answer, I modified this answer to account for both batch mode and command line mode. Check it out, and tell me if I missed something.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">16 Mar 2017 at 17:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>EDIT - Phase 1 changes to account for issues at <a href="https://www.dostips.com/forum/viewtopic.php?f=3&amp;t=7763&amp;p=59807#p59807" rel="nofollow noreferrer">dostips.com/forum/…</a></span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">13 Jun 2019 at 03:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>2019-06-24 Correction - 1.3 and 5.2 both allow <code>&lt;LF&gt;</code> characters within search and replace terms</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">24 Jun 2019 at 15:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Concerning Note 3 (percent expansion): you say that special characters should not be escaped, but actually this is only true for the search string; the replace string, when unquoted, still exposes special characters to the parser; I think this is worth an update -- what do you think?</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">11 Sep 2019 at 20:46</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@aschipfl - That one is a bit tricky. When I wrote that note I was thinking from the standpoint of what is required for the search/replace operation to succeed. I was not concerned about what might happen afterward. Whether the percent replace string characters should be escaped is dependent on your intent. But I can see that clarification is needed.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">11 Sep 2019 at 21:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@aschipfl - Done</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">11 Sep 2019 at 21:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I'm afraid I found a situation these rules do not explain: when the pattern between <code>%var:~</code> and <code>%</code> does <i>not</i> match the pattern <code>[integer][,[integer]]</code>, the result in batch mode is <code>var:~</code> plus the non-matching pattern, then the character scan is continued <i>at</i> the closing <code>%</code>, meaning that this could be the opening <code>%</code> of a following variable; in CMD mode, the result is almost the same except that the opening <code>%</code> is not removed. Strange, isn't it?</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">4 Dec 2019 at 22:26</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@aschipfl - You misinterpreted the rules (not hard to do). The rules actually work as they stand. Both cases continue the scan after the <b><i>first</i></b> <code>%</code> - They abandon the variable expansion and jump to 1.4 once an invalid substring operation is detected. The only difference is batch strips the leading <code>%</code> and command line preserves it, as described in 1.4.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">5 Dec 2019 at 13:42</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@aschipfl - The scan of the variable in 1.3 is provisional - if the detected VAR construct proves to be invalid, then that provisional scan is discarded and the scanner resumes after the initial <code>%</code> in 1.4.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">5 Dec 2019 at 13:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Oh damn, 1.4 is talking about the <i>opening</i> <code>%</code>, now it all makes perfect sense! sorry for that!</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">5 Dec 2019 at 13:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>EDIT - Removed phase 1.5 and replaced with item in phase 2, and modified phase 7.3</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">1 Mar 2020 at 16:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Fixed delayed expansion rule 5.2 to properly disallow find string beginning with <code>~</code> when doing find/replace.</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">8 May 2020 at 01:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>In section 1.05 there is a reference to section 1.5 which does not exist (any more) – is it true that phase 1 is just left at this point (since said <i>Strip CR</i> usually happens in phase 2)?</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">22 Jan 2022 at 00:12</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@aschipfl - Good catch - I edited to correct. Yeah, exit phase 1 and continue on to phase 2. It is hard to believe this is my first SO action in over 1 year! I've been concentrating on music as a hobby, and my new fascinations with synthesizers (VCV Rack) is a real time suck. I've had an old YouTube overtone flute video go viral - over 600k views!</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">23 Jan 2022 at 03:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@aschipfl - Strike that - Apparently I can't do calendar arithmetic. It had been 3 months. But it feels like a year!</span> <span> - </span> <span class="display-name">dbenham</span> <span> </span> <span class="date">23 Jan 2022 at 13:56</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>bobbogo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jan 2011 at 15:58</span>
+     </div>
+    </div>
+    <div>
+     <p>As pointed out, commands are passed the entire argument string in μSoft land, and it is up to them to parse this into separate arguments for their own use. There is no consistencty in this between different programs, and therefore there is no one set of rules to describe this process. You really need to check each corner case for whatever C library your program uses.</p>
+     <p>As far as the system <code>.bat</code> files go, here is that test:</p>
+     <pre class="lang-sh prettyprint-override"><code>c&gt; type args.cmd
+@echo off
+echo cmdcmdline:[%cmdcmdline%]
+echo 0:[%0]
+echo *:[%*]
+set allargs=%*
+if not defined allargs goto :eof
+setlocal
+@rem Wot about a nice for loop?
+@rem Then we are in the land of delayedexpansion, !n!, call, etc.
+@rem Plays havoc with args like %t%, a"b etc. ugh!
+set n=1
+:loop
+    echo %n%:[%1]
+    set /a n+=1
+    shift
+    set param=%1
+    if defined param goto :loop
+endlocal
+</code></pre>
+     <p>Now we can run some tests. See if you can figure out just what μSoft are trying to do:</p>
+     <pre><code>C&gt;args a b c
+cmdcmdline:[cmd.exe ]
+0:[args]
+*:[a b c]
+1:[a]
+2:[b]
+3:[c]
+</code></pre>
+     <p>Fine so far. (I'll leave out the uninteresting <code>%cmdcmdline%</code> and <code>%0</code> from now on.)</p>
+     <pre><code>C&gt;args *.*
+*:[*.*]
+1:[*.*]
+</code></pre>
+     <p>No filename expansion.</p>
+     <pre><code>C&gt;args "a b" c
+*:["a b" c]
+1:["a b"]
+2:[c]
+</code></pre>
+     <p>No quote stripping, though quotes do prevent argument splitting.</p>
+     <pre><code>c&gt;args ""a b" c
+*:[""a b" c]
+1:[""a]
+2:[b" c]
+</code></pre>
+     <p>Consecutive double quotes causes them to lose any special parsing abilities they may have had. @Beniot's example:</p>
+     <pre><code>C&gt;args "a """ b "" c"""
+*:["a """ b "" c"""]
+1:["a """]
+2:[b]
+3:[""]
+4:[c"""]
+</code></pre>
+     <p>Quiz: How do you pass the value of any environment var as a <em>single</em> argument (i.e., as <code>%1</code>) to a bat file?</p>
+     <pre><code>c&gt;set t=a "b c
+c&gt;set t
+t=a "b c
+c&gt;args %t%
+1:[a]
+2:["b c]
+c&gt;args "%t%"
+1:["a "b]
+2:[c"]
+c&gt;Aaaaaargh!
+</code></pre>
+     <p>Sane parsing seems forever broken.</p>
+     <p>For your entertainment, try adding miscellaneous <code>^</code>, <code>\</code>, <code>'</code>, <code>&amp;</code> (&amp;c.) characters to these examples.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>To pass %t% as single argument you could use "%t:"=\"%" That is, use the %VAR:str=replacement% syntax for variable expansion. Shell metacharacters like | and &amp; in the variable contents can still be exposed and mess up the shell though, unless you escape them again....</span> <span> - </span> <span class="display-name">Toughy</span> <span> </span> <span class="date">26 Oct 2018 at 12:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Toughy So, in my example, <code>t</code> is <code>a "b c</code>. Do you have a recipe for getting those 6 characters (<code>a</code>, 2 × space, <code>"</code>, <code>b</code>, and <code>c</code>) to appear as <code>%1</code> inside a <code>.cmd</code>? I like your thinking though. <code>args "%t:"=""%"</code> is pretty close :-)</span> <span> - </span> <span class="display-name">bobbogo</span> <span> </span> <span class="date">30 Oct 2018 at 13:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>SS64</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2014 at 21:01</span>
+     </div>
+    </div>
+    <div>
+     <p>You have some great answers above already, but to answer one part of your question:</p>
+     <pre><code>set a =b, echo %a %b% c% → bb c%
+</code></pre>
+     <p>What is happening there is that because you have a space before the =, a variable is created called <code>%a&lt;space&gt;%</code> so when you <code>echo %a %</code> that is evaluated correctly as <code>b</code>.</p>
+     <p>The remaining part <code>b% c%</code> is then evaluated as plain text + an undefined variable <code>% c%</code>, which should be echoed as typed, for me <code>echo %a %b% c%</code> returns <code>bb% c%</code></p>
+     <p>I suspect that the ability to include spaces in variable names is more of an oversight than a planned 'feature'</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>aschipfl</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Dec 2020 at 22:19</span>
+     </div>
+    </div>
+    <div>
+     <h1><code>FOR</code>-Loop Meta-Variable Expansion</h1>
+     <p>This is an extended explanation of <em><strong>Phase 4)</strong></em> in the <a href="https://stackoverflow.com/a/4095133">accepted answer</a> (applicable for both batch file mode and command line mode). Of course a <code>for</code> command must be active. The following describes the processing of the command line portion after the <code>do</code> clause. Note that in batch file mode, <code>%%</code> has already been converted to <code>%</code> due to the foregoing immediate <code>%</code>-expansion phase (<em>Phase 1)</em>).</p>
+     <ul>
+      <li>scan for <code>%</code>-sign, beginning from the left up to the end of the line; if one is found, then: 
+       <ul>
+        <li>if <a href="https://ss64.com/nt/cmd.html" rel="nofollow noreferrer" title="CMD.exe">Command Extensions</a> are enabled (default), check if next character is <code>~</code>; if yes, then: 
+         <ul>
+          <li>take as many as possible of the following characters in the case-insensitive set <code>fdpnxsatz</code> (even multiple times each) that are preceding a character that defines a <code>for</code> variable reference or a <code>$</code>-sign; if such a <code>$</code>-sign is encountered, then: 
+           <ul>
+            <li>scan for a <code>:</code><sup>1</sup>; if found, then: 
+             <ul>
+              <li>if there is a character following the <code>:</code>, use it as a <code>for</code> variable reference and expand as expected, unless it is not defined, then do not expand and continue scan at that character position;</li>
+              <li>if the <code>:</code> is the last character, <strong><code>cmd.exe</code> will crash!</strong></li>
+             </ul></li>
+            <li>else (no <code>:</code> is found) do not expand anything;</li>
+           </ul></li>
+          <li>else (if no <code>$</code>-sign is encountered) expand the <code>for</code> variable using all the modifiers, unless it is not defined, then do not expand and continue scan at that character position;</li>
+         </ul></li>
+        <li>else (if no <code>~</code> is found or Command Extensions are disabled) check the next character: 
+         <ul>
+          <li>if there is no more character available, do not expand anything;</li>
+          <li>if the next character is <code>%</code>, do not expand anything and go back to the beginning of the scan at this character position<sup>2</sup>;</li>
+          <li>else use the next character as a <code>for</code> variable reference and expand, unless such is not defined, then do not expand;</li>
+         </ul></li>
+       </ul></li>
+      <li>go back to the beginning of the scan at the next character position (as long as there still characters available);</li>
+     </ul>
+     <hr>
+     <p><sub>1) The string between <code>$</code> and <code>:</code> is considered as the name of an environment variable, which may even be empty; since an environment variable cannot have an empty name, the behaviour is just the same as for an undefined environment variable.</sub> <br><sub>2) This implies that a <code>for</code> meta-variable named <code>%</code> cannot be expanded without a <code>~</code>-modifier.</sub></p>
+     <hr>
+     <p><sub>Original source: <a href="https://stackoverflow.com/a/56240800" title="How to safely echo FOR variable %%~p followed by a string literal">How to safely echo FOR variable %%~p followed by a string literal</a></sub></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>There is no special percent rule for the character after the colon in <code>%~$:&lt;any-meta-var&gt;</code></span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">11 Dec 2020 at 07:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>True, @jeb, I adapted the rules accordingly; the key is the continuation of the scan at the <i>current</i> character position when the meta-variable is not defined…</span> <span> - </span> <span class="display-name">aschipfl</span> <span> </span> <span class="date">11 Dec 2020 at 09:03</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Benoit</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Nov 2010 at 08:06</span>
+     </div>
+    </div>
+    <div>
+     <p>edit: see accepted answer, what follows is wrong and explains only how to pass a command line to TinyPerl.</p>
+     <hr>
+     <p>Regarding quotes, I have the feeling that the behaviour is the following:</p>
+     <ul>
+      <li>when a <code>"</code> is found, string globbing begins</li>
+      <li>when string globbing occurs: 
+       <ul>
+        <li>every character that is not a <code>"</code> is globbed</li>
+        <li>when a <code>"</code> is found: 
+         <ul>
+          <li>if it is followed by <code>""</code> (thus a triple <code>"</code>) then a double quote is added to the string</li>
+          <li>if it is followed by <code>"</code> (thus a double <code>"</code>) then a double quote is added to the string and string globbing ends</li>
+          <li>if the next character is not <code>"</code>, string globbing ends</li>
+         </ul></li>
+        <li>when line ends, string globbing ends.</li>
+       </ul></li>
+     </ul>
+     <p>In short:</p>
+     <p><code>"a """ b "" c"""</code> consists of two strings: <code>a " b "</code> and <code>c"</code></p>
+     <p><code>"a""</code>, <code>"a"""</code> and<code>"a""""</code> are all the same string if at the end of a line</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>the tokenizer and string globbing depends on the command! A "set" works different then a "call" or even an "if"</span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">4 Nov 2010 at 09:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>yes, but what about external commands? I guess cmd.exe always passes the same arguments to them?</span> <span> - </span> <span class="display-name">Benoit</span> <span> </span> <span class="date">4 Nov 2010 at 09:26</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>cmd.exe passes always the expansion result as a string not the tokens to an external command. It depends on the external command how to escape and tokenize it, findstr uses backslash the next one can use something else</span> <span> - </span> <span class="display-name">jeb</span> <span> </span> <span class="date">4 Nov 2010 at 09:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user7427029</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Jun 2020 at 18:00</span>
+     </div>
+    </div>
+    <div>
+     <p>Note that Microsoft has published its Terminal's source code. It may work similar to the command line with respect to syntax parsing. Maybe someone is interested in testing the reverse-engineered parsing rules on accordance with the terminal's parsing rules.</p>
+     <p><a href="https://github.com/Microsoft/Terminal" rel="nofollow noreferrer">Link</a> to the source code.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>The Terminal has nothing to do with the shell, therefore, you will not find anything there related to the shell's syntax.</span> <span> - </span> <span class="display-name">Jörg W Mittag</span> <span> </span> <span class="date">19 Dec 2020 at 19:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

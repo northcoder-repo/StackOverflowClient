@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java Static Method vs. a Singleton in Validator</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java Static Method vs. a Singleton in Validator</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>4</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>stk1234</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Jun 2020 at 22:52</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62629041/java-static-method-vs-a-singleton-in-validator">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Why is it considered such an anti-pattern in <em>all</em> cases to use static methods rather than singletons?</p>
+    <p>I originally wrote the following code</p>
+    <pre><code>class MyValidator {
+  public static boolean isValid(String mystring){
+    if (some conditions ...) {
+      return true
+    } else {
+      return false
+    }
+  }
+}
+</code></pre>
+    <p>I can't really see a reason to make this into an object. It seems just fine as a static method - more testable, eliminating state, etc.</p>
+    <p>However, I ran into an issue upstream when I wanted to write a controller unit test and mock out the isValid() call. I realize I can use libraries like PowerMock, but people seem to religiously think doing this is an antipattern.</p>
+    <p>Why is that and what's so wrong with keeping this static?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>5</td>
+       <td><span>It enables <b>better testing</b>. If you create a singleton object (AKA a service) that is injectable, you could then mock that for testing other complex pieces of your code.</span> <span> - </span> <span class="display-name">cs95</span> <span> </span> <span class="date">28 Jun 2020 at 22:54</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>We used to use powermock in a very large project to mock static methods. Then I went through a pass of replacing all the static methods with instances that could be mocked normally, and I removed powermock as a dependency. Made code clearer, tests more reliable, and much faster to run as well. But if powermock works for you, do whatever you prefer.</span> <span> - </span> <span class="display-name">khelwood</span> <span> </span> <span class="date">28 Jun 2020 at 22:55</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Further to the comment by @cs95, using an object makes mocking <i>possible</i>, which is needed to keep complex component testing sane and easy.</span> <span> - </span> <span class="display-name">Bohemian</span> <span> </span> <span class="date">28 Jun 2020 at 23:14</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>An object is configurable. Maybe someday you want to allow a maximum length to be passed to the validation. With a static method, this means you must add a parameter, which breaks existing code, or add a new method with the additional parameter, which can get out of hand if there are eventually lots of things to configure. If you use non-static methods, you can just add <code>setMaxLength(int)</code> etc. without changing the existing public methods at all.</span> <span> - </span> <span class="display-name">VGR</span> <span> </span> <span class="date">29 Jun 2020 at 00:00</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>mentallurg</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Jun 2020 at 00:18</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>an anti-pattern in all cases to use static methods rather than singletons</p>
+     </blockquote>
+     <p>This is not true. In some cases static methods are absolutely fine, in others not.</p>
+     <p>Here are some examples from widely used libraries when it is perfectly fine to use static methods:</p>
+     <ul>
+      <li><strong>CollectionUtils</strong> in Apache Common Collections</li>
+      <li><strong>StringUtils</strong> in Apache Commons Lang</li>
+      <li><strong>FileUtils</strong> in Apache Commons IO</li>
+      <li><strong>ClassUtils</strong> in Spring Framework</li>
+      <li><strong>PropertiesHelper</strong> in Hibernate</li>
+     </ul>
+     <p>There are no strict criteria in what case static method can be used or should not be used. For some developers this is a matter of their personal preferences, to use static methods as much as possible, or vice versa, to avoid static methods as much as possible.</p>
+     <p>If you have no strong preferences, you may consider following criteria to decide.</p>
+     <ol>
+      <li>How likely it is that that the functionality provided by the needs to extended or modified in the future? If you see that it is very likely that some methods may need to overridden for some context, then it makes sense to use non-static objects. If it is unlikely (e.g. it is unlikely that the method that compares two strings safely, without throwing NPE), then it is fine to put such functionality in a static method.</li>
+      <li>How likely it is that there will be more than one class with similar functionality? Is it likely that you may need some generic functionality that uses different implementations in different contexts (e.g. polymorphism may be needed)? For instance, serializing an object to JSON might be a static method. But if you expect that very likely serialization to YML, XML, CSV, PDF or some other formats will be needed, it makes sense to put make such functionality non-static.</li>
+      <li>How easy would it be to test such functionality? In some cases testing can be easy, e.g. testing a methods that compares two strings without throwing NPE. In other cases it may be pretty complicated, e.g. if such method is called from another code that is being tested.</li>
+     </ol>
+     <p>To your case with MyValidator: I would suppose that later on you may need more than one validator and some generic logic that iterates over list of attributes, determines validators for each attribute and applies them. With static methods it will be very hard to implement it. Where as with non-static methods it may be much easier. For instance, it would be easier to define a generic structure of such classes as following:</p>
+     <pre><code>public interface Validator&lt;T&gt; {
+  boolean isValid(T target);
+}
+</code></pre>
+     <p>Then applying such may be very compact:</p>
+     <pre><code>for (...) {
+  validator = findValidatorForObject(obj);
+  // No need to check the type: String, Integer, ...
+  if (!validator.isValid(obj)) {
+    ...
+  }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sprinter</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Jun 2020 at 00:26</span>
+     </div>
+    </div>
+    <div>
+     <p>I believe you're setting up a false dichotomy in static methods vs. singletons. Singletons often create problems because they hold state that is hidden from the clients of the classes that access the singletons. But as an alternative to static methods they would not hold state.</p>
+     <p>Another alternative is for you to define an interface that can be filled with your static method in production code and a mock in testing code:</p>
+     <pre><code>interface Validator {
+    boolean isValid(String string);
+}
+
+class ClassThatUsesValidator {
+    private final Validator validator;
+
+    public ClassThatUsesValidator(Validator validator) {
+        this.validator = validator;
+    }
+
+    public void methodToTest(String value) {
+        if (validator.isValid(value))
+            ...
+    }
+}
+
+// production code
+ClassThatUsesValidator obj = new ClassThatUsesValidator(MyValidator::isValid);
+
+// test code
+Validator mock = mock(Validator.class);
+when(mock.isValid("foo")).thenReturn(false);
+ClassThatUsesValidator testObj = new ClassThatUsesValidator(mock);
+testObj.methodToTest("foo");
+assertThat ...
+</code></pre>
+     <p>This way you are avoiding a singleton, using a static method and are still able to mock it for testing.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,1037 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Cannot resolve the collation conflict between "SQL_Latin1_General_CP1_CI_AS" and "Latin1_General_CI_AS" in the equal to operation</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Cannot resolve the collation conflict between "SQL_Latin1_General_CP1_CI_AS" and "Latin1_General_CI_AS" in the equal to operation</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>473</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>jhowe</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>22 Oct 2009 at 14:20</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/1607560/cannot-resolve-the-collation-conflict-between-sql-latin1-general-cp1-ci-as-and">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have the following code</p>
+    <pre><code>SELECT tA.FieldName As [Field Name],
+       COALESCE(tO_A.[desc], tO_B.[desc], tO_C.Name, tA.OldVAlue) AS [Old Value],
+       COALESCE(tN_A.[desc], tN_B.[desc], tN_C.Name, tA.NewValue) AS [New Value],
+       U.UserName AS [User Name],
+       CONVERT(varchar, tA.ChangeDate) AS [Change Date] 
+  FROM D tA
+       JOIN 
+       [DRTS].[dbo].[User] U 
+         ON tA.UserID = U.UserID
+       LEFT JOIN 
+       A tO_A 
+         on tA.FieldName = 'AID' 
+        AND tA.oldValue = CONVERT(VARCHAR, tO_A.ID)
+       LEFT JOIN 
+       A tN_A 
+         on tA.FieldName = 'AID' 
+        AND tA.newValue = CONVERT(VARCHAR, tN_A.ID)
+       LEFT JOIN 
+       B tO_B 
+         on tA.FieldName = 'BID' 
+        AND tA.oldValue = CONVERT(VARCHAR, tO_B.ID)
+       LEFT JOIN 
+       B tN_B 
+         on tA.FieldName = 'BID' 
+        AND tA.newValue = CONVERT(VARCHAR, tN_B.ID)
+       LEFT JOIN 
+       C tO_C 
+         on tA.FieldName = 'CID' 
+        AND tA.oldValue = tO_C.Name
+       LEFT JOIN 
+       C tN_C 
+         on tA.FieldName = 'CID' 
+        AND tA.newValue = tN_C.Name
+ WHERE U.Fullname = @SearchTerm
+ORDER BY tA.ChangeDate
+</code></pre>
+    <p>When running the code I am getting the error pasted in the title after adding the two joins for table C. I think this may have something to do with the fact I'm using SQL Server 2008 and have restored a copy of this db on to my machine which is 2005.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">sql-server</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1119</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Valkyrie</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Oct 2009 at 14:41</span>
+     </div>
+    </div>
+    <div>
+     <p>I do the following:</p>
+     <pre><code>...WHERE 
+    fieldname COLLATE DATABASE_DEFAULT = otherfieldname COLLATE DATABASE_DEFAULT
+</code></pre>
+     <p>Works every time. :)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>If the same two fields are used together in other places (comparisons, unions, coalesce, etc...) make sure that each of those also have the collation specified.</span> <span> - </span> <span class="display-name">Zarepheth</span> <span> </span> <span class="date">17 Feb 2014 at 21:26</span></td>
+       </tr>
+       <tr>
+        <td>10</td>
+        <td><span>@ppumkin While it's a great solution, it still only <i>avoids</i> the problem, rather than solving it. Unless you want to change the collation for each query, which is tedious and not optimally performing. While it's a great answer, the accepted answer I feel is the better one.</span> <span> - </span> <span class="display-name">Rob</span> <span> </span> <span class="date">2 Feb 2016 at 02:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Will this work even if both joining column collations are different.</span> <span> - </span> <span class="display-name">TheGameiswar</span> <span> </span> <span class="date">22 Sep 2016 at 19:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What do if my column is a decimal? <code>Expression type decimal is invalid for COLLATE clause. </code></span> <span> - </span> <span class="display-name">user5724570</span> <span> </span> <span class="date">26 Jul 2017 at 22:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Not applicable when you cannot alter the query being sent.</span> <span> - </span> <span class="display-name">bklaric</span> <span> </span> <span class="date">15 Feb 2018 at 10:22</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Great solution. But I got very poor performance using this in a MERGE with large source table (in the clause USING &lt;table&gt; ON &lt;conditions&gt;). 40 minutes vs 10 seconds if altering the source table/columns with good collation before execution.</span> <span> - </span> <span class="display-name">Matt Roy</span> <span> </span> <span class="date">28 Sep 2018 at 18:05</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This works! There's no need of altering the database collation. And its a less intrusive way of resolving the issue highlighted. It's also applicable in the IN clause of the SQL query.</span> <span> - </span> <span class="display-name">BenJaminSila</span> <span> </span> <span class="date">10 May 2019 at 07:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Avoiding the problem is perfectly fine imo if you are dealing with a legacy db a couple of one off times</span> <span> - </span> <span class="display-name">waleed</span> <span> </span> <span class="date">27 Feb 2020 at 05:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>it is good to know various ways, solution will depend on the environmental constraints, if you can change collation then use that else transform collation in the query.</span> <span> - </span> <span class="display-name">Kalpesh Popat</span> <span> </span> <span class="date">15 Jun 2020 at 10:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Changing the database collation is optimal, but if the server collation does not change, temp tables and variables will use the server collation. So you will still need to use this method when using temporary objects in the database.</span> <span> - </span> <span class="display-name">Martin Isaksen</span> <span> </span> <span class="date">14 Oct 2020 at 18:31</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>362</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>marc_s</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Oct 2009 at 14:27</span>
+     </div>
+    </div>
+    <div>
+     <p>You have a mismatch of two different collations in your table. You can check what collations each column in your table(s) has by using this query:</p>
+     <pre><code>SELECT
+    col.name, col.collation_name
+FROM 
+    sys.columns col
+WHERE
+    object_id = OBJECT_ID('YourTableName')
+</code></pre>
+     <p>Collations are needed and used when ordering and comparing strings. It's generally a good idea to have a single, unique collation used throughout your database - don't use different collations within a single table or database - you're only asking for trouble....</p>
+     <p>Once you've settled for one single collation, you can change those tables / columns that don't match yet using this command:</p>
+     <pre><code>ALTER TABLE YourTableName
+  ALTER COLUMN OffendingColumn
+    VARCHAR(100) COLLATE Latin1_General_CI_AS NOT NULL
+</code></pre>
+     <p>To find the fulltext indices in your database, use this query here:</p>
+     <pre><code>SELECT
+    fti.object_Id,
+    OBJECT_NAME(fti.object_id) 'Fulltext index',
+    fti.is_enabled,
+    i.name 'Index name',
+    OBJECT_NAME(i.object_id) 'Table name'
+FROM 
+    sys.fulltext_indexes fti
+INNER JOIN 
+    sys.indexes i ON fti.unique_index_id = i.index_id
+</code></pre>
+     <p>You can then drop the fulltext index using:</p>
+     <pre><code>DROP FULLTEXT INDEX ON (tablename)
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Thanks marc that is exactly the type of thing i was looking for, one of the tables was different collation for some stupid reason! I will try altering to standard collation and see what happens.</span> <span> - </span> <span class="display-name">jhowe</span> <span> </span> <span class="date">22 Oct 2009 at 14:51</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>marc i'm getting this now: Cannot alter or drop column because it is enabled for Full-Text Search.</span> <span> - </span> <span class="display-name">jhowe</span> <span> </span> <span class="date">22 Oct 2009 at 14:58</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>In that case, you'll need to drop your fulltext index on that table temporarily, change the collation, and then re-create the fulltext index again</span> <span> - </span> <span class="display-name">marc_s</span> <span> </span> <span class="date">22 Oct 2009 at 15:21</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Thanks OP, I was setting up a temporary table so this helped, but as I couldn't alter the table, I needed to just declare it correctly to start with (as follows): DECLARE @Table TABLE (CompareMessage VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL)</span> <span> - </span> <span class="display-name">FrostbiteXIII</span> <span> </span> <span class="date">23 Jun 2014 at 10:57</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>why cant we have 2 different collation on the same table. If i have 1 column as nvarchar which needs only english names and other column as russian letters, other column as japanese letters. How do I arrange this? Is there a single collation covers all these?</span> <span> - </span> <span class="display-name">Emil</span> <span> </span> <span class="date">18 Mar 2017 at 11:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How can I transform an entire database vs a specific column?</span> <span> - </span> <span class="display-name">RalphBiggerton</span> <span> </span> <span class="date">8 Oct 2018 at 16:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>94</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ray</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Oct 2009 at 14:33</span>
+     </div>
+    </div>
+    <div>
+     <p>Use the <code>collate</code> clause in your query:</p>
+     <pre><code>LEFT JOIN C tO_C on tA.FieldName = 'CID' AND tA.oldValue COLLATE Latin1_General_CI_AS = tO_C.Name  
+</code></pre>
+     <p>I may not have the syntax exactly right (check BOL), but you can do this to change the collation on-the-fly for the query - you may need to add the clause for each join.</p>
+     <p>edit: I realized this was not quite right - the collate clause goes after the field you need to change - in this example I changed the collation on the <code>tA.oldValue</code> field.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>48</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Palak.Maheria</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Nov 2014 at 05:23</span>
+     </div>
+    </div>
+    <div>
+     <p>Identify the fields for which it is throwing this error and add following to them: COLLATE DATABASE_DEFAULT</p>
+     <p>There are two tables joined on Code field:</p>
+     <pre><code>...
+and table1.Code = table2.Code
+...
+</code></pre>
+     <p>Update your query to:</p>
+     <pre><code>...
+and table1.Code COLLATE DATABASE_DEFAULT = table2.Code COLLATE DATABASE_DEFAULT
+...
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>35</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Buzzzzzzz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Feb 2015 at 16:15</span>
+     </div>
+    </div>
+    <div>
+     <p>This can easily happen when you have 2 different databases and specially 2 different databases from 2 different servers. Best option is to change it to a common collection and do the join or comparison.</p>
+     <pre><code>SELECT 
+   *
+FROM sd
+INNER JOIN pd ON sd.SCaseflowID COLLATE Latin1_General_CS_AS = pd.PDebt_code COLLATE Latin1_General_CS_AS
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>20</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ikram M.</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jan 2016 at 19:48</span>
+     </div>
+    </div>
+    <div>
+     <p>@Valkyrie awesome answer. Thought I put in here a case when performing the same with a subquery insides a stored procedure, as I wondered if your answer works in this case, and it did awesome.</p>
+     <pre><code>...WHERE fieldname COLLATE DATABASE_DEFAULT in (
+          SELECT DISTINCT otherfieldname COLLATE DATABASE_DEFAULT
+          FROM ...
+          WHERE ...
+        )
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Carlos de Jesus Baez</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Jun 2018 at 17:40</span>
+     </div>
+    </div>
+    <div>
+     <p>In the where criteria add <code>collate SQL_Latin1_General_CP1_CI_AS</code></p>
+     <p>This works for me.</p>
+     <pre><code>WHERE U.Fullname = @SearchTerm  collate SQL_Latin1_General_CP1_CI_AS
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Lars Ericson</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Nov 2018 at 21:08</span>
+     </div>
+    </div>
+    <div>
+     <p>To resolve this problem in the query without changing either database, you can cast the expressions on other side of the "=" sign with</p>
+     <pre><code>COLLATE SQL_Latin1_General_CP1_CI_AS
+</code></pre>
+     <p>as suggested <a href="https://social.msdn.microsoft.com/Forums/en-US/0f61d3c0-72bc-423d-906f-66d6152e618b/collation-conflict-between-quotsqllatin1generalcp1ciasquot-and?forum=transactsql" rel="noreferrer">here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Robert</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Oct 2009 at 14:48</span>
+     </div>
+    </div>
+    <div>
+     <p>The root cause is that the sql server database you took the schema from has a collation that differs from your local installation. If you don't want to worry about collation re install SQL Server locally using the same collation as the SQL Server 2008 database.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Had the same issue, you first need to check your server and database property to see if they have same collation</span> <span> - </span> <span class="display-name">madan</span> <span> </span> <span class="date">27 Apr 2017 at 12:22</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>WholeLifeLearner</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Apr 2017 at 11:57</span>
+     </div>
+    </div>
+    <div>
+     <p>Check the level of collation that is mismatched (server, database,table,column,character).</p>
+     <p>If it is the server, these steps helped me once:</p>
+     <ol>
+      <li>Stop the server</li>
+      <li>Find your sqlservr.exe tool</li>
+      <li>
+       <p>Run this command:</p>
+       <p><code>sqlservr -m -T4022 -T3659 -s"name_of_insance" -q "name_of_collation"</code></p></li>
+      <li>
+       <p>Start your sql server:</p>
+       <p><code>net start name_of_instance</code></p></li>
+      <li>
+       <p>Check the collation of your server again.</p></li>
+     </ol>
+     <p>Here is more info:</p>
+     <p><a href="https://www.mssqltips.com/sqlservertip/3519/changing-sql-server-collation-after-installation/" rel="noreferrer">https://www.mssqltips.com/sqlservertip/3519/changing-sql-server-collation-after-installation/</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>chaminda welgamage</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2017 at 14:09</span>
+     </div>
+    </div>
+    <div>
+     <p>error (Cannot resolve the collation conflict between .... ) usually occurs while comparing data from multiple databases.</p>
+     <p>since you cannot change the collation of databases now, use COLLATE DATABASE_DEFAULT.</p>
+     <pre><code>----------
+AND db1.tbl1.fiel1 COLLATE DATABASE_DEFAULT =db2.tbl2.field2 COLLATE DATABASE_DEFAULT 
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>this is no different from another already given answer : <a href="https://stackoverflow.com/a/1607725/479251">stackoverflow.com/a/1607725/479251</a></span> <span> - </span> <span class="display-name">Pac0</span> <span> </span> <span class="date">15 Dec 2017 at 15:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Adriaan Stander</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Oct 2009 at 14:28</span>
+     </div>
+    </div>
+    <div>
+     <p>I have had something like this before, and what we found was that the collation between 2 tables were different.</p>
+     <p>Check that these are the same.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>justSteve</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Dec 2014 at 13:26</span>
+     </div>
+    </div>
+    <div>
+     <p>Thanks to marc_s's answer I solved my original problem - inspired to take it a step further and post one approach to transforming a whole table at a time - tsql script to generate the alter column statements:</p>
+     <pre><code>DECLARE @tableName VARCHAR(MAX)
+SET @tableName = 'affiliate'
+--EXEC sp_columns @tableName
+SELECT  'Alter table ' + @tableName + ' alter column ' + col.name
+        + CASE ( col.user_type_id )
+            WHEN 231
+            THEN ' nvarchar(' + CAST(col.max_length / 2 AS VARCHAR) + ') '
+          END + 'collate Latin1_General_CI_AS ' + CASE ( col.is_nullable )
+                                                    WHEN 0 THEN ' not null'
+                                                    WHEN 1 THEN ' null'
+                                                  END
+FROM    sys.columns col
+WHERE   object_id = OBJECT_ID(@tableName)
+</code></pre>
+     <p>gets: ALTER TABLE Affiliate ALTER COLUMN myTable NVARCHAR(4000) COLLATE Latin1_General_CI_AS NOT NULL</p>
+     <p>I'll admit to being puzzled by the need to <strong>col.max_length / 2</strong> -</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I think the divide by two is required because the length is stored as the number of bytes internally. Nvarchar takes two bytes per character instead of one as varchar.</span> <span> - </span> <span class="display-name">Zebi</span> <span> </span> <span class="date">18 Apr 2016 at 08:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Great work, how ever above query dosent count for ncha data types probably because of col.max_length / 2 -</span> <span> - </span> <span class="display-name">Imran</span> <span> </span> <span class="date">8 Jun 2020 at 14:05</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Chagbert</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jun 2015 at 08:39</span>
+     </div>
+    </div>
+    <div>
+     <p>I have used the content from this <a href="http://samsudeenb.blogspot.com/2007/01/changing-database-collation.html" rel="nofollow">site</a> to create the following script which changes collation of all columns in all tables:</p>
+     <pre><code>CREATE PROCEDURE [dbo].[sz_pipeline001_collation] 
+    -- Add the parameters for the stored procedure here
+AS
+BEGIN
+    -- SET NOCOUNT ON added to prevent extra result sets from
+    -- interfering with SELECT statements.
+    SET NOCOUNT ON;
+
+
+SELECT 'ALTER TABLE [' + SYSOBJECTS.Name + '] ALTER COLUMN [' + SYSCOLUMNS.Name + '] ' +
+SYSTYPES.name + 
+    CASE systypes.NAME
+    WHEN 'text' THEN ' '
+    ELSE
+    '(' + RTRIM(CASE SYSCOLUMNS.length
+    WHEN -1 THEN 'MAX'
+    ELSE CONVERT(CHAR,SYSCOLUMNS.length)
+    END) + ') ' 
+    END
+
+    + ' ' + ' COLLATE Latin1_General_CI_AS ' + CASE ISNULLABLE WHEN 0 THEN 'NOT NULL' ELSE 'NULL' END
+    FROM SYSCOLUMNS , SYSOBJECTS , SYSTYPES
+    WHERE SYSCOLUMNS.ID = SYSOBJECTS.ID
+    AND SYSOBJECTS.TYPE = 'U'
+    AND SYSTYPES.Xtype = SYSCOLUMNS.xtype
+    AND SYSCOLUMNS.COLLATION IS NOT NULL
+    AND NOT ( sysobjects.NAME LIKE 'sys%' )
+    AND NOT ( SYSTYPES.name LIKE 'sys%' )
+
+END
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>SYSCOLUMNS.length of nvarchar columns must be divided by 2</span> <span> - </span> <span class="display-name">palota</span> <span> </span> <span class="date">19 Jan 2016 at 19:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Lukas</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Jan 2013 at 08:51</span>
+     </div>
+    </div>
+    <div>
+     <p>For those who have a CREATE DATABASE script (as was my case) for the database that is causing this issue you can use the following CREATE script to match the collation:</p>
+     <pre><code>-- Create Case Sensitive Database
+CREATE DATABASE CaseSensitiveDatabase
+COLLATE SQL_Latin1_General_CP1_CS_AS -- or any collation you require
+GO
+USE CaseSensitiveDatabase
+GO
+SELECT *
+FROM sys.types
+GO
+--rest of your script here
+</code></pre>
+     <p>or</p>
+     <pre><code>-- Create Case In-Sensitive Database
+CREATE DATABASE CaseInSensitiveDatabase
+COLLATE SQL_Latin1_General_CP1_CI_AS -- or any collation you require
+GO
+USE CaseInSensitiveDatabase
+GO
+SELECT *
+FROM sys.types
+GO
+--rest of your script here
+</code></pre>
+     <p>This applies the desired collation to all the tables, which was just what I needed. It is ideal to try and keep the collation the same for all databases on a server. Hope this helps.</p>
+     <p>More info on the following link: <a href="http://blog.sqlauthority.com/2012/12/27/sql-server-creating-database-with-different-collation-on-server/" rel="nofollow">SQL SERVER – Creating Database with Different Collation on Server</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Felix Mwiti Mugambi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Nov 2015 at 16:39</span>
+     </div>
+    </div>
+    <div>
+     <p>You could easily do this by using 4 easy steps</p>
+     <ol>
+      <li>backup your database, just incase</li>
+      <li>change database collation: right click database, select properties, go to the options and change the collation to the required collation.</li>
+      <li>Generate a script to Drop and Recreate all your database objects: right click your database, select tasks, select generate script... ( make sure you select Drop &amp; Create on the Advanced options of the Wizard, Also select Schema &amp; Data )</li>
+      <li>Run the Script Generated above</li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Justin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jan 2018 at 09:37</span>
+     </div>
+    </div>
+    <div>
+     <p>If this occurs across the whole of your DB then it's better to change your DB collation like so:</p>
+     <pre><code>USE master;  
+GO  
+ALTER DATABASE MyOptionsTest  
+COLLATE &lt;&lt; INSERT COLATION REQUIRED &gt;&gt; ;  
+GO  
+
+--Verify the collation setting.  
+SELECT name, collation_name  
+FROM sys.databases  
+WHERE name = N'&lt;&lt; INSERT DATABASE NAME &gt;&gt;';  
+GO 
+</code></pre>
+     <p>Reference <a href="https://learn.microsoft.com/en-us/sql/relational-databases/collations/set-or-change-the-database-collation" rel="nofollow noreferrer">here</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>unfortunately this will not change the collation for existing tables, but only the default for new tables</span> <span> - </span> <span class="display-name">RockScience</span> <span> </span> <span class="date">7 Mar 2018 at 05:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Arati</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Mar 2018 at 06:34</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>INSERT INTO eSSLSmartOfficeSource2.[dbo].DeviceLogs  (DeviceId,UserId,LogDate,UpdateFlag) 
+SELECT DL1.DeviceId ,DL1.UserId COLLATE DATABASE_DEFAULT,DL1.LogDate 
+,0 FROM eSSLSmartOffice.[dbo].DeviceLogs DL1 
+WHERE  NOT EXISTS 
+(SELECT DL2.DeviceId ,DL2.UserId COLLATE DATABASE_DEFAULT
+,DL2.LogDate ,DL2.UpdateFlag 
+FROM eSSLSmartOfficeSource2.[dbo].DeviceLogs DL2    
+WHERE  DL1.DeviceId =DL2.DeviceId
+ and DL1.UserId collate  Latin1_General_CS_AS=DL2.UserId collate  Latin1_General_CS_AS
+  and DL1.LogDate =DL2.LogDate )
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Goner Doug</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jun 2018 at 01:36</span>
+     </div>
+    </div>
+    <div>
+     <p>Added code to @JustSteve's answer to deal with varchar and varchar(MAX) columns:</p>
+     <pre><code>DECLARE @tableName VARCHAR(MAX)
+SET @tableName = 'first_notes'
+--EXEC sp_columns @tableName
+SELECT  'Alter table ' + @tableName + ' alter column ' + col.name
+        + CASE ( col.user_type_id )
+            WHEN 231
+            THEN ' nvarchar(' + CAST(col.max_length / 2 AS VARCHAR) + ') '
+            WHEN 167
+            THEN ' varchar(' + CASE col.max_length 
+                                WHEN -1 
+                                THEN 'MAX'
+                                ELSE 
+                                CAST(col.max_length AS VARCHAR)
+                                end
+                                 + ') '
+          END + 'collate Latin1_General_CI_AS ' + CASE ( col.is_nullable )
+                                                    WHEN 0 THEN ' not null'
+                                                    WHEN 1 THEN ' null'
+                                                  END
+FROM    sys.columns col
+WHERE   object_id = OBJECT_ID(@tableName)
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>krzy-wa</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Oct 2013 at 18:31</span>
+     </div>
+    </div>
+    <div>
+     <p>I had a similar error (Cannot resolve the collation conflict between "SQL_Latin1_General_CP1_CI_AS" and "SQL_Latin1_General_CP1250_CI_AS" in the INTERSECT operation), when I used old jdbc driver.</p>
+     <p>I resolved this by downloading new driver from <a href="http://msdn.microsoft.com/en-us/sqlserver/aa937724.aspx" rel="nofollow">Microsoft</a> or open-source project <a href="http://sourceforge.net/projects/jtds/" rel="nofollow">jTDS</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span> <span class="arrow"> <a href="#answer_22">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Our Man in Bananas</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 May 2014 at 12:15</span>
+     </div>
+    </div>
+    <div>
+     <p>here is what we did, in our situation we need an ad hoc query to be executed using a date restriction on demand, and the query is defined in a table.</p>
+     <p>Our new query needs to match data between different databases and include data from both of them.</p>
+     <p>It seems that the COLLATION is different between the db that imports data from the iSeries/AS400 system, and our reporting database - this could be because of the specific data types (such as Greek accents on names and so on).</p>
+     <p>So we used the below join clause:</p>
+     <pre><code>...LEFT Outer join ImportDB..C4CTP C4 on C4.C4CTP COLLATE Latin1_General_CS_AS=CUS_Type COLLATE Latin1_General_CS_AS
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_22"><span>Answer 22</span> <span class="arrow"> <a href="#answer_21">↑</a> </span> <span class="arrow"> <a href="#answer_23">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>ajeh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Aug 2018 at 21:04</span>
+     </div>
+    </div>
+    <div>
+     <p>You may not have any collation issues in your database whatsoever, but if you restored a copy of your database from a backup on a server with a different collation than the origin, and your code is creating temporary tables, those temporary tables would inherit collation from the server and there would be conflicts with your database.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_23"><span>Answer 23</span> <span class="arrow"> <a href="#answer_22">↑</a> </span> <span class="arrow"> <a href="#answer_24">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>jig's</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Feb 2015 at 13:25</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>ALTER DATABASE test2            --put your database name here
+COLLATE Latin1_General_CS_AS    --replace with the collation you need
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_24"><span>Answer 24</span> <span class="arrow"> <a href="#answer_23">↑</a> </span> <span class="arrow"> <a href="#answer_25">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>JohnLBevan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Feb 2020 at 17:53</span>
+     </div>
+    </div>
+    <div>
+     <p>I had a similar requirement; documenting my approach here for anyone with a similar scenario...</p>
+     <h1>Scenario</h1>
+     <ul>
+      <li>I have a database from a clean install with the correct collations.</li>
+      <li>I have another database which has the wrong collations.</li>
+      <li>I need to update the latter to use the collations defined on the former.</li>
+     </ul>
+     <h1>Solution</h1>
+     <p>Use SQL Server Schema Comparison (from <a href="https://www.decisivedata.net/blog/schema-comparisons-using-visual-studio-sql-data-tools" rel="nofollow noreferrer">SQL Server Data Tools</a> / Visual Studio) to compare source (clean install) with destination (the db with invalid collation).</p>
+     <p>In my case I compared the two DBs directly; though you could work via a project to allow you to manually tweak pieces in between...</p>
+     <ul>
+      <li>Run Visual Studio</li>
+      <li>Create a new SQL Server Data Project</li>
+      <li>Click Tools, SQL Server, New Schema Comparison</li>
+      <li>Select the source database</li>
+      <li>Select the target database</li>
+      <li>Click options (⚙) 
+       <ul>
+        <li>Under <code>Object Types</code> select only those types you're interested in (for me it was only <code>Views</code> and <code>Tables</code>)</li>
+        <li>Under <code>General</code> select: 
+         <ul>
+          <li><strong>Block on possible data loss</strong></li>
+          <li>Disable &amp; reenable DDL triggers</li>
+          <li>Ignore cryptographic provider file path</li>
+          <li>Ignore File &amp; Log File Path</li>
+          <li>Ignore file size</li>
+          <li>Ignore filegroup placement</li>
+          <li>Ignore full text catalog file path</li>
+          <li>Ignore keyword casing</li>
+          <li>Ignore login SIDs</li>
+          <li>Ignore quoted identifiers</li>
+          <li>Ignore route lifetime</li>
+          <li>Ignore semicolon between statements</li>
+          <li>Ignore whitespace</li>
+          <li>Script refresh module</li>
+          <li>Script validation for new constraints</li>
+          <li><strong>Verify collation compatibility</strong></li>
+          <li>Verify deployment</li>
+         </ul></li>
+       </ul></li>
+      <li>Click Compare 
+       <ul>
+        <li>Uncheck any objects flagged for deletion (NB: those may still have collation issues; but since they're not defined in our source/template db we don't know; either way, we don't want to lose things if we're only targeting collation changes). You can unchceck all at once by right clicking on the <code>DELETE</code> folder and selecting <code>EXCLUDE</code>.</li>
+        <li>Likewise exclude for any <code>CREATE</code> objects (here since they don't exist in the target they can't have the wrong collation there; whether they should exist is a question for another topic).</li>
+        <li>Click on each object under CHANGE to see the script for that object. Use the diff to ensure that we're only changing the collation (anything other differences manually detected you'll likely want to exclude / handle those objects manually).</li>
+       </ul></li>
+      <li>Click <code>Update</code> to push changes</li>
+     </ul>
+     <p>This does still involve some manual effort (e.g. checking that you're only impacting the collation) - but it handles dependencies for you.</p>
+     <p>Also you can keep a database project of the valid schema so you can use a universal template for your DBs should you have more than 1 to update, assuming all target DBs should end up with the same schema.</p>
+     <p>You can also use find/replace on the files in a database project should you wish to mass amend settings there (e.g. so you could create the project from the invalid database using schema compare, amend the project files, then toggle the source/target in the schema compare to push your changes back to the DB).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_25"><span>Answer 25</span> <span class="arrow"> <a href="#answer_24">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hannington Mambo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jun 2022 at 16:22</span>
+     </div>
+    </div>
+    <div>
+     <p>I read practically every answer and comment here so far. It got me to an easy solution by combining the responses made. So here is how it was easy for me to resolved:</p>
+     <ol>
+      <li>Create a script of the database. Right-click database &gt; Tasks &gt; Generate Script. Be sure to include Schema and Data</li>
+      <li>Delete the database after you have saved the script. Right-click database &gt; Delete</li>
+      <li>Remove the part of the script that will recreate the database, ie, delete everything upto the first line that starts with:</li>
+     </ol>
+     <p>USE &lt; DATABASENAME &gt;</p>
+     <p>GO</p>
+     <ol start="4">
+      <li>
+       <p>Create the database 'manually', ie, right-click on Tables &gt; Create database...</p></li>
+      <li>
+       <p>Run the script that sets the default collation that you want for the new empty database.</p>
+       <p>USE master;<br>
+         GO<br>
+         ALTER DATABASE &lt;&lt; DatabaseName &gt;&gt;</p>
+       <p>COLLATE &lt;&lt; INSERT COLATION REQUIRED &gt;&gt; ;<br>
+         GO</p></li>
+      <li>
+       <p>Run the script you saved to recreate the database</p></li>
+     </ol>
+     <p><strong>Credit to </strong></p>
+     <ol>
+      <li>@Justin for providing the script to check the collation on the database, and how to update it</li>
+      <li>@RockScience for mentioning that the change on collation will only apply to new tables/objects</li>
+      <li>@Felix Mwiti Mugambi (acknowledging my fellow Kenyan :) ) for indicating the need to recreate the database. (I usually avoid dropping and creating for complex databases)</li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

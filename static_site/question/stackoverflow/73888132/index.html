@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jayway library | Reading a JSON from JSONPath</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jayway library | Reading a JSON from JSONPath</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>agaonsindhe</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Sep 2022 at 21:44</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73888132/jayway-library-reading-a-json-from-jsonpath">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using jayway library as I have to use JSONPath Expressions.</p>
+    <pre><code>{
+"fruit":"Apple",
+"size":"Large",
+"price":"40"
+}
+</code></pre>
+    <p>Above is my json, now from this JSON suppose I want to read from a specific path. For Ex: - $.fruit So the code snippet will be like Assuming I have read the json file and and it is stored here after converting it to string.</p>
+    <pre><code>String sb ="input json";
+DocumentContext context = JsonPath.parse(sb);
+Object rawData = context.read(path);
+</code></pre>
+    <p>Considering this will give me String as it is definte path. I will have <strong>"Apple"</strong> stored in <strong>"sb"</strong></p>
+    <p>Now what if I want to add this String value to a different JSON which will have only this element in it. Using jayway library classes.</p>
+    <pre><code>    {
+      "fruit":"Apple"
+    }
+</code></pre>
+    <ol>
+     <li>I tried context.set method to add but it will give me all elements.</li>
+     <li>Also tried context.remove method but for that I will have to specifically provide the remaining path. (if there is any negate condition like context.remove(!"$.fruit") which will remove every element aprat from fruit), I think I can still achieve but couldn't find that as well.</li>
+    </ol>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jsonpath</span><span class="tag">jayway</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Sep 2022 at 01:47</span>
+     </div>
+    </div>
+    <div>
+     <p>Short answer: use <code>context.put</code> on a new context, instead of <code>context.set</code>.</p>
+     <hr>
+     <p>Details:</p>
+     <p>If you want to create a new JSON object containing <code>{"fruit":"Apple"}</code>, you can take your starting point and extend it as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>String sb = " { \"fruit\":\"Apple\", \"size\":\"Large\", \"price\":\"40\" }";
+DocumentContext context = JsonPath.parse(sb);
+String key = "fruit";
+Object rawData = context.read("$." + key);
+        
+// create a new context containing an empty JSON object:
+DocumentContext context2 = JsonPath.parse("{}");
+// add your JSON to the root of the object:
+context2.put("$", key, rawData);
+// print the result:
+System.out.println(context2.jsonString());
+</code></pre>
+     <p>This outputs the following:</p>
+     <pre><code>{"fruit":"Apple"}
+</code></pre>
+     <hr>
+     <p>I don't know of a path operator which means "<em>everything except</em>" the one thing you want to keep. If you wanted to go this way, maybe you would have to iterate the original JSON and delete each object which does not equal the data to be kept.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for the response, but here can we do soemthing which will create a json for me using jsonpath only, as this will be a user input which will be json path ("$.fruit") <code>context2.put(path,rawData)</code></span> <span> - </span> <span class="display-name">agaonsindhe</span> <span> </span> <span class="date">29 Sep 2022 at 07:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Do we have any utility which will get me the last key in jsonPath.</span> <span> - </span> <span class="display-name">agaonsindhe</span> <span> </span> <span class="date">29 Sep 2022 at 07:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>requirement got changed and I dont have to add that key back :p, thanks for the input, although would love to know if there is any utility which can give child key.</span> <span> - </span> <span class="display-name">agaonsindhe</span> <span> </span> <span class="date">29 Sep 2022 at 09:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Raymond Choi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Sep 2022 at 02:15</span>
+     </div>
+    </div>
+    <div>
+     <p>You may consider another library <em>Josson</em> for simpler syntax.</p>
+     <p><a href="https://github.com/octomix/josson" rel="nofollow noreferrer">https://github.com/octomix/josson</a></p>
+     <pre><code>Josson josson = Josson.fromJsonString("{\"fruit\":\"Apple\", \"size\":\"Large\", \"price\":\"40\"}");
+JsonNode node = josson.getNode("map(fruit)");
+System.out.println(node.toPrettyString());
+</code></pre>
+     <p>Output</p>
+     <pre><code>{
+  "fruit" : "Apple"
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Does it provide functionality to remove a element from given Json Path ?</span> <span> - </span> <span class="display-name">agaonsindhe</span> <span> </span> <span class="date">29 Sep 2022 at 07:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes, function <code>field(key1:, key2:, ...)</code>.</span> <span> - </span> <span class="display-name">Raymond Choi</span> <span> </span> <span class="date">29 Sep 2022 at 07:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

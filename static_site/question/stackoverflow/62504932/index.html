@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Allow users to logon to my site with Google account, without 3d party cookies</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Allow users to logon to my site with Google account, without 3d party cookies</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>6</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Joel Spolsky</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Jun 2020 at 22:02</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62504932/allow-users-to-logon-to-my-site-with-google-account-without-3d-party-cookies">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I've been following the really simple instructions <a href="https://developers.google.com/identity/sign-in/web/sign-in" rel="noreferrer">here</a> ("Integrating Google Sign-In into your web app").</p>
+    <pre><code>&lt;script src="https://apis.google.com/js/platform.js" async defer&gt;&lt;/script&gt;
+&lt;meta name="google-signin-client_id" content="YOUR_CLIENT_ID.apps.googleusercontent.com"&gt;
+&lt;div class="g-signin2" data-onsuccess="onSignIn"&gt;&lt;/div&gt;
+</code></pre>
+    <p>Although it does work in Chrome 83, I get warnings in the JavaScript console about third party cookies. And indeed, when my users, some of whom have third-party cookies disabled, try the Login button, it flashes a window and nothing happens.</p>
+    <p>In the documentation under Troubleshooting, it says "If many of your users have this feature enabled ... another workaround is to implement server-side OAuth 2.0 flows."</p>
+    <p>OK. So what do they mean by server-side OAuth 2.0 flows?</p>
+    <p>(FWIW my app is a React single page app).</p>
+   </div>
+   <div class="tags">
+    <span class="tag">oauth-2.0</span><span class="tag">google-api</span><span class="tag">google-oauth</span><span class="tag">google-signin</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Charles Engelke</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2020 at 17:20</span>
+     </div>
+    </div>
+    <div>
+     <p>There's general information at <a href="https://developers.google.com/identity/protocols/oauth2/web-server" rel="noreferrer">https://developers.google.com/identity/protocols/oauth2/web-server</a>. Here's one way to do it:</p>
+     <ol>
+      <li>
+       <p>Your app provides a link to your users to log in. This link goes to <a href="https://accounts.google.com/signin/oauth?response_type=code&amp;client_id=CLIENT_ID&amp;scope=openid%20email&amp;redirect_uri=REDIRECT_URI&amp;state=STATE&amp;nonce=NONCE" rel="noreferrer">https://accounts.google.com/signin/oauth?response_type=code&amp;client_id=CLIENT_ID&amp;scope=openid%20email&amp;redirect_uri=REDIRECT_URI&amp;state=STATE&amp;nonce=NONCE</a> where the capitalized words are:</p>
+       <ul>
+        <li><code>CLIENT_ID</code> - registered as part of a Google Cloud Project you own, using the Cloud Console (currently under APIs &amp; Services/OAuth Consent Screen)</li>
+        <li><code>REDIRECT_URI</code> - a URI in your application that must be registered in that project</li>
+        <li><code>STATE</code> - I use this to hold the eventual URI I want my user to be sent to</li>
+        <li><code>NONCE</code> - to prevent replay attacks</li>
+       </ul></li>
+      <li>
+       <p>When the user navigates to that URI, they are taken through a Google signin process. On successful signing, they are redirected to <code>REDIRECT_URI?state=STATE&amp;code=CODE</code>. <code>STATE</code> is the <code>STATE</code> you provided in the earlier link, <code>CODE</code> is an authentication code.</p></li>
+      <li>
+       <p>Your app processes the request to that <code>REDIRECT_URI</code> by making a server-side POST request to the Google OAuth token service at <a href="https://oath2.googleapis.com/token" rel="noreferrer">https://oath2.googleapis.com/token</a>, passing the <code>CODE</code>, <code>CLIENT_ID</code>, <code>CLIENT_SECRET</code> (provided in the Cloud Console when registering the application), <code>REDIRECT_URI</code>, and <code>GRANT_TYPE</code> (the string <code>authorization_code</code>).</p>
+       <p>The JSON response to that request will include a field called <code>id_token</code>. That <code>id_token</code> is a JWT that includes, among other things, the user's verified email address in the <code>sub</code> field.</p>
+       <p>You can then establish your own session with that user information, and set a first party cookie for it. You can verify and parse that JWT with a Google auth library or a third party library.</p></li>
+      <li>
+       <p>Respond to the <code>REDIRECT_URI</code> with a redirect response that sets your session cookie, sending the user to the appropriate part of your app.</p></li>
+     </ol>
+     <p>This is pretty verbose, but I did the above in a sample application I created and it worked for that. I hope it can be adapted to your needs.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks, this is exactly what I needed. It took almost a day to get it working, and I still have to figure out a couple of important things like logging out, and re-logging-on-in-an-invisible-iframe-after the token expires, but this is definitely the right approach to take to oauth2 with google.</span> <span> - </span> <span class="display-name">Joel Spolsky</span> <span> </span> <span class="date">26 Jun 2020 at 02:08</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Very nice answer, thank you! I searched for details in Google's documentation and I found the following link: <a href="https://developers.google.com/identity/protocols/oauth2/openid-connect" rel="nofollow noreferrer">developers.google.com/identity/protocols/oauth2/openid-conne‌​ct</a> . The section about 'Server flow' allows what you want - the user authentication without third party cookies. I built a small app that uses authentication using Google endpoints and no third party cookis, and it works fine. Hope it helps.</span> <span> - </span> <span class="display-name">Marcelo Gouveia</span> <span> </span> <span class="date">22 Apr 2021 at 18:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

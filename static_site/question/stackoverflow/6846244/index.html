@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Jackson and generic type reference</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Jackson and generic type reference</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>148</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>techzen</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Jul 2011 at 14:39</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/6846244/jackson-and-generic-type-reference">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to use jackson json library for a generic method as follows:</p>
+    <pre><code>public MyRequest&lt;T&gt; tester() {
+    TypeReference&lt;MyWrapper&lt;T&gt;&gt; typeRef = new TypeReference&lt;MyWrapper&lt;T&gt;&gt;();  
+    MyWrapper&lt;T&gt; requestWrapper = (MyWrapper&lt;T&gt;) JsonConverter.fromJson(jsonRequest, typeRef);
+    return requestWrapper.getRequest();
+}
+</code></pre>
+    <pre><code>public class MyWrapper&lt;T&gt; {
+
+    private MyRequest&lt;T&gt; request;
+
+    public MyRequest&lt;T&gt; getRequest() {
+        return request;
+    }
+
+    public void setRequest(MyRequest&lt;T&gt; request) {
+        this.request = request;
+    }
+}
+</code></pre>
+    <pre><code>public class MyRequest&lt;T&gt; {
+     private List&lt;T&gt; myobjects;
+        
+     public void setMyObjects(List&lt;T&gt; ets) {
+         this.myobjects = ets;
+     }
+
+     @NotNull
+     @JsonIgnore
+     public T getMyObject() {
+         return myobjects.get(0);
+     }
+}
+</code></pre>
+    <p>Now the problem is that when I call getMyObject() which is inside the request object Jackson returns the nested custom object as a LinkedHashMap. Is there any way in which I specify that T object needs to be returned? For example: if I sent object of type Customer then Customer should be returned from that List?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">generics</span><span class="tag">jackson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Please add the implementation of getT()</span> <span> - </span> <span class="display-name">Jim Garrison</span> <span> </span> <span class="date">27 Jul 2011 at 14:47</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>This question is similar to <a href="http://stackoverflow.com/questions/6062011/jackson-is-not-deserialising-a-generic-list-that-it-has-serialised" title="jackson is not deserialising a generic list that it has serialised">stackoverflow.com/questions/6062011/…</a> but they have suggested specifying type using TypeFactory. However I do not know the type at compile time...</span> <span> - </span> <span class="display-name">techzen</span> <span> </span> <span class="date">27 Jul 2011 at 15:01</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>TypeFactory has methods that do not need static class; createCollectionType and so on.</span> <span> - </span> <span class="display-name">StaxMan</span> <span> </span> <span class="date">27 Jul 2011 at 22:48</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Please share complete code. I am also facing same problem.</span> <span> - </span> <span class="display-name">AZ_</span> <span> </span> <span class="date">9 Oct 2013 at 03:25</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Isn't <code>TypeReference</code> abstract?</span> <span> - </span> <span class="display-name">Kyle Delaney</span> <span> </span> <span class="date">14 Feb 2020 at 00:41</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>260</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>StaxMan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Jul 2011 at 22:51</span>
+     </div>
+    </div>
+    <div>
+     <p>This is a well-known problem with Java type erasure: T is just a type variable, and you must indicate actual class, usually as Class argument. Without such information, best that can be done is to use bounds; and plain T is roughly same as 'T extends Object'. And Jackson will then bind JSON Objects as Maps.</p>
+     <p>In this case, tester method needs to have access to Class, and you can construct</p>
+     <pre><code>JavaType type = mapper.getTypeFactory().
+  constructCollectionType(List.class, Foo.class)
+</code></pre>
+     <p>and then</p>
+     <pre><code>List&lt;Foo&gt; list = mapper.readValue(new File("input.json"), type);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>25</td>
+        <td><span>It works : I did the following: JavaType topMost = mapper.getTypeFactory().constructParametricType(MyWrapper.cl‌​ass, ActualClassRuntime.class); and then did the readValue and it finally worked :)</span> <span> - </span> <span class="display-name">techzen</span> <span> </span> <span class="date">28 Jul 2011 at 03:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes, that does work -- thanks for pointing out the method for creating generic type other than Map/Collection type!</span> <span> - </span> <span class="display-name">StaxMan</span> <span> </span> <span class="date">28 Jul 2011 at 15:47</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@StaxMan would it better to use ClassMate for these kind of things from now?</span> <span> - </span> <span class="display-name">husayt</span> <span> </span> <span class="date">25 Jan 2014 at 13:50</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@husayt yes, technically java-classmate lib is superior. But integrating it with Jackson is bit tricky just because Jackson's own type abstraction is integrated part of API. For long term it'd be great to figure out proper way to make Jackson use classmate code, either embedded or via dep.</span> <span> - </span> <span class="display-name">StaxMan</span> <span> </span> <span class="date">27 Jan 2014 at 23:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Why isn't the object type of the object and any nested objects included in the json string somehow?</span> <span> - </span> <span class="display-name">Martin Andersson</span> <span> </span> <span class="date">26 Sep 2014 at 13:56</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@MartinAndersson why would it? JSON is just data, and has neither type (beyond simple JSON type of Lists, Maps, number, string, boolean) nor identity. Any typing there is is interpreted by Java code; and although it could use convention to encode type (and will have to, for polymorphic types), it is not needed if caller can specify type to Map data into.</span> <span> - </span> <span class="display-name">StaxMan</span> <span> </span> <span class="date">30 Sep 2014 at 16:47</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I feel like Jackson shouldn't be having to cover off what feel like gaps in generics, but either way, it does it very well.</span> <span> - </span> <span class="display-name">Adrian Baker</span> <span> </span> <span class="date">7 Jan 2018 at 04:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>rushidesai1</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Mar 2013 at 17:07</span>
+     </div>
+    </div>
+    <div>
+     <p>'JavaType' works !! I was trying to unmarshall (deserialize) a List in json String to ArrayList java Objects and was struggling to find a solution since days.<br>
+       Below is the code that finally gave me solution. Code:</p>
+     <pre><code>JsonMarshallerUnmarshaller&lt;T&gt; {
+    T targetClass;
+
+    public ArrayList&lt;T&gt; unmarshal(String jsonString) {
+        ObjectMapper mapper = new ObjectMapper();
+
+        AnnotationIntrospector introspector = new JacksonAnnotationIntrospector();
+        mapper.getDeserializationConfig()
+            .withAnnotationIntrospector(introspector);
+
+        mapper.getSerializationConfig()
+            .withAnnotationIntrospector(introspector);
+        JavaType type = mapper.getTypeFactory().
+            constructCollectionType(
+                ArrayList.class, 
+                targetclass.getClass());
+
+        try {
+            Class c1 = this.targetclass.getClass();
+            Class c2 = this.targetclass1.getClass();
+            ArrayList&lt;T&gt; temp = (ArrayList&lt;T&gt;) 
+                mapper.readValue(jsonString,  type);
+            return temp ;
+        } catch (JsonParseException e) {
+            e.printStackTrace();
+        } catch (JsonMappingException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return null ;
+    }  
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>How to initialize TargetClass ?</span> <span> - </span> <span class="display-name">AZ_</span> <span> </span> <span class="date">9 Oct 2013 at 03:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Please show me a small example. I am passing Class&lt;?&gt; target and then getting target.getClassName().</span> <span> - </span> <span class="display-name">AZ_</span> <span> </span> <span class="date">10 Oct 2013 at 08:08</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Add a constructor as follows : JsonMarshallerUnmarshaller&lt;T&gt;{ private Class&lt;T&gt; targetClass ; JsonMarshallerUnmarshaller(Class&lt;T&gt; c){ targetClass = c ; } } Make appropriate changes now to the 'unmarshal' function to use this class instead of doing getClass everywhere.</span> <span> - </span> <span class="display-name">rushidesai1</span> <span> </span> <span class="date">11 Oct 2013 at 19:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Couple of notes: code can be simplified a lot by noting that all exceptions are subtypes of <code>IOException</code> (need just one catch), and that the default annotation introspector is already <code>JacksonAnnotationIntrospector</code> -- so no need to do anything to <code>ObjectMapper</code>, just construct it and it works.</span> <span> - </span> <span class="display-name">StaxMan</span> <span> </span> <span class="date">4 Nov 2015 at 17:34</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>So this code I don't even get to compile. Got any live example to paste in instead?</span> <span> - </span> <span class="display-name">Wrench</span> <span> </span> <span class="date">22 Nov 2016 at 23:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I created a <a href="https://stackoverflow.com/a/54577261/1762224">working example</a> below.</span> <span> - </span> <span class="display-name">Mr. Polywhirl</span> <span> </span> <span class="date">7 Feb 2019 at 15:56</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mr. Polywhirl</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Feb 2019 at 15:55</span>
+     </div>
+    </div>
+    <div>
+     <p>I modified <a href="https://stackoverflow.com/a/15229859/1762224"><strong>rushidesai1's answer</strong></a> to include a working example.</p>
+     <h2>JsonMarshaller.java</h2>
+     <pre class="lang-java prettyprint-override"><code>import java.io.*;
+import java.util.*;
+
+public class JsonMarshaller&lt;T&gt; {
+    private static ClassLoader loader = JsonMarshaller.class.getClassLoader();
+
+    public static void main(String[] args) {
+        try {
+            JsonMarshallerUnmarshaller&lt;Station&gt; marshaller = new JsonMarshallerUnmarshaller&lt;&gt;(Station.class);
+            String jsonString = read(loader.getResourceAsStream("data.json"));
+            List&lt;Station&gt; stations = marshaller.unmarshal(jsonString);
+            stations.forEach(System.out::println);
+            System.out.println(marshaller.marshal(stations));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @SuppressWarnings("resource")
+    public static String read(InputStream ios) {
+        return new Scanner(ios).useDelimiter("\\A").next(); // Read the entire file
+    }
+}
+</code></pre>
+     <h2>Output</h2>
+     <pre><code>Station [id=123, title=my title, name=my name]
+Station [id=456, title=my title 2, name=my name 2]
+[{"id":123,"title":"my title","name":"my name"},{"id":456,"title":"my title 2","name":"my name 2"}]
+</code></pre>
+     <h2>JsonMarshallerUnmarshaller.java</h2>
+     <pre class="lang-java prettyprint-override"><code>import java.io.*;
+import java.util.List;
+
+import com.fasterxml.jackson.core.*;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
+
+public class JsonMarshallerUnmarshaller&lt;T&gt; {
+    private ObjectMapper mapper;
+    private Class&lt;T&gt; targetClass;
+
+    public JsonMarshallerUnmarshaller(Class&lt;T&gt; targetClass) {
+        AnnotationIntrospector introspector = new JacksonAnnotationIntrospector();
+
+        mapper = new ObjectMapper();
+        mapper.getDeserializationConfig().with(introspector);
+        mapper.getSerializationConfig().with(introspector);
+
+        this.targetClass = targetClass;
+    }
+
+    public List&lt;T&gt; unmarshal(String jsonString) throws JsonParseException, JsonMappingException, IOException {
+        return parseList(jsonString, mapper, targetClass);
+    }
+
+    public String marshal(List&lt;T&gt; list) throws JsonProcessingException {
+        return mapper.writeValueAsString(list);
+    }
+
+    public static &lt;E&gt; List&lt;E&gt; parseList(String str, ObjectMapper mapper, Class&lt;E&gt; clazz)
+            throws JsonParseException, JsonMappingException, IOException {
+        return mapper.readValue(str, listType(mapper, clazz));
+    }
+
+    public static &lt;E&gt; List&lt;E&gt; parseList(InputStream is, ObjectMapper mapper, Class&lt;E&gt; clazz)
+            throws JsonParseException, JsonMappingException, IOException {
+        return mapper.readValue(is, listType(mapper, clazz));
+    }
+
+    public static &lt;E&gt; JavaType listType(ObjectMapper mapper, Class&lt;E&gt; clazz) {
+        return mapper.getTypeFactory().constructCollectionType(List.class, clazz);
+    }
+}
+</code></pre>
+     <h2>Station.java</h2>
+     <pre class="lang-java prettyprint-override"><code>public class Station {
+    private long id;
+    private String title;
+    private String name;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Station [id=%s, title=%s, name=%s]", id, title, name);
+    }
+}
+</code></pre>
+     <h2>data.json</h2>
+     <pre class="lang-js prettyprint-override"><code>[{
+  "id": 123,
+  "title": "my title",
+  "name": "my name"
+}, {
+  "id": 456,
+  "title": "my title 2",
+  "name": "my name 2"
+}]
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

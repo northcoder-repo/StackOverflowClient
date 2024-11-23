@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Allow user to type regular expression into column search bar, datatables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Allow user to type regular expression into column search bar, datatables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jared Kinneer</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>29 Jul 2022 at 18:28</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73169621/allow-user-to-type-regular-expression-into-column-search-bar-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I would like to be able to type a regular expression, for example <code>^.{2}06.{4,}$</code> into my individual column search bars. For reference I was able to do this when I was using the client side version of DataTables, but since switching over to server side to handle my larger table I haven't been able to replicate this.</p>
+    <p>Here is a link to the example I have built off of <a href="https://www.datatables.net/examples/api/multi_filter.html" rel="nofollow noreferrer">https://www.datatables.net/examples/api/multi_filter.html</a></p>
+    <p>And here is my current code for the initialization of the table</p>
+    <pre><code>var table = $('#results').dataTable({
+        processing: true,
+        serverSide: true,
+        ajax: 'getTable.php',
+        orderCellsTop: true,
+        fixedHeader: true,
+        "search" : { //this is what I have changed from the DataTables example//*
+            "regex": true                                                     //*
+        },                                                                    //*
+        createdRow: function ( row ) {                                        //*
+            $(row).addClass("hover");                                         //*
+        },                                                                    //*
+        //***********************************************************************
+        initComplete: function () {
+            this.api()
+                .columns()
+                .every(function () {
+                    var that = this;
+                    
+                    $('input', this.footer()).on('keyup change clear', function () {
+                        if (that.search() != this.value){
+                            that.search( this.value ).draw();
+                            
+                            //I have also tried setting the optional regex value of the 
+                            //search function to true with no success
+                            //that.search( this.value , true ).draw();
+                        }
+                    });
+                });
+        }
+
+    });
+</code></pre>
+    <p>If anyone could help me with this it would be greatly appreciated</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">plugins</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Jul 2022 at 19:52</span>
+     </div>
+    </div>
+    <div>
+     <p>Look at the <a href="https://datatables.net/manual/server-side#Sent-parameters" rel="nofollow noreferrer">Sent Parameters</a> section of the Server-Side Processing page in the official manual.</p>
+     <p>You will see two things of relevance:</p>
+     <blockquote>
+      <p><code>search[regex]</code> - true if the global filter should be treated as a regular expression for advanced searching, false otherwise.</p>
+     </blockquote>
+     <p>And:</p>
+     <blockquote>
+      <p><code>columns[i][search][regex]</code> - Flag to indicate if the search term for this column should be treated as regular expression (true) or not (false).</p>
+     </blockquote>
+     <p>So, your server-side route handler needs to parse the sent parameters in the response, to extract these booleans for each of your column filters. These values will determine if the column search term should be treated as a regex or not.</p>
+     <p>You also need to use the DataTables <a href="https://datatables.net/reference/option/searchCols" rel="nofollow noreferrer"><code>searchCols</code></a> option to indicate which of your columns' search terms should be treated as regexes - <strong>you cannot only use the <code>search: { "regex": true }</code> option because that is only for the global search field</strong>.</p>
+     <p>An example:</p>
+     <pre class="lang-js prettyprint-override"><code>searchCols: [
+  { regex: false },
+  { regex: true },
+  { regex: true },
+  { regex: true },
+  { regex: true },
+  { regex: true }
+]
+</code></pre>
+     <p>The above example assumes a table with 6 columns, and all of their search terms - except for the first column - are to be treated as regexes.</p>
+     <p>The data can be found in the request body at <code>columns[i][search][regex]</code>, as noted above.</p>
+     <hr>
+     <p>There is a warning in the Data Tables documentation which is worth repeating:</p>
+     <blockquote>
+      <p>As with global search, normally server-side processing scripts will not perform regular expression searching for performance reasons on large data sets, but it is technically possible and at the discretion of your script.</p>
+     </blockquote>
+     <hr>
+     <p>Final Note:</p>
+     <p>Client-side (DataTables) search logic is ignored when you use <code>serverSide: true</code>. That includes the DataTables <a href="https://datatables.net/reference/api/search()" rel="nofollow noreferrer"><code>search()</code></a> API call included in your question:</p>
+     <pre><code>that.search( this.value ).draw();
+</code></pre>
+     <p>That is one of the fundamental points about using server-side processing for your DataTable: All logic for paging, sorting and filtering is handled <em>on the server</em> - and none of it is provided by DataTables. You have to provide all that logic yourself.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

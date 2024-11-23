@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to save/zip binary/octet-stream s3 content to zip</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to save/zip binary/octet-stream s3 content to zip</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Denis Kisina</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>22 Oct 2021 at 19:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/69682181/how-to-save-zip-binary-octet-stream-s3-content-to-zip">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to add s3 bucket files into a zip. The files in the s3 bucket are in binary/octet-stream format.</p>
+    <p>When I run the below method</p>
+    <pre><code> public static void addFileToZip(ZipOutputStream zip, String fileName, InputStream fileContent) throws IOException {
+    try {
+      zip.putNextEntry(new ZipEntry(fileName));
+      IOUtils.copy(fileContent, zip);
+      zip.closeEntry();
+    } catch (IOException ioe) {
+      fileContent.close();
+    }
+  }
+}
+</code></pre>
+    <p>The IO Exception below is thrown when executing <strong>IOUtils.copy</strong> method</p>
+    <p>"exception": "Premature end of Content-Length delimited message body (expected: 206,034; received: 0)"</p>
+    <p>Any suggestions on how I can handle this or what am doing wrong? Thank you.</p>
+    <p>Edit:- @LeeGreiner I am getting the InputStream like this:</p>
+    <pre><code>public ResponseInputStream&lt;GetObjectResponse&gt; getObject(String key) {
+    try (S3Client s3 = s3Client.getClient()) {
+      return s3.getObject(
+          GetObjectRequest.builder()
+              .bucket(bucketName)
+              .key(key)
+              .build()
+      );
+    }
+  }
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring-boot</span><span class="tag">amazon-s3</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Can you show how you are passing the InputStream to this method? Are you using <code>S3Object.getObjectContent()</code> and is the object the bucket or a file in the bucket?</span> <span> - </span> <span class="display-name">Lee Greiner</span> <span> </span> <span class="date">22 Oct 2021 at 19:39</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@LeeGreiner I have added as edit in the question and it is file in the bucket.</span> <span> - </span> <span class="display-name">Denis Kisina</span> <span> </span> <span class="date">22 Oct 2021 at 19:51</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Oct 2021 at 19:32</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use a <a href="https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/core/sync/ResponseTransformer.html" rel="nofollow noreferrer"><code>ResponseTransformer</code></a> to convert the response to an input stream:</p>
+     <pre class="lang-java prettyprint-override"><code>s3.getObject(getObjectRequest, ResponseTransformer.toInputStream());
+</code></pre>
+     <p>My specific method is as follows (it assumes the <code>s3</code> connection has already been created):</p>
+     <pre class="lang-java prettyprint-override"><code>public static InputStream getObject(String key) throws IOException {
+
+    GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+            .bucket(bucketName)
+            .key(key)
+            .build();
+
+    return s3.getObject(getObjectRequest, ResponseTransformer.toInputStream());
+}
+</code></pre>
+     <p>The resulting input stream can then be added to your zip file in the usual way.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Thank you, Andrew! This has resolved my issue. Quick question, I noticed that when I remove the try-with-resources statement to get the S3client, my method works as well. Could you by any chance be knowing why that is so? Thank you.</span> <span> - </span> <span class="display-name">Denis Kisina</span> <span> </span> <span class="date">25 Oct 2021 at 04:02</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I assume your try-with-resource code will automatically close the s3 client at the end of each <code>getObject()</code> method call. My sample code is actually poor in that regard - I removed that code for clarity. I think the best approach is the one outlined in the <a href="https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/creating-clients.html#client-lifecycle" rel="nofollow noreferrer">client lifecycle</a> documentation: treat the client as a long-lived object and explicitly call <code>s3.close()</code> when you no longer need it. With your approach, you are repeatedly opening it and closing it - probably unnecessarily.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Oct 2021 at 11:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you for the clarification. It makes sense.</span> <span> - </span> <span class="display-name">Denis Kisina</span> <span> </span> <span class="date">25 Oct 2021 at 20:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

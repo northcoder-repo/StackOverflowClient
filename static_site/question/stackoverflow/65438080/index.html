@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to create generic MVEL expression</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to create generic MVEL expression</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Shivam Kumar</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Dec 2020 at 12:04</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65438080/how-to-create-generic-mvel-expression">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am writing generic MVEL expression for Java objects. So for understanding purpose I am taking one example.</p>
+    <pre><code>class Student {
+
+   String name;
+
+   String rollNo;
+
+   List&lt;Course&gt; courses;
+}
+
+class Course {
+   
+   String courseName;
+
+   String facultyName;
+
+   String fee;
+
+   String classRoom;
+}
+</code></pre>
+    <p>I can write MVEL expression If my query is: <strong>Check If a student has given name and rollNo</strong></p>
+    <pre><code>MVEL.eval(" name == 'XYZ' &amp;&amp; rollNo == '3456' ", Student)
+</code></pre>
+    <p>But If the query is: <strong>Check If a student attends all the courses in the same classroom?</strong></p>
+    <pre><code>MVEL.eval(" courses[0].classRoom == 'A' ", Student);
+</code></pre>
+    <p>But this checks classRoom in one course only. But I want to check If all courses of a student happens in classRoom 'A'. I couldn't find any resource to solve this problem. I am completely new in MVEL. If you have any doubt please ask me.</p>
+    <p>Thank you</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">spring-boot</span><span class="tag">mvel</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Dec 2020 at 21:15</span>
+     </div>
+    </div>
+    <div>
+     <p>To do this requires a few steps - you will need to make use of MVEL variables and its <a href="http://mvel.documentnode.com/#foreach" rel="nofollow noreferrer"><code>foreach</code> operator</a>.</p>
+     <p>Here is the approach:</p>
+     <pre class="lang-java prettyprint-override"><code>import org.mvel2.MVEL;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+
+public class App {
+    public static void main(String[] args) {
+        
+        List&lt;Course&gt; courses = new ArrayList&lt;&gt;();
+        courses.add(new Course("Math", "123"));
+        courses.add(new Course("Physics", "123"));
+        courses.add(new Course("Chemistry", "123"));
+        
+        Student student = new Student("XYZ", "3456", courses);
+                
+        // Check If a student has given name and rollNo:
+        boolean b1 = MVEL.eval(" name == 'XYZ' &amp;&amp; rollNo == '3456' ", student, Boolean.class);
+        boolean b2 = MVEL.eval(" name == 'XYP' &amp;&amp; rollNo == '3456' ", student, Boolean.class);
+        //System.out.println(b1);
+        //System.out.println(b2);
+        
+        // Check If a student attends all the courses in the same classroom:
+        boolean allClassesInSameRoom = true;
+        String prevRoom = null;
+        
+        Map vars = new HashMap();
+        vars.put( "sameRoom", allClassesInSameRoom );
+        vars.put( "prevRoom", prevRoom );
+        
+        String expression = String.join("\n", 
+                "sameRoom = true;",
+                "prevRoom = null;",
+                "foreach (course : courses) {",
+                "  if (sameRoom == true &amp;&amp; prevRoom != null &amp;&amp; course.classRoom != prevRoom) {",
+                "    sameRoom = false;",
+                "  }",
+                "  prevRoom = course.classRoom;",
+                "}",
+                "sameRoom");
+        
+        allClassesInSameRoom = MVEL.eval(expression, student, vars, Boolean.class);
+        
+        System.out.println(allClassesInSameRoom);
+        
+    }
+    
+}
+</code></pre>
+     <p>First we define two Java variables, which are needed in the MVEL script. They are passed to the MVEL <code>eval</code> operator via a Java map:</p>
+     <pre class="lang-java prettyprint-override"><code>boolean allClassesInSameRoom = true;
+String prevRoom = null;
+
+Map&lt;String, Object&gt; vars = new HashMap&lt;&gt;();
+vars.put( "sameRoom", allClassesInSameRoom );
+vars.put( "prevRoom", prevRoom );
+</code></pre>
+     <p>Then we build a string containing the MVEL script we need to use:</p>
+     <pre class="lang-java prettyprint-override"><code>String expression = String.join("\n", 
+        "sameRoom = true;",
+        "prevRoom = null;",
+        "foreach (course : courses) {",
+        "  if (sameRoom == true &amp;&amp; prevRoom != null &amp;&amp; course.classRoom != prevRoom) {",
+        "    sameRoom = false;",
+        "  }",
+        "  prevRoom = course.classRoom;",
+        "}",
+        "sameRoom");
+</code></pre>
+     <p>The final line returns the <code>sameRoom</code> variable.</p>
+     <p>The <code>eval</code> statement assembles the items we need:</p>
+     <pre class="lang-java prettyprint-override"><code>allClassesInSameRoom = MVEL.eval(expression, student, vars, Boolean.class);
+</code></pre>
+     <p>Note that the <code>Course</code> class needs to be defined as <code>public</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>public class Course {
+
+    private final String courseName;
+    private final String classRoom;
+
+    public Course (String courseName, String classRoom) {
+        this.courseName = courseName;
+        this.classRoom = classRoom;
+    }
+    
+    public String getCourseName() {
+        return courseName;
+    }
+
+    public String getClassRoom() {
+        return classRoom;
+    }
+
+}
+</code></pre>
+     <p>It is possible to create MVEL scripts as templates, which I think can help avoid the somewhat messy process of building a Java String line-by-line, as I do here.</p>
+     <p>This may all add up to more work than simply checking the <code>student</code> object without using MVEL. But MVEL supports functions and lambda expressions, also - so there are probably ways to streamline my approach and simplify the MVEL script.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>Here is an example which is a bit more compact:</p>
+     <pre class="lang-java prettyprint-override"><code>Map&lt;String, String&gt; rooms = new HashMap&lt;&gt;();
+Map&lt;String, Object&gt; vars2 = new HashMap&lt;&gt;();
+vars2.put( "rooms", rooms );
+        
+String expression2 = String.join("\n", 
+        "foreach (course : courses) {",
+        "  rooms.put(course.classRoom, course.classRoom);",
+        "}",
+        "(rooms.size() == 1) ? true : false;");
+        
+allClassesInSameRoom = MVEL.eval(expression2, student, vars2, Boolean.class);
+System.out.println(allClassesInSameRoom);
+</code></pre>
+     <p>In this case, the script adds each room name to a map. Duplicate room names will have the same map key, and therefore will not increase the size of the map. If we end up with a map containing only one entry, that means there is only one room being used for all courses.</p>
+     <hr>
+     <p>As an alternative, you can count the number of different room names in the student's list of courses using Java (Java 8 or higher):</p>
+     <pre class="lang-java prettyprint-override"><code>import static java.util.stream.Collectors.toList;
+
+...
+
+long roomsCount = courses.stream()
+        .map(Course::getClassRoom)    // get the room name from each course
+        .collect(toList())            // build a list of these room names
+        .stream().distinct().count(); // count the number of unique room names
+</code></pre>
+     <p>That's one line of code. But since your goal is to explore and understand MVEL, this is just a side note.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for your help. But Expression looks complicated. Can we simplify it more? Can we do something like e.g: expression = courses[REGEX].classRoom == 'A'. Where REGEX is Regular Expression.</span> <span> - </span> <span class="display-name">Shivam Kumar</span> <span> </span> <span class="date">25 Dec 2020 at 06:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>To access a list you can either access a specific item in the list using <code>course[5]</code> (<a href="http://mvel.documentnode.com/#list-access" rel="nofollow noreferrer">see here</a>) or you can use the <code>foreach</code> operator (as shown in my answer) and similar iterators. I mentioned lambdas in my answer - and you can probably write something in MVEL which is a bit more compact that way - but then again, you could write something equivalent, and similarly compact, using Java lambdas.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Dec 2020 at 15:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I added an update to show a slightly simpler expression.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Dec 2020 at 15:59</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

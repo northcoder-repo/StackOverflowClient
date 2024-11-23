@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>OpenCSV reader strips ending quotes instead of ignoring them</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>OpenCSV reader strips ending quotes instead of ignoring them</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>夢のの夢</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Aug 2020 at 17:25</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63510275/opencsv-reader-strips-ending-quotes-instead-of-ignoring-them">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Say I have:</p>
+    <pre><code>id,description,amount
+1,Foo "bar",10.5
+2,Quick "brown" fox,9.0
+</code></pre>
+    <p>I know that proper csv should have <code>Foo "bar"</code> escaped as <code>Foo ""bar""</code> to pick up the quotes. But this is the data I have to deal with -- 🤷, and it is not something I can modify before processing.</p>
+    <pre><code>try (CSVReader csvReader = new CSVReaderBuilder(new FileReader(resourcePath))
+        .withSkipLines(1)
+        .withCSVParser(new CSVParserBuilder().withIgnoreQuotations(true).build())
+        .build()) {
+    String[] line;
+    ..
+</code></pre>
+    <p>To solve this I try to make CSVReader to ignore all quotes with <code>withIgnoreQuotations(true)</code>, but it seems to strip the last quotation instead of ignoring it, so the output ends up with</p>
+    <pre><code>1,Foo "bar,10.5
+</code></pre>
+    <p>. Is there any way to achieve below with OpenCSV?</p>
+    <pre><code>1,Foo "bar",10.5
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">opencsv</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>What happened if you don't use <code>withIgnoreQuotations</code> ?</span> <span> - </span> <span class="display-name">Eklavya</span> <span> </span> <span class="date">20 Aug 2020 at 18:02</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@User-Upvotedon'tsayThanks I had it without initially. It always strip the beginning/ending quotes.</span> <span> - </span> <span class="display-name">夢のの夢</span> <span> </span> <span class="date">20 Aug 2020 at 18:11</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Aug 2020 at 22:14</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use something like the following:</p>
+     <pre><code>new CSVParserBuilder().withQuoteChar('§').build();
+</code></pre>
+     <p>Obviously this is not ideal, as you have to choose a character which is guaranteed never to appear in your data. I chose the section symbol <code>§</code>- that may not work for you.</p>
+     <p>Just out of interest, the Apache Commons CSV parser does not exhibit this behavior:</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;org.apache.commons&lt;/groupId&gt;
+    &lt;artifactId&gt;commons-csv&lt;/artifactId&gt;
+    &lt;version&gt;1.8&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>And:</p>
+     <pre><code>String sampleRecord = "1,Foo \"bar\",10.5";
+CSVParser parser = CSVParser.parse(sampleRecord, CSVFormat.DEFAULT);
+        
+for (CSVRecord record : parser) {
+    System.out.println(record.get(1));
+}
+</code></pre>
+     <p>This prints:</p>
+     <pre><code>Foo "bar"
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

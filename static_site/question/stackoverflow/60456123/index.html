@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Updating a file in a zip archive</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Updating a file in a zip archive</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>hotzst</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Feb 2020 at 16:52</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60456123/updating-a-file-in-a-zip-archive">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to update a file inside a zip archive without the need to create a new archive. I am aware that it could be done by creating a new archive, coping over all other files and add the changed one in.</p>
+    <p>Here is the code to demonstrate the issue. The first section creates the initial zip archive containing one file with the content <code>Hello world!</code>. The second section should replace that content with <code>Bye, bye!</code>. The last section is unpacking the zip again so that the content can be expected:</p>
+    <pre><code>try {
+    // Create the initial zip archive with the original file content
+    File file1 = new File(ReplaceFileInZipDemo.class.getResource("/helloworld.txt").toURI());
+    File zipFile = new File("output.zip");
+    FileOutputStream fos = new FileOutputStream(zipFile);
+    ZipOutputStream zipOut = new ZipOutputStream(fos);
+    FileInputStream fis = new FileInputStream(file1);
+    ZipEntry zipEntry = new ZipEntry(file1.getName());
+    zipOut.putNextEntry(zipEntry);
+    byte[] bytes = new byte[1024];
+    int length;
+    while ((length = fis.read(bytes)) &gt;= 0) {
+        zipOut.write(bytes, 0, length);
+    }
+    fis.close();
+    zipOut.close();
+    fos.close();
+
+    // Replace the original file content with a different file content, updating the file.
+    File file2 = new File(ReplaceFileInZipDemo.class.getResource("/goodbyeworld.txt").toURI());
+    Path zipfile = zipFile.toPath();
+    FileSystem fs = FileSystems.newFileSystem(zipfile, null);
+    Path pathInZipfile = fs.getPath(file1.getName());
+    Files.copy(file2.toPath() , pathInZipfile, StandardCopyOption.REPLACE_EXISTING );
+
+    // Extract the content of the updated file
+    String destinationDir = System.getProperty("java.io.tmpdir");
+    File targetDir = new File(destinationDir);
+    ZipInputStream i = new ZipInputStream(new FileInputStream(zipFile));
+    ZipEntry entry = null;
+    System.out.println("Original file content:");
+    Files.readAllLines(file1.toPath(), StandardCharsets.UTF_8).forEach(line -&gt; System.out.println(line));
+    System.out.println("Expected replaced file content");
+    Files.readAllLines(file2.toPath(), StandardCharsets.UTF_8).forEach(line -&gt; System.out.println(line));
+    while ((entry = i.getNextEntry()) != null) {
+        File destFile = new File(targetDir, entry.getName());
+        String name = destFile.getAbsolutePath();
+        File f = new File(name);
+        try (OutputStream o = Files.newOutputStream(f.toPath())) {
+            IOUtils.copy(i, o);
+        }
+        System.out.println("Content of extracted file " + name);
+        Files.readAllLines(f.toPath(), StandardCharsets.UTF_8).forEach(line -&gt; System.out.println(line));
+
+    }
+} catch (Exception e) {
+    e.printStackTrace();
+}
+</code></pre>
+    <p>The output that I get is this:</p>
+    <pre><code>Original file content:
+Hello world!
+Expected replaced file content
+Bye, bye!
+Content of extracted file /tmp/helloworld.txt
+Hello world!
+</code></pre>
+    <p>The only reason that I could imagine this is not working as expected is because the content of the replacement comes from a file with a different name than in the archive. But when adding <code>Files.delete(pathInZipfile);</code> to remove the original file completely it is still there.</p>
+    <p>How can I replace the content of a file in an archive with the content of another file?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">zip</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

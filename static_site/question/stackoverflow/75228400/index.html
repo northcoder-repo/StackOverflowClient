@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Mimic the ( Show All ) link in datatables.net</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Mimic the ( Show All ) link in datatables.net</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>mercury</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Jan 2023 at 23:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75228400/mimic-the-show-all-link-in-datatables-net">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a situation where I want to get the full (<strong>data</strong>) from the backend as a CSV file. I have already prepared the backend for that, but normally the front-end state =&gt; (filters) is not in contact with the backend unless I send a request, so I managed to solve the problem by <strong>mimicking</strong> the process of showing all data but by a custom button and a <strong>GET request</strong> ( not an ajax request ). knowing that I am using <em><code>serverSide: true</code></em> in datatables.</p>
+    <p>I prepared the backend to receive a request like ( <strong>Show All</strong> ) but I want that link to be sent by custom button ( <strong>Export All</strong> ) not by the show process itself as by the picture down because showing all data is not practical at all.</p>
+    <p>This is the code for the <strong>custom button</strong></p>
+    <pre><code>    {
+        text: "Export All",
+        action: function (e, dt, node, config) {
+            // get the backend file here
+        },
+    },
+</code></pre>
+    <p>So, How could I send a request like the same request sent by ( Show All ) by a custom button, I prepared the server to respond by the CSV file. but I need a way to <strong>get the same link to send a get request</strong> ( not by ajax ) by the same link that <strong>Show All</strong> sends?</p>
+    <p><a href="https://i.stack.imgur.com/LdB9e.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/LdB9e.png" alt="Datatbles buttons"></a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span><span class="tag">datatables-1.10</span><span class="tag">laravel-datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jan 2023 at 01:57</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are using <code>serverSide: true</code> that should mean you have too much data to use the default (<code>serverSide: false</code>) - because the browser/DataTables cannot handle the volume. For this reason I would say you should also not try to use the browser to generate a full export - it's going to be too much data (otherwise, why did you choose to use <code>serverSide: true</code>?).</p>
+     <p>Instead, use a server-side export utility - not DataTables.</p>
+     <hr>
+     <p>But if you still want to pursuse this approach, you can build a custom button which downloads the entire data set to the DataTables (in your browser) and then exports that complete data to Excel.</p>
+     <h3>Full Disclosure:</h3>
+     <p>The following approach is inspired by the following DataTables forum post:</p>
+     <p><a href="https://datatables.net/forums/discussion/59216/customizing-the-data-from-export-buttons#Comment_161603" rel="nofollow noreferrer">Customizing the data from export buttons</a></p>
+     <hr>
+     <p>The following approach requires you to have a separate REST endpoint which delivers the <em>entire</em> data set as a JSON response (by contrast, the standard response should only be one page of data for the actual table data display and pagination.)</p>
+     <p>How you set up this endpoint is up to you (in Laravel, in your case).</p>
+     <p><strong>Step 1</strong>: Create a custom button:</p>
+     <p>I tested with Excel, but you can do <a href="https://datatables.net/reference/button/csvHtml5" rel="nofollow noreferrer">CSV</a>, if you prefer.</p>
+     <pre class="lang-js prettyprint-override"><code>buttons: [
+  {
+    extend: 'excelHtml5', // or 'csvHtml5'
+    text: 'All Data to Excel', // or CSV if you prefer
+    exportOptions: {
+      customizeData: function (d) {
+        var exportBody = getDataToExport();
+        d.body.length = 0;
+        d.body.push.apply(d.body, exportBody);
+      }
+    }
+  }
+],
+</code></pre>
+     <p><strong>Step 2</strong>: The export function, used by the above button:</p>
+     <pre class="lang-js prettyprint-override"><code>function GetDataToExport() {
+  var jsonResult = $.ajax({
+    url: '[your_GET_EVERYTHING_url_goes_here]',
+    success: function (result) {},
+    async: false
+  });
+  var exportBody = jsonResult.responseJSON.data;
+  return exportBody.map(function (el) {
+    return Object.keys(el).map(function (key) { 
+      return el[key] 
+    });
+  });
+}
+</code></pre>
+     <p>In the above code, my assumption is that the JSON response has the standard DataTables object structure - so, something like:</p>
+     <pre class="lang-json prettyprint-override"><code>{
+  "data": [
+    {
+      "id": "1",
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "salary": "$320,800",
+      "start_date": "2011/04/25",
+      "office": "Edinburgh",
+      "extn": "5421"
+    },
+    {
+      "id": "2",
+      "name": "Garrett Winters",
+      "position": "Accountant",
+      "salary": "$170,750",
+      "start_date": "2011/07/25",
+      "office": "Tokyo",
+      "extn": "8422"
+    },
+    {
+      "id": "3",
+      "name": "Ashton Cox",
+      "position": "Junior Technical Author",
+      "salary": "$86,000",
+      "start_date": "2009/01/12",
+      "office": "San Francisco",
+      "extn": "1562"
+    }
+  ]
+}
+</code></pre>
+     <p>So, it's an object, containing a <code>data</code> array.</p>
+     <p>The DataTables <a href="https://datatables.net/reference/api/buttons.exportData()" rel="nofollow noreferrer"><code>customizeData</code></a> function is what controls writing this complete JSON to the Excel file.</p>
+     <hr>
+     <p>Overall, your DataTables code will look something like this:</p>
+     <pre><code>$(document).ready(function() {
+
+  $('#example').DataTable( {
+    serverSide: true,
+    dom: 'Brftip',
+    buttons: [
+      {
+        extend: 'excelHtml5',
+        text: 'All Data to Excel',
+        exportOptions: {
+          customizeData: function (d) {
+            var exportBody = GetDataToExport();
+            d.body.length = 0;
+            d.body.push.apply(d.body, exportBody);
+          }
+        }
+      }
+    ],
+
+    ajax: {
+      url: "[your_SINGLE_PAGE_url_goes_here]"
+    },
+
+    "columns": [
+      { "title": "ID", "data": "id" },
+      { "title": "Name", "data": "name" },
+      { "title": "Position", "data": "position" },
+      { "title": "Salary", "data": "salary" },
+      { "title": "Start Date", "data": "start_date" },
+      { "title": "Office", "data": "office" },
+      { "title": "Extn.", "data": "extn" }
+    ]
+
+  } );
+
+} );
+
+function GetDataToExport() {
+  var jsonResult = $.ajax({
+    url: '[your_GET_EVERYTHING_url_goes_here]',
+    success: function (result) {},
+    async: false
+  });
+  var exportBody = jsonResult.responseJSON.data;
+  return exportBody.map(function (el) {
+    return Object.keys(el).map(function (key) { 
+      return el[key] 
+    });
+  });
+}
+</code></pre>
+     <hr>
+     <p><strong>Just to repeat my initial warning</strong>: This is probably a bad idea, if you really needed to use <code>serverSide: true</code> because of the volume of data you have.</p>
+     <p>Use a server-side export tool instead - I'm sure Laravel/PHP has good support for generating Excel files.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

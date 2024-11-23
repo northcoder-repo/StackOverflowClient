@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>What causes "java.lang.IllegalStateException: Neither BindingResult nor plain target object for bean name 'command' available as request attribute"?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>What causes "java.lang.IllegalStateException: Neither BindingResult nor plain target object for bean name 'command' available as request attribute"?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>36</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Sotirios Delimanolis</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 Feb 2017 at 06:43</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/42198050/what-causes-java-lang-illegalstateexception-neither-bindingresult-nor-plain-ta">source</a>
+    </div>
+   </div>
+   <div>
+    <p><sub>This is meant to be an extensive canonical question &amp; answer post for these types of questions.</sub></p>
+    <hr>
+    <p>I'm trying to write a Spring MVC web application where users can add movie names to an in-memory collection. It's configured like so</p>
+    <pre><code>public class Application extends AbstractAnnotationConfigDispatcherServletInitializer {
+    protected Class&lt;?&gt;[] getRootConfigClasses() {
+        return new Class&lt;?&gt;[] {};
+    }
+    protected Class&lt;?&gt;[] getServletConfigClasses() {
+        return new Class&lt;?&gt;[] { SpringServletConfig.class };
+    }
+    protected String[] getServletMappings() {
+        return new String[] { "/" };
+    }
+}
+</code></pre>
+    <p>and</p>
+    <pre><code>@Configuration
+@ComponentScan("com.example")
+public class SpringServletConfig extends WebMvcConfigurationSupport {
+    @Bean
+    public InternalResourceViewResolver resolver() {
+        InternalResourceViewResolver vr = new InternalResourceViewResolver();
+        vr.setPrefix("WEB-INF/jsps/");
+        vr.setSuffix(".jsp");
+        return vr;
+    }
+}
+</code></pre>
+    <p>There's a single <code>@Controller</code> class in the <code>com.example</code> package</p>
+    <pre><code>@Controller
+public class MovieController {
+    private final CopyOnWriteArrayList&lt;Movie&gt; movies = new CopyOnWriteArrayList&lt;&gt;();
+    @RequestMapping(path = "/movies", method = RequestMethod.GET)
+    public String homePage(Model model) {
+        model.addAttribute("movies", movies);
+        return "index";
+    }
+    @RequestMapping(path = "/movies", method = RequestMethod.POST)
+    public String upload(@ModelAttribute("movie") Movie movie, BindingResult errors) {
+        if (!errors.hasErrors()) {
+            movies.add(movie);
+        }
+        return "redirect:/movies";
+    }
+    public static class Movie {
+        private String filmName;
+        public String getFilmName() {
+            return filmName;
+        }
+        public void setFilmName(String filmName) {
+            this.filmName = filmName;
+        }
+    }
+}
+</code></pre>
+    <p><code>WEB-INF/jsps/index.jsp</code> contains</p>
+    <pre><code>&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%&gt;
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta http-equiv="Content-Type" content="text/html; charset=UTF-8"&gt;
+&lt;title&gt;Movies&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    Current Movies:
+    &lt;c:forEach items="${movies}" var="movieItem"&gt;
+        &lt;ul&gt;
+            &lt;li&gt;${movieItem.filmName}&lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/c:forEach&gt;
+    &lt;form:form&gt;
+        &lt;div&gt;Movie name:&lt;/div&gt;
+        &lt;form:input path="filmName" type="text" id="name" /&gt;
+        &lt;input type="submit" value="Upload"&gt;
+    &lt;/form:form&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+    <p>The application is configured with context path <code>/Example</code>. When I send a GET request to</p>
+    <pre><code>http://localhost:8080/Example/movies
+</code></pre>
+    <p>the request fails, Spring MVC responds with a 500 status code, and reports the following exception and stack trace</p>
+    <pre><code>java.lang.IllegalStateException: Neither BindingResult nor plain target object for bean name 'command' available as request attribute
+    org.springframework.web.servlet.support.BindStatus.&lt;init&gt;(BindStatus.java:144)
+    org.springframework.web.servlet.tags.form.AbstractDataBoundFormElementTag.getBindStatus(AbstractDataBoundFormElementTag.java:168)
+    org.springframework.web.servlet.tags.form.AbstractDataBoundFormElementTag.getPropertyPath(AbstractDataBoundFormElementTag.java:188)
+    org.springframework.web.servlet.tags.form.AbstractDataBoundFormElementTag.getName(AbstractDataBoundFormElementTag.java:154)
+    org.springframework.web.servlet.tags.form.AbstractDataBoundFormElementTag.writeDefaultAttributes(AbstractDataBoundFormElementTag.java:117)
+    org.springframework.web.servlet.tags.form.AbstractHtmlElementTag.writeDefaultAttributes(AbstractHtmlElementTag.java:422)
+    org.springframework.web.servlet.tags.form.InputTag.writeTagContent(InputTag.java:142)
+    org.springframework.web.servlet.tags.form.AbstractFormTag.doStartTagInternal(AbstractFormTag.java:84)
+    org.springframework.web.servlet.tags.RequestContextAwareTag.doStartTag(RequestContextAwareTag.java:80)
+    org.apache.jsp.WEB_002dINF.jsps.index_jsp._jspx_meth_form_005finput_005f0(index_jsp.java:267)
+    org.apache.jsp.WEB_002dINF.jsps.index_jsp._jspx_meth_form_005fform_005f0(index_jsp.java:227)
+    org.apache.jsp.WEB_002dINF.jsps.index_jsp._jspService(index_jsp.java:142)
+    org.apache.jasper.runtime.HttpJspBase.service(HttpJspBase.java:70)
+    javax.servlet.http.HttpServlet.service(HttpServlet.java:729)
+    org.apache.jasper.servlet.JspServletWrapper.service(JspServletWrapper.java:438)
+    org.apache.jasper.servlet.JspServlet.serviceJspFile(JspServlet.java:396)
+    org.apache.jasper.servlet.JspServlet.service(JspServlet.java:340)
+    javax.servlet.http.HttpServlet.service(HttpServlet.java:729)
+    org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:52)
+    org.springframework.web.servlet.view.InternalResourceView.renderMergedOutputModel(InternalResourceView.java:168)
+    org.springframework.web.servlet.view.AbstractView.render(AbstractView.java:303)
+    org.springframework.web.servlet.DispatcherServlet.render(DispatcherServlet.java:1257)
+    org.springframework.web.servlet.DispatcherServlet.processDispatchResult(DispatcherServlet.java:1037)
+    org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:980)
+    org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:897)
+    org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:970)
+    org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:861)
+    javax.servlet.http.HttpServlet.service(HttpServlet.java:622)
+    org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:846)
+    javax.servlet.http.HttpServlet.service(HttpServlet.java:729)
+    org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:52)
+</code></pre>
+    <p>I expected the JSP to generate an HTML <code>&lt;form&gt;</code> with a single text input, for a <code>Movie</code> name, and a submit button, that I can use to send a POST request with a new <code>Movie</code>. Why does the JSP servlet instead fail to render Spring's <code>&lt;form:form&gt;</code> tag?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">jsp</span><span class="tag">spring-mvc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>wow why dont they teach that in python school?!</span> <span> - </span> <span class="display-name">o17t H1H' S'k</span> <span> </span> <span class="date">6 Oct 2021 at 19:29</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>46</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sotirios Delimanolis</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Feb 2017 at 06:43</span>
+     </div>
+    </div>
+    <div>
+     <p>You're trying to use <a href="https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html#mvc-view-jsp-formtaglib-formtag" rel="noreferrer">Spring MVC's form tag</a>.</p>
+     <blockquote>
+      <p>This tag renders an HTML <code>form</code> tag and exposes a binding path to inner tags for binding. It puts the command object in the <code>PageContext</code> so that the command object can be accessed by inner tags. [..]</p>
+      <p>Let’s assume we have a domain object called <code>User</code>. It is a JavaBean with properties such as <code>firstName</code> and <code>lastName</code>. We will use it as the <strong>form backing object</strong> of our form controller which returns <code>form.jsp</code>.</p>
+     </blockquote>
+     <p>In other words, Spring MVC will extract a <em>command object</em> and use its type as a blueprint for binding <code>path</code> expressions for <code>form</code>'s inner tags, like <a href="https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html#mvc-view-jsp-formtaglib-inputtag" rel="noreferrer"><code>input</code></a> or <a href="https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html#mvc-view-jsp-formtaglib-checkboxtag" rel="noreferrer"><code>checkbox</code></a>, to render an HTML <code>form</code> element.</p>
+     <p>This <em>command object</em> is also called a model attribute and its name is specified in the <code>form</code> tag's <code>modelAttribute</code> or <code>commandName</code> attributes. You've omitted it in your JSP</p>
+     <pre><code>&lt;form:form&gt; 
+</code></pre>
+     <p>You could've specified a name explicitly. Both of these are equivalent.</p>
+     <pre><code>&lt;form:form modelAttribute="some-example-name"&gt;
+&lt;form:form commandName="some-example-name"&gt;
+</code></pre>
+     <p><strong>NOTE</strong>: Spring 5 has removed the <code>commandName</code> attribute, see the upgrade notes, <a href="https://github.com/spring-projects/spring-framework/wiki/Upgrading-to-Spring-Framework-5.x#removed-packages-classes-and-methods" rel="noreferrer">here</a>.</p>
+     <p>The <a href="http://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/servlet/tags/form/FormTag.html#DEFAULT_COMMAND_NAME" rel="noreferrer">default attribute name is <code>command</code></a> (what you see in error message). A model attribute is an object, typically a POJO or collection of POJOs, that your application supplies to the Spring MVC stack and which the Spring MVC stack exposes to your view (ie. the M to the V in MVC).</p>
+     <p>Spring MVC collects all model attributes in a <a href="http://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/ui/ModelMap.html" rel="noreferrer"><code>ModelMap</code></a> (they all have names) and, in the case of JSPs, transfers them to the <a href="http://docs.oracle.com/javaee/7/api/javax/servlet/http/HttpServletRequest.html" rel="noreferrer"><code>HttpServletRequest</code></a> attributes, where JSP tags and EL expressions have access to them.</p>
+     <p>In your example, your <code>@Controller</code> handler method which handles a <code>GET</code> to the path <code>/movies</code> adds a single model attribute</p>
+     <pre><code>model.addAttribute("movies", movies); // not named 'command'
+</code></pre>
+     <p>and then forwards to the <code>index.jsp</code>. This JSP then tries to render</p>
+     <pre><code>&lt;form:form&gt;
+    ...
+    &lt;form:input path="name" type="text" id="name" /&gt;
+    ...
+&lt;/form:form&gt;
+</code></pre>
+     <p>While rendering this, <a href="http://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/servlet/tags/form/FormTag.html" rel="noreferrer"><code>FormTag</code></a> (in reality, the <a href="http://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/servlet/tags/form/InputTag.html" rel="noreferrer"><code>InputTag</code></a>) tries to find a model attribute named <code>command</code> (the default attribute name) so that it can produce an HTML <code>&lt;input&gt;</code> element with a <code>name</code> attribute constructed from the <code>path</code> expression and the corresponding property value, ie. the result of <code>Movie#getFilmName()</code>.</p>
+     <p>Since it cannot find it, it throws the exception you see</p>
+     <pre><code>java.lang.IllegalStateException: Neither BindingResult nor plain target object for bean name 'command' available as request attribute
+</code></pre>
+     <p>The JSP engine catches it and responds with a 500 status code. If you want to take advantage of a <code>Movie</code> POJO to simply construct your form correctly, you can add a model attribute explicitly with</p>
+     <pre><code>model.addAttribute("movie", new Movie());
+</code></pre>
+     <p>or have Spring MVC create and add one for you (must have an accessible parameterless constructor)</p>
+     <pre><code>@RequestMapping(path = "/movies", method = RequestMethod.GET)
+public String homePage(@ModelAttribute("command") Movie movie, Model model) {...}
+</code></pre>
+     <p>Alternatively, include a <code>@ModelAttribute</code> annotated method in your <code>@Controller</code> class</p>
+     <pre><code>@ModelAttribute("command")
+public Movie defaultInstance() {
+    Movie movie = new Movie();
+    movie.setFilmName("Rocky II");
+    return movie;
+}
+</code></pre>
+     <p>Note that Spring MVC will call this method and implicitly add the object returned to its model attributes for each request handled by the enclosing <code>@Controller</code>.</p>
+     <p>You may have guessed from this description that Spring's <code>form</code> tag is more suited for rendering an HTML <code>&lt;form&gt;</code> from an existing object, with actual values. If you want to simply create a blank <code>&lt;form&gt;</code>, it may be more appropriate to construct it yourself and not rely on any model attributes.</p>
+     <pre><code>&lt;form method="post" action="${pageContext.request.contextPath}/movies"&gt;
+    &lt;input name="filmName" type="text" /&gt;
+    &lt;input type="submit" value="Upload" /&gt;
+&lt;/form&gt;
+</code></pre>
+     <p>On the receiving side, your <code>POST</code> handler method, will still be able to extract the <code>filmName</code> input value and use it to initialize a <code>Movie</code> object.</p>
+     <h2>Common Errors</h2>
+     <p>As we've seen, <code>FormTag</code> looks for a model attribute named <code>command</code> by default or with the name specified in either <code>modelAttribute</code> or <code>commandName</code>. Make sure you're using the right name.</p>
+     <p><code>ModelMap</code> has a <a href="http://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/ui/ModelMap.html#addAttribute-java.lang.Object-" rel="noreferrer"><code>addAttribute(Object)</code></a> method which adds</p>
+     <blockquote>
+      <p>the supplied attribute to this <code>Map</code> using a <a href="http://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/core/Conventions.html#getVariableName-java.lang.Object-" rel="noreferrer">generated</a> name.</p>
+     </blockquote>
+     <p>where the general convention is to</p>
+     <blockquote>
+      <p>return the uncapitalized short name of the [attribute's] <code>Class</code>, according to JavaBeans property naming rules: So, <code>com.myapp.Product</code> becomes <code>product</code>; <code>com.myapp.MyProduct</code> becomes <code>myProduct</code>; <code>com.myapp.UKProduct</code> becomes <code>UKProduct</code></p>
+     </blockquote>
+     <p>If you're using this (or a similar) method or if you're using one of the <code>@RequestMapping</code> <a href="http://docs.spring.io/spring/docs/current/spring-framework-reference/html/mvc.html#mvc-ann-return-types" rel="noreferrer">supported return types</a> that represents a model attribute, make sure the generated name is what you expect.</p>
+     <p>Another common error is to bypass your <code>@Controller</code> method altogether. A typical Spring MVC application follows this pattern:</p>
+     <ol>
+      <li>Send HTTP GET request</li>
+      <li><code>DispatcherServlet</code> selects <code>@RequestMapping</code> method to handle request</li>
+      <li>Handler method generates some model attributes and returns view name</li>
+      <li><code>DispatcherServlet</code> adds model attributes to <code>HttpServletRequest</code> and forwards request to JSP corresponding to view name</li>
+      <li>JSP renders response</li>
+     </ol>
+     <p>If, by some misconfiguration, you skip the <code>@RequestMapping</code> method altogether, the attributes will not have been added. This can happen</p>
+     <ul>
+      <li>if your HTTP request URI accesses your JSP resources directly, eg. because they are accessible, ie. outside <code>WEB-INF</code>, or</li>
+      <li>if the <code>welcome-list</code> of your <code>web.xml</code> contains your JSP resource, the Servlet container will render it directly, bypassing the Spring MVC stack entirely</li>
+     </ul>
+     <p>One way or another, you want your <code>@Controller</code> to be invoked so that the model attributes are added appropriately.</p>
+     <h2>What does <code>BindingResult</code> have to do with this?</h2>
+     <p>A <a href="http://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/validation/BindingResult.html" rel="noreferrer"><code>BindingResult</code></a> is a container for initialization or validation of model attributes. The <a href="http://docs.spring.io/spring/docs/current/spring-framework-reference/html/mvc.html#mvc-ann-arguments" rel="noreferrer">Spring MVC documentation</a> states</p>
+     <blockquote>
+      <p>The <code>Errors</code> or <code>BindingResult</code> parameters have to follow the model object that is being bound immediately as the method signature might have more than one model object and Spring will create a separate <code>BindingResult</code> instance for each of them [...]</p>
+     </blockquote>
+     <p>In other words, if you want to use <code>BindingResult</code>, it has to follow the corresponding model attribute parameter in a <code>@RequestMapping</code> method</p>
+     <pre><code>@RequestMapping(path = "/movies", method = RequestMethod.POST)
+public String upload(@ModelAttribute("movie") Movie movie, BindingResult errors) {
+</code></pre>
+     <p><code>BindingResult</code> objects are also considered model attributes. Spring MVC uses a simple naming convention to manage them, making it easy to find a corresponding regular model attribute. Since the <code>BindingResult</code> contains more data about the model attribute (eg. validation errors), the <code>FormTag</code> attempts to bind to it first. However, since they go hand in hand, it's unlikely one will exist without the other.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I ran into the error even though I had the MethodAttribute setup up correctly in my FormTag an in the controller for a GET endpoint and a POST endpoint. It was on the POST that I ran into the same error message, but it turned out to be a self induced injury. I had called clear() on the Model which removed the attribute that was expected when the response was redirected to the same form. I removed the call to clear() to fix the problem.</span> <span> - </span> <span class="display-name">Xenson</span> <span> </span> <span class="date">17 Oct 2019 at 22:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I got this error after refactoring a SpringBoot app, and it turned out to be due to some classes referenced in the view template being accidentally taken out of scope of the implicit <code>@ComponentScan</code>.</span> <span> - </span> <span class="display-name">Alex R</span> <span> </span> <span class="date">31 May 2020 at 03:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Kanaris007</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2021 at 07:32</span>
+     </div>
+    </div>
+    <div>
+     <p>I tried to migrate my application to Spring5 and noticed the same issue. It was caused by the moment that the 'commandName' attribute is not supported anymore and I had to use 'modelAttribute' instead.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pasha Utt</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jan 2018 at 13:42</span>
+     </div>
+    </div>
+    <div>
+     <p>To make things simple with the form tag just add a "commandName" which is a horrible name for what it is actually looking for...it wants the object you named in the MdelAttribute annotation. So in this case commandName="movie".</p>
+     <p>That'll save you reading long winded explanations friend.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dotard</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Mar 2019 at 02:01</span>
+     </div>
+    </div>
+    <div>
+     <p>I had this error on a screen with multiple forms that do a search. Each form posts to its own controller method with results shown on same screen.</p>
+     <p>Problem: I missed adding the other two forms as model attributes in each controller method causing that error when screen renders with results.</p>
+     <pre><code>Form1 -&gt; bound to Bean1 (bean1) -&gt; Posting to /action1
+Form2 -&gt; bound to Bean2 (bean2) -&gt; Posting to /action2
+Form3 -&gt; bound to Bean3 (bean2) -&gt; Posting to /action3
+</code></pre>
+     <pre><code>@PostMapping
+public String blah(@ModelAttribute("bean1") Bean1 bean, Model model){
+// do something with bean object
+
+// do not miss adding other 2 beans as model attributes like below. 
+model.addAttribute("bean2", new Bean2()); 
+model.addAttribute("bean3", new Bean3());
+return "screen";
+}
+
+@PostMapping
+public String blahBlah(@ModelAttribute("bean2") Bean2 bean, Model model){
+// do something with bean object
+// do not miss adding other 2 beans as model attributes like below. 
+model.addAttribute("bean1", new Bean1()); 
+model.addAttribute("bean3", new Bean3());
+return "screen";
+}
+
+@PostMapping
+public String blahBlahBlah(@ModelAttribute("bean3") Bean3 bean, Model model){
+// do something with bean object
+// do not miss adding other 2 beans as model attributes like below. 
+model.addAttribute("bean1", new Bean1()); 
+model.addAttribute("bean2", new Bean2());
+return "screen";
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pedro Madrid</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Sep 2018 at 17:43</span>
+     </div>
+    </div>
+    <div>
+     <p>In my case, it worked by adding <code>modelAttribute="movie"</code> to the form tag, and prepending the model name to the attribute, something like <code>&lt;form:input path="filmName" type="text" id="movie.name" /&gt;</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>shaqer74</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Nov 2018 at 18:06</span>
+     </div>
+    </div>
+    <div>
+     <p>Updating from Spring version 3 to Spring version 5, produces the same error. All answers were satisfied already in my code. Adding the annotation <code>@ControllerAdvice</code> solved the problem for me.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Aman_Bhala</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Feb 2023 at 06:54</span>
+     </div>
+    </div>
+    <div>
+     <p>If your Model object is correctly being passed to the GET API call but still have this error, you may look at the html or jsp page also to check whether correct variables names are provided and tags are used correctly. In my case, I forgot to include the objects under the closing <code>&lt;form&gt;</code> tag.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

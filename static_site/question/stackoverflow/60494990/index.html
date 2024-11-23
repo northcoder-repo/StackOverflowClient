@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why is generic type information visible in class file?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why is generic type information visible in class file?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Krzysztof</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>2 Mar 2020 at 18:55</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60494990/why-is-generic-type-information-visible-in-class-file">source</a>
+    </div>
+   </div>
+   <div>
+    <p>According to <a href="https://docs.oracle.com/javase/tutorial/java/generics/genTypes.html" rel="nofollow noreferrer">https://docs.oracle.com/javase/tutorial/java/generics/genTypes.html</a> each non-bounded type should be replaced by <code>Object</code> by compiler.</p>
+    <p>I have a class:</p>
+    <pre><code> public class Test&lt;E&gt; {
+
+    void setE(E e) {
+        return;
+   }
+}
+</code></pre>
+    <p>After decompilation in Idea the result is this:</p>
+    <pre><code> public class Test&lt;E&gt; {
+    public Test() {
+    }
+
+    void setE(E e) {
+    }
+  }
+</code></pre>
+    <p>Why is <code>E</code> not replaced with <code>Object</code>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Because the compiler probably still maintains that the class is generic, and it includes some metadata to denote that, which is what the decompiler sees.</span> <span> - </span> <span class="display-name">Jacob G.</span> <span> </span> <span class="date">2 Mar 2020 at 18:59</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Andy Turner</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Mar 2020 at 19:00</span>
+     </div>
+    </div>
+    <div>
+     <p>The compiler still needs to know that this code is correct:</p>
+     <pre><code>Test&lt;String&gt; test = new Test&lt;&gt;();
+test.setE("");
+</code></pre>
+     <p>and this is incorrect:</p>
+     <pre><code>test.setE(1);
+</code></pre>
+     <hr>
+     <p>Essentially, generics allow you to omit casts. <code>Test&lt;String&gt;</code> isn't a "Test String", it's a "Test", with a compiler directive to check that everything passed to the <code>setE</code> is a <code>String</code> (or a subclass, or null).</p>
+     <p>But you don't actually need to know that <code>setE</code> was passed a <code>String</code> (etc) at runtime, because it was checked by the compiler at compile time. So, inside the <code>setE</code> method, the parameter is treated as an <code>Object</code>, not a <code>String</code> - it is erased.</p>
+     <p>But on the edges - the entry and exit points from methods - the compiler preserves the generics, because it needs to, in order to allow you to compile against that code without having the original source code.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span><i>"checked by the compiler at runtime"</i> – Shouldn't that be <i>"compile time"</i> instead?</span> <span> - </span> <span class="display-name">MC Emperor</span> <span> </span> <span class="date">2 Mar 2020 at 19:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Generic types may <i>also</i> be checked at runtime - if there's a <code>public E getE()</code> method, and you do <code>String s = new Test&lt;String&gt;().getE();</code> then the compiler will add a bytecode instruction to check the cast at the call-site, since in general a generic class can contain casts like <code>return (E) new Object();</code>, which are uncheckable within the class itself due to type-erasure.</span> <span> - </span> <span class="display-name">kaya3 - support the strike</span> <span> </span> <span class="date">2 Mar 2020 at 19:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Michael</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Mar 2020 at 19:08</span>
+     </div>
+    </div>
+    <div>
+     <p>The tutorial is somewhat misleading here. It is trying to make a point about type erasure, but it doesn't do so very elegantly.</p>
+     <p>The bytecode for your generated class is as follows. Clearly this information is not discarded.</p>
+     <pre><code>  Last modified 2 Mar 2020; size 332 bytes
+  MD5 checksum e3b7faf33fd5666eae578bd516d0f903
+  Compiled from "Test.java"
+public class Test&lt;E extends java.lang.Object&gt; extends java.lang.Object
+  minor version: 0
+  major version: 53
+  flags: (0x0021) ACC_PUBLIC, ACC_SUPER
+  this_class: #2                          // Test
+  super_class: #3                         // java/lang/Object
+  interfaces: 0, fields: 0, methods: 2, attributes: 2
+Constant pool:
+   #1 = Methodref          #3.#15         // java/lang/Object."&lt;init&gt;":()V
+   #2 = Class              #16            // Test
+   #3 = Class              #17            // java/lang/Object
+   #4 = Utf8               &lt;init&gt;
+   #5 = Utf8               ()V
+   #6 = Utf8               Code
+   #7 = Utf8               LineNumberTable
+   #8 = Utf8               setE
+   #9 = Utf8               (Ljava/lang/Object;)V
+  #10 = Utf8               Signature
+  #11 = Utf8               (TE;)V
+  #12 = Utf8               &lt;E:Ljava/lang/Object;&gt;Ljava/lang/Object;
+  #13 = Utf8               SourceFile
+  #14 = Utf8               Test.java
+  #15 = NameAndType        #4:#5          // "&lt;init&gt;":()V
+  #16 = Utf8               Test
+  #17 = Utf8               java/lang/Object
+{
+  public Test();
+    descriptor: ()V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."&lt;init&gt;":()V
+         4: return
+      LineNumberTable:
+        line 1: 0
+
+  void setE(E);
+    descriptor: (Ljava/lang/Object;)V
+    flags: (0x0000)
+    Code:
+      stack=0, locals=2, args_size=2
+         0: return
+      LineNumberTable:
+        line 3: 0
+    Signature: #11                          // (TE;)V
+}
+Signature: #12                          // &lt;E:Ljava/lang/Object;&gt;Ljava/lang/Object;
+SourceFile: "Test.java"
+</code></pre>
+     <p>The reason that this information cannot be thrown away in the bytecode is imagine that this class is part of a library; another project depends upon it. At compile-time in that 2nd project, their compiler needs to be able to make assertions about whether the generic type parameter is in bounds. If it had been thrown away completely, they'd have to write</p>
+     <pre><code>Test test = new Test();
+</code></pre>
+     <p>while I, in my source project, could write</p>
+     <pre><code>Test&lt;String&gt; test = new Test&lt;&gt;():
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>The tutorial is correct in the sense that if you wanted to refer to this method, say, via reflection, the method's signature would be <code>setE(Object)</code>.</span> <span> - </span> <span class="display-name">Andy Turner</span> <span> </span> <span class="date">2 Mar 2020 at 19:11</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@AndyTurner It is misleading because it makes it seem like the compiler could effectively replace the <i>before</i> source with the <i>after</i> source, which is not accurate</span> <span> - </span> <span class="display-name">Michael</span> <span> </span> <span class="date">2 Mar 2020 at 19:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

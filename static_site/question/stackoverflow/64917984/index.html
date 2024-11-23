@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>XMLUnit - compare xml and ignore few tags based on a condition</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>XMLUnit - compare xml and ignore few tags based on a condition</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>achyuth pydmarri</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Nov 2020 at 18:38</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64917984/xmlunit-compare-xml-and-ignore-few-tags-based-on-a-condition">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have couple of xmls which needs to be compared with different set of similar xml and while comparing i need to ignore tags based on a condition, for example</p>
+    <ol>
+     <li>personal.xml - ignore fullname</li>
+     <li>address.xml - igone zipcode</li>
+     <li>contact.xml - ignore homephone</li>
+    </ol>
+    <p><strong>here is the code</strong></p>
+    <pre><code>            Diff documentDiff=DiffBuilder
+                    .compare(actualxmlfile)
+                    .withTest(expectedxmlfile)
+                    .withNodeFilter(node -&gt; !node.getNodeName().equals("FullName"))                     
+                    .ignoreWhitespace()
+                    .build();
+</code></pre>
+    <p>How can i add conditions at " .withNodeFilter(node -&gt; !node.getNodeName().equals("FullName")) " or is there a smarter way to do this</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">xml</span><span class="tag">xmlunit</span><span class="tag">xmlunit-2</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Nov 2020 at 17:26</span>
+     </div>
+    </div>
+    <div>
+     <p>You can join multiple conditions together using "and" (<code>&amp;&amp;</code>):</p>
+     <pre class="lang-java prettyprint-override"><code>private static void doDemo1(File actual, File expected) {
+
+    Diff docDiff = DiffBuilder
+            .compare(actual)
+            .withTest(expected)
+            .withNodeFilter(
+                    node -&gt; !node.getNodeName().equals("FullName")
+                    &amp;&amp; !node.getNodeName().equals("ZipCode")
+                    &amp;&amp; !node.getNodeName().equals("HomePhone")
+            )
+            .ignoreWhitespace()
+            .build();
+
+    System.out.println(docDiff.toString());
+}
+</code></pre>
+     <p>If you want to keep your builder tidy, you can move the node filter to a separate method:</p>
+     <pre class="lang-java prettyprint-override"><code>private static void doDemo2(File actual, File expected) {
+
+    Diff docDiff = DiffBuilder
+            .compare(actual)
+            .withTest(expected)
+            .withNodeFilter(node -&gt; testNode(node))
+            .ignoreWhitespace()
+            .build();
+
+    System.out.println(docDiff.toString());
+}
+
+private static boolean testNode(Node node) {
+    return !node.getNodeName().equals("FullName")
+            &amp;&amp; !node.getNodeName().equals("ZipCode")
+            &amp;&amp; !node.getNodeName().equals("HomePhone");
+}
+</code></pre>
+     <p>The risk with this is you may have element names which appear in more than one type of file - where that node needs to be filtered from one type of file, but not any others.</p>
+     <p>In this case, you would also need to take into account the type of file you are handling. For example, you can use the file names (if they follow a suitable naming convention) or use the root elements (assuming they are different) - such as <code>&lt;Personal&gt;</code>, <code>&lt;Address&gt;</code>, <code>&lt;Contact&gt;</code> - or whatever they are, in your case.</p>
+     <p>However, if you need to distinguish between XML file types, for this reason, you may be better off using that information to have separate <code>DiffBuilder</code> objects, with different filters. That may result in clearer code.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Shabrish Nayak</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jun 2021 at 14:50</span>
+     </div>
+    </div>
+    <div>
+     <p>I had provided the separate method in the below link for <strong>!node.getNodeName().equals("FullName")</strong>(which you are using in your code), I think by using that separate method you can just pass the array of nodes which you want to ignore and see the results. And incase you wish to add any other conditions based on your requirement, you can try and play in this method.</p>
+     <p><a href="https://stackoverflow.com/a/68099435/13451711">https://stackoverflow.com/a/68099435/13451711</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

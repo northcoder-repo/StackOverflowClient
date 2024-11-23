@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Total of multiple columns using datatables footer callback</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Total of multiple columns using datatables footer callback</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>5</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Cheknov</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Nov 2021 at 01:21</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/69877813">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to implement a datatable with multiple columns containing numerical values.</p>
+    <p>I would like to show the sum of each column in the table footer.</p>
+    <p>I got some inspiration from <a href="https://datatables.net/examples/advanced_init/footer_callback.html" rel="noreferrer">here</a>.</p>
+    <p><a href="http://live.datatables.net/vepedopa/16/" rel="noreferrer">LIVE JS BIN DEMO</a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>The documentation states that <a href="https://datatables.net/reference/type/column-selector" rel="nofollow noreferrer">the column selector accepts several types of identifier, such as integer, array, or jQuery selector</a>, so you could try an array of your column indexes, or maybe a CSS class would work.</span> <span> - </span> <span class="display-name">mark_b</span> <span> </span> <span class="date">8 Nov 2021 at 09:43</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Nov 2021 at 14:24</span>
+     </div>
+    </div>
+    <div>
+     <p>The following is a minimal solution focusing on the creation of multiple column totals in the footer row. You would need to re-apply your CSS, checkboxes and overall HTML structure:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>$(document).ready(function() {
+
+  var table = $('#example').DataTable( {
+    initComplete: function(settings, json) {
+      // calculate the sum when table is first created:
+      doSum();
+    }
+  } );
+
+  $('#example').on( 'draw.dt', function () {
+    // re-calculate the sum whenever the table is re-displayed:
+    doSum();
+  } );
+
+  // This provides the sum of all records:
+  function doSum() {
+    // get the DataTables API object:
+    var table = $('#example').DataTable();
+    // set up the initial (unsummed) data array for the footer row:
+    var totals = ['','Totals',0,0,0,0,0,0,0,''];
+    // iterate all rows - use table.rows( {search: 'applied'} ).data()
+    // if you want to sum only filtered (visible) rows:
+    totals = table.rows( ).data()
+      // sum the amounts:
+      .reduce( function ( sum, record ) {
+        for (let i = 2; i &lt;= 8; i++) {
+          sum[i] = sum[i] + numberFromString(record[i]);
+        } 
+        return sum;
+      }, totals ); 
+    // place the sum in the relevant footer cell:
+    for (let i = 1; i &lt;= 8; i++) {
+      var column = table.column( i );
+      $( column.footer() ).html( formatNumber(totals[i]) );
+    }
+  }
+
+  function numberFromString(s) {
+    return typeof s === 'string' ?
+      s.replace(/[\$,]/g, '') * 1 :
+      typeof s === 'number' ?
+      s : 0;
+  }
+
+  function formatNumber(n) {
+     return n.toLocaleString(); // or whatever you prefer here
+  }
+
+} );</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.0.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+                                                &lt;thead&gt;
+        &lt;tr&gt;
+            &lt;th class="text-center"&gt;&lt;input type="checkbox" class="selectAll" name="selectAll" value="all"&gt;&lt;/th&gt;
+            &lt;th&gt;ID&lt;/th&gt;
+            &lt;th&gt;Fee1&lt;/th&gt;
+            &lt;th&gt;Fee2&lt;/th&gt;
+            &lt;th&gt;Fee3&lt;/th&gt;
+            &lt;th&gt;Fee4&lt;/th&gt;
+            &lt;th&gt;Fee5&lt;/th&gt;
+            &lt;th&gt;Fee6&lt;/th&gt;
+            &lt;th&gt;Sub Total&lt;/th&gt;
+            &lt;th&gt;Copy&lt;/th&gt;
+        &lt;/tr&gt;
+    &lt;/thead&gt;
+    &lt;tbody&gt;
+        &lt;tr&gt;
+            &lt;td&gt;&lt;/td&gt;
+            &lt;td&gt;AF-01&lt;/td&gt;
+            &lt;td&gt;100,001&lt;/td&gt;
+            &lt;td&gt;100,002&lt;/td&gt;
+            &lt;td&gt;100,003&lt;/td&gt;
+            &lt;td&gt;100,004&lt;/td&gt;
+            &lt;td&gt;100,005&lt;/td&gt;
+            &lt;td&gt;100,006&lt;/td&gt;
+            &lt;td&gt;100,007&lt;/td&gt;
+            &lt;td&gt;&lt;/td&gt;
+        &lt;/tr&gt;
+        &lt;tr&gt;
+              &lt;td&gt;&lt;/td&gt;
+              &lt;td&gt;AF-01&lt;/td&gt;
+              &lt;td&gt;100,000&lt;/td&gt;
+              &lt;td&gt;100,000&lt;/td&gt;
+              &lt;td&gt;100,000&lt;/td&gt;
+              &lt;td&gt;100,000&lt;/td&gt;
+              &lt;td&gt;100,000&lt;/td&gt;
+              &lt;td&gt;100,000&lt;/td&gt;
+              &lt;td&gt;100,000&lt;/td&gt;
+              &lt;td&gt;&lt;/td&gt;
+          &lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;tfoot&gt;
+            &lt;tr&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/tfoot&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>I added notes inline in the code - but one point to note: If you want to adjust the sum so that it reflects visible (unfiltered) data, you can replace this:</p>
+     <pre class="lang-js prettyprint-override"><code>table.rows( ).data()
+</code></pre>
+     <p>with this:</p>
+     <pre class="lang-js prettyprint-override"><code>table.rows( {search: 'applied'} ).data()
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Excellent! I adapted this code to my table and now it is working. Thank you!</span> <span> - </span> <span class="display-name">Cheknov</span> <span> </span> <span class="date">9 Nov 2021 at 01:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>artico</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jun 2022 at 17:36</span>
+     </div>
+    </div>
+    <div>
+     <p>Simple code, focus in the "footerCallback" of the DataTable:</p>
+     <pre><code>var table = $('#example').DataTable( {
+    data: [
+        ...
+    ],
+    columns: [
+        ...
+    ],
+    footerCallback: function (row, data, start, end, display) {
+        var api = this.api();
+
+        // Sum each of 4 columns, beginning with col[0]:
+        for(var i=0; i&lt;=3; i++) {
+            let sum = api.column(i).data().sum();
+            $(api.column(i).footer()).html(sum);
+        }
+    }
+});
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>this worked for me after adding a reference to the sum plugin <a href="https://cdn.datatables.net/plug-ins/1.12.1/api/sum().js" rel="nofollow noreferrer">cdn.datatables.net/plug-ins/1.12.1/api/sum().js</a></span> <span> - </span> <span class="display-name">Wallabout Programming</span> <span> </span> <span class="date">24 Jul 2022 at 19:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

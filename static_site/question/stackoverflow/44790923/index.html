@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Docker Compose + Spring Boot + Postgres connection</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Docker Compose + Spring Boot + Postgres connection</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>30</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>typos</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Jun 2017 at 22:28</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/44790923/docker-compose-spring-boot-postgres-connection">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a Java Spring Boot app which works with a Postgres database. I want to use Docker for both of them. I initially put just the Postgres in Docker, and I had a <code>docker-compose.yml</code> file defined like this:</p>
+    <pre><code>version: '2'
+services:
+    db:
+        container_name: sample_db
+        image: postgres:9.5
+        volumes:
+            - sample_db:/var/lib/postgresql/data
+        environment:
+            - POSTGRES_PASSWORD=sample
+            - POSTGRES_USER=sample
+            - POSTGRES_DB=sample
+            - PGDATA=/var/lib/postgresql/data/pgdata
+        ports:
+            - 5432:5432
+
+volumes:
+    sample_db: {}
+</code></pre>
+    <p>Then, when I issued the commands <code>sudo dockerd</code> and <code>sudo docker-compose -f docker-compose.yml up</code>, it was starting the database. I could connect using <code>pgAdmin</code> for example, by using <code>localhost</code> as server and port <code>5432</code>. Then, in my Spring Boot app, inside the <code>application.properties</code> file I defined the following properties.</p>
+    <pre><code>spring.datasource.url=jdbc:postgresql://localhost:5432/sample
+spring.datasource.username=sample
+spring.datasource.password=sample
+spring.jpa.generate-ddl=true
+</code></pre>
+    <p>At this point I could run my Spring Boot app locally through Spring Suite, and it all was working fine. Then, I wanted to also add my Spring Boot app as Docker image. I first of all created a Dockerfile in my project directory, which looks like this:</p>
+    <pre><code>FROM java:8
+EXPOSE 8080
+ADD /target/manager.jar manager.jar
+ENTRYPOINT ["java","-jar","manager.jar"]
+</code></pre>
+    <p>Then, I entered to the directory of the project issued <code>mvn clean</code> followed by <code>mvn install</code>. Next, issued <code>docker build -f Dockerfile -t manager .</code> followed by <code>docker tag 9c6b1e3f1d5e myuser/manager:latest</code> (the id is correct). Finally, I edited my existing <code>docker-compose.yml</code> file to look like this:</p>
+    <pre><code>version: '2'
+services:
+    web:
+      image: myuser/manager:latest
+      ports: 
+          - 8080:8080
+      depends_on:
+          - db
+    db:
+        container_name: sample_db
+        image: postgres:9.5
+        volumes:
+            - sample_db:/var/lib/postgresql/data
+        environment:
+            - POSTGRES_PASSWORD=sample
+            - POSTGRES_USER=sample
+            - POSTGRES_DB=sample
+            - PGDATA=/var/lib/postgresql/data/pgdata
+        ports:
+            - 5432:5432
+
+volumes:
+    sample_db: {}
+</code></pre>
+    <p>But, now if I issue <code>sudo docker-compose -f docker-compose.yml up</code> command, the database again starts correctly, but I get errors and exit code 1 for the web app part. The problem is the connection string. I believe I have to change it to something else, but I don't know what it should be. I get the following error messages:</p>
+    <pre><code>web_1  | 2017-06-27 22:11:54.418 ERROR 1 --- [           main] o.a.tomcat.jdbc.pool.ConnectionPool      : Unable to create initial connections of pool.
+web_1  | 
+web_1  | org.postgresql.util.PSQLException: Connection to localhost:5432 refused. Check that the hostname and port are correct and that the postmaster is accepting TCP/IP connections
+</code></pre>
+    <p>Any ideas?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">spring</span><span class="tag">postgresql</span><span class="tag">docker</span><span class="tag">docker-compose</span><span class="tag">dockerfile</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>I create a demo project which use Spring Boot 2 + Docker Compose and Postgresql, <a href="https://muzir.github.io/spring/docker/docker-compose/postgres/2019/03/24/Spring-Boot-Docker.html" rel="nofollow noreferrer">muzir.github.io/spring/docker/docker-compose/postgres/2019/0‌​3/…</a></span> <span> - </span> <span class="display-name">erhun</span> <span> </span> <span class="date">21 Jun 2019 at 06:46</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>42</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Robert</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jun 2017 at 00:13</span>
+     </div>
+    </div>
+    <div>
+     <p>Each container has its own network interface with its own localhost. So change how Java points to Postgres:</p>
+     <pre><code>spring.datasource.url=jdbc:postgresql://localhost:5432/sample
+</code></pre>
+     <p>To:</p>
+     <pre><code>spring.datasource.url=jdbc:postgresql://db:5432/sample
+</code></pre>
+     <p><code>db</code> will resolve to the proper Postgres IP.</p>
+     <hr>
+     <p>Bonus. With docker-compose you don't need to build your image by hand. So change:</p>
+     <pre><code>web:
+  image: myuser/manager:latest
+</code></pre>
+     <p>To:</p>
+     <pre><code>web:
+  build: .
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>one thing I don't understand is, I'm using JPA in my application and in order to build the spring-boot app it needs to connect to my DB, which I cannot do if my postgre docker isn't running, correct? So basically with the similar application properties configured to connect to dockerized postgre db I can't build my app in first place...</span> <span> - </span> <span class="display-name">solujic</span> <span> </span> <span class="date">1 Feb 2020 at 10:35</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Olexander Yushko</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Apr 2020 at 21:09</span>
+     </div>
+    </div>
+    <div>
+     <p>I had the same problem and I lost some time to understand and solve this problem:</p>
+     <pre><code>org.postgresql.util.PSQLException: Connection to localhost:5432 refused. Check that the hostname and port are correct and that the postmaster is accepting TCP/IP connections.
+</code></pre>
+     <p>I show all the properties so that everyone understands.<br><code>application.properties:</code><br></p>
+     <pre><code>spring.datasource.url=jdbc:postgresql://localhost:5432/testdb
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQL82Dialect
+spring.jpa.hibernate.ddl-auto=update
+</code></pre>
+     <p><code>docker-compose.yml:</code></p>
+     <pre><code>  version: "3"
+  services:
+    springapp:
+      build: .
+      container_name: springapp
+      environment:
+        SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/testdb
+      ports:
+        - 8000:8080
+      restart: always
+      depends_on:
+        - db
+    db:
+      image: postgres
+      container_name: db
+      environment:
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=postgres
+        - POSTGRES_DB=testdb
+        - PGDATA=/var/lib/postgresql/data/pgdata
+      ports:
+        - 5000:5432
+      volumes:
+        - pgdata:/var/lib/postgresql/data
+      restart: always
+  volumes:
+    pgdata:
+</code></pre>
+     <p>For start spring application with local database we use url localhost.<br>
+       For connect to container with database we need change 'localhost' on your database service, in my case '<strong>localhost</strong>' to '<strong>db</strong>'.<br><br><em>Solution</em>: add <code>SPRING_DATASOURCE_URL</code> environment in <code>docker-compose.yml</code> wich rewrite <code>spring.datasource.url</code> value for connect: <br></p>
+     <pre><code>  environment:
+    SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/testdb
+</code></pre>
+     <p>I hope this helps someone save his time.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>can you share your dockerfile</span> <span> - </span> <span class="display-name">aswzen</span> <span> </span> <span class="date">18 Jul 2020 at 16:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I didn<code>t know that env variables override what</code>s in the app.properties. Thanks Alexander!</span> <span> - </span> <span class="display-name">Dimo Georgiev</span> <span> </span> <span class="date">22 Sep 2020 at 13:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thaank you, it took me some hours to find a solution.</span> <span> - </span> <span class="display-name">xmen-5</span> <span> </span> <span class="date">5 Mar 2022 at 13:53</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>cemahi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Nov 2019 at 15:00</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use this.</p>
+     <pre><code>version: "2"
+services:
+    sample_db-postgresql:
+        image: postgres:9.5
+        ports:
+            - 5432:5432
+        environment:
+            - POSTGRES_PASSWORD=sample
+            - POSTGRES_USER=sample
+            - POSTGRES_DB=sample
+         volumes:
+            - sample_db:/var/lib/postgresql/data
+
+volumes:
+    sample_db:
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>ilboudo kader</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 May 2022 at 00:09</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use ENV variable to change the db address in your docker-compose. Dockerfile:</p>
+     <pre><code>FROM java:8
+EXPOSE 8080
+ENV POSTGRES localhost
+ADD /target/manager.jar manager.jar
+ENTRYPOINT exec java $JAVA_OPTS -jar manager.jar --spring.datasource.url=jdbc:postgresql://$POSTGRES:5432/sample
+</code></pre>
+     <p>docker-compose: `</p>
+     <pre><code>  container_name: springapp
+  environment:
+   - POSTGRES=db`
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

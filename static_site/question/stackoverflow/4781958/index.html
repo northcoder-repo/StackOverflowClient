@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to know what JAXB implementation is used?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to know what JAXB implementation is used?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>11</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>basZero</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Jan 2011 at 12:28</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/4781958/how-to-know-what-jaxb-implementation-is-used">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using MOXy as JAXB Implementation but somehow I would like to show the Implementation Name (e.g. Moxy) and the version number on some admin screen (dynamically).</p>
+    <p>How can I retrieve that info from JAXB?</p>
+    <p>Cheers</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jaxb</span><span class="tag">eclipselink</span><span class="tag">moxy</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>bdoughan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jan 2011 at 15:17</span>
+     </div>
+    </div>
+    <div>
+     <p>You could do something like the following to figure out the JAXB impl being used:</p>
+     <pre><code>import javax.xml.bind.JAXBContext;
+
+public class Demo {
+
+    private static final String MOXY_JAXB_CONTEXT = "org.eclipse.persistence.jaxb.JAXBContext";
+    private static final String METRO_JAXB_CONTEXT = "com.sun.xml.bind.v2.runtime.JAXBContextImpl";
+
+    public static void main(String[] args) throws Exception {
+        JAXBContext jc = JAXBContext.newInstance(Root.class);
+
+        String jaxbContextImpl = jc.getClass().getName();
+        if(MOXY_JAXB_CONTEXT.equals(jaxbContextImpl)) {
+            System.out.println("EclipseLink MOXy");
+        } else if(METRO_JAXB_CONTEXT.equals(jaxbContextImpl)) {
+            System.out.println("Metro");
+        } else {
+            System.out.println("Other");
+        }
+    }
+
+}
+</code></pre>
+     <p>You can get information about the EclipseLink version being used from it's Version class:</p>
+     <pre><code>import org.eclipse.persistence.Version;
+
+public class VersionDemo {
+
+    public static void main(String[] args) {
+        System.out.println(Version.getVersion());
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>And how to investigate what is "Other"?</span> <span> - </span> <span class="display-name">Line</span> <span> </span> <span class="date">16 Oct 2017 at 13:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>David Tonhofer</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Sep 2017 at 13:43</span>
+     </div>
+    </div>
+    <div>
+     <p>Based on Blaise Doughan's answer, a slight modification (JUnit test). Note that the package of the Metro implementation seems to have changed (maybe around Java6u4). There still is no self-inspection interface? SAD!</p>
+     <pre><code>import org.junit.Test;
+
+public class JaxbVersion {
+
+    @Test
+    public void printJaxbInformation() throws JAXBException {
+        String MOXY = "org.eclipse.persistence.jaxb";
+        String METRO_EARLY = "com.sun.xml.bind.v2";
+        String METRO_LATE = "com.sun.xml.internal.bind.v2"; // since JDK 6u4 (?)
+        String CAMEL = "org.apache.camel.converter.jaxb";       
+        Class&lt;?&gt; clazz = SomeJaxbGeneratedClass.class;
+        // http://docs.oracle.com/javaee/7/api/javax/xml/bind/JAXBContext.html
+        JAXBContext jc = JAXBContext.newInstance(clazz); 
+        String jcClassName = jc.getClass().getName();
+        String res;
+        if (jcClassName.startsWith(MOXY)) {
+            res = "EclipseLink MOXy";
+        } else if (jcClassName.startsWith(METRO_EARLY) || jcClassName.startsWith(METRO_LATE)) {
+            res = "Oracle Metro";
+        } else if (jcClassName.startsWith(CAMEL)) {
+            res = "Apache Camel";
+        } else {
+            res = "Unknown";
+        }
+        res = res + "(" + jcClassName + ")";        
+        System.out.println(res);
+    }
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

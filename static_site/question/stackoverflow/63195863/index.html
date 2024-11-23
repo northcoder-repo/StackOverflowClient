@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>US/Imperial units with Java's Units of Measurement API</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>US/Imperial units with Java's Units of Measurement API</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Brad Mace</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>31 Jul 2020 at 16:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63195863/us-imperial-units-with-javas-units-of-measurement-api">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm only seeing metric units in the <a href="https://mvnrepository.com/artifact/tech.units/indriya/2.0.4" rel="nofollow noreferrer">Indriya 2.0.4 reference implementation</a> of the Java Units of Measurement standard. Surely other people have wanted to work with feet, inches, and miles, but I can't find anything about that. Can anyone tell me what I'm missing here?</p>
+    <p>I can do <code>Quantity&lt;Mass&gt; weight = Quantities.getQuantity(1, Units.KILOGRAM);</code>, so where is <code>Quantity&lt;Mass&gt; weight = Quantities.getQuantity(1, Units.POUND);</code>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">units-of-measurement</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span><a href="https://www.jcp.org/en/jsr/detail?id=385" rel="nofollow noreferrer">The JSR states that it is "<i>Focused on the SI System redefinition [...].</i>"</a></span> <span> - </span> <span class="display-name">Turing85</span> <span> </span> <span class="date">31 Jul 2020 at 16:52</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Aug 2020 at 17:29</span>
+     </div>
+    </div>
+    <div>
+     <p>For measurements which are wider than just SI units, you can use some of the other APIs in the <a href="https://github.com/unitsofmeasurement" rel="nofollow noreferrer">Units of Measurement</a> project (which includes the <code>indriya</code> API).</p>
+     <p>Specifically, the <code>CLDR</code> and <code>USCustomary</code> classes may be of interest. However, I have not had success combining units from different classes, e.g. for conversions (see the commented-out code below).</p>
+     <p>Some examples:</p>
+     <pre><code>import javax.measure.Quantity;
+import javax.measure.quantity.Length;
+import javax.measure.quantity.Mass;
+
+import systems.uom.unicode.CLDR;
+import systems.uom.common.USCustomary;
+
+import tec.units.ri.quantity.Quantities;
+import tec.units.ri.unit.Units;
+
+...
+
+Quantity&lt;Mass&gt; weight1 = Quantities.getQuantity(1, Units.KILOGRAM);
+Quantity&lt;Mass&gt; weight2 = Quantities.getQuantity(1, USCustomary.POUND);
+        
+// javax.measure.IncommensurableException: kg is not compatible with lb
+//Double d2 = Units.KILOGRAM.getConverterTo(CLDR.POUND).convert(1);
+
+Quantity&lt;Mass&gt; weight3 = Quantities.getQuantity(123.45, CLDR.GRAM);
+Quantity&lt;Mass&gt; weight4 = Quantities.getQuantity(123.45, CLDR.OUNCE);
+Quantity&lt;Mass&gt; weight5 = Quantities.getQuantity(123.45, CLDR.OUNCE_TROY);
+        
+Double ounces = CLDR.GRAM.getConverterTo(CLDR.OUNCE)
+        .convert(weight3.getValue()).doubleValue();
+System.out.println(weight3.getValue() + " grams = " + ounces + " ounces");
+        
+Quantity&lt;Length&gt; dist1 = Quantities.getQuantity(123.45, CLDR.KILOMETER);
+Double miles = CLDR.KILOMETER.getConverterTo(CLDR.MILE)
+        .convert(dist1.getValue()).doubleValue();
+System.out.println(dist1.getValue() + " kilometers = " + miles + " miles");
+</code></pre>
+     <p>The outputs from the above examples are:</p>
+     <pre><code>123.45 grams = 4.354570602675702 ounces
+123.45 kilometers = 76.70827368169888 miles
+</code></pre>
+     <p>My POM dependencies for this are:</p>
+     <pre><code>&lt;dependencies&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;javax.measure&lt;/groupId&gt;
+        &lt;artifactId&gt;unit-api&lt;/artifactId&gt;
+        &lt;version&gt;2.0&lt;/version&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;tec.units&lt;/groupId&gt;
+        &lt;artifactId&gt;unit-ri&lt;/artifactId&gt;
+        &lt;version&gt;1.0.3&lt;/version&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;systems.uom&lt;/groupId&gt;
+        &lt;artifactId&gt;systems-unicode&lt;/artifactId&gt;
+        &lt;version&gt;2.0.2&lt;/version&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;systems.uom&lt;/groupId&gt;
+        &lt;artifactId&gt;systems-common&lt;/artifactId&gt;
+        &lt;version&gt;2.0.2&lt;/version&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;systems.uom&lt;/groupId&gt;
+        &lt;artifactId&gt;systems-quantity&lt;/artifactId&gt;
+        &lt;version&gt;2.0.2&lt;/version&gt;
+    &lt;/dependency&gt;
+&lt;/dependencies&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

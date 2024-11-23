@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>When does Jackson require no-arg constructor for deserialization?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>When does Jackson require no-arg constructor for deserialization?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>17</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>ayfkly</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Sep 2020 at 18:05</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64080983/when-does-jackson-require-no-arg-constructor-for-deserialization">source</a>
+    </div>
+   </div>
+   <div>
+    <p>In my spring boot project, I noticed a strange Jackson behavior. I searched over internet, found out what to do, but haven't found out <strong>why</strong>.</p>
+    <p>UserDto:</p>
+    <pre><code>@Setter
+@Getter
+@AllArgsConstructor
+public class UserDto {
+
+    private String username;
+
+    private String email;
+
+    private String password;
+
+    private String name;
+
+    private String surname;
+
+    private UserStatus status;
+
+    private byte[] avatar;
+
+    private ZonedDateTime created_at;
+}
+</code></pre>
+    <p>Adding a new user works just fine.</p>
+    <p>TagDto:</p>
+    <pre><code>@Setter
+@Getter
+@AllArgsConstructor
+public class TagDto {
+
+    private String tag;
+}
+</code></pre>
+    <p>Trying to add a new tag ends with an error:</p>
+    <blockquote>
+     <p>com.fasterxml.jackson.databind.exc.MismatchedInputException: Cannot construct instance of TagDto (although at least one Creator exists): cannot deserialize from Object value (no delegate- or property-based Creator)</p>
+    </blockquote>
+    <p>The solution to the problem was to add zero-arg constructor to the TagDto class.</p>
+    <p>Why does Jackson require no-arg constructor for deserialization in TagDto, while working just fine with UserDto?</p>
+    <p>Used same method for adding both. My Tag and User entities are both annotated with</p>
+    <pre><code>@Entity
+@Setter
+@Getter
+@NoArgsConstructor
+</code></pre>
+    <p>and have all args constructors:</p>
+    <pre><code>@Entity
+@Setter
+@Getter
+@NoArgsConstructor
+public class User extends AbstractModel {
+
+    private String username;
+
+    private String password;
+
+    private String email;
+
+    private String name;
+
+    private String surname;
+
+    private UserStatus status;
+
+    @Lob
+    private byte[] avatar;
+
+    @Setter(AccessLevel.NONE)
+    private ZonedDateTime created_at;
+
+    public User(final String username, final String password, final String email, final String name, final String surname) {
+        this.username = username;
+        this.password = password;
+        this.email = email;
+        this.name = name;
+        this.surname = surname;
+        this.created_at = ZonedDateTime.now();
+    }
+}
+
+@Entity
+@Setter
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+public class Tag extends AbstractModel {
+
+    private String tag;
+}
+
+@MappedSuperclass
+@Getter
+public abstract class AbstractModel {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Integer id;
+}
+</code></pre>
+    <p>Entity generation:</p>
+    <pre><code>    @PostMapping(path = "/add")
+    public ResponseEntity&lt;String&gt; add(@Valid @RequestBody final D dto) {
+        this.abstractModelService.add(dto);
+        return new ResponseEntity&lt;&gt;("Success", HttpStatus.CREATED);
+    }
+    
+    public void add(final D dto) {
+    //CRUD repository save method
+        this.modelRepositoryInterface.save(this.getModelFromDto(dto));
+    }
+
+    @Override
+    protected Tag getModelFromDto(final TagDto tagDto) {
+        return new Tag(tagDto.getTag());
+    }
+
+    @Override
+    protected User getModelFromDto(final UserDto userDto) {
+        return new User(userDto.getUsername(), userDto.getPassword(), userDto.getEmail(), userDto.getName(), userDto.getSurname());
+    }
+
+</code></pre>
+    <p>Error occurs when parsing JSON</p>
+    <pre><code>{"tag":"example"}
+</code></pre>
+    <p>sent via postman localhost:8081/tag/add, returns</p>
+    <pre><code>{
+    "timestamp": "2020-09-26T18:50:39.974+00:00",
+    "status": 400,
+    "error": "Bad Request",
+    "message": "",
+    "path": "/tag/add"
+}
+</code></pre>
+    <p>I am using Lombok v1.18.12 and Spring boot 2.3.3.RELEASE with Jackson v2.11.2.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">spring-boot</span><span class="tag">jackson</span><span class="tag">lombok</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>3</td>
+       <td><span>Jackson won't use a constructor with arguments by default, you'd need to tell it to do so with the <a href="https://fasterxml.github.io/jackson-annotations/javadoc/2.7/com/fasterxml/jackson/annotation/JsonCreator.html" rel="nofollow noreferrer"><code>@JsonCreator</code></a> annotation. By default it tries to use the no-args constructor which isn't present in your class.</span> <span> - </span> <span class="display-name">Thomas</span> <span> </span> <span class="date">26 Sep 2020 at 18:09</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Thomas How does UserDto work fine then?</span> <span> - </span> <span class="display-name">ayfkly</span> <span> </span> <span class="date">26 Sep 2020 at 18:12</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>That's a good question. I'm no Lombox expert so I'd have to guess but one reason might be that <code>TagDto</code> only has one property which might cause the problem. Sometimes those libraries have or cause bugs such as <a href="https://github.com/meltmedia/jackson-crypto/issues/6" rel="nofollow noreferrer">this one</a> so it might be good to provide more information on what versions you're using.</span> <span> - </span> <span class="display-name">Thomas</span> <span> </span> <span class="date">26 Sep 2020 at 18:24</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thank you, added version info.</span> <span> - </span> <span class="display-name">ayfkly</span> <span> </span> <span class="date">26 Sep 2020 at 18:36</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Can you add the full code? how do @Entity classes look like? how exactly you store either? Jackson might try to use AllArgsConstructor, when appropriate. It might be that Jackson uses all args for one entity, and no-args - for another. It depends on <i>how</i> do you instantiate those DTOs. Try to remove Lombok annotations and provide your own constructors. Then add some print statements in those, and see it yourself - which is called - when.</span> <span> - </span> <span class="display-name">Giorgi Tsiklauri</span> <span> </span> <span class="date">26 Sep 2020 at 18:40</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@GiorgiTsiklauri Thanks for your insights, added model classes code.</span> <span> - </span> <span class="display-name">ayfkly</span> <span> </span> <span class="date">26 Sep 2020 at 18:46</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>I still cannot see <i>HOW</i> you transform entities to DTOs, how you <i>add</i> them. Please provide <a href="https://stackoverflow.com/help/minimal-reproducible-example">minimal reproducible example</a>, and tell us - when/where exactly you have an error? when you convert to DTO, most likely, right? Also, your <code>User</code> class is missing some part(s).</span> <span> - </span> <span class="display-name">Giorgi Tsiklauri</span> <span> </span> <span class="date">26 Sep 2020 at 18:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>One more time: Please, show us, <i>how you transform</i> the Entity&lt;-&gt;DTO. That's most likely in <code>getModelFromDto()</code>. Provide <code>abstractModelService.add(dto);</code> as well.. You're most likely converting DTO to Model as well. Also, it's important what you receive as a POST payload (what you then map to your DTO).</span> <span> - </span> <span class="display-name">Giorgi Tsiklauri</span> <span> </span> <span class="date">26 Sep 2020 at 19:02</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>getModelFromDto() and abstractModelService.add(dto) method are provided. Transforming entity to dto is redundant in this question, as error occurs before doing anything with an actual entity</span> <span> - </span> <span class="display-name">ayfkly</span> <span> </span> <span class="date">26 Sep 2020 at 19:17</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>You can add <code>@AllArgsConstructor</code> and a <code>@NoArgsConstructor</code> simultaneously. Jackson seems to prefer a noargsconstructor by default. When I create value objects I commonly use the following annotations <code>@Data</code>, @AllArgsConstructor` and <code>@NoArgConstructor</code>, that works all the time....</span> <span> - </span> <span class="display-name">Jurrian Fahner</span> <span> </span> <span class="date">26 Sep 2020 at 22:49</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Andreas</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Sep 2020 at 19:52</span>
+     </div>
+    </div>
+    <div>
+     <p><em>TL;DR: Solution is at the end.</em></p>
+     <p>Jackson supports multiple ways of creating POJOs. The following lists the most common ways, but it likely not a complete list:</p>
+     <ol>
+      <li>
+       <p>Create instance using no-arg constructor, then call setter methods to assign property values.</p>
+       <pre class="lang-java prettyprint-override"><code>public class Foo {
+    private int id;
+
+    public int getId() { return this.id; }
+
+    @JsonProperty
+    public void setId(int id) { this.id = id; }
+}
+</code></pre>
+       <p>Specifying <a href="https://fasterxml.github.io/jackson-annotations/javadoc/2.8/com/fasterxml/jackson/annotation/JsonProperty.html" rel="noreferrer"><code>@JsonProperty</code></a> is optional, but can be used to fine-tune the mappings, together with annotations like <a href="https://fasterxml.github.io/jackson-annotations/javadoc/2.8/com/fasterxml/jackson/annotation/JsonIgnore.html" rel="noreferrer"><code>@JsonIgnore</code></a>, <a href="https://fasterxml.github.io/jackson-annotations/javadoc/2.8/com/fasterxml/jackson/annotation/JsonAnyGetter.html" rel="noreferrer"><code>@JsonAnyGetter</code></a>, ...</p></li>
+      <li>
+       <p>Create instance using constructor with arguments.</p>
+       <pre class="lang-java prettyprint-override"><code>public class Foo {
+    private int id;
+
+    @JsonCreator
+    public Foo(@JsonProperty("id") int id) {
+        this.id = id;
+    }
+
+    public int getId() {
+        return this.id;
+    }
+}
+</code></pre>
+       <p>Specifying <a href="https://fasterxml.github.io/jackson-annotations/javadoc/2.8/com/fasterxml/jackson/annotation/JsonCreator.html" rel="noreferrer"><code>@JsonCreator</code></a> for the constructor is optional, but I believe it is required if there is more than one constructor. Specifying <code>@JsonProperty</code> for the parameters is optional, but is required for naming the properties if the parameter names are not included in the class file (<code>-parameters</code> compiler option).</p>
+       <p>The parameters imply that the properties are required. Optional properties can be set using setter methods.</p></li>
+      <li>
+       <p>Create instance using factory method.</p>
+       <pre class="lang-java prettyprint-override"><code>public class Foo {
+    private int id;
+
+    @JsonCreator
+    public static Foo create(@JsonProperty("id") int id) {
+        return new Foo(id);
+    }
+
+    private Foo(int id) {
+        this.id = id;
+    }
+
+    public int getId() {
+        return this.id;
+    }
+}
+</code></pre></li>
+      <li>
+       <p>Create instance from text value using <code>String</code> constructor.</p>
+       <pre class="lang-java prettyprint-override"><code>public class Foo {
+    private int id;
+
+    @JsonCreator
+    public Foo(String str) {
+        this.id = Integer.parseInt(id);
+    }
+
+    public int getId() {
+        return this.id;
+    }
+
+    @JsonValue
+    public String asJsonValue() {
+        return Integer.toString(this.id);
+    }
+}
+</code></pre>
+       <p>This is useful when a the POJO has a simply text representation, e.g. a <code>LocalDate</code> is a POJO with 3 properties (<code>year</code>, <code>month</code>, <code>dayOfMonth</code>), but is generally best serialized as a single string (<code>yyyy-MM-dd</code> format). <a href="https://fasterxml.github.io/jackson-annotations/javadoc/2.8/com/fasterxml/jackson/annotation/JsonValue.html" rel="noreferrer"><code>@JsonValue</code></a> identifies the method to be used during serialization, and <code>@JsonCreator</code> identifies the constructor/factory-method to be used during deserialization.</p>
+       <p><em>Note:</em> This can also be used for single-value construction using JSON values other than <code>String</code>, but that is very rare.</p></li>
+     </ol>
+     <p>Ok, that was the background information. What is happening for the examples in the question, it that <code>UserDto</code> works because there is only one constructor (so <code>@JsonCreator</code> is not needed), and many arguments (so <code>@JsonProperty</code> is not needed).</p>
+     <p>However, for <code>TagDto</code> there is only a <em>single-argument</em> constructor without any annotations, so Jackson classifies that constructor as a type #4 (from my list above), not a type #2.</p>
+     <p>Which means that it is expecting the POJO to be a value-class, where the JSON for the enclosing object would be <code>{ ..., "tag": "value", ... }</code>, not <code>{ ..., "tag": {"tag": "example"}, ... }</code>.</p>
+     <p>To resolve the issue, you need to tell Jackson that the constructor is a property initializing constructor (#2), not a value-type constructor (#4), by specifying <code>@JsonProperty</code> on the constructor argument.</p>
+     <p>This means that you cannot have Lombok create the constructor for you:</p>
+     <pre class="lang-java prettyprint-override"><code>@Setter
+@Getter
+public class TagDto {
+
+    private String tag;
+
+    public TagDto(@JsonProperty("tag") String tag) {
+        this.tag = tag;
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

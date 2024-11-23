@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf dynamic array insertion</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf dynamic array insertion</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>rocketcrafter</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Aug 2022 at 10:17</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73471383/thymeleaf-dynamic-array-insertion">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am currently coding a small website with Thymeleaf and Spring which should show a dynamic matrix which you can load and save. The problem with that is, though, that I can't set a definitive value with Thymeleaf since once I have <code>th:field</code> in an element I can't give it a value anymore.</p>
+    <p>Now I searched a bit and found out, that you can give the filled object to the Thymeleaf component, and it will automatically insert the data. Now this somewhat works, but Thyemeleaf now puts the whole list into every single field.</p>
+    <p>This is my code:</p>
+    <p><strong>html</strong></p>
+    <pre><code>&lt;form th:object="${projectData}" method="post" class="card"&gt;
+    &lt;div class="card-content"&gt;
+        &lt;div class="content"&gt;
+            &lt;div class="columns is-gapless is-multiline is-mobile"&gt;
+                &lt;tr th:each="_, index: ${projectData.matrixData}"&gt;
+                    &lt;div th:if="${index.index % matrixSize == 0}" class="break column is- 
+                    desktop"&gt;&lt;/div&gt;
+
+                &lt;input th:field="*{matrixData}"
+                       class="column"
+                       type="text"
+                       th:if="${#arrays.contains(matrixDisabledFields, index.index)}"
+                       th:id="${index.index}"
+                       disabled&gt;
+
+                &lt;input th:field="*{matrixData}"
+                       class="column"
+                       type="text"
+                       th:unless="${#arrays.contains(matrixDisabledFields, index.index)}"
+                       th:id="${index.index}"&gt;
+                &lt;/tr&gt;
+            &lt;/div&gt;
+            &lt;input type="submit" class="button is-light is-pulled-right" value="Save"&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/form&gt;
+</code></pre>
+    <p><strong>Controller</strong></p>
+    <pre><code>@GetMapping("/matrix/{id}")
+String getMatrix(Model model, @PathVariable Integer id) {
+    ProjectData projectData = JsonConverter.getProjectDataWithID(id);
+
+    if (projectData == null) {
+        model.addAttribute("error", "Invalid id");
+        return "error";
+    }
+
+    String[] matrix;
+    if (projectData.getMatrixData() == null) {
+        matrix = 
+        new String[(int) Math.pow(projectData.getProjectOptions().getMatrixSize(), 2)];
+    } else {
+        matrix = projectData.getMatrixData();
+    }
+
+    int matrixLength = (int) Math.sqrt(matrix.length);
+
+    Integer[] matrixDisabledFieldIds = new Integer[matrixLength];
+
+    Integer pastIndex = -matrixLength - 1;
+    for (int i = 0; i &lt; matrixLength; i++) {
+        matrixDisabledFieldIds[i] = pastIndex + matrixLength + 1;
+        pastIndex = matrixDisabledFieldIds[i];
+        matrix[pastIndex] = "X";
+    }
+
+    projectData = new ProjectData();
+    projectData.setMatrixData(matrix);
+
+    model.addAttribute("matrixSize", matrixLength);
+    model.addAttribute("matrixDisabledFields", matrixDisabledFieldIds);
+    model.addAttribute("projectData", projectData);
+
+    return "matrix";
+}
+</code></pre>
+    <p>And this is how it looks in the application:</p>
+    <p><a href="https://i.stack.imgur.com/jkSz1.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/jkSz1.png" alt="enter image description here"></a></p>
+    <p>And this is how it's supposed to look:</p>
+    <p><a href="https://i.stack.imgur.com/VLPK5.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/VLPK5.png" alt="enter image description here"></a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">arrays</span><span class="tag">spring</span><span class="tag">dynamic</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Aug 2022 at 19:01</span>
+     </div>
+    </div>
+    <div>
+     <p>The simplest fix is probably to change both of these lines in your template from this:</p>
+     <pre><code>th:field="*{matrixData}"
+</code></pre>
+     <p>to this:</p>
+     <pre><code>th:field="*{matrixData[__${index.index}__]}"
+</code></pre>
+     <p>The <code>__${...}__</code> syntax is the <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#preprocessor" rel="nofollow noreferrer">Thymeleaf preprocessor</a> expression (an expression surrounded by double-underscores).</p>
+     <p>In your case, this will evaluate to each of the index values into the matrix array, so you can grab only the one relevant value you want for each cell.</p>
+     <p>It will end up looking something like this (but nicer, with your CSS styling):</p>
+     <p><a href="https://i.stack.imgur.com/PEUFW.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/PEUFW.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>That actually works great to display it. Sadly it's throwing an error when trying to save. Seems like it can't assign the values. Any idea for how to fix that? Error is: <code>Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Request processing failed; nested exception is org.springframework.beans.InvalidPropertyException: Invalid property 'matrixData[1000]' of bean class [com.matrix.entities.objects.project.ProjectData]: Invalid array index in property path 'matrixData[1000]'; nested exception is java.lang.ArrayIndexOutOfBoundsException]</code></span> <span> - </span> <span class="display-name">rocketcrafter</span> <span> </span> <span class="date">25 Aug 2022 at 02:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You can ask that as a brand new question but I expect you need to use indexes from 0 to 999, and not from 1 to 1000, when saving data. Just a guess.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Aug 2022 at 11:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Well, didn't work, But thank you anyway ^^ I will make a new question then</span> <span> - </span> <span class="display-name">rocketcrafter</span> <span> </span> <span class="date">27 Aug 2022 at 10:09</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

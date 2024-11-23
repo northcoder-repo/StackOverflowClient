@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Correctly reload Table in Bootstrap/DataTable</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Correctly reload Table in Bootstrap/DataTable</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Alessandro</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Jul 2022 at 09:01</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73063412/correctly-reload-table-in-bootstrap-datatable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a simple Table with Bootstrap and DataTable styling. Thanks to Edit/Delete/Add buttons, I am able to interact with it. For example, this is the JS code to Edit a row:</p>
+    <pre><code>    function editRow(){
+        var catProg = document.getElementById('editCatProg_Input').value;
+        var catUser = document.getElementById('editCatUser_Input').value;
+        var catPass = document.getElementById('editCatPass_Input').value;
+        var catInUso = document.getElementById('editCatInUso_Input').value;
+        var catDesc = document.getElementById('editCatDesc_Input').value;
+        var catUltimo = document.getElementById('editCatUltimo_Input').value;
+        var catDat = document.getElementById('editCatDat_Input').value;
+
+        $.ajax({
+            url: 'UpdateRow.php',
+            type: 'POST',
+            data: { 
+                CatProg: catProg,
+                CatUser: catUser,
+                CatPass: catPass,
+                CatInUso: catInUso,
+                CatDesc: catDesc,
+                CatUltimo: catUltimo,
+                CatDat: catDat
+            },
+            dataType: "text",
+            success: function(result){
+                // relaod (fetch db again)
+                window.location.replace(window.location.pathname + window.location.search + window.location.hash);
+            },
+            error: function(){
+                alert("Request did not succeed. Reload and try again.");
+            }
+        });
+    }
+</code></pre>
+    <p>As you can see, I am forced to reload the whole page to update the Table. This brings two main problems:</p>
+    <ol>
+     <li>If I am editing a row on page X, the reload will bring me again to page 1. I'd like it to stay on page X, with a reloaded table;</li>
+     <li>The page's refresh is not visually pleasing.</li>
+    </ol>
+    <p>Is there any way to accomplish that? I tried this way:</p>
+    <ol>
+     <li>In a JavaScript function obtain the new table from a Php script by an Ajax call, and substituite it to the old table;</li>
+     <li>Refresh the table with <code>ajax.reload()</code> but I am afraid I did not understand how to correctly use it.</li>
+    </ol>
+    <p>Can anyone give me any ideas and/or snippets of code I might implement? Thank you in advance.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">ajax</span><span class="tag">bootstrap-4</span><span class="tag">datatable</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Yes, this can be done - but for clarification, I have a couple of questions, first: (1) Are your <code>&lt;input&gt;</code> fields in the table itself, or not? (2) If they are in the table, then I don't think you can use <code>getElementById</code> - as the IDs would need to be unique for each field in a given table column. But maybe these input elements are outside the table? (3) If the fields are outside the table, how is a unique row identified?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Jul 2022 at 16:00</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jul 2022 at 22:35</span>
+     </div>
+    </div>
+    <div>
+     <p>You can send a JSON object, representing the successfully updated data record, back from the server to DataTables. You can use the DataTables API to take that response JSON and use it to update the data in the underlying DataTable, for the specific row.</p>
+     <p>I am going to assume you are using input fields in the table, as that is the more complicated case. But <strong>if you are using a modal dialog (or something similar)</strong> then the approach would be a simplified version of this.</p>
+     <p>My source data for testing is:</p>
+     <pre class="lang-js prettyprint-override"><code>{
+  "data": [
+    {
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "salary": "$320,800"
+    },
+    {
+      "name": "Garrett Winters",
+      "position": "Accountant",
+      "salary": "$170,750"
+    },
+    ...
+  ]
+}
+</code></pre>
+     <p>The "salary" column contains editable data:</p>
+     <p><a href="https://i.stack.imgur.com/p5TZQ.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/p5TZQ.png" alt="enter image description here"></a></p>
+     <hr>
+     <p>The script for creating the table and handling the updates is as follows:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).ready(function() {
+
+  // src is the button which was clicked:
+  function editRow(src) {
+    let row = $(src).closest("tr");
+    // the data fields for the updated row:
+    let name = row.find(".name").text();
+    let position = row.find(".posn").text();
+    let salary = row.find(".sal").val();
+
+    // fields converted to JSON:
+    let rowData = { 
+      name: name,
+      position: position,
+      salary: salary
+    };
+    
+    // We will need this to do an in-place update of the edited row.
+    // It is the internal DataTables row index number for the edited row:
+    let rowIndex = table.cell( $(src).closest("td") ).index().row;
+
+    $.ajax({
+      url: '[your URL goes here]',
+      type: 'POST',
+      contentType: 'text', // type of data sent to the server
+      data: JSON.stringify(rowData), // the data we send to the server
+      dataType: 'json', // type of data returned from the server
+      success: function(data, status, xhr) {
+        // {order:'index'} uses the index based on the original data load order,
+        // otherwise it would use the current sort/filter order.
+        // invalidate() causes the DataTables cache to be re-populated. 
+        // Using 'dom' means the data is reloaded from user-provided DOM values.
+        // The draw( false ) call ensures the table does not reset to page 1:
+        table.rows( rowIndex, {order:'index'} ).invalidate( 'dom' ).draw( false );
+        
+      },
+      error: function(xhr, status, error){
+        console.log( error );
+      }
+    });
+
+  }
+
+  var table = $('#example').DataTable( {
+    ajax: {
+      method: "GET",
+      url: "[your URL goes here]"
+    },
+    columns: [
+      { title: "Name", data: "name", className: "name" },
+      { title: "Position", data: "position", className: "posn" },
+      { 
+        title: "Salary", 
+        data: "salary",
+        render: function ( data, type, row, meta ) {
+          if ( type === 'display' ) {
+            // render the display value first, so there is an input control:
+            return '&lt;input class="sal" value="' + data + '"&gt;';
+          } else {
+            // get the value from the input control and use just the value
+            // for sorting and filtering:
+            let api = $( '#example' ).DataTable();
+            let td = api.cell({row: meta.row, column: meta.col}).node();
+            let inputData = $('select, input', td).val();
+            return inputData; // the value used for sorting and filtering
+          }
+        } 
+      },
+      { defaultContent: '&lt;button class="upd" type="button"&gt;Update&lt;/button&gt;' }
+    ]
+
+  } );
+  
+  // attach a click event to visible and not-yet-visible buttons:
+  $( "#example" ).on( "click", ".upd", function() {
+    editRow( this );
+  });
+  
+
+} );
+</code></pre>
+     <hr>
+     <p>When the user clicks on an update button, the related function retrieves the row data values. In my case, that is 2 static values and one user-provided value (salary).</p>
+     <p>(<em>If you are using a modal dialog then this part may be simpler for you - more like the code in your question.</em>)</p>
+     <p>What gets submitted to the server is a stringified piece of JSON - for example:</p>
+     <pre><code>{"name":"Airi Satou","position":"Accountant","salary":"$162,701"}
+</code></pre>
+     <p>What gets returned (after a successful save operation) is basically the same information, but as a JSON object.</p>
+     <p>Note - this <em>could</em> be different from what was sent, if (for example) you are handling additional fields which could change (e.g. "last updated" timestamp, and so on). In my simple example, the returned data is identical to the sent data.</p>
+     <p>We take this returned data and we update the underlying DataTable (which, up to this point) has no awareness of what the user typed into the salary input field. What the user typed only exists in the DOM - the HTML - but not in DataTables, yet.</p>
+     <p>The line which takes care of this is:</p>
+     <pre class="lang-js prettyprint-override"><code>table.rows( rowIndex, {order:'index'} ).invalidate( 'dom' ).draw( false );
+</code></pre>
+     <p><em>But please also note the <code>row().data( your_json_here )</code> function, mentioned below.</em></p>
+     <p>The <a href="https://datatables.net/reference/api/row().invalidate()" rel="nofollow noreferrer"><code>invalidate()</code></a> function handles changes to the cache. The <a href="https://datatables.net/reference/api/draw()" rel="nofollow noreferrer"><code>draw( false )</code></a> function ensures all data is refreshed, but without resetting the table to page 1 - that is what the <code>false</code> parameter does.</p>
+     <p>If you have returned data which is <em>different from</em> the sent data (the above "last update" point), then you can use <a href="https://datatables.net/reference/api/row().data()" rel="nofollow noreferrer">row().data( your_json_here )</a> function as well, to set the updated row data, after invalidating the cached data.</p>
+     <hr>
+     <p>There is a lot going on there. But it draws the updated data via an Ajax call, so the full page is not refreshed. I added more comments in the code, for further clarifications.</p>
+     <p><strong>Credits</strong></p>
+     <p>I took some inspiration from this old question: <a href="https://stackoverflow.com/questions/32048376/search-within-dropdowns-searches-all-the-dropdown-options-instead-of-selected-op">Search within dropdowns searches all the dropdown options instead of selected option</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How do i "just use" Thymeleaf?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How do i "just use" Thymeleaf?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>HamsterofDeath</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>6 Oct 2022 at 14:25</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73975475/how-do-i-just-use-thymeleaf">source</a>
+    </div>
+   </div>
+   <div>
+    <p>i tried to find tutorials online, but i only found them in the context of web applications. in my case what i have is an html template that i want to fill "manually", meaning it should run from a static main method without spring or any other framework. just "plain thymeleaf"</p>
+    <p>i have for example a test html file containing: <code>&lt;p th:text="#{test.message}"&gt;This is a report&lt;/p&gt;</code></p>
+    <p>how does the java code look like that simply fills this variable? i couldn't find a minimal running code example.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Does this help? <a href="https://stackoverflow.com/questions/73739292/how-to-generate-static-files-from-a-spring-thymeleaf-project/73749027#73749027" title="how to generate static files from a spring thymeleaf project">stackoverflow.com/questions/73739292/…</a></span> <span> - </span> <span class="display-name">Metroids</span> <span> </span> <span class="date">6 Oct 2022 at 14:40</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Oct 2022 at 17:37</span>
+     </div>
+    </div>
+    <div>
+     <p>The following is a standalone Thymeleaf demo (no web application needed; no Spring used):</p>
+     <p>Assumptions:</p>
+     <p>I have a messages file called <code>test.properties</code> containing the following:</p>
+     <pre><code>test.message=This is a message to you.
+</code></pre>
+     <p>I have a related HTML template called <code>test.html</code>:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;!DOCTYPE html&gt;
+&lt;html xmlns:th="http://www.thymeleaf.org"&gt;
+    &lt;p th:text="#{test.message}"&gt;This is a report&lt;/p&gt;
+    &lt;p th:text="${note}"&gt;This is a note&lt;/p&gt;
+&lt;/html&gt;
+</code></pre>
+     <p>In the above template, I added Thymeleaf variable expression (<code>${note}</code>), as well as the message expression - just to make the demo more complete. You may not even need that.</p>
+     <p>You need to make sure that the HTML template and the properties file are in the same location, because I am using the <code>StandardMessageResolver</code> - see below.</p>
+     <hr>
+     <p>I created a standalone Thymeleaf template engine class:</p>
+     <pre class="lang-java prettyprint-override"><code>import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
+import org.thymeleaf.context.Context;
+import org.thymeleaf.extras.java8time.dialect.Java8TimeDialect;
+import org.thymeleaf.messageresolver.IMessageResolver;
+import org.thymeleaf.messageresolver.StandardMessageResolver;
+import java.util.Map;
+
+public class HtmlTemplateEngine {
+
+    private final TemplateEngine templateEngine;
+
+    public HtmlTemplateEngine() {
+
+        templateEngine = new org.thymeleaf.TemplateEngine();
+        templateEngine.addDialect(new Java8TimeDialect()); // optional extra
+
+        ClassLoaderTemplateResolver templateResolver
+                = new ClassLoaderTemplateResolver(Thread
+                        .currentThread().getContextClassLoader());
+        templateResolver.setTemplateMode(TemplateMode.HTML);
+        templateResolver.setPrefix("/thymeleaf/");
+        templateResolver.setCacheTTLMs(3600000L); // one hour
+        templateResolver.setCacheable(true);
+        templateResolver.setCharacterEncoding("UTF-8");
+        templateEngine.setTemplateResolver(templateResolver);
+        IMessageResolver messageResolver = new StandardMessageResolver();
+        templateEngine.setMessageResolver(messageResolver);
+    }
+
+    // use this if you do not want to pass a Context (see below). It basically does
+    // the same as the Context-based example, by transferring Map data to a Context:
+    public String getTemplate(String templateName, Map&lt;String, Object&gt; parameters) {
+        Context ctx = new Context();
+        if (parameters != null) {
+            parameters.forEach((k, v) -&gt; {
+                ctx.setVariable(k, v);
+            });
+        }
+        return this.templateEngine.process(templateName, ctx).trim();
+    }
+
+    public String getTemplate(String templateName, Context ctx) {
+        return this.templateEngine.process(templateName, ctx).trim();
+    }
+
+}
+</code></pre>
+     <p>Some of the entries are default values - so they could be removed without affecting anything (for example the <code>StandardMessageResolver</code> will be used by default if you do not provide one).</p>
+     <p>I chose to use a <code>ClassLoaderTemplateResolver</code>. There are <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#more-on-configuration" rel="nofollow noreferrer">other choices</a> you can make.</p>
+     <hr>
+     <p>I use the above artifacts as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>private void processSimpleReport() {
+    Map&lt;String, Object&gt; model = new HashMap&lt;&gt;();
+    model.put("note", "my note here");
+
+    Context ctx = new Context();
+    //ctx.setLocale(Locale.US); // optional for i18n
+    ctx.setVariables(model);
+
+    HtmlTemplateEngine engine = new HtmlTemplateEngine();
+
+    String s = engine.getTemplate("test.html", ctx);
+    System.out.println(s);
+}
+</code></pre>
+     <p>Your question only uses a message - the <code>model</code> variables are just optional extras I added for this demo.</p>
+     <hr>
+     <p>The resulting HTML is:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+    &lt;p&gt;This is a message to you.&lt;/p&gt;
+    &lt;p&gt;my note here&lt;/p&gt;
+&lt;/html&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

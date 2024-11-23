@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to properly cache data in spring boot application with Thymleaf</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to properly cache data in spring boot application with Thymleaf</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>kane_004</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Feb 2020 at 20:20</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60233010/how-to-properly-cache-data-in-spring-boot-application-with-thymleaf">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am writing some Java code for my Spring boot application to receive a list of 40,000 elements and, through Thymeleaf post it in a dropdown field. However, I noticed that when I load the data and go to the dropdown, everything is slow.</p>
+    <p>I was told to cache the values and store them. Though I am not too familiar with this process I tried using the <code>@Cacheable</code> annotation for my SpringBootApplication, but it still didn't work. I am trying to see what I did wrong or if there is a better way to approach this issue I am having.</p>
+    <p>Service Layer:</p>
+    <pre><code>@SuppressWarnings("unchecked")
+@Cacheable("String")
+public List&lt;String&gt; getServerListing(){
+    StoredProcedureQuery storedProcedure = entityManager.createStoredProcedureQuery("GetAllServers");
+    return storedProcedure.getResultList();
+
+}
+</code></pre>
+    <p>First, I have a stored procedure bring down all the data from the server, (~40,000 records).</p>
+    <p>Controller:</p>
+    <pre><code>List&lt;String&gt; servers = joinQueryService.getServerListing();
+
+modelAndView.addObject("servers", servers);
+</code></pre>
+    <p>Then, I set it to a List of strings and send it to front-end.</p>
+    <p>Thymeleaf:</p>
+    <pre><code>&lt;div class="row"&gt;
+    &lt;div class="col col-lg-9 search-bar"&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label&gt;Server:&lt;/label&gt; &lt;select class="js-example-basic-single3"
+                th:field="*{servers}" id="selectData3"&gt;
+                &lt;option value=""&gt;&lt;/option&gt;
+                &lt;option th:each="servers : ${servers}" th:value="${servers}" th:text="${servers}" /&gt;
+            &lt;/select&gt;
+
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+    <p>SpringBoot:</p>
+    <pre><code>@SpringBootApplication
+@Cacheable
+public class TaddmDevApplication {
+
+    public static void main(String[] args) {
+
+        Policy.setPolicy(new TaddmPolicy());
+
+        SpringApplication.run(TaddmDevApplication.class, args);
+    }
+
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">html</span><span class="tag">sql</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span><i>Everything is slow...</i> How slow? Assuming the data really is cached (after the first load from the DB, of course), I'm curious how much time is spent rendering a 40,000 record drop-down list in your browser. Chrome DevTools (or similar for FF/Edge) can shed light on that, for example.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">14 Feb 2020 at 22:00</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewjames So after looking at it using Chrome Dev tools, it shows that it takes about 4 - 5 seconds to loads. My goal if possible is to cut it down to milliseconds.</span> <span> - </span> <span class="display-name">kane_004</span> <span> </span> <span class="date">15 Feb 2020 at 15:18</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Feb 2020 at 15:51</span>
+     </div>
+    </div>
+    <div>
+     <p>I think the problem here is: A browser will take several seconds to load and/or display such a large drop-down, regardless of how streamlined the rest of your application is.</p>
+     <p>As a test, I created a text file containing nothing except a 40,000-item drop-down (test.htm):</p>
+     <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;
+&lt;h2&gt;Create a drop-down List&lt;/h2&gt;
+
+&lt;label for="widgets"&gt;Choose a widget:&lt;/label&gt;
+
+&lt;select id="widgets"&gt;
+  &lt;option value="widget1"&gt;Widget 1&lt;/option&gt;
+  &lt;option value="widget2"&gt;Widget 2&lt;/option&gt;
+  &lt;option value="widget3"&gt;Widget 3&lt;/option&gt;
+  &lt;option value="widget4"&gt;Widget 4&lt;/option&gt;
+  &lt;option value="widget5"&gt;Widget 5&lt;/option&gt;
+  &lt;option value="widget6"&gt;Widget 6&lt;/option&gt;
+  &lt;option value="widget7"&gt;Widget 7&lt;/option&gt;
+  ... snipped for brevity!
+  &lt;option value="widget39998"&gt;Widget 39998&lt;/option&gt;
+  &lt;option value="widget39999"&gt;Widget 39999&lt;/option&gt;
+  &lt;option value="widget40000"&gt;Widget 40000&lt;/option&gt;
+&lt;/select&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+     <p>I then opened that file in Chrome and recorded the processing time:</p>
+     <p><a href="https://i.stack.imgur.com/o7Pd6.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/o7Pd6.png" alt="big select list in browser"></a></p>
+     <p>It took about 5 seconds. There was no database fetch; no network traffic; no server-side processing.</p>
+     <p>I think the bottom line is: A drop-down of this size will be unwieldy for users, as well as being slow to handle <em>in the browser</em>.</p>
+     <p>This means your question becomes a different one: How to send a more modest amount of data to the browser, and allow the user to navigate through the results of each load, one page at a time. I completely agree with your goal of "milliseconds", rather than seconds, by the way. That is exactly right. Maybe you already have one, but try to have a specific goal in mind ("under 300 ms" or some such).</p>
+     <p>Of course, there may well be optimizations in your code - but they are probably moot at this point.</p>
+     <p>Probably not the answer you wanted, but I hope this helped!</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Yes, this helped I will keep doing research on this. If you think or know any ways that might help please let me know. If not I will keep reading. Thanks again for the help and suggestion.</span> <span> - </span> <span class="display-name">kane_004</span> <span> </span> <span class="date">15 Feb 2020 at 22:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I don't use Spring, but I'm sure it must provide good <a href="https://dzone.com/articles/pagination-in-springboot-applications" rel="nofollow noreferrer">support for paging</a>. Good luck.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Feb 2020 at 22:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

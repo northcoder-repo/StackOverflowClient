@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Tomcat set application context using configuration (not war name)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Tomcat set application context using configuration (not war name)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>StaticMaine</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Apr 2020 at 00:08</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61240611/tomcat-set-application-context-using-configuration-not-war-name">source</a>
+    </div>
+   </div>
+   <div>
+    <p>My question is this - Say I have a war file called my-app-123.war. I want to deploy it on a Tomcat server (9.0.x), let it auto unpack.</p>
+    <p>The application would then be accessible by <a href="http://localhost:8080/my-app-123" rel="nofollow noreferrer">http://localhost:8080/my-app-123</a></p>
+    <p>Is there a way, without renaming the war file, to make the application accessible from <a href="http://localhost:8080/my-app" rel="nofollow noreferrer">http://localhost:8080/my-app</a>?</p>
+    <p><strong>I will preface this by saying I realize the easiest solution is to just name the war file. I'm curious if there is a way to do this in Tomcat configurations.</strong></p>
+    <p>I did do this already (inside the host section of my server.xml file):</p>
+    <pre><code>&lt;Context path="/my-app" docBase="my-app-123"&gt;&lt;/Context&gt;
+</code></pre>
+    <p>But I read this online (<a href="https://tomcat.apache.org/tomcat-7.0-doc/config/context.html" rel="nofollow noreferrer">https://tomcat.apache.org/tomcat-7.0-doc/config/context.html</a>) in the path variable description:</p>
+    <p><em>Even when statically defining a Context in server.xml, this attribute must not be set unless either the docBase is not located under the Host's appBase or both deployOnStartup and autoDeploy are false. If this rule is not followed, double deployment is likely to result.</em></p>
+    <p>And I can access the app now at <a href="http://localhost:8080/my-app" rel="nofollow noreferrer">http://localhost:8080/my-app</a> and <a href="http://localhost:8080/my-app-123" rel="nofollow noreferrer">http://localhost:8080/my-app-123</a>, which isn't a real solution.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">tomcat</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Apr 2020 at 22:56</span>
+     </div>
+    </div>
+    <div>
+     <p>The following works for Tomcat deployments I have used - there are no double-deployment issues.</p>
+     <p>In the example I will use here, I have a simple "hello world" webapp in <code>TomcatDemo-1.0-SNAPSHOT.war</code>. It is deployed on Tomcat 9.0 in the standard location (<code>webapps</code> directory).</p>
+     <p>I want the application's context path to be <code>/my-foo-app</code>.</p>
+     <p>I use the following context entry in <code>server.xml</code>:</p>
+     <pre><code>&lt;Context path="/my-foo-app" docBase="TomcatDemo-1.0-SNAPSHOT.war"&gt;&lt;/Context&gt;
+</code></pre>
+     <p>I also use the following in <code>server.xml</code>:</p>
+     <pre><code>&lt;Host name="localhost" 
+      appBase="webapps" 
+      deployOnStartup="true"
+      deployIgnore="TomcatDemo-1.0-SNAPSHOT.war" 
+      unpackWARs="true" 
+      autoDeploy="false"&gt;
+</code></pre>
+     <p>The important item here is <code>deployIgnore</code>. It is described here:</p>
+     <p><a href="https://tomcat.apache.org/tomcat-9.0-doc/config/host.html#Automatic_Application_Deployment" rel="nofollow noreferrer">https://tomcat.apache.org/tomcat-9.0-doc/config/host.html#Automatic_Application_Deployment</a></p>
+     <blockquote>
+      <p>When using automatic deployment, the docBase defined by an XML Context file should be outside of the appBase directory. If this is not the case, difficulties may be experienced deploying the web application or the application may be deployed twice. The deployIgnore attribute can be used to avoid this situation.</p>
+     </blockquote>
+     <p>Alternatively, if you don't mind about automatic start-up deployments, you can set <code>deployOnStartup="false"</code> - in which case you don't need <code>deployIgnore</code>.</p>
+     <p>In these scenarios, the web app is available only here:</p>
+     <pre><code>http://localhost:8080/my-foo-app/   &lt;-- OK
+</code></pre>
+     <p>Otherwise, as you note, with double-deployment the web app would also be available here (and you would see two exploded directories in <code>webapps</code>):</p>
+     <pre><code>http://localhost:8080/TomcatDemo-1.0-SNAPSHOT/  &lt;-- BAD!
+</code></pre>
+     <p>Hope that helps.</p>
+     <p>Finally, it can get a little complicated, with all the various auto-deployment options. This page provides a set of summary tables and explanations:</p>
+     <p><a href="https://tomcat.apache.org/tomcat-9.0-doc/config/automatic-deployment.html" rel="nofollow noreferrer">https://tomcat.apache.org/tomcat-9.0-doc/config/automatic-deployment.html</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

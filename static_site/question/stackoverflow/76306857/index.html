@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Apache Lucene returns NaN as score when sorting by relevance</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Apache Lucene returns NaN as score when sorting by relevance</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Franz Deschler</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>22 May 2023 at 13:47</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76306857/apache-lucene-returns-nan-as-score-when-sorting-by-relevance">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I want to order the results of my Apache Lucene search by relevance. But when I use <code>SortField.FIELD_SCORE</code> for sorting, the score of the resulting documents is always <code>NaN</code>. When I omit the sort parameter, the search works perfectly fine, and the result documents contain a valid score.</p>
+    <p>I use <code>lucene-core 9.6.0</code> and <code>lucene-analyzers-common 8.11.2</code> which are the most up to date versions in the Maven repository right now.</p>
+    <p>At first I thought, I messed up my index or query. But I'm able to reproduce the issue with the most simple implementation I can imagine:</p>
+    <pre class="lang-java prettyprint-override"><code>public class LuceneSearch {
+    public static void main(String[] args) {
+        try {
+            Directory directory = new ByteBuffersDirectory();
+            
+            try (IndexWriter indexWriter = new IndexWriter(directory, new IndexWriterConfig(new SimpleAnalyzer()))) {
+                indexWriter.addDocument(createDocument("a very simple example"));
+                indexWriter.addDocument(createDocument("another example"));
+                indexWriter.addDocument(createDocument("hello world"));
+            }
+
+            IndexReader indexReader = DirectoryReader.open(directory);
+            IndexSearcher indexSearcher = new IndexSearcher(indexReader);
+
+            Query query = new TermQuery(new Term("value", "hello"));
+            Sort sort = new Sort(SortField.FIELD_SCORE); // &lt;&lt;&lt;&lt; this causes the problem
+            TopDocs topDocs = indexSearcher.search(query, 10, sort);
+            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                System.out.println(scoreDoc.doc + " : " + scoreDoc.score);
+            }
+
+            indexReader.close();
+            directory.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static Document createDocument(String value) {
+        Document document = new Document();
+        document.add(new TextField("value", value, Field.Store.NO));
+        return document;
+    }
+}
+</code></pre>
+    <p>When I run this simple code, I get <code>2 : NaN</code>. Without the <code>sort</code> parameter, I get <code>2 : 0.49662238</code>. I have no idea what I'm missing here. Or could it be a bug in the library? Thanks for your help!</p>
+    <p><strong>Edit:</strong> As @andrewJames stated in the comments, the ScoreDoc (actually <code>FieldDoc</code>) object contains a property <code>fields</code> which contains the score when using the sort parameter. After some testing, I found out that the actual score is identical in both cases (with/without sort parameter). So the sorting works correctly.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">indexing</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Not an answer,just a couple of observations: (1) For Lucene 9.6.0, you need to use <a href="https://mvnrepository.com/artifact/org.apache.lucene/lucene-analysis-common" rel="nofollow noreferrer"><code>lucene-analysis-common</code></a>. The package was renamed from <code>analyzers</code> to <code>analysis</code>. Don't mix different JAR versions. (2) The sort you are trying to implement is the default sort order (by score, highest to lowest) - so you can remove it and get the required result (as you mention in the question).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">22 May 2023 at 14:57</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Some more notes: When you do not try to use an explicit sort, you can retrieve the score from your <code>ScoreDoc</code>, which is: <code>doc=2 score=0.49662238 shardIndex=-1</code> (as you note). But when you get <code>NaN</code> the <code>ScoreDoc</code> is this: <code>doc=2 score=NaN shardIndex=-1 fields=[0.49662238]</code>. You can see the <code>NaN</code> - but you can also see the score in the <code>fields</code> array - which looks very odd to me (but there may be an explanation). I would ask on the Lucene <code>java-user</code> mailing list - see <a href="https://lucene.apache.org/core/discussion.html" rel="nofollow noreferrer">here</a> for how to subscribe.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">22 May 2023 at 18:04</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thanks @andrewJames for the hints! The <code>fields</code> property is part of the <code>FieldDoc</code> class (a subclass of <code>ScoreDoc</code>). The JavaDoc says, that it contains information about how to sort the documents. The <code>fields</code> array contains the score in THIS case, because I order by score. But it can also contain other types, depending on the type of the field-type that should be used for sorting.</span> <span> - </span> <span class="display-name">Franz Deschler</span> <span> </span> <span class="date">22 May 2023 at 18:25</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 May 2023 at 14:03</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Short Answer</strong></p>
+     <p>Sorting will work the way you expect, using your provided <code>Sort</code> criterion. It is equivalent to the default "relevance" sort order used by Lucene.</p>
+     <p>You can still access the relevance score, if you want to, by casting <code>ScoreDoc</code> to <code>FieldDoc</code>.</p>
+     <hr>
+     <p><strong>Longer Answer</strong></p>
+     <p>The sort order defined by:</p>
+     <pre><code>Sort sort = new Sort(SortField.FIELD_SCORE);
+</code></pre>
+     <p>is the same as the default sort order - which sorts by score (relevance) from highest to lowest. So, documents will be ordered in the same way in both cases.</p>
+     <p>But when you use an explicit sort, you can no longer access the score using <code>scoreDoc.score</code>, as noted in the question. Instead you only get <code>NaN</code> (not a number).</p>
+     <pre><code>2 : NaN
+</code></pre>
+     <hr>
+     <p>However, you can still access the score (if you want to) by casting each <code>ScoreDoc</code> instance to a <a href="https://lucene.apache.org/core/9_6_0/core/org/apache/lucene/search/FieldDoc.html" rel="nofollow noreferrer"><code>FieldDoc</code></a>. We get <code>FieldDocs</code> because we have added a sort field to our search.</p>
+     <p><code>FieldDoc</code> extends <code>ScoreDoc</code>. It contains "information about how to sort the referenced document".</p>
+     <p>In our case, there is only one sort field and it is the <code>FIELD_SCORE</code> value.</p>
+     <p>So, to print the score, we can change this code:</p>
+     <pre class="lang-java prettyprint-override"><code>for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+    System.out.println(scoreDoc.doc + " : " + scoreDoc.score);
+}
+</code></pre>
+     <p>to this:</p>
+     <pre class="lang-java prettyprint-override"><code>for (ScoreDoc scoreDoc : topFieldDocs.scoreDocs) {
+    FieldDoc fieldDoc = (FieldDoc) scoreDoc;
+    System.out.println(scoreDoc.doc + " : " + fieldDoc.fields[0]);
+}
+</code></pre>
+     <p>Now we will get the score printed, instead of <code>NaN</code>:</p>
+     <pre><code>2 : 0.49662238
+</code></pre>
+     <p><strong>Speculation:</strong> I may be wrong, but I assume the original <code>scoreDoc.score</code> field is <code>NaN</code> because it doesn't make sense to calculate it and store it here, given there is no guarantee that the applied search will use <code>SortField.FIELD_SCORE</code>.</p>
+     <p>I expect users will mostly want to sort by something other than score - and maybe optionally use score as a tie-breaker.</p>
+     <p>But if <code>FIELD_SCORE</code> <em>is</em> used, then the score will be available in that field, instead.</p>
+     <hr>
+     <p>As an aside, instead of this:</p>
+     <pre><code>TopDocs topDocs = indexSearcher.search(query, 10, sort);
+</code></pre>
+     <p>You can use this:</p>
+     <pre><code>TopFieldDocs topFieldDocs = indexSearcher.search(query, 10, sort);
+</code></pre>
+     <p>This allows us to access <code>SortField[]</code> - the fields which were used for sorting results. This includes information about field types.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

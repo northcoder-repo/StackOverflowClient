@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Reading UTF-16 XML files with JCabi Java</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Reading UTF-16 XML files with JCabi Java</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Gilberto Melo Jr</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 May 2021 at 00:10</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67697036/reading-utf-16-xml-files-with-jcabi-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have found this JCabi snippet code that works well with UTF-8 xml encoded files, it basically reads the xml file and then prints it as a string.</p>
+    <pre><code>            XML xml;
+            try {
+                xml = new XMLDocument(new File("test8.xml"));
+                String xmlString = xml.toString();
+                System.out.println(xmlString);
+            } catch (FileNotFoundException e1) {
+                e1.printStackTrace();
+            }
+</code></pre>
+    <p>However I need this to run this same code on a UTF-16 encoded xml it gives me the following error:</p>
+    <blockquote>
+     <p>[Fatal Error] :1:1: Content is not allowed in prolog. Exception in thread "AWT-EventQueue-0" java.lang.IllegalArgumentException: Can't parse, most probably the XML is invalid</p>
+    </blockquote>
+    <blockquote>
+     <p>Caused by: org.xml.sax.SAXParseException; lineNumber: 1; columnNumber: 1; Content is not allowed in prolog.</p>
+    </blockquote>
+    <p>I have read about this error and this means that the parser it is not recognizing the prolog because it's seeing characters that are not supposed to be there because of the encoding.</p>
+    <p>I have tried other libraries that offer a way to "tell" the class which encoding the source file is encoded in, but the only library I was able to get it to work to some degree was JCabi, but I was not able to find a way to tell it that my source file is encoded in UTF-16.</p>
+    <p>Thanks, any help is appreciated.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">xml</span><span class="tag">jcabi</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Whatever program was used to create the UTF-16 file seems to have added a <a href="https://en.wikipedia.org/wiki/Byte_order_mark" rel="nofollow noreferrer">BOM</a> (Byte Order Mark) at the beginning. XML doesn't allow for that, so remove the BOM (first 2 bytes). A text editor that understands UTF-16 should have options for saving the file without the BOM, but might default to saving the file with a BOM. --- Make sure the prolog specifies the correct encoding, e.g. that the XML file starts with <code>&lt;?xml version="1.0" encoding="UTF-16"?&gt;</code>.</span> <span> - </span> <span class="display-name">Andreas</span> <span> </span> <span class="date">26 May 2021 at 01:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Hi I have checked this and the file starts just like that, and it's encoded in notepad as UTF-16. If i take this same file and save it with notepad as UTF-8 it works.....</span> <span> - </span> <span class="display-name">Gilberto Melo Jr</span> <span> </span> <span class="date">26 May 2021 at 15:12</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 May 2021 at 02:21</span>
+     </div>
+    </div>
+    <div>
+     <p>The jcabi <a href="https://www.javadoc.io/doc/com.jcabi/jcabi-xml/latest/com/jcabi/xml/XMLDocument.html" rel="nofollow noreferrer"><code>XMLDocument</code></a> has various constructors including one which takes a string. So one approach is to use:</p>
+     <pre class="lang-java prettyprint-override"><code>Path path = Paths.get("test16_LE_with_bom.xml");
+XML xml = new XMLDocument(Files.readString(path, StandardCharsets.UTF_16LE));
+String xmlString = xml.toString();
+System.out.println(xmlString);
+</code></pre>
+     <p>This makes use of <code>java.nio.charset.StandardCharsets</code> and <code>java.nio.file.Files</code>.</p>
+     <p>In my first test, my XML file was encoded as UTF-16-LE (and with a <a href="https://en.wikipedia.org/wiki/Byte_order_mark" rel="nofollow noreferrer">BOM</a> at the start: <code>FF FE</code> for little-endian). The above approach handled the BOM OK.</p>
+     <p>My test file's prolog is as follows (with no explicit encoding - maybe that's a bad thing, here?):</p>
+     <pre><code>&lt;?xml version="1.0"?&gt;
+</code></pre>
+     <p>In my second test I removed the BOM and re-ran with the updated file - which also worked.</p>
+     <p>I used Notepad++ and a hex editor to verify/select encodings &amp; to edit the test files.</p>
+     <p>Your file may be different from my test files (BE vs. LE).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I tried using this <code>Files.readString(path, StandardCharsets.UTF_16LE)</code> but it seems it's only supported in Java 11, I'll upgrade my Java so that I can try that. Thanks</span> <span> - </span> <span class="display-name">Gilberto Melo Jr</span> <span> </span> <span class="date">26 May 2021 at 19:36</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>If you cannot upgrade, there are alternatives for Java 8 (and even Java 7) <a href="https://mkyong.com/java/java-convert-file-to-string/" rel="nofollow noreferrer">here</a> - as well as 3rd party library options.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 May 2021 at 19:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

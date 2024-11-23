@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>why thymeleaf get URL residual "/user/edit"?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>why thymeleaf get URL residual "/user/edit"?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Thái Bình Long</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 Apr 2021 at 06:54</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67135526/why-thymeleaf-get-url-residual-user-edit">source</a>
+    </div>
+   </div>
+   <div>
+    <p><a href="https://i.stack.imgur.com/JBWdP.png" rel="nofollow noreferrer">enter image description here</a></p>
+    <pre><code>&lt;div class="form-group row"&gt;
+                &lt;label class="col-sm-4 col-form-label"&gt;Photo:&lt;/label&gt;
+                &lt;div class="col-sm-8"&gt;
+                    &lt;input type="file" id="fileImage" name="image" accept="image/png, image/jpeg, image/jpg"&gt;
+                    &lt;img alt="Photos preview" th:src="@{${user.photosImagePath}}" id="thumbnail" width="100" height="110"&gt;                                  
+                &lt;/div&gt;
+            &lt;/div&gt;  
+
+
+@Transient
+public String getPhotosImagePath() {
+    if(id == null || photos == null) return "/images/defaultUser.png";
+    return "user-photos/" + this.id + "/" + this.photos;
+}
+</code></pre>
+    <p>this is my thymleaf code, somewhere else it returned correct results for me but here the path for the photo I received is left with some "/ user / edit" parts. how to fix that http://localhost:8080/ShopmeAdmin/users/edit/user-photos/13/cfe3d8d31bc1e89fb1d01.jpg</p>
+    <p><strong>i just want</strong>: http://localhost:8080/ShopmeAdmin/user-photos/13/cfe3d8d31bc1e89fb1d01.jpg</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring-boot</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Apr 2021 at 14:32</span>
+     </div>
+    </div>
+    <div>
+     <p>In your return statement, the string <code>"user-photos/"</code> does not have a leading slash (<code>/</code>) and therefore it will be interpreted as a relative path (relative to the current page location).</p>
+     <p>Assuming <code>ShopmeAdmin</code> is the root context of your application, then you need to add a leading slash to <code>user-photos/</code>:</p>
+     <pre><code>return "/user-photos/" + this.id + "/" + this.photos;
+</code></pre>
+     <p>Thymeleaf has a number of different ways to handle <em>relative</em> and <em>absolute</em> URLs in its <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf.html#link-urls" rel="nofollow noreferrer">link URL</a> syntax, summarized here:</p>
+     <blockquote>
+      <p>Absolute URLs: <a href="http://www.thymeleaf.org" rel="nofollow noreferrer">http://www.thymeleaf.org</a></p>
+      <p>Relative URLs, which can be:</p>
+      <ul>
+       <li>Page-relative: user/login.html</li>
+       <li>Context-relative: /itemdetails?id=3 (context name in server will be added automatically)</li>
+       <li>Server-relative: ~/billing/processInvoice (allows calling URLs in another context (= application) in the same server.</li>
+       <li>Protocol-relative URLs: //code.jquery.com/jquery-2.0.3.min.js</li>
+      </ul>
+     </blockquote>
+     <p>Your current URL (without the leading slash) is relative to the current page (which I assume is the user edit page).</p>
+     <p>The new URL (with the leading slash) will be context-relative.</p>
+     <hr>
+     <p>A couple of extra notes:</p>
+     <p>Protocol-relative URLs are out-of-date these days and should probably <a href="https://www.paulirish.com/2010/the-protocol-relative-url/" rel="nofollow noreferrer">no longer be used</a>.</p>
+     <p>I would recommend always using braces, for safety and clarity:</p>
+     <pre class="lang-java prettyprint-override"><code>if (id == null || photos == null) {
+    return "/images/defaultUser.png";
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

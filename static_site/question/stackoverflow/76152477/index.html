@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Trying to display a table with Django restframework + Datatables, getting error when searching</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Trying to display a table with Django restframework + Datatables, getting error when searching</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>matthew</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>2 May 2023 at 07:06</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76152477/trying-to-display-a-table-with-django-restframework-datatables-getting-error">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I've updated this question since I've been able to display the Datatable.</p>
+    <p>Now, I am having trouble searching the table.</p>
+    <p>models.py:</p>
+    <pre><code>class Sites(models.Model):
+    site_id = models.IntegerField(primary_key=True)
+    site_name = models.CharField(max_length=20)
+    site_description = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = 'sites'
+</code></pre>
+    <p>views.py:</p>
+    <pre><code>class SitesViewSet(viewsets.ModelViewSet):
+    queryset = Sites.objects.all()
+    serializer_class = SitesViewSerializer
+
+    def list(self, request, **kwargs):
+        try:
+            query = query_sites_by_args(**request.query_params)
+            serializer = SitesViewSerializer(query['items'], many=True)
+            result = dict()
+            result['data'] = serializer.data
+            result['draw'] = query['draw']
+            result['recordsTotal'] = query['total']
+            result['recordsFiltered'] = query['count']
+            return Response(result, status=status.HTTP_200_OK, template_name=None, content_type=None)
+
+        except Exception as e:
+            return Response(e, status=status.HTTP_404_NOT_FOUND, template_name=None, content_type=None)
+
+</code></pre>
+    <p>serializers.py:</p>
+    <pre><code>class SitesViewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Sites
+        fields = ('site_id', 'site_name', 'site_description')
+</code></pre>
+    <p>javascript:</p>
+    <pre><code>$(document).ready(function() {
+
+    let table = $('#datatables').DataTable({
+        search:{
+        },
+        lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "All"]],
+        responsive: true,
+        processing: true,
+        serverSide: true,
+        bSearchable: true,
+        ajax: {
+            url: "/api/sites/",
+            type: "GET"
+        },
+        columns: [
+            {"data": "site_id"},
+            {"data": "site_name"},
+            {"data": "site_description"},
+             // {"data": "link"},
+            {
+                "data": null,
+                "defaultContent": '&lt;button type="button" class="btn btn-success"&gt;View Participants&lt;/button&gt;'
+
+            }
+        ],
+    } );
+
+    // on button click
+   $('#datatables tbody').on('click', 'button', function (x) {
+        let url;
+        let data = table.row($(this).parents('tr')).data();
+        let class_name = $(this).attr('class');
+
+        if (class_name === 'btn btn-success') {
+            // assign the full s3 path of the file to filename
+            let sitename = data['site_name'];
+
+            url = 'site' + "/" + sitename;
+
+            location.href = url;
+
+        }
+
+   });
+} );
+</code></pre>
+    <p>Here's my full traceback.</p>
+    <pre><code>Internal Server Error: /api/sites/
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/django/core/handlers/exception.py", line 47, in inner
+    response = get_response(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/django/core/handlers/base.py", line 202, in _get_response
+    response = response.render()
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/django/template/response.py", line 105, in render
+    self.content = self.rendered_content
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/rest_framework/response.py", line 70, in rendered_content
+    ret = renderer.render(self.data, accepted_media_type, context)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/rest_framework/renderers.py", line 99, in render
+    ret = json.dumps(
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/rest_framework/utils/json.py", line 25, in dumps
+    return json.dumps(*args, **kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/json/encoder.py", line 199, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/json/encoder.py", line 257, in iterencode
+    return _iterencode(o, 0)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/rest_framework/utils/encoders.py", line 67, in default
+    return super().default(obj)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/json/encoder.py", line 179, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type FieldError is not JSON serializable
+[03/May/2023 22:46:49] "GET /api/sites/?draw=3&amp;columns%5B0%5D%5Bdata%5D=site_id&amp;columns%5B0%5D%5Bname%5D=&amp;columns%5B0%5D%5Bsearchable%5D=true&amp;columns%5B0%5D%5Borderable%5D=true&amp;columns%5B0%5D%5Bsearch%5D%5Bvalue%5D=&amp;columns%5B0%5D%5Bsearch%5D%5Bregex%5D=false&amp;columns%5B1%5D%5Bdata%5D=site_name&amp;columns%5B1%5D%5Bname%5D=&amp;columns%5B1%5D%5Bsearchable%5D=true&amp;columns%5B1%5D%5Borderable%5D=true&amp;columns%5B1%5D%5Bsearch%5D%5Bvalue%5D=&amp;columns%5B1%5D%5Bsearch%5D%5Bregex%5D=false&amp;columns%5B2%5D%5Bdata%5D=site_description&amp;columns%5B2%5D%5Bname%5D=&amp;columns%5B2%5D%5Bsearchable%5D=true&amp;columns%5B2%5D%5Borderable%5D=true&amp;columns%5B2%5D%5Bsearch%5D%5Bvalue%5D=&amp;columns%5B2%5D%5Bsearch%5D%5Bregex%5D=false&amp;columns%5B3%5D%5Bdata%5D=&amp;columns%5B3%5D%5Bname%5D=&amp;columns%5B3%5D%5Bsearchable%5D=true&amp;columns%5B3%5D%5Borderable%5D=true&amp;columns%5B3%5D%5Bsearch%5D%5Bvalue%5D=&amp;columns%5B3%5D%5Bsearch%5D%5Bregex%5D=false&amp;order%5B0%5D%5Bcolumn%5D=0&amp;order%5B0%5D%5Bdir%5D=asc&amp;start=0&amp;length=25&amp;search%5Bvalue%5D=yay&amp;search%5Bregex%5D=false&amp;_=1683154006765 HTTP/1.1" 500 110334
+
+</code></pre>
+    <p>I think something is going wrong with the search, but I am not really sure what to change here. I think the request being sent to the server is not the correct format, hence the TypeError.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">python</span><span class="tag">django</span><span class="tag">ajax</span><span class="tag">django-rest-framework</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 May 2023 at 14:53</span>
+     </div>
+    </div>
+    <div>
+     <p>Your Django app is attempting to handle a <code>GET</code> request sent from your DataTable.</p>
+     <p>(You haven't shown us your DataTables code - but it appears as if it is using <code>serverSide: true</code> as one of its options.)</p>
+     <p>You can see the request in the error message (in your question):</p>
+     <blockquote>
+      <p>GET /api/sites/?format=datatables&amp;draw=1&amp;columns%5B0%5D%5Bdata%5D=0&amp;columns%5B0%5D%5Bname%5D=&amp;columns%5B0%5D%5Bsearchable%5D=true&amp;columns%5B0%5D%5Borderable%5D=true&amp;columns%5B0%5D%5Bsearch%5D%5Bvalue%5D=&amp;columns%5B0%5D%5Bsearch%5D%5Bregex%5D=false&amp;columns%5B1%5D%5Bdata%5D=1&amp;columns%5B1%5D%5Bname%5D=&amp;columns%5B1%5D%5Bsearchable%5D=true&amp;columns%5B1%5D%5Borderable%5D=true&amp;columns%5B1%5D%5Bsearch%5D%5Bvalue%5D=&amp;columns%5B1%5D%5Bsearch%5D%5Bregex%5D=false&amp;columns%5B2%5D%5Bdata%5D=2&amp;columns%5B2%5D%5Bname%5D=&amp;columns%5B2%5D%5Bsearchable%5D=true&amp;columns%5B2%5D%5Borderable%5D=true&amp;columns%5B2%5D%5Bsearch%5D%5Bvalue%5D=&amp;columns%5B2%5D%5Bsearch%5D%5Bregex%5D=false&amp;order%5B0%5D%5Bcolumn%5D=0&amp;order%5B0%5D%5Bdir%5D=asc&amp;start=0&amp;length=10&amp;search%5Bvalue%5D=&amp;search%5Bregex%5D=false&amp;_=1683010883030 HTTP/1.1" 500 136681</p>
+     </blockquote>
+     <p>So, it's a GET - and it fails with a <code>500</code> internal server error.</p>
+     <p>The request has a large query parameter string - everything following the <code>/api/sites/?</code> in that URL. The query parameter string is <a href="https://en.wikipedia.org/wiki/URL_encoding#The_application/x-www-form-urlencoded_type" rel="nofollow noreferrer">URL-encoded</a>, as per the Ajax request.</p>
+     <p>If we URL decode it, we get the following:</p>
+     <p>(I have added newlines to make it readable, and remove each <code>&amp;</code> which separates each <code>key=value</code> pair):</p>
+     <pre><code>format=datatables
+draw=1
+columns[0][data]=0
+columns[0][name]=
+columns[0][searchable]=true
+columns[0][orderable]=true
+columns[0][search][value]=
+columns[0][search][regex]=false
+columns[1][data]=1
+columns[1][name]=
+columns[1][searchable]=true
+columns[1][orderable]=true
+columns[1][search][value]=
+columns[1][search][regex]=false
+columns[2][data]=2
+columns[2][name]=
+columns[2][searchable]=true
+columns[2][orderable]=true
+columns[2][search][value]=
+columns[2][search][regex]=false
+order[0][column]=0
+order[0][dir]=asc
+start=0
+length=10
+search[value]=
+search[regex]=false
+_=1683010883030
+</code></pre>
+     <p>This request is automatically generated by DataTables and sent to your server when (a) your DataTable is first initialized, and then again (b) whenever a user performs a filter, search, or page navigation action.</p>
+     <p>Your app needs to process this query parameter string, and use the information in it to build the correct set of data to send back to the DataTable in its response. That data will contain one page of data for the DataTable.</p>
+     <p>Looking more closely at the request, we see it includes:</p>
+     <pre><code>start=0
+length=10
+order[0][column]=0
+order[0][dir]=asc
+</code></pre>
+     <p>This means start at row zero (the first row) and provide 10 rows of data (the first page of results).</p>
+     <p>It also tells you how to build that "first page" of results by telling you that the overall data set needs to be sorted by column 0 (the first column) in ascending order.</p>
+     <p>Your app is not reading any of this information. It is, instead, assuming a completely different structure for the request parameters.</p>
+     <p>You can see all of this described in the official <a href="https://datatables.net/manual/server-side" rel="nofollow noreferrer">documentation</a>. See "Sent paraneters".</p>
+     <p>Note also that the response sent back from Django to DataTables has to match the expected JSON structure described in that same link. See "Returned data".</p>
+     <hr>
+     <p>Regarding the error:</p>
+     <blockquote>
+      <p>Cannot resolve keyword '0' into field. Choices are: site_description, site_id, site_name</p>
+     </blockquote>
+     <p>I'm not sure which of the query string zeroes the app is trying to read, at this point - but that is the source of your error.</p>
+     <p>You can also see that the request parameters do not contain any fields for <code>site_description</code>, <code>site_id</code>, or <code>site_name</code>.</p>
+     <p>DataTables provides a generic structure where columns are referenced using their indexes: <code>columns[0]</code>, <code>columns[1]</code> and so on.</p>
+     <p>If you want to, you can use the DataTables <a href="https://datatables.net/reference/option/columns.name" rel="nofollow noreferrer"><code>name</code></a> option in your DataTable definition. Then, the request will show something like this:</p>
+     <pre><code>columns[0][name]=site_id
+</code></pre>
+     <p>instead of what you currently see, which is this:</p>
+     <pre><code>columns[0][name]=
+</code></pre>
+     <p>You could then use that new info to make it a bit easier to process the request.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for your detailed response. I was actually able to display the table but now I'm having trouble performing a search on the Datatable.</span> <span> - </span> <span class="display-name">matthew</span> <span> </span> <span class="date">3 May 2023 at 22:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Glad you have made progress. I don't know what changes you made to your original code, but this sounds like you have a new issue - so you should ask a new question.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">3 May 2023 at 22:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Having said that, in case it helps quickly: Performing a search is "more of the same". If you are using the DataTables global search field, use the data in <code>search[value]=foo</code> together with <code>search[regex]=false</code>. Those are the search instructions in the request. Take the <code>foo</code> value and filter your result set using that info. Or, if you are using column searching, use the <code>columns[i][search][value]=foo</code> data.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">3 May 2023 at 22:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I've updated my question here, but if you think I should post another one I can go ahead and do that too.</span> <span> - </span> <span class="display-name">matthew</span> <span> </span> <span class="date">3 May 2023 at 22:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Try to ask one question per question on SO. You can take a look around the <a href="https://stackoverflow.com/help">help center</a> for more guidance on how to get the most out of using this site.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">3 May 2023 at 22:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

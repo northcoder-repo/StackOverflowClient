@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java Lucene search - is it possible to search a number in a range?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java Lucene search - is it possible to search a number in a range?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Cristian Nicolae Perjescu</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>10 Jun 2020 at 12:15</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62303346/java-lucene-search-is-it-possible-to-search-a-number-in-a-range">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Using the Lucene libs, I need to make some changes to the existing search function: Let's assume the following object:</p>
+    <p>Name: "Port Object 1"</p>
+    <p>Data: "TCP (1)/1000-2000"</p>
+    <p>And the query (or the search text) is "1142" Is it possible to search for "1142" inside Data field and find the Port Object 1, since it refers to a range between 1000-2000?</p>
+    <p>I only managed to find the numeric range query, but that does not apply in this case, since I dont know the ranges...</p>
+    <pre><code>package com.company;
+
+import java.io.IOException;
+
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.StringField;
+import org.apache.lucene.document.TextField;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.RAMDirectory;
+
+public class Main {
+    public static void main(String[] args) throws IOException, ParseException {
+        StandardAnalyzer analyzer = new StandardAnalyzer();
+
+        // 1. create the index
+        Directory index = new RAMDirectory();
+
+        IndexWriterConfig config = new IndexWriterConfig(analyzer);
+
+        IndexWriter w = new IndexWriter(index, config);
+        addDoc(w, "TCP (6)/1100-2000", "193398817");
+        addDoc(w, "TCP (6)/3000-4200", "55320055Z");
+        addDoc(w, "UDP (12)/50000-65000", "55063554A");
+        w.close();
+
+        // 2. query
+        String querystr = "1200";
+
+        Query q = new QueryParser("title", analyzer).parse(querystr);
+
+        // 3. search
+        int hitsPerPage = 10;
+        IndexReader reader = DirectoryReader.open(index);
+        IndexSearcher searcher = new IndexSearcher(reader);
+        TopDocs docs = searcher.search(q, hitsPerPage);
+        ScoreDoc[] hits = docs.scoreDocs;
+
+        // 4. display results
+        System.out.println("Found " + hits.length + " hits.");
+        for(int i=0;i&lt;hits.length;++i) {
+            int docId = hits[i].doc;
+            Document d = searcher.doc(docId);
+            System.out.println((i + 1) + ". " + d.get("isbn") + "\t" + d.get("title"));
+        }
+
+        reader.close();
+    }
+
+    private static void addDoc(IndexWriter w, String title, String isbn) throws IOException {
+        Document doc = new Document();
+        doc.add(new TextField("title", title, Field.Store.YES));
+
+        doc.add(new StringField("isbn", isbn, Field.Store.YES));
+        w.addDocument(doc);
+    }
+}
+</code></pre>
+    <p>Refer to above code. The query "1200" should find the first doc.</p>
+    <p>LE:</p>
+    <p>I think what I need is exactly the opposite of range search: <a href="https://lucene.apache.org/core/5_5_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Range_Searches" rel="nofollow noreferrer">https://lucene.apache.org/core/5_5_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Range_Searches</a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">search</span><span class="tag">lucene</span><span class="tag">lucene.net</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Jun 2020 at 16:07</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is one approach, but it requires you to parse the range data into separate values, before your data can be indexed by Lucene. So, for example, from this:</p>
+     <pre><code>"TCP (6)/1100-2000"
+</code></pre>
+     <p>You would need to extract these two values (e.g. using a regex): <code>1100</code> and <code>2000</code>.</p>
+     <h2>LongRange with ContainsQuery</h2>
+     <p>Add a new field to each document (e.g. named "tcpRange") and define it as a <a href="https://lucene.apache.org/core/8_5_2/core/org/apache/lucene/document/LongRange.html" rel="nofollow noreferrer"><code>LongRange</code></a> field.</p>
+     <p>(There is also <code>IntRange</code> if you don't need long values.)</p>
+     <pre><code>long[] min = { 1100 };
+long[] max = { 2000 };
+Field tcpRange = new LongRange("tcpRange", min, max);
+</code></pre>
+     <p>The values are defined in arrays, because this range type can handle multiple ranges in one field. But we only need the one range in our case.</p>
+     <p>Then you can make use of the "<a href="https://lucene.apache.org/core/8_5_2/core/org/apache/lucene/document/LongRange.html#newContainsQuery-java.lang.String-long:A-long:A-" rel="nofollow noreferrer">contains</a>" query to search for your specific value, e.g. <code>1200</code>:</p>
+     <pre><code>long[] searchValue = { 1200 };
+Query containsQuery = LongRange.newContainsQuery("tcpRange", searchValue, searchValue);
+</code></pre>
+     <p>Note: My examples are based on the latest version of Lucene (8.5). I believe this should apply to other earlier versions also.</p>
+     <p><strong>EDIT</strong></p>
+     <p><em>Regarding additional questions asked in the comments to this answer...</em></p>
+     <p>The following method converts an IPv4 address to a <code>long</code> value. Using this allows IP address ranges to be handled (and the same <code>LongRange</code> approach as above can be used):</p>
+     <pre><code>public long ipToLong(String ipAddress) {
+    long result = 0;
+    String[] ipAddressInArray = ipAddress.split("\\.");
+    for (int i = 3; i &gt;= 0; i--) {
+        long ip = Long.parseLong(ipAddressInArray[3 - i]);
+        // left shifting 24, 16, 8, 0 with bitwise OR
+        result |= ip &lt;&lt; (i * 8);
+    }
+    return result;
+}
+</code></pre>
+     <p>This also means valid subnet ranges to not have to be handled - any two IP adresses will generate a sequential set of numbers.</p>
+     <p>Credit to <a href="https://mkyong.com/java/java-convert-ip-address-to-decimal-number/%20public%20long%20ipToLong(String%20ipAddress)%20%7B" rel="nofollow noreferrer">this mkyong site</a> for the approach.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I tried your suggestion on a small scale code, and yes it works and it's what i've been looking for. However, the code inside the app I am working on is huge and I am not sure if I can add another field. I will have to try it tomorrow.</span> <span> - </span> <span class="display-name">Cristian Nicolae Perjescu</span> <span> </span> <span class="date">10 Jun 2020 at 17:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@CristianNicolaePerjescu If you can't create new document fields, then I don't know of any pure-Lucene solution. Perhaps a hybrid one, where you store the range values somewhere else (e.g. a database) with the document IDs, and then use another mechanism (e.g. SQL <code>contains</code>) to execute that portion of the search. It's "hybrid" because (for example) you use Lucene to get an initial set of matches using the fields you already have, and then further filter those results based on this other (SQL?) approach. Or vice versa.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">11 Jun 2020 at 17:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I managed to add another field, and it works now. Also, do you know how I could do the same search but for IPv4? if I search something like "192.168.0.100" in a "192.168.0.1-192.168.0.255" string?</span> <span> - </span> <span class="display-name">Cristian Nicolae Perjescu</span> <span> </span> <span class="date">15 Jun 2020 at 08:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That would require another new field (a string) for the IP "prefix" (or maybe it is a subnet) - in your example, <code>192.168.0.</code>. This would would have to be an exact match. It would be followed by the range query using your new <code>tcpRange</code> field for the <code>100</code> part.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Jun 2020 at 12:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>But you can also have ranges like 192.168.0.1 - 192.168.100.0</span> <span> - </span> <span class="display-name">Cristian Nicolae Perjescu</span> <span> </span> <span class="date">15 Jun 2020 at 13:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Good question - I don't know of a good way to do that in your specific Lucene context. I only know of tools such as <a href="http://commons.apache.org/proper/commons-net/" rel="nofollow noreferrer">Commons-Net</a>, which has methods such as <a href="http://commons.apache.org/proper/commons-net/javadocs/api-3.6/org/apache/commons/net/util/SubnetUtils.SubnetInfo.html#isInRange(java.lang.String)" rel="nofollow noreferrer"><code>isInRange()</code></a> - but only for subnets.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Jun 2020 at 13:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>While working on something else, I came across one possible way to handle the IP range question. I have edited this answer with details.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">30 Jun 2020 at 20:59</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pablo Martinez</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jun 2020 at 13:10</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>I managed to add another field, and it works now. Also, do you know how I could do the same search but for IPv4? if I search something like "192.168.0.100" in a "192.168.0.1-192.168.0.255" string?</p>
+     </blockquote>
+     <p>Hi @CristianNicolaePerjescu I can't comment because my reputation, but you can create a class that extends Field and add this in your lucene index. For example:</p>
+     <pre><code>public class InetAddressRange extends Field {
+  ...
+
+  /**
+   * Create a new InetAddressRange from min/max value
+   * @param name field name. must not be null.
+   * @param min range min value; defined as an {@code InetAddress}
+   * @param max range max value; defined as an {@code InetAddress}
+   */
+  public InetAddressRange(String name, final InetAddress min, final InetAddress max) {
+    super(name, TYPE);
+    setRangeValues(min, max);
+  }
+
+  ...
+
+}
+</code></pre>
+     <p>And then add to the index:</p>
+     <pre><code>document.add(new InetAddressRange("field", InetAddressFrom, InetAddressTo));
+</code></pre>
+     <p>In your class you can add your own Query format, like:</p>
+     <pre><code>  public static Query newIntersectsQuery(String field, final InetAddress min, final InetAddress max) {
+    return newRelationQuery(field, min, max, QueryType.INTERSECTS);
+  }
+
+  /** helper method for creating the desired relational query */
+  private static Query newRelationQuery(String field, final InetAddress min, final InetAddress max, QueryType relation) {
+    return new RangeFieldQuery(field, encode(min, max), 1, relation) {
+      @Override
+      protected String toString(byte[] ranges, int dimension) {
+        return InetAddressRange.toString(ranges, dimension);
+      }
+    };
+  }
+</code></pre>
+     <p>I hope this is helpful for you.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

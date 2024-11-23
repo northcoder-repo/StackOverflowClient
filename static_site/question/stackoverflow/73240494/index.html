@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Can someone assist me with a multi-word synonym problem in Lucene?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Can someone assist me with a multi-word synonym problem in Lucene?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>TrevorN</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Aug 2022 at 18:05</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73240494/can-someone-assist-me-with-a-multi-word-synonym-problem-in-lucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Simple synonyms (<em>wordA</em> = <em>wordB</em>) are fine. When the synonym is a phrase (<em>wordA</em> = <em>wordB</em> <em>word C</em>), then matching is hit-or-miss.</p>
+    <p>I have a simple test case (it's delivered as an Ant project) which illustrates the problem. This test case uses the same files as the other question I posted today, but I'll give the same description here.</p>
+    <h2>Materials</h2>
+    <p>You can download the test case here: <a href="https://www.dropbox.com/s/qhy9hfrnq1bcv3k/mydemo.with.libs.zip?dl=0" rel="nofollow noreferrer">mydemo.with.libs.zip (5MB)</a></p>
+    <p>That archive includes the Lucene 9.2 libraries which my test uses; if you prefer a copy without the JAR files you can download that from here: <a href="https://www.dropbox.com/s/rn4np7ja4wcpodl/mydemo.zip?dl=0" rel="nofollow noreferrer">mydemo.zip (9KB)</a></p>
+    <p>You can run the test case by unzipping the archive into an empty directory and running the Ant command <strong><code>ant stsearch</code></strong></p>
+    <h2>Input</h2>
+    <p>When indexing the documents, the following synonym list is used (permuted as necessary):</p>
+    <pre><code>note,notes,notice,notification
+subtree,sub tree,sub-tree
+</code></pre>
+    <p>I have three documents, each containing a single sentence. The three sentences are:</p>
+    <pre><code>These release notes describe a document sub tree in a simple way.
+This release note describes a document subtree in a simple way.
+This release notice describes a document sub-tree in a simple way.
+</code></pre>
+    <h2>Problem</h2>
+    <p>I believe that any of the following searches should match all three documents:</p>
+    <pre><code>subtree
+sub tree
+sub-tree
+"document subtree"
+"document sub tree"
+"document sub-tree"
+</code></pre>
+    <p>While the searches for <code>subtree</code> and <code>sub-tree</code> match correctly, the search for <code>sub tree</code> only matches a single document (the one which literally contains <code>sub tree</code> as two words).</p>
+    <p>The phrase searches are incorrect: "document subtree" and "document sub tree" each match one, and "document sub-tree" matches two.</p>
+    <p>If I add a proximity modifier to the phrase searches, like so:</p>
+    <pre><code>"document subtree"~1
+"document sub tree"~1
+"document sub-tree"~1
+</code></pre>
+    <p>the first and third now match all three records, but "document sub tree"~1 still only matches the one document.</p>
+    <p>The pairing of a two-word phrase as a synonym of a single word just isn't working.</p>
+    <p>Here's my analyzer including the synonym map builder:</p>
+    <pre><code>public class MyAnalyzer extends Analyzer {
+   public MyAnalyzer(String synlist) {
+      this.synlist = synlist;
+   }
+
+   @Override
+   protected TokenStreamComponents createComponents(String fieldName) {
+      WhitespaceTokenizer src = new WhitespaceTokenizer();
+      TokenStream result = new LowerCaseFilter(src);
+      if (synlist != null) {
+         result = new SynonymGraphFilter(result, getSynonyms(synlist), Boolean.TRUE);
+         result = new FlattenGraphFilter(result);
+      }
+      return new TokenStreamComponents(src, result);
+   }
+
+   private static SynonymMap getSynonyms(String synlist) {
+      boolean dedup = Boolean.TRUE;
+      SynonymMap synMap = null;
+      SynonymMap.Builder builder = new SynonymMap.Builder(dedup);
+      int cnt = 0;
+
+      try {
+         BufferedReader br = new BufferedReader(new FileReader(synlist));
+         String line;
+         try {
+            while ((line = br.readLine()) != null) {
+               processLine(builder,line);
+               cnt++;
+            }
+         } catch (IOException e) {
+            System.err.println(" caught " + e.getClass() + " while reading synonym list,\n with message " + e.getMessage());
+         }
+         System.out.println("Synonym load processed " + cnt + " lines");
+         br.close();
+      } catch (Exception e) {
+         System.err.println(" caught " + e.getClass() + " while loading synonym map,\n with message " + e.getMessage());
+      }
+      if (cnt &gt; 0) {
+         try {
+            synMap = builder.build();
+         } catch (IOException e) {
+            System.err.println(e);
+         }
+      }
+      return synMap;
+   }
+
+   private static void processLine(SynonymMap.Builder builder, String line) {
+      boolean keepOrig = Boolean.TRUE;
+      String terms[] = line.split(",");
+      if (terms.length &lt; 2) {
+         System.err.println("Synonym input must have at least two terms on a line: " + line);
+      } else {
+         String word = terms[0];
+         String[] synonymsOfWord = Arrays.copyOfRange(terms, 1, terms.length);
+         addSyns(builder, word, synonymsOfWord, keepOrig);
+      }
+   }
+
+   private static void addSyns(SynonymMap.Builder builder, String word, String[] syns, boolean keepOrig) {
+      CharsRefBuilder synset = new CharsRefBuilder();
+      SynonymMap.Builder.join(syns, synset);
+      CharsRef wordp = SynonymMap.Builder.join(word.split("\\s+"), new CharsRefBuilder());
+      builder.add(wordp, synset.get(), keepOrig);
+   }
+
+   private String synlist;
+}
+</code></pre>
+    <p>I suspect I have to do some additional manipulation of the synonymsOfWord array, but nothing I've tried has worked.</p>
+    <p>Note that the analyzer includes synonyms when building the index, and not when it is executing a query.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span><span class="tag">synonym</span><span class="tag">phrase</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Aug 2022 at 21:49</span>
+     </div>
+    </div>
+    <div>
+     <p>I do not know if this is the best solution, but it is a solution.</p>
+     <p>It is basically a very similar approach to the <a href="https://stackoverflow.com/a/73255095/12567365">answer to this related question</a>, but with an enhancement to handle synonyms, some of which contain multiple words:</p>
+     <pre><code>"subtree", "sub tree", "sub-tree"
+</code></pre>
+     <p>In this case, the synonym builder needs to make use of <a href="https://lucene.apache.org/core/9_3_0/analysis/common/org/apache/lucene/analysis/synonym/SynonymMap.html#WORD_SEPARATOR" rel="nofollow noreferrer">SynonymMap.html#WORD_SEPARATOR</a>:</p>
+     <blockquote>
+      <p>"<em>for multiword support, you must separate words with this separator</em>"</p>
+     </blockquote>
+     <p>It's just a <code>char</code> containing the null terminator <code>\u0000</code>.</p>
+     <p>Therefore you can do something quick and dirty as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>String[] synonyms = {"sub tree", "sub-tree", "subtree"};
+int len = synonyms.length;
+String sep = Character.toString(SynonymMap.WORD_SEPARATOR);
+String[] luceneSyns = new String[len];
+for (int i = 0; i &lt; len; i++) {
+    luceneSyns[i] = synonyms[i].replaceAll(" ", sep).replaceAll("-", sep);
+}
+</code></pre>
+     <p>And now <code>luceneSyns</code> becomes the array we use:</p>
+     <pre class="lang-java prettyprint-override"><code>// build a synonym map where every word or phrase in the list is a synonym
+// of every other word or phrase in the list:
+SynonymMap.Builder synMapBuilder = new SynonymMap.Builder(dedup);
+for (String word : luceneSyns) {
+    for (String synonym : luceneSyns) {
+        if (!synonym.equals(word)) {
+            //System.out.println(word + " &gt; " + synonym);
+            synMapBuilder.add(new CharsRef(word), new CharsRef(synonym), includeOrig);
+        }
+    }
+}
+</code></pre>
+     <p>This works.</p>
+     <p>All the queries listed in the question will find all three documents.</p>
+     <hr>
+     <p>The above approach is not pretty - it assumes you will only ever need to handle a space and a dash as the two characters which need to be replaced by the null terminator.</p>
+     <p>Another more robust approach is probably to use <a href="https://lucene.apache.org/core/9_3_0/analysis/common/org/apache/lucene/analysis/synonym/SynonymMap.Parser.html#analyze(java.lang.String,org.apache.lucene.util.CharsRefBuilder)" rel="nofollow noreferrer"><code>SynonymMap.Parser</code></a>, which has a <code>parse()</code> method for converting your provided synonym text into the text needed for phrase synonyms.</p>
+     <p>This is an abstract class and I do not know how to implement the <code>analyze()</code> method correctly - but here is as far as I got:</p>
+     <p>First I created the class <code>MySynonymParser</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>import java.io.IOException;
+import java.io.Reader;
+import java.text.ParseException;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.synonym.SynonymMap;
+import org.apache.lucene.util.CharsRef;
+import org.apache.lucene.util.CharsRefBuilder;
+
+public class MySynonymParser extends SynonymMap.Parser {
+    
+    private final boolean dedup;
+    private final Analyzer analyzer;
+    
+    public MySynonymParser(boolean dedup, Analyzer analyzer) {
+        this.dedup = dedup;
+        this.analyzer = analyzer;
+    }
+
+    @Override
+    public CharsRef analyze​(String text, CharsRefBuilder reuse) throws IOException {
+        // implementation here
+        return null;
+    } 
+    
+    @Override
+    public void parse(Reader reader) throws IOException, ParseException {
+        throw new UnsupportedOperationException("Not supported yet."); 
+    }
+    
+}
+</code></pre>
+     <p><strong>As mentioned, the needed <code>analyze​()</code> method is missing its implementation.</strong></p>
+     <p><em>I assume that method would have to capture the analyzed output for the provided input string, and then replace any spaces with null terminators - and return that new string as a <code>CharsRef</code>. I have not attempted this piece - I'm not even sure if this is what is actually needed.</em></p>
+     <p>But assuming it's correctly implemented, then I assume it would be used as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer analyzer = new Analyzer() {
+    @Override
+    protected Analyzer.TokenStreamComponents createComponents(String fieldName) {
+        Tokenizer source = new StandardTokenizer();
+        TokenStream tokenStream = source;
+        tokenStream = new LowerCaseFilter(tokenStream);
+        tokenStream = new ASCIIFoldingFilter(tokenStream);
+        return new Analyzer.TokenStreamComponents(source, tokenStream);
+    }
+};
+MySynonymParser mySynonymParser = new MySynonymParser(dedup, analyzer);
+CharsRefBuilder charsRefBuilder = new CharsRefBuilder();
+mySynonymParser.analyze(sep, charsRefBuilder);
+// build a synonym map where every word in the list is a synonym
+// of every other word in the list:
+SynonymMap.Builder synMapBuilder2 = new SynonymMap.Builder(dedup);
+for (String word : luceneSyns) {
+    for (String synonym : luceneSyns) {
+        if (!synonym.equals(word)) {
+            synMapBuilder2.add(mySynonymParser.analyze(word, charsRefBuilder), 
+                    mySynonymParser.analyze(synonym, charsRefBuilder), includeOrig);
+        }
+    }
+}
+</code></pre>
+     <p>In the above code, we have to create an analyzer to pass to <code>MySynonymParser</code>. This analyzer is the same as the one <a href="https://stackoverflow.com/a/73255095/12567365">we actually use for indexing</a>, but without the synonym filters.</p>
+     <p>Then we analyze each <code>word</code> and <code>synonym</code> which replaces all spaces with the null terminator.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I'll have to have a play with synonymParser but your first solution is adequate for my requirements, thank you very much.</span> <span> - </span> <span class="display-name">TrevorN</span> <span> </span> <span class="date">8 Aug 2022 at 07:20</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

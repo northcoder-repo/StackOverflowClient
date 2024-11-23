@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Convert Iterable to Stream using Java 8 JDK</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Convert Iterable to Stream using Java 8 JDK</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>508</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>rayman</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>29 May 2014 at 11:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/23932061/convert-iterable-to-stream-using-java-8-jdk">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have an interface which returns <code>java.lang.Iterable&lt;T&gt;</code>.</p>
+    <p>I would like to manipulate that result using the Java 8 Stream API.</p>
+    <p>However Iterable can't "stream".</p>
+    <p>Any idea how to use the Iterable as a Stream without converting it to List?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">java-8</span><span class="tag">java-stream</span><span class="tag">iterable</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>If you can iterate, why not simly use a loop to check its condition or value or what so ever?</span> <span> - </span> <span class="display-name">Afzaal Ahmad Zeeshan</span> <span> </span> <span class="date">29 May 2014 at 11:18</span></td>
+      </tr>
+      <tr>
+       <td>32</td>
+       <td><span>@AfzaalAhmadZeeshan because streams are much better</span> <span> - </span> <span class="display-name">Sleiman Jneidi</span> <span> </span> <span class="date">29 May 2014 at 11:19</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>As I said, I need to do some maniuplations on that list (filters, mapping). I would like to use the new Java 8 JDK API - &gt; Stream. but Iterable isnot "SteamAble"</span> <span> - </span> <span class="display-name">rayman</span> <span> </span> <span class="date">29 May 2014 at 11:19</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Seems weird that <code>myIterable.stream()</code> does not exist!</span> <span> - </span> <span class="display-name">Josh M.</span> <span> </span> <span class="date">15 Jun 2018 at 14:15</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>In 2018 we also have Stream.of(iterable)</span> <span> - </span> <span class="display-name">Guillaume</span> <span> </span> <span class="date">29 Jun 2018 at 19:24</span></td>
+      </tr>
+      <tr>
+       <td>14</td>
+       <td><span>@Guillaume: Yes, but <code>Stream.of(iterable)</code> produces <code>Stream&lt;Iterable&lt;Object&gt;&gt;</code>.</span> <span> - </span> <span class="display-name">Matthias Braun</span> <span> </span> <span class="date">4 Oct 2018 at 16:16</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>690</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Brian Goetz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 May 2014 at 15:15</span>
+     </div>
+    </div>
+    <div>
+     <p>There's a much better answer than using <code>spliteratorUnknownSize</code> directly, which is both easier and gets a better result. <code>Iterable</code> has a <code>spliterator()</code> method, so you should just use that to get your spliterator. In the worst case, it's the same code (the default implementation uses <code>spliteratorUnknownSize</code>), but in the more common case, where your <code>Iterable</code> is already a collection, you'll get a better spliterator, and therefore better stream performance (maybe even good parallelism). It's also less code:</p>
+     <pre><code>StreamSupport.stream(iterable.spliterator(), false)
+             .filter(...)
+             .moreStreamOps(...);
+</code></pre>
+     <p>As you can see, getting a stream from an <code>Iterable</code> (see also <a href="https://stackoverflow.com/questions/23114015/why-does-iterablet-not-provide-stream-and-parallelstream-methods?rq=1">this question</a>) is not very painful.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>138</td>
+        <td><span>A static method on <code>Stream</code> would have been nice, e.g. <code>Stream.ofIterable(iterable)</code>.</span> <span> - </span> <span class="display-name">robinst</span> <span> </span> <span class="date">27 Aug 2015 at 05:35</span></td>
+       </tr>
+       <tr>
+        <td>86</td>
+        <td><span>@robinst This wasn't an omission; it was a deliberate (and highly debated) choice. The challenge is that were this to exist, it would just be too easy to reach for it without understanding the tradeoffs that come with it. Because Iterable is so abstract, such a method would result in the worst-performing stream possible (no parallel support, no size information or characteristics (used to optimize execution choices)). Forcing more thought results in better APIs across the entire ecosystem. This was a tradeoff of "what's best for XYZ code" vs "what's best for all Java code."</span> <span> - </span> <span class="display-name">Brian Goetz</span> <span> </span> <span class="date">24 Aug 2016 at 15:03</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Based on your explanation, I'm curious why we got Collection.stream() but not Iterable.stream(). It seems like the reasoning to omit Iterable.stream() (or Stream.ofIterable()) applies equally to Collection.stream().</span> <span> - </span> <span class="display-name">qualidafial</span> <span> </span> <span class="date">4 Sep 2016 at 20:15</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>@qualidafial See <a href="http://stackoverflow.com/questions/23114015/why-does-iterablet-not-provide-stream-and-parallelstream-methods" title="why does iterablet not provide stream and parallelstream methods">stackoverflow.com/questions/23114015/…</a>.</span> <span> - </span> <span class="display-name">Brian Goetz</span> <span> </span> <span class="date">4 Sep 2016 at 20:29</span></td>
+       </tr>
+       <tr>
+        <td>14</td>
+        <td><span>@BrianGoetz It looks most of people are not in the level to understand you said above or don't care about. they only want to write the simple code by calling simple API. On the other hand, those things(parallel...) maybe not important to most of daily iterable operations.</span> <span> - </span> <span class="display-name">user_3380739</span> <span> </span> <span class="date">7 Dec 2016 at 00:27</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Based on the explanations given so far, I would expect to have Stream.ofIterable(Iterable&lt;T&gt; iterable, boolean parallel), and Stream.ofIterable(Iterable&lt;T&gt; iterable), which defaults to a non-parallel stream of items. More generally speaking, StreamSupport helpers should be in the Stream class.</span> <span> - </span> <span class="display-name">Stéphane Appercel</span> <span> </span> <span class="date">15 Jul 2017 at 05:38</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@StéphaneAppercel Please read the comment above between Brian and Robin.</span> <span> - </span> <span class="display-name">Franklin Yu</span> <span> </span> <span class="date">2 Dec 2018 at 04:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>93</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>numéro6</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Jan 2017 at 09:11</span>
+     </div>
+    </div>
+    <div>
+     <p>If you can use Guava library, since version 21, you can use</p>
+     <pre><code>Streams.stream(iterable)
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>Or, if you are stuck at an older version, use <code>Lists.newArrayList(Iterable)</code>.</span> <span> - </span> <span class="display-name">Jacob van Lingen</span> <span> </span> <span class="date">3 Feb 2017 at 14:06</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Current Guava implementation is not worse than accepted answer: <a href="https://github.com/google/guava/blob/master/guava/src/com/google/common/collect/Streams.java#L60" rel="nofollow noreferrer">github.com/google/guava/blob/master/guava/src/com/google/com‌​mon/…</a></span> <span> - </span> <span class="display-name">Vadzim</span> <span> </span> <span class="date">10 Jul 2019 at 11:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>24</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>nosid</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 May 2014 at 11:26</span>
+     </div>
+    </div>
+    <div>
+     <p>You can easily create a <code>Stream</code> out of an <code>Iterable</code> or <code>Iterator</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>public static &lt;T&gt; Stream&lt;T&gt; stream(Iterable&lt;T&gt; iterable) {
+    return StreamSupport.stream(
+        Spliterators.spliteratorUnknownSize(
+            iterable.iterator(),
+            Spliterator.ORDERED
+        ),
+        false
+    );
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>You have to write this function once and then just call it. Why does a call to <code>stream(...)</code> clutter your code?</span> <span> - </span> <span class="display-name">gexicide</span> <span> </span> <span class="date">29 May 2014 at 11:42</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Wanted to do it Inline short and elegant.. you right I can write this function once.. but I am into dropping code (and not adding code). anyway this answer is right because thats the way to convert this.</span> <span> - </span> <span class="display-name">rayman</span> <span> </span> <span class="date">29 May 2014 at 11:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>static import said function. short and elegant. (though not necessarily transparent)</span> <span> - </span> <span class="display-name">aepurniet</span> <span> </span> <span class="date">29 May 2014 at 11:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Shaggie</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Nov 2015 at 16:18</span>
+     </div>
+    </div>
+    <div>
+     <p>I would like to suggest using <a href="https://github.com/jOOQ/jOOL" rel="nofollow noreferrer">JOOL</a> library, it hides spliterator magic behind the <code>Seq.seq(iterable)</code> call and also provides a whole bunch of additional useful functionality.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Wow there is a whole JOO* family. I was only familiar with JOOQ. Thanks!</span> <span> - </span> <span class="display-name">Pawel Zieminski</span> <span> </span> <span class="date">24 Apr 2023 at 18:58</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alexander Oh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Nov 2017 at 12:02</span>
+     </div>
+    </div>
+    <div>
+     <p>So as another answer mentioned Guava has support for this by using:</p>
+     <pre><code>Streams.stream(iterable);
+</code></pre>
+     <p>I want to highlight that the implementation does something slightly different than other answers suggested. If the <code>Iterable</code> is of type <code>Collection</code> they cast it.</p>
+     <pre><code>public static &lt;T&gt; Stream&lt;T&gt; stream(Iterable&lt;T&gt; iterable) {
+  return (iterable instanceof Collection)
+    ? ((Collection&lt;T&gt;) iterable).stream()
+    : StreamSupport.stream(iterable.spliterator(), false);
+}
+
+public static &lt;T&gt; Stream&lt;T&gt; stream(Iterator&lt;T&gt; iterator) {
+  return StreamSupport.stream(
+    Spliterators.spliteratorUnknownSize(iterator, 0),
+    false
+  );
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>g-t</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Apr 2016 at 10:31</span>
+     </div>
+    </div>
+    <div>
+     <p>I've created this class:</p>
+     <pre><code>public class Streams {
+    /**
+     * Converts Iterable to stream
+     */
+    public static &lt;T&gt; Stream&lt;T&gt;  streamOf(final Iterable&lt;T&gt; iterable) {
+        return toStream(iterable, false);
+    }
+
+    /**
+     * Converts Iterable to parallel stream
+     */
+    public static &lt;T&gt; Stream&lt;T&gt; parallelStreamOf(final Iterable&lt;T&gt; iterable) {
+        return toStream(iterable, true);
+    }
+
+    private static &lt;T&gt; Stream&lt;T&gt; toStream(final Iterable&lt;T&gt; iterable, final boolean isParallel) {
+        return StreamSupport.stream(iterable.spliterator(), isParallel);
+    }
+}
+</code></pre>
+     <p>I think it's perfectly readable because you don't have to think about spliterators and booleans (isParallel).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>OldCurmudgeon</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Apr 2017 at 11:31</span>
+     </div>
+    </div>
+    <div>
+     <p>A very simple work-around for this issue is to create a <code>Streamable&lt;T&gt;</code> interface extending <code>Iterable&lt;T&gt;</code> that holds a <code>default &lt;T&gt; stream()</code> method.</p>
+     <pre><code>interface Streamable&lt;T&gt; extends Iterable&lt;T&gt; {
+    default Stream&lt;T&gt; stream() {
+        return StreamSupport.stream(spliterator(), false);
+    }
+}
+</code></pre>
+     <p>Now any of your <code>Iterable&lt;T&gt;</code>s can be trivially made streamable just by declaring them <code>implements Streamable&lt;T&gt;</code> instead of <code>Iterable&lt;T&gt;</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Grzegorz Piwowarek</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jul 2017 at 17:30</span>
+     </div>
+    </div>
+    <div>
+     <p>If you happen to use Vavr(formerly known as Javaslang), this can be as easy as:</p>
+     <pre><code>Iterable i = //...
+Stream.ofAll(i);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

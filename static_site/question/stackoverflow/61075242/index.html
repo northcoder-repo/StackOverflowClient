@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Is there a way to remove ALL special characters using Lucene filters?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Is there a way to remove ALL special characters using Lucene filters?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>zaki41</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Apr 2020 at 07:52</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61075242/is-there-a-way-to-remove-all-special-characters-using-lucene-filters">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Standard Analyzer removes special characters, but not all of them (eg: '-'). I want to index my string with only alphanumeric characters but referring to the original document.</p>
+    <p>Example: 'doc-size type' should be indexed as 'docsize' and 'type' and both should point to the original document: 'doc-size type'</p>
+   </div>
+   <div class="tags">
+    <span class="tag">filter</span><span class="tag">lucene</span><span class="tag">special-characters</span><span class="tag">analyzer</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Apr 2020 at 20:06</span>
+     </div>
+    </div>
+    <div>
+     <p>It depends what you mean by "special characters", and what other requirements you may have. But the following may give you what you need, or point you in the right direction.</p>
+     <p>The following examples all assume Lucene version 8.4.1.</p>
+     <h2>Basic Example</h2>
+     <p>Starting with the very specific example you gave, where <code>doc-size type</code> should be indexed as <code>docsize</code> and <code>type</code>, here is a custom analyzer:</p>
+     <pre><code>import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.core.WhitespaceTokenizer;
+import org.apache.lucene.analysis.pattern.PatternReplaceFilter;
+import java.util.regex.Pattern;
+
+public class MyAnalyzer extends Analyzer {
+
+    @Override
+    protected TokenStreamComponents createComponents(String fieldName) {
+        final Tokenizer source = new WhitespaceTokenizer();
+        TokenStream tokenStream = source;
+        Pattern p = Pattern.compile("\\-");
+        boolean replaceAll = Boolean.TRUE;
+        tokenStream = new PatternReplaceFilter(tokenStream, p, "", replaceAll);
+        return new TokenStreamComponents(source, tokenStream);
+    }  
+}
+</code></pre>
+     <p>This splits on whitespace, and then removes hyphens, using a <code>PatternReplaceFilter</code>. It works as shown below (I use ｢ and ｣ as delimiters to show where whitespaces may be part of the inputs/outputs):</p>
+     <pre><code>Input text:
+｢doc-size type｣
+
+Output tokens:
+｢docsize｣
+｢type｣
+</code></pre>
+     <p>NOTE - this will remove <em>all</em> hyphens which are <em>standard keyboard</em> hyphens - but not things such as em-dashes, en-dashes, and so on. It will remove these standard hyphens regardless of where they appear in the text (word starts, word ends, on their own, etc).</p>
+     <h2>A Set of Punctuation Marks</h2>
+     <p>You can change the pattern to cover more punctuation, as needed - for example:</p>
+     <pre><code>Pattern p = Pattern.compile("[$^-]");
+</code></pre>
+     <p>This does the following:</p>
+     <pre><code>Input text:
+｢doc-size type $foo^bar｣
+
+Output tokens:
+｢docsize｣
+｢type｣
+｢foobar｣
+</code></pre>
+     <h2>Everything Which is Not a Character or Digit</h2>
+     <p>You can use the following to remove everything which is not a character or digit:</p>
+     <pre><code>Pattern p = Pattern.compile("[^A-Za-z0-9]");
+</code></pre>
+     <p>This does the following:</p>
+     <pre><code>Input text:
+｢doc-size 123 %^&amp;*{} type $foo^bar｣
+
+Output tokens:
+｢docsize｣
+｢123｣
+｢｣
+｢type｣
+｢foobar｣
+</code></pre>
+     <p>Note that this has one empty string in the resulting tags.</p>
+     <p>WARNING: Whether the above will work for you depends very much on your specific, detailed requirements. For example, you may need to perform extra transformations to handle upper/lowercase differences - i.e. the usual things which typically need to be considered when indexing text.</p>
+     <h2>Note on the Standard Analyzer</h2>
+     <p>The <code>StandardAnalyzer</code> actually <em>does</em> remove hyphens in words (with some obscure exceptions). In your question you mentioned that it does not remove them. The standard analyzer uses the standard tokenizer. And the standard tokenizer implements the Word Break rules from the Unicode Text Segmentation algorithm, as specified <a href="http://unicode.org/reports/tr29/#Word_Boundary_Rules" rel="nofollow noreferrer">here</a>. There's a section discussing how hyphens in words are handled.</p>
+     <p>So, the Standard analyzer will do this:</p>
+     <pre><code>Input text:
+｢doc-size type｣
+
+Output tokens:
+｢doc｣
+｢size｣
+｢type｣
+</code></pre>
+     <p>That should work with searches for <code>doc</code> as well as <code>doctype</code> - it's just a question of whether it works well enough for your needs.</p>
+     <p>I understand that may not be what you want. But if you can avoid needing to build a custom analyzer, life will probably be much simpler.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>By special characters I meant anything that is not a character or digit. This looks like what I was searching for. Will give this a go. If it meets my requirements, you are a life-saver.</span> <span> - </span> <span class="display-name">zaki41</span> <span> </span> <span class="date">8 Apr 2020 at 06:42</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

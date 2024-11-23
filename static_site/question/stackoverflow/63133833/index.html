@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Datatables Render Numeric Sort Issue</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Datatables Render Numeric Sort Issue</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>David</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Jul 2020 at 12:11</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63133833/datatables-render-numeric-sort-issue">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to use the following code and it will not sort the column correctly. The data is appearing correctly as integers but when I click on the column headers it appears to sort randomly.</p>
+    <pre><code>{
+  targets: 7,
+  data: null,
+  render: function(data, type, row, meta) {
+    var value = Math.floor(Math.random() * Math.floor(100));
+    if (type === "display") {
+      return value;
+    } else {
+      return value;
+    }
+
+  }
+},
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">sorting</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>You can just use <code>100</code> instead of <code>Math.floor(100)</code></span> <span> - </span> <span class="display-name">adiga</span> <span> </span> <span class="date">28 Jul 2020 at 12:12</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>You return <code>value</code> regardless of the condition in the <code>if</code>. And <code>value</code> is always a random number.</span> <span> - </span> <span class="display-name">VLAZ -on strike-</span> <span> </span> <span class="date">28 Jul 2020 at 12:13</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@VLAZ correct..but the sorting still will not work. For example my values are 3,37,46,49 and when I click to sort ascending it displays as 46,49,3,37.</span> <span> - </span> <span class="display-name">David</span> <span> </span> <span class="date">28 Jul 2020 at 12:25</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jul 2020 at 14:25</span>
+     </div>
+    </div>
+    <div>
+     <p>This is caused by how DataTables handles <a href="https://datatables.net/manual/data/orthogonal-data" rel="nofollow noreferrer">orthogonal data</a> - and how the random number generator in your <code>render</code> function is interfering with that process.</p>
+     <p><strong>The Problem</strong></p>
+     <p>In my test example, my table has 3 rows of data. I used column index 5, not 7. Here is my DataTable:</p>
+     <pre><code>$(document).ready(function() {
+
+  $('#example').DataTable( {
+
+    columnDefs: [
+      { targets: 5,
+        render: function(data, type, row, meta) {
+          var x = Math.floor(Math.random() * 100);
+          console.log(type + ' - ' + x);
+          return x;
+        }
+      } 
+    ]
+
+  } );
+} );
+</code></pre>
+     <p>The following output is logged to the console:</p>
+     <pre><code>display - 97
+display - 74
+display - 39
+type - 17
+type - 19
+type - 31
+filter - 55
+filter - 34
+filter - 28
+</code></pre>
+     <p>For each row of data, 3 different random numbers are generated - a <code>display</code> value, a <code>type</code> value and a <code>filter</code> value.</p>
+     <p>And the first time you sort on that column, another set of random numbers is generated:</p>
+     <pre><code>sort - 4
+sort - 12
+sort - 85
+</code></pre>
+     <p>It is these final values which are being used for sorting - and, of course they are likely to be a different sort order from the original display values.</p>
+     <p><strong>A Solution</strong></p>
+     <p>One solution is to capture the original display values in an array, and then use those values whenever a <code>filter</code> or <code>sort</code> value would otherwise be used:</p>
+     <pre><code>$(document).ready(function() {
+
+  var rands = [];
+
+  $('#example').DataTable( {
+
+    columnDefs: [
+      { targets: 5,
+        type: "num",
+        render: function(data, type, row, meta) {
+          var x = Math.floor(Math.random() * 100);
+          if ( type === 'display' ) {
+            rands.push(x);
+            return x;
+          } else {
+            return rands[meta.row];
+          }
+        }
+      } 
+    ]
+
+  } );
+} );
+</code></pre>
+     <p>Here we set up an array (<code>rands</code>) prior to declaring the DataTable. Then we populate that array with the display values when they are initially generated. We use the <code>meta.row</code> attribute to provide the relevant row index we need.</p>
+     <p>Then, when any other type of orthogonal data is encountered, we substitute the original display value from our array, to ensure consistent sorting (and filtering).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to change document author of an excel file when exporting using jquery datatable</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to change document author of an excel file when exporting using jquery datatable</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>goxarad784</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Jun 2023 at 17:33</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76476188/how-to-change-document-author-of-an-excel-file-when-exporting-using-jquery-datat">source</a>
+    </div>
+   </div>
+   <div>
+    <p><a href="https://datatables.net/manual/index" rel="nofollow noreferrer">Datatable</a> is a library that allows us to format, search, sort HTML tables. It also allows you to download various format of documents. I have used some other excel libraries in the past which allows you to update excel metadata or some other properties. In my case I am just trying to see if there is a way to change the author of the excel document before downloading it:</p>
+    <p><a href="https://i.stack.imgur.com/mmlbw.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/mmlbw.png" alt="enter image description here"></a></p>
+    <p>I did read their <a href="https://datatables.net/reference/api/buttons.exportInfo()" rel="nofollow noreferrer">button export documentation</a> and it does not show an option to change the author anywhere. I was just wondering if there is a way to customize this export to add that information there.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">excel</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Jun 2023 at 20:21</span>
+     </div>
+    </div>
+    <div>
+     <p>To add "Author" (and other related information) to your exported Excel file, you need to perform some low-level edits on the underlying XML files contained in your Excel (<code>.xlsx</code>) document.</p>
+     <p>To access the underlying <code>.xlsx</code> document structure, you use this DataTables <a href="https://datatables.net/reference/button/excelHtml5#Customisation" rel="nofollow noreferrer"><code>customize</code></a> option:</p>
+     <pre class="lang-js prettyprint-override"><code>buttons: [
+  {
+    extend: 'excel',
+    title: '',
+    customize: function ( xlsx ) {
+        ...
+    }
+</code></pre>
+     <hr>
+     <p>You can see for yourself what the structure of a <code>.xlsx</code> document is by unzipping it.</p>
+     <hr>
+     <p>The <code>Author</code> information is stored in a file named <code>core.xml</code> in a directory named <code>docProps</code>. By default, a DataTables Excel file does not include this file (or its containing directory), so we need to create them:</p>
+     <pre class="lang-js prettyprint-override"><code>const coreXmlStr = 
+        '&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;' + 
+        '&lt;cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;' +
+            '&lt;dc:creator&gt;John Smith;Jane Jones&lt;/dc:creator&gt;' + 
+            '&lt;cp:lastModifiedBy&gt;John Smith&lt;/cp:lastModifiedBy&gt;' + 
+            '&lt;dcterms:created xsi:type="dcterms:W3CDTF"&gt;2023-06-14T17:51:33Z&lt;/dcterms:created&gt;' + 
+            '&lt;dcterms:modified xsi:type="dcterms:W3CDTF"&gt;2023-06-14T17:53:15Z&lt;/dcterms:modified&gt;' + 
+        '&lt;/cp:coreProperties&gt;';
+
+const parser = new window.DOMParser();
+const coreXmlDoc = parser.parseFromString( coreXmlStr, 'text/xml' );
+
+xlsx.docProps = {};
+xlsx.docProps['core.xml'] = coreXmlDoc;
+</code></pre>
+     <p>The <code>coreXmlStr</code> is a string of XML containing various information fields. You can put whatever values you want in these. My example has two authors:</p>
+     <pre><code>John Smith;Jane Jones
+</code></pre>
+     <p>The JavaScript parses this string of XML into an actual XML document, and then adds it to a new <code>core.xml</code> file in a <code>docProps</code> directory. The <code>xlsx</code> object represents the containing Excel file.</p>
+     <p>We also need to set up some additional relationship metadata so Excel actually uses this information:</p>
+     <pre><code>var contentTypes = xlsx['[Content_Types].xml'];
+$( 'Types', contentTypes ).append( '&lt;Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/&gt;' );
+
+var rels = xlsx._rels['.rels'];
+$( 'Relationships', rels ).append( '&lt;Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/&gt;' );
+</code></pre>
+     <hr>
+     <p>The overall code:</p>
+     <pre><code>$(document).ready(function() {
+
+  $('#myTable').DataTable( {
+    dom: 'Bfrtip',
+    buttons: [
+        {
+          extend: 'excel',
+          title: '',
+          customize: function ( xlsx ) {
+ 
+            const coreXmlStr = 
+                   '&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;' + 
+                   '&lt;cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;' +
+                       '&lt;dc:creator&gt;John Smith;Jane Jones&lt;/dc:creator&gt;' + 
+                       '&lt;cp:lastModifiedBy&gt;John Smith&lt;/cp:lastModifiedBy&gt;' + 
+                       '&lt;dcterms:created xsi:type="dcterms:W3CDTF"&gt;2023-06-14T17:51:33Z&lt;/dcterms:created&gt;' + 
+                       '&lt;dcterms:modified xsi:type="dcterms:W3CDTF"&gt;2023-06-14T17:53:15Z&lt;/dcterms:modified&gt;' + 
+                   '&lt;/cp:coreProperties&gt;';
+
+            const parser = new window.DOMParser();
+            const coreXmlDoc = parser.parseFromString( coreXmlStr, 'text/xml' );
+
+            xlsx.docProps = {};
+            xlsx.docProps['core.xml'] = coreXmlDoc;
+
+            var contentTypes = xlsx['[Content_Types].xml'];
+            $( 'Types', contentTypes ).append( '&lt;Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/&gt;' );
+
+            var rels = xlsx._rels['.rels'];
+            $( 'Relationships', rels ).append( '&lt;Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/&gt;' );
+          }
+        }
+    ]
+  } );
+
+});
+</code></pre>
+     <hr>
+     <p>In the exported Excel file, we see this:</p>
+     <p><a href="https://i.stack.imgur.com/jwXwE.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/jwXwE.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Is there a way to make this metadata uneditable without making the spreadsheet uneditable.</span> <span> - </span> <span class="display-name">goxarad784</span> <span> </span> <span class="date">14 Jun 2023 at 21:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Good question - but sorry, I don't know the answer. Maybe ask a new question for that?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">14 Jun 2023 at 21:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

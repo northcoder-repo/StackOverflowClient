@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Query Local Time with ObjectBox</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Query Local Time with ObjectBox</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Fireburn</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Dec 2020 at 09:55</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65263595/query-local-time-with-objectbox">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have two questions,</p>
+    <ol>
+     <li>How do you save a LocalTime rage with ObjectBox, for example:</li>
+    </ol>
+    <pre class="lang-java prettyprint-override"><code>class LocalTimeRage {
+   LocalTime opens;
+   LocalTime closes;
+}
+</code></pre>
+    <p>And 2. How can you query with ObjectBox a local time range, for example, query object that matches within <code>opens</code> and <code>closes</code> LocalTime values, for example, query for opens between <em>07:00 AM</em> and closes <em>8:00 PM</em> (in LocalTime) as such ObjectBox will return objects that have the opening and closing times matching the range.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">localtime</span><span class="tag">objectbox</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Dec 2020 at 22:53</span>
+     </div>
+    </div>
+    <div>
+     <p>This is based on ObjectBox v2.8.1.</p>
+     <p>ObjectBox supports a relatively limited list of <a href="https://docs.objectbox.io/advanced/custom-types#objectbox-supported-types" rel="nofollow noreferrer">built-in types</a>. The list does not include any of the modern <code>java.time</code> classes, but we can use the ObjectBox <a href="https://docs.objectbox.io/advanced/custom-types#convert-annotation-and-property-converter" rel="nofollow noreferrer"><code>@Convert</code> annotation</a>.</p>
+     <p>I think it is best to completely avoid the <a href="https://codeblog.jonskeet.uk/2017/04/23/all-about-java-util-date/" rel="nofollow noreferrer">old and problematic</a> <code>Date</code> class, so this example converts <code>LocalDateTime</code> values to longs (however, <code>Date</code> is one of their built-in supported types):</p>
+     <pre class="lang-java prettyprint-override"><code>import java.time.LocalTime;
+import io.objectbox.annotation.Entity;
+import io.objectbox.annotation.Id;
+import io.objectbox.annotation.Convert;
+import io.objectbox.converter.PropertyConverter;
+
+@Entity
+public class LocalTimeRange {
+
+    @Id
+    private long id;
+
+    @Convert(converter = LocalTimeConverter.class, dbType = Long.class)
+    private LocalTime opens;
+
+    @Convert(converter = LocalTimeConverter.class, dbType = Long.class)
+    private LocalTime closes;
+
+    public static class LocalTimeConverter implements PropertyConverter&lt;LocalTime, Long&gt; {
+
+        @Override
+        public LocalTime convertToEntityProperty(Long databaseValue) {
+            if (databaseValue == null) {
+                return null;
+            }
+            return LocalTime.ofSecondOfDay(databaseValue);
+        }
+
+        @Override
+        public Long convertToDatabaseValue(LocalTime entityProperty) {
+            if (entityProperty == null) {
+                return null;
+            }
+            long seconds = (entityProperty.getHour() * 60 * 60) + 
+                    (entityProperty.getMinute() * 60) + 
+                    entityProperty.getSecond();
+            return seconds;
+        }
+
+    }
+
+    public LocalTimeRange(Long id) {
+        this.id = id;
+    }
+
+    public LocalTimeRange(long id, LocalTime opens, LocalTime closes) {
+        this.id = id;
+        this.opens = opens;
+        this.closes = closes;
+    }
+
+    public LocalTimeRange() {
+    }
+    
+    // getters and setters not shown
+
+}
+</code></pre>
+     <p>Now we can create and store a couple of test objects:</p>
+     <pre class="lang-java prettyprint-override"><code>BoxStore store = MyObjectBox.builder().name("objectbox-demo-db").build();
+
+Box&lt;LocalTimeRange&gt; box = store.boxFor(LocalTimeRange.class);
+
+// start with no objects:
+box.query().build().remove();
+
+// add two objects:
+LocalTimeRange ltrOne = new LocalTimeRange(1, 
+        LocalTime.of(9, 30, 0), //9:30:00 (9:30am)
+        LocalTime.of(10, 15, 0));
+box.put(ltrOne);
+
+LocalTimeRange ltrTwo = new LocalTimeRange(2, 
+        LocalTime.of(10, 05, 0),
+        LocalTime.of(11, 45, 0));
+box.put(ltrTwo);
+</code></pre>
+     <p>And then we can query the data store:</p>
+     <pre class="lang-java prettyprint-override"><code>// this will find both objects:
+LocalTime testTime = LocalTime.of(10, 10, 0);
+
+// this will find the 2nd object
+//LocalTime testTime = LocalTime.of(10, 20, 0);
+
+// convert the localtime to seconds:
+Long seconds = localTimeToSeconds(testTime);
+
+List&lt;LocalTimeRange&gt; localTimeRanges = box.query()
+        .less(LocalTimeRange_.opens, seconds)
+        .greater(LocalTimeRange_.closes, seconds)
+        .build().find();
+
+for (LocalTimeRange ltr : localTimeRanges) {
+    System.out.println(ltr.toString());
+}
+
+store.close();
+
+---
+
+private static long localTimeToSeconds(LocalTime lt) {
+    return (lt.getHour() * 60 * 60) + 
+                (lt.getMinute() * 60) + 
+                lt.getSecond();
+}
+</code></pre>
+     <p>The query operators are also limited in the types they can handle:</p>
+     <pre><code>less(LocalTimeRange_.opens, seconds)
+</code></pre>
+     <p>Here, <code>seconds</code> is a <code>long</code> - because there is no query operator which takes the Java type we want to use (<code>LocalTime</code>).</p>
+     <p>You may want to refine my example, to ensure that test times which fall exactly on one of the boundary values are handled correctly (there is no "less than or equal to" query method, for example). You can build more sophisticated queries with <code>equal()</code>, <code>and()</code>, <code>or()</code>, and so on.</p>
+     <p>(This approach handles <code>LocalTime</code> to the nearest second. If you want sub-second precision, you would need to update the logic to include <code>LocalTime</code>'s support for nanoseconds.)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>How about when <code>LocalTimeRange</code> is a property/field of an Object? E.g. <code>class Yoga { List&lt;Schedule&gt; schedules; }</code> <code>class Schedule { String day; LocalTimeRange opens; LocalTimeRange closes; }</code></span> <span> - </span> <span class="display-name">quarks</span> <span> </span> <span class="date">23 Dec 2020 at 23:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I don't know how to use a converter for that case (the <code>Schedule</code> class), given the need to map each property to one (and only one) of the supported built-in types. Also, for your <code>List</code> example, the documentation suggests <i>you could convert a List of Strings to a JSON array resulting in a single string for the database</i>. That seems like we've moved away from storing objects, at this point, and instead are storing documents. I assume there <i>must be</i> a way to do all this with objects... Maybe this needs a new question?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">24 Dec 2020 at 00:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>From the docs: <a href="https://docs.objectbox.io/queries" rel="nofollow noreferrer">docs.objectbox.io/queries</a> "contains" only works with String so querying whether property "schedules" contains a given <code>Schedule</code> may not work entirely since it is not a String literal and a custom class/object.</span> <span> - </span> <span class="display-name">quarks</span> <span> </span> <span class="date">24 Dec 2020 at 05:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How about this? <a href="https://stackoverflow.com/questions/65439440/localtime-range-query-with-objectbox" title="localtime range query with objectbox">stackoverflow.com/questions/65439440/…</a></span> <span> - </span> <span class="display-name">quarks</span> <span> </span> <span class="date">24 Dec 2020 at 14:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

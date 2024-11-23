@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How do I deserialize a string as a custom object with Jackson?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How do I deserialize a string as a custom object with Jackson?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Olivier Grégoire</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Feb 2021 at 17:41</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66159919/how-do-i-deserialize-a-string-as-a-custom-object-with-jackson">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have this JSON that I want to parse:</p>
+    <pre><code>{
+ "name": "john",
+}
+</code></pre>
+    <p>I must use the following hierarchy. The classes are immutable and I must access them by the static factory method (this is imperative, so it makes no sense to suggest modifications to either <code>Name</code> or <code>Person</code>).</p>
+    <pre><code>class Name {
+  static Name valueOf(String name) {...}
+  private Name() {}
+  String name();
+}
+class Person {
+  static Person create(Name name) {...}
+  private Person() {...}
+  Name name();
+}
+</code></pre>
+    <p>To that end, I want to deserialize a <code>Person</code> with Jackson, so I wrote this:</p>
+    <pre><code>public class NameJsonDeserializer extends JsonDeserializer&lt;Name&gt; {
+  @Override public Name deserialize(JsonParser parser, DeserializationContext context) {
+    var tree = parser.getCodec().readTree(parser);
+    var name = tree.asToken().asString();
+    return Name.valueOf(name);
+  }
+}
+public class PersonJsonDeserializer extends JsonDeserializer&lt;Person&gt; {
+  @Override public Person deserialize(JsonParser parser, DeserializationContext context) {
+    var tree = parser.getCodec().readTree(parser);
+    var name = (ObjectNode) tree.get("name");
+    return Person.create(name);
+  }
+}
+</code></pre>
+    <p>But of course, this doesn't work. It doesn't even compile.</p>
+    <p>I know I can write something similar to the following, but <code>Name</code> is used all over the place, and not always within a <code>Person</code>, so I really need a separate deserializer for <code>Name</code>.</p>
+    <pre><code>var tree = parser.getCodec().readTree(parser);
+var name = (TextNode) tree.get("name");
+return Person.create(Name.valueOf(name.asText()));
+</code></pre>
+    <p>How can I deserialize without having recourse to intermediary POJOs?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">jackson</span><span class="tag">jackson-databind</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Olivier Grégoire</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Feb 2021 at 11:07</span>
+     </div>
+    </div>
+    <div>
+     <p>I must use <code>parser.getValueAsString()</code> for <code>NameDeserializer</code> and <code>codec.treeToValue()</code> for <code>PersonDeserializer</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>public class NameJsonDeserializer extends JsonDeserializer&lt;Name&gt; {
+  @Override public Name deserialize(JsonParser parser, DeserializationContext context) {
+    var name = parser.getValueAsString();
+    return Name.valueOf(name);
+  }
+}
+public class PersonJsonDeserializer extends JsonDeserializer&lt;Person&gt; {
+  @Override public Person deserialize(JsonParser parser, DeserializationContext context) {
+    var codec = parser.getCodec();
+    var tree = codec.readTree(parser);
+    
+    var name = codec.treeToValue(tree.get("name"), Name.class);
+
+    return Person.create(name);
+  }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Franjavi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Feb 2021 at 10:35</span>
+     </div>
+    </div>
+    <div>
+     <p>If you can modify Person, you could use @JsonCreator:</p>
+     <pre><code>@JsonCreator
+public static Person create(@JsonProperty("name") String name) {
+    Name nameInstance = Name.valueOf(name);
+    return new Person(nameInstance);
+}
+</code></pre>
+     <p>This will consume that JSON properly, mapping the "name" property to the first param of the method.</p>
+     <p>If you cannot modify the class you can use the mixin approach, creating the mixin:</p>
+     <pre><code>interface PersonMixin {
+    @JsonCreator
+    public static Person create(@JsonProperty("name") Name name) {return null;}
+}
+</code></pre>
+     <p>and register it in the mapper:</p>
+     <pre><code> mapper.addMixIn(Person.class, PersonMixin.class);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>No, the classes are immutable and I can't modify them. That's why I said I must access them by the static factory method. Also this doesn't answer the need for consistently deserializing <code>Name</code> without adapting everything all over the place.</span> <span> - </span> <span class="display-name">Olivier Grégoire</span> <span> </span> <span class="date">12 Feb 2021 at 11:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Immutable and not being able to modify the java class file are totally different things. I will add a mixin sample just in case you find it valuable.</span> <span> - </span> <span class="display-name">Franjavi</span> <span> </span> <span class="date">12 Feb 2021 at 11:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Indeed, but I did say "I <b>must</b> access them by the static factory method". So I guess that the mixin is a better solution than the previous one, but it still doesn't answer anything for the <code>Name</code> parts.</span> <span> - </span> <span class="display-name">Olivier Grégoire</span> <span> </span> <span class="date">12 Feb 2021 at 11:22</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

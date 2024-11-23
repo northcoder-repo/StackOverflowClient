@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How can I use different certificates on specific connections?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How can I use different certificates on specific connections?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>173</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>skiphoppy</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 May 2009 at 16:54</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/859111/how-can-i-use-different-certificates-on-specific-connections">source</a>
+    </div>
+   </div>
+   <div>
+    <p>A module I'm adding to our large Java application has to converse with another company's SSL-secured website. The problem is that the site uses a self-signed certificate. I have a copy of the certificate to verify that I'm not encountering a man-in-the-middle attack, and I need to incorporate this certificate into our code in such a way that the connection to the server will be successful.</p>
+    <p>Here's the basic code:</p>
+    <pre><code>void sendRequest(String dataPacket) {
+  String urlStr = "https://host.example.com/";
+  URL url = new URL(urlStr);
+  HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+  conn.setMethod("POST");
+  conn.setRequestProperty("Content-Length", data.length());
+  conn.setDoOutput(true);
+  OutputStreamWriter o = new OutputStreamWriter(conn.getOutputStream());
+  o.write(data);
+  o.flush();
+}
+</code></pre>
+    <p>Without any additional handling in place for the self-signed certificate, this dies at conn.getOutputStream() with the following exception:</p>
+    <pre><code>Exception in thread "main" javax.net.ssl.SSLHandshakeException: sun.security.validator.ValidatorException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+....
+Caused by: sun.security.validator.ValidatorException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+....
+Caused by: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+</code></pre>
+    <p>Ideally, my code needs to teach Java to accept this one self-signed certificate, for this one spot in the application, and nowhere else.</p>
+    <p>I know that I can import the certificate into the JRE's certificate authority store, and that will allow Java to accept it. That's not an approach I want to take if I can help; it seems very invasive to do on all of our customer's machines for one module they may not use; it would affect all other Java applications using the same JRE, and I don't like that even though the odds of any other Java application ever accessing this site are nil. It's also not a trivial operation: on UNIX I have to obtain access rights to modify the JRE in this way.</p>
+    <p>I've also seen that I can create a TrustManager instance that does some custom checking. It looks like I might even be able to create a TrustManager that delegates to the real TrustManager in all instances except this one certificate. But it looks like that TrustManager gets installed globally, and I presume would affect all other connections from our application, and that doesn't smell quite right to me, either.</p>
+    <p>What is the preferred, standard, or best way to set up a Java application to accept a self-signed certificate? Can I accomplish all of the goals I have in mind above, or am I going to have to compromise? Is there an option involving files and directories and configuration settings, and little-to-no code?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">ssl</span><span class="tag">keystore</span><span class="tag">truststore</span><span class="tag">jsse</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>small, working fix: <a href="http://www.rgagnon.com/javadetails/java-fix-certificate-problem-in-HTTPS.html" rel="nofollow noreferrer">rgagnon.com/javadetails/…</a></span> <span> - </span> <span class="display-name">user896832</span> <span> </span> <span class="date">16 Aug 2011 at 14:06</span></td>
+      </tr>
+      <tr>
+       <td>23</td>
+       <td><span>@Hasenpriester: please don't suggest this page. It disables all trust verification. You're not only going to accept the self-signed certificate you want, you're also to accept any certificate that a MITM attacker will present you with.</span> <span> - </span> <span class="display-name">Bruno</span> <span> </span> <span class="date">23 Dec 2011 at 13:23</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>174</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>erickson</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 May 2009 at 17:22</span>
+     </div>
+    </div>
+    <div>
+     <p>Create an <code>SSLSocket</code> factory yourself, and set it on the <code>HttpsURLConnection</code> before connecting.</p>
+     <pre><code>...
+HttpsURLConnection conn = (HttpsURLConnection)url.openConnection();
+conn.setSSLSocketFactory(sslFactory);
+conn.setMethod("POST");
+...
+</code></pre>
+     <p>You'll want to create one <code>SSLSocketFactory</code> and keep it around. Here's a sketch of how to initialize it:</p>
+     <pre><code>/* Load the keyStore that includes self-signed cert as a "trusted" entry. */
+KeyStore keyStore = ... 
+TrustManagerFactory tmf = 
+  TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+tmf.init(keyStore);
+SSLContext ctx = SSLContext.getInstance("TLS");
+ctx.init(null, tmf.getTrustManagers(), null);
+sslFactory = ctx.getSocketFactory();
+</code></pre>
+     <p>If you need help creating the key store, please comment.</p>
+     <hr>
+     <p>Here's an example of loading the key store:</p>
+     <pre><code>KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+keyStore.load(trustStore, trustStorePassword);
+trustStore.close();
+</code></pre>
+     <p>To create the key store with a PEM format certificate, you can write your own code using <code>CertificateFactory</code>, or just import it with <code>keytool</code> from the JDK (keytool <em>won't</em> work for a "key entry", but is just fine for a "trusted entry").</p>
+     <pre><code>keytool -import -file selfsigned.pem -alias server -keystore server.jks
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>Thank you very much! The other guys helped point me in the right direction, but in the end yours is the approach I took. I had a gruelling task of converting the PEM certificate file to a JKS Java keystore file, and I found assistance for that here: <a href="http://stackoverflow.com/questions/722931/ssl-socket-php-code-needs-to-be-converted-to-java" title="ssl socket php code needs to be converted to java">stackoverflow.com/questions/722931/…</a></span> <span> - </span> <span class="display-name">skiphoppy</span> <span> </span> <span class="date">13 May 2009 at 21:37</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>I'm glad it worked out. I'm sorry you struggled with the key store; I should have just included it in my answer. It's not too difficult with CertificateFactory. In fact, I think I'll do an update for anyone coming later.</span> <span> - </span> <span class="display-name">erickson</span> <span> </span> <span class="date">13 May 2009 at 21:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Wow. That means of converting PEM to JKS is substantially easier than what I did! Thanks! :)</span> <span> - </span> <span class="display-name">skiphoppy</span> <span> </span> <span class="date">14 May 2009 at 19:19</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>All this code does is replicate what you can accomplish by setting three system properties described in the JSSE Refernence Guide.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">31 May 2012 at 19:36</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@EJP: This was a while ago, so I don't remember for sure, but I'm guessing the rationale was that in a "large Java application", there are likely to be other HTTP connections established. Setting global properties could interfere with working connections, or allow this one party to spoof servers. This is an example of using the built-in trust manager on a case-by-case basis.</span> <span> - </span> <span class="display-name">erickson</span> <span> </span> <span class="date">31 May 2012 at 22:26</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>As the OP said, "my code needs to teach Java to accept this one self-signed certificate, for this one spot in the application, and nowhere else."</span> <span> - </span> <span class="display-name">erickson</span> <span> </span> <span class="date">31 May 2012 at 22:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I've tried to implement your solution to no avail please help me <a href="http://stackoverflow.com/questions/20190364/how-to-bypass-certificateexception-by-java" title="how to bypass certificateexception by java">stackoverflow.com/questions/20190364/…</a></span> <span> - </span> <span class="display-name">user1386522</span> <span> </span> <span class="date">25 Nov 2013 at 10:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If you wanted it to be accepted "globally" use keytool to install the certificate as a trusted cert in the cacerts file. Then it will be trusted for any VM started that uses that JRE.</span> <span> - </span> <span class="display-name">KyleM</span> <span> </span> <span class="date">6 Dec 2013 at 19:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That's why I put "global" in quotes and explained how it actually works. Nobody else mentioned doing it that way although it's a very common and accepted method.</span> <span> - </span> <span class="display-name">KyleM</span> <span> </span> <span class="date">6 Dec 2013 at 20:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Many large organizations do not accept that method. It would be a security violation with serious consequences.</span> <span> - </span> <span class="display-name">erickson</span> <span> </span> <span class="date">6 Dec 2013 at 21:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@erickson Hi - it's four years later and the approach you taught us has been humming along nicely and has been in use for several different servers we communicate with. Now I've got a new trick I need to figure out (may make a new StackOverflow question for it): I'd like to trust both the default keystore and the custom keystore with the server's self-signed certificate. We had a case where the server upgraded to a real certificate and the connection broke, but it would have been fine if we were trusting the default keystore.</span> <span> - </span> <span class="display-name">skiphoppy</span> <span> </span> <span class="date">13 Feb 2014 at 19:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@erickson The API is a bit misleading: it implies you can pass an array of TrustManagers to SSLContext.init(), but the javadoc on that method indicates that only the first TrustManager in the array is used. I'd love to hear any insights you can share.</span> <span> - </span> <span class="display-name">skiphoppy</span> <span> </span> <span class="date">13 Feb 2014 at 19:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@skiphoppy I'll have to experiment a bit with that and get back to you. I haven't done it before, but I have an idea that might work.</span> <span> - </span> <span class="display-name">erickson</span> <span> </span> <span class="date">13 Feb 2014 at 20:03</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@skiphoppy Hmm, the only way I have found is to create a temporary <code>KeyStore</code> (in memory) and add root certs from all of your "real" key stores to that, or (almost equivalently) create a <code>Set&lt;TrustAnchor&gt;</code> from all of the entries in your trusted key stores and use it to initialize <code>PKIXParameters</code>, and with that, in turn, the <code>TrustManagerFactory</code>.</span> <span> - </span> <span class="display-name">erickson</span> <span> </span> <span class="date">13 Feb 2014 at 21:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks @erickson I am still playing with it and am wandering through a long maze of documentation. I will give this a shot.</span> <span> - </span> <span class="display-name">skiphoppy</span> <span> </span> <span class="date">13 Feb 2014 at 22:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Setting a leystore has nothing to do with what certificates you will <i>accept</i>. It has to do with what you will <i>send.</i> Not what was asked for.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">19 May 2021 at 10:35</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>19</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Josh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Dec 2015 at 16:57</span>
+     </div>
+    </div>
+    <div>
+     <p>I read through LOTS of places online to solve this thing. This is the code I wrote to make it work:</p>
+     <pre><code>ByteArrayInputStream derInputStream = new ByteArrayInputStream(app.certificateString.getBytes());
+CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+X509Certificate cert = (X509Certificate) certificateFactory.generateCertificate(derInputStream);
+String alias = "alias";//cert.getSubjectX500Principal().getName();
+
+KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+trustStore.load(null);
+trustStore.setCertificateEntry(alias, cert);
+KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+kmf.init(trustStore, null);
+KeyManager[] keyManagers = kmf.getKeyManagers();
+
+TrustManagerFactory tmf = TrustManagerFactory.getInstance("X509");
+tmf.init(trustStore);
+TrustManager[] trustManagers = tmf.getTrustManagers();
+
+SSLContext sslContext = SSLContext.getInstance("TLS");
+sslContext.init(keyManagers, trustManagers, null);
+URL url = new URL(someURL);
+conn = (HttpsURLConnection) url.openConnection();
+conn.setSSLSocketFactory(sslContext.getSocketFactory());
+</code></pre>
+     <p>app.certificateString is a String that contains the Certificate, for example:</p>
+     <pre><code>static public String certificateString=
+        "-----BEGIN CERTIFICATE-----\n" +
+        "MIIGQTCCBSmgAwIBAgIHBcg1dAivUzANBgkqhkiG9w0BAQsFADCBjDELMAkGA1UE" +
+        "BhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBE" +
+        ... a bunch of characters...
+        "5126sfeEJMRV4Fl2E5W1gDHoOd6V==\n" +
+        "-----END CERTIFICATE-----";
+</code></pre>
+     <p>I have tested that you can put any characters in the certificate string, if it is self signed, as long as you keep the exact structure above. I obtained the certificate string with my laptop's Terminal command line.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Thanks for sharing @Josh. I created a small Github project that demonstrates your code in use: <a href="https://github.com/aasaru/ConnectToTrustedServerExample" rel="nofollow noreferrer">github.com/aasaru/ConnectToTrustedServerExample</a></span> <span> - </span> <span class="display-name">Master Drools</span> <span> </span> <span class="date">5 Nov 2019 at 11:23</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user454322</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Nov 2012 at 10:06</span>
+     </div>
+    </div>
+    <div>
+     <p>If creating a <code>SSLSocketFactory</code> is not an option, just import the key into the JVM</p>
+     <ol>
+      <li>
+       <p>Retrieve the public key: <code>$openssl s_client -connect dev-server:443</code>, then create a file <em>dev-server.pem</em> that looks like</p>
+       <pre><code>-----BEGIN CERTIFICATE----- 
+lklkkkllklklklklllkllklkl
+lklkkkllklklklklllkllklkl
+lklkkkllklk....
+-----END CERTIFICATE-----
+</code></pre></li>
+      <li>
+       <p>Import the key: <code>#keytool -import -alias dev-server -keystore $JAVA_HOME/jre/lib/security/cacerts -file dev-server.pem</code>. Password: <em>changeit</em></p></li>
+      <li>
+       <p>Restart JVM</p></li>
+     </ol>
+     <p>Source: <a href="http://wsigrid.blogspot.jp/2008/12/how-to-solve-javaxnetsslsslhandshakeexc.html" rel="noreferrer">How to solve javax.net.ssl.SSLHandshakeException?</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>I don't think this solves the original question, but it solved <i>my</i> problem, so thanks!</span> <span> - </span> <span class="display-name">Ed Norris</span> <span> </span> <span class="date">15 May 2013 at 15:10</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>It's also not a great idea to do this: now you have this random extra system wide self signed certificate which <i>all</i> Java processes will trust by default.</span> <span> - </span> <span class="display-name">user268396</span> <span> </span> <span class="date">5 Oct 2018 at 15:56</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mr. Shiny and New 安宇</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 May 2009 at 17:17</span>
+     </div>
+    </div>
+    <div>
+     <p>We copy the JRE's truststore and add our custom certificates to that truststore, then tell the application to use the custom truststore with a system property. This way we leave the default JRE truststore alone.</p>
+     <p>The downside is that when you update the JRE you don't get its new truststore automatically merged with your custom one.</p>
+     <p>You could maybe handle this scenario by having an installer or startup routine that verifies the truststore/jdk and checks for a mismatch or automatically updates the truststore. I don't know what happens if you update the truststore while the application is running.</p>
+     <p>This solution isn't 100% elegant or foolproof but it's simple, works, and requires no code.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>araqnid</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 May 2009 at 17:25</span>
+     </div>
+    </div>
+    <div>
+     <p>I've had to do something like this when using commons-httpclient to access an internal https server with a self-signed certificate. Yes, our solution was to create a custom TrustManager that simply passed everything (logging a debug message).</p>
+     <p>This comes down to having our own SSLSocketFactory that creates SSL sockets from our local SSLContext, which is set up to have only our local TrustManager associated with it. You don't need to go near a keystore/certstore at all.</p>
+     <p>So this is in our LocalSSLSocketFactory:</p>
+     <pre><code>static {
+    try {
+        SSL_CONTEXT = SSLContext.getInstance("SSL");
+        SSL_CONTEXT.init(null, new TrustManager[] { new LocalSSLTrustManager() }, null);
+    } catch (NoSuchAlgorithmException e) {
+        throw new RuntimeException("Unable to initialise SSL context", e);
+    } catch (KeyManagementException e) {
+        throw new RuntimeException("Unable to initialise SSL context", e);
+    }
+}
+
+public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
+    LOG.trace("createSocket(host =&gt; {}, port =&gt; {})", new Object[] { host, new Integer(port) });
+
+    return SSL_CONTEXT.getSocketFactory().createSocket(host, port);
+}
+</code></pre>
+     <p>Along with other methods implementing SecureProtocolSocketFactory. LocalSSLTrustManager is the aforementioned dummy trust manager implementation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>9</td>
+        <td><span>If you disable all trust verification, there's little point using SSL/TLS in the first place. It's OK for testing locally, but not if you want to connect outside.</span> <span> - </span> <span class="display-name">Bruno</span> <span> </span> <span class="date">23 Dec 2011 at 13:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I get this exception when running it on Java 7. javax.net.ssl.SSLHandshakeException: no cipher suites in common Can you assist?</span> <span> - </span> <span class="display-name">Uri Lukach</span> <span> </span> <span class="date">19 Dec 2013 at 12:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

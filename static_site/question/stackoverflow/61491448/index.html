@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>What's wrong with TermRangeQuery?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>What's wrong with TermRangeQuery?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Zoldan</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Apr 2020 at 23:05</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61491448/whats-wrong-with-termrangequery">source</a>
+    </div>
+   </div>
+   <div>
+    <p>TermRangeQuery does not behave as I expect.<br>
+      I'm new to Lucene and new to Java.<br>
+      So, it's possible that I don’t understand what my code should result, or I made some ugly mistake.<br>
+      This is the code (you can try it at <a href="https://repl.it/@Tekener/AstonishingAridWatch" rel="nofollow noreferrer">https://repl.it/@Tekener/AstonishingAridWatch</a>):</p>
+    <pre><code>import java.io.IOException;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.StringField;
+import org.apache.lucene.document.TextField;
+import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TermRangeQuery;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.RAMDirectory;
+
+@SuppressWarnings("deprecation")
+class Main {
+    private static IndexSearcher indexSearcher;
+    private static IndexReader indexReader;
+    private static String separatorLine = "===========================";
+
+    public static void main(String[] args) throws IOException {
+        Analyzer analyzer = new StandardAnalyzer();
+        Directory directory = new RAMDirectory();
+        IndexWriterConfig config = new IndexWriterConfig(analyzer);
+        IndexWriter indexWriter = new IndexWriter(directory, config);
+
+        System.out.println(separatorLine);
+        System.out.println("Building the index:");
+        indexWriter.addDocument(createDocumentWithFields("1st", "Humpty Dumpty sat on a wall,"));
+        indexWriter.addDocument(createDocumentWithFields("2nd", "Humpty Dumpty had a great fall."));
+        indexWriter.addDocument(createDocumentWithFields("3rd", "All the king's horses and all the king'smen"));
+        indexWriter.addDocument(createDocumentWithFields("4th", "Couldn't put Humpty together again."));
+        System.out.println(separatorLine);
+
+        indexWriter.commit();
+        indexWriter.close();        
+
+        indexReader = DirectoryReader.open(directory);
+        indexSearcher = new IndexSearcher(indexReader);
+
+        showQueryResult(1, TermRangeQuery.newStringRange("content", "a", "h", true, true));
+        showQueryResult(2, TermRangeQuery.newStringRange("content", "A", "H", true, true));
+        showQueryResult(3, TermRangeQuery.newStringRange("content", "a", "f", true, true));
+        showQueryResult(4, TermRangeQuery.newStringRange("content", "A", "F", true, true));
+    }
+
+    private static void showQueryResult(int queryNo, Query query) throws IOException {
+        System.out.println(String.format("Query #%d: %s", queryNo, query.toString()));
+        TopDocs topDocs = indexSearcher.search(query, 100);
+        System.out.println("Result:");
+        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+            Document doc = indexReader.document(scoreDoc.doc);
+            System.out.println(String.format("name: %s - content: %s", doc.getField("name").stringValue(), doc.getField("content").stringValue()));
+        }
+        System.out.println(separatorLine);
+    }
+
+    private static Document createDocumentWithFields(String name, String content) {
+        System.out.println(String.format("name: %s - content: %s", name, content));
+        Document doc = new Document();
+        doc.add(new StringField("name",  name,    Store.YES));
+        doc.add(new TextField("content", content, Store.YES));
+        return doc;
+    }
+}
+</code></pre>
+    <p>This is the console output:</p>
+    <pre><code>===========================
+Building the index:
+name: 1st - content: Humpty Dumpty sat on a wall,
+name: 2nd - content: Humpty Dumpty had a great fall.
+name: 3rd - content: All the king's horses and all the king'smen
+name: 4th - content: Couldn't put Humpty together again.
+===========================
+Query #1: content:[a TO h]
+Result:
+name: 1st - content: Humpty Dumpty sat on a wall,
+name: 2nd - content: Humpty Dumpty had a great fall.
+name: 3rd - content: All the king's horses and all the king'smen
+name: 4th - content: Couldn't put Humpty together again.
+===========================
+Query #2: content:[A TO H]
+Result:
+===========================
+Query #3: content:[a TO f]
+Result:
+name: 1st - content: Humpty Dumpty sat on a wall,
+name: 2nd - content: Humpty Dumpty had a great fall.
+name: 3rd - content: All the king's horses and all the king'smen
+name: 4th - content: Couldn't put Humpty together again.
+===========================
+Query #4: content:[A TO F]
+Result:
+===========================
+</code></pre>
+    <p>My conclusions:<br>
+      The results for the queries #1, #2 and #4 could be correct, if the indexed texts (for the "content" field) are stored as lowercase strings.<br>
+      But if this is the case, the result for query #3 would be wrong.<br>
+      Only the 3rd and the 4th entry should be found in query #3.<br>
+      Where is my mistake?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Apr 2020 at 01:02</span>
+     </div>
+    </div>
+    <div>
+     <p>The Standard Analyzer <a href="https://lucene.apache.org/core/8_5_1/core/org/apache/lucene/analysis/standard/StandardAnalyzer.html" rel="nofollow noreferrer">uses the lower case filter</a> - so, yes, all your indexed data will be lowercase:</p>
+     <blockquote>
+      <p><em>Filters StandardTokenizer with LowerCaseFilter and StopFilter, using a configurable list of stop words.</em></p>
+     </blockquote>
+     <p>Also, bear in mind that this:</p>
+     <pre><code>TermRangeQuery.newStringRange("content", "a", "f", true, true);
+</code></pre>
+     <p>means that "a" and "f" are inclusive in the range (the <code>true</code> values).</p>
+     <p>So the "a" in "had a great fall" is a match. That's why all 4 results are found in query 3. Change the 3rd search to something like these to see the impact:</p>
+     <pre><code>TermRangeQuery.newStringRange("content", "a", "b", true, true);
+TermRangeQuery.newStringRange("content", "a", "b", false, false);
+</code></pre>
+     <p>This next point is not strictly relevant to your question, but it may be useful. It's generally desirable to use the same analyzer when performing searches as you used when indexing the data (there are exceptions). So, for example, it's common for searches to match search terms in a case-insensitive way. By using the Standard Analyzer on search terms you can achieve this.</p>
+     <p>There are various ways to do this - here is one way - there may be slicker ones:</p>
+     <pre><code>QueryParser parser = new QueryParser("content", analyzer);
+
+Query q1 = TermRangeQuery.newStringRange("content", "b", "h", true, true);
+Query query1 = parser.parse(q1.toString());
+showQueryResult(1, query1);
+</code></pre>
+     <p>The results should make sense in light of the above.</p>
+     <p>If you want to explore what actually gets indexed, I recommend changing to use this:</p>
+     <pre><code>org.apache.lucene.store.MMapDirectory;
+</code></pre>
+     <p>and something like this:</p>
+     <pre><code>Directory directory = new MMapDirectory(Paths.get("E:/lucene/indexes/range_queries"));
+</code></pre>
+     <p>And, anyway RAMDirectory is <a href="https://lucene.apache.org/core/8_5_1/core/org/apache/lucene/store/RAMDirectory.html" rel="nofollow noreferrer">not generally recommended</a> - except maybe for demos.</p>
+     <p>Once the data is on disk, you can point Luke at it - a very useful tool (with a GUI) for exploring index data. It's available as a JAR file (lucene-luke-8.x.x.jar), which can be found in the main Lucene binary release package.</p>
+     <p><strong>EDITS</strong>:</p>
+     <p>If you use RAMDirectory, you may also want to use this:</p>
+     <pre><code>if (!DirectoryReader.indexExists(directory)) {
+    // index builder logic here
+}
+</code></pre>
+     <p>This avoids re-populating the index with duplicate data.</p>
+     <p>Regarding stop-words: By default the standard analyzer has an empty stop-word list. You can provide a word list to the constructor in a <code>org.apache.lucene.analysis.CharArraySet</code>:</p>
+     <pre><code>import org.apache.lucene.analysis.CharArraySet;
+
+...
+
+CharArraySet myStopWords = new CharArraySet(2, true); 
+myStopWords .add("foo");
+myStopWords .add("bar");
+Analyzer analyzer = new StandardAnalyzer(myStopWords);
+</code></pre>
+     <p>Or you can use one of the existing stop-word lists. Here is the one for English stop-words:</p>
+     <pre><code>import static org.apache.lucene.analysis.en.EnglishAnalyzer.ENGLISH_STOP_WORDS_SET;
+
+...
+
+Analyzer analyzer = new StandardAnalyzer(ENGLISH_STOP_WORDS_SET);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for your valuable information. It's very appreciated. I'm going to check it today.</span> <span> - </span> <span class="display-name">Zoldan</span> <span> </span> <span class="date">29 Apr 2020 at 10:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I changed my implementation according your hints and analyzed the Index with Luke. It helped me a lot to understand better, how it works. One of my big mistakes was, thinking the range was meant for the whole sentence. TermRangeQuery rather evaluates matches for every term of the indexed sentence (Document). Your additional hints on the stop-words are very valuable. I still have to learn a lot, but I made a big step ahead with your help. Thank you!</span> <span> - </span> <span class="display-name">Zoldan</span> <span> </span> <span class="date">30 Apr 2020 at 08:38</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

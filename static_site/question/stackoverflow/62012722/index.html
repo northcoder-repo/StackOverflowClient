@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Conditionally Adding Styles to Datatables Rows in Print View</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Conditionally Adding Styles to Datatables Rows in Print View</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Chase Ernst</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 May 2020 at 00:18</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62012722/conditionally-adding-styles-to-datatables-rows-in-print-view">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to style specific rows in the Datatables print view.</p>
+    <p>I have a table that has rows o financial items. They are grouped by invoice number and after the invoice is completed, a summary row is shown:</p>
+    <p><a href="https://i.stack.imgur.com/KBprx.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/KBprx.png" alt="enter image description here"></a></p>
+    <p>This screenshot shows the print view for the report. What I would like to do is style the "Summary" row to a more noticeable color for the print view. I understand that I would probably have to modify the print customization function for databables, but based on some research, the classes are not exported the print view, so I cannot style a class or ID fo the row.</p>
+    <p>I can't seem to find any articles on this particular issue, so I am not entirely sure where to start, but here is the code that I currently have for generating my print view:</p>
+    <pre><code>customize: function ( win ) {
+            $(win.document.body)
+                .css( 'font-size', '10pt' )
+                .prepend(
+                    `&lt;style&gt;@page{size: landscape;}&lt;/style&gt;
+                    &lt;div class="container"&gt;
+                        &lt;div style="width:100%;"&gt;
+
+                            &lt;/div&gt;
+                            &lt;div style="float: right;"&gt;
+                                &lt;h2&gt;Payment ID: ` + $('#ddl_payment_payment').val() + `&lt;/h2&gt;
+                                &lt;h4&gt;Payment Date: ` + paymentTable.cell(0,3).data() + `&lt;/h3&gt;
+                                &lt;h4&gt;Sub-contractor: ` + $('#ddl_payment_subContractor').val() + `&lt;/h3&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;`
+                )
+                .append(
+                    `&lt;div class="container"&gt;
+                        &lt;div style="float:right;"&gt;
+                            &lt;h4&gt;Total: ` + $('#span_paymenttotal').html() + `&lt;/h1&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;`
+                );
+            $(win.document.body).find( 'table' )
+                .addClass( 'compact' )
+                .css( 'font-size', 'inherit' );
+            $(win.document.body).find('summaryRow')
+                    .css('color', 'red');
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">printing</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 May 2020 at 16:42</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is one way to add custom formatting to the print-view of a DataTable.</p>
+     <p>First, here is the HTML datatable:</p>
+     <p><a href="https://i.stack.imgur.com/mg2Ci.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/mg2Ci.png" alt="enter image description here"></a></p>
+     <p>And here is what the print-view looks like:</p>
+     <p><a href="https://i.stack.imgur.com/57kus.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/57kus.png" alt="enter image description here"></a></p>
+     <p>The implementation:</p>
+     <pre><code>&lt;script type="text/javascript"&gt;
+
+  $(document).ready(function() {
+
+    $('#example').DataTable({
+      dom: 'Bfrtip',
+
+      buttons: [
+        {
+          extend: 'print',
+          autoPrint: false,
+          exportOptions: {
+            format: {
+              body: function ( inner, rowidx, colidx, node ) {
+                if (node.classList.contains('summary')) {
+                  return '&lt;span class="summary" style="color:red; font-style:italic;"&gt;' + inner + '&lt;/span&gt;';
+                } else {
+                  return inner;
+                }
+              }
+            }
+          },
+          customize: function ( win, butt, tbl ) {
+            $(win.document.body).find('span.summary').css('font-size', '20px');
+            $(win.document.body).find('span.summary').parent().css('background-color', 'yellow');
+          }
+        } 
+      ]
+
+    });
+
+  });
+&lt;/script&gt;
+</code></pre>
+     <p>Explanatory notes:</p>
+     <p>In my data, I have inserted a <code>summary</code> class into those cells I want to manipulate - for example:</p>
+     <pre><code>&lt;tr&gt;
+    &lt;td class="summary"&gt;Bradley Greer&lt;/td&gt;
+    &lt;td class="summary"&gt;Software Engineer&lt;/td&gt;
+    &lt;td class="summary"&gt;London&lt;/td&gt;
+    &lt;td class="summary"&gt;&lt;/td&gt;
+    &lt;td class="summary"&gt;2012/10/13&lt;/td&gt;
+    &lt;td class="summary"&gt;$132,000&lt;/td&gt;
+ /tr&gt;
+</code></pre>
+     <p>There is no style associated with this class name.</p>
+     <p>For my demo, I just hard-coded these. But DataTables provides various ways to handle this dynamically, as part of the table initialization and data processing.</p>
+     <p>Then I use the <code>format.body</code> feature (described on <a href="https://datatables.net/reference/api/buttons.exportData" rel="nofollow noreferrer">this page</a>). I use this to alter the data content (specifically, the font color) of all cells using the <code>summary</code> class.</p>
+     <p>The key here is to create a span which adds back the stripped-out class name. As you note, the print processor removes all such manually-added classes and styles from the print-view.</p>
+     <p>Now I can use the <code>customize</code> function (documented on <a href="https://datatables.net/reference/button/print" rel="nofollow noreferrer">this page</a>) to make use of my newly-added class name. For each relevant <code>span</code>, I find the parent <code>td</code> and adjust its style.</p>
+     <p><em>Final note: to print out the bacground shading, I had to select a "print background" option from the print menu - that's probably just my printer, though.</em></p>
+     <p>Hope that helps - or at least gives you some ideas for your specific needs.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Hey, thanks for the reply. I quickly read over this and it looks like it should help. I will take a look at it tonight and if dive a bit deeper into it. Thanks.</span> <span> - </span> <span class="display-name">Chase Ernst</span> <span> </span> <span class="date">26 May 2020 at 17:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>this worked perfectly. Thank you very much for your help!</span> <span> - </span> <span class="display-name">Chase Ernst</span> <span> </span> <span class="date">27 May 2020 at 14:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

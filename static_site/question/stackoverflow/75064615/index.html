@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Testing API input validation with an invalid UTF-8 String in a Java Unit Test</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Testing API input validation with an invalid UTF-8 String in a Java Unit Test</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Ris Misner</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>10 Jan 2023 at 01:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75064615/testing-api-input-validation-with-an-invalid-utf-8-string-in-a-java-unit-test">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm maintaining a back-end service in Java and I have the following method of Java 8 code that's used to validate the input to my service API:</p>
+    <pre><code>private static boolean containsDisallowedChars(String toValidate) {
+    return !StandardCharsets.US_ASCII.newEncoder().canEncode(toValidate);
+}
+</code></pre>
+    <p>I'm expanding it to support Hindi and other non-English characters, so I've changed it from ASCII to UTF-8, as follows:</p>
+    <pre><code>private static boolean containsDisallowedChars(String toValidate) {
+    return !StandardCharsets.UTF_8.newEncoder().canEncode(toValidate);
+}
+</code></pre>
+    <p>Now I'm trying to update the corresponding unit test to pass in a String toValidate that will cause this method to return false.</p>
+    <p>How can I make a Java String that contains contents that can't be encoded to UTF-8?</p>
+    <p>I tried this test setup</p>
+    <pre><code>// ref https://stackoverflow.com/questions/1301402/example-invalid-utf8-string
+// test data byte values https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
+// 3.5  Impossible bytes
+// The following two bytes cannot appear in a correct UTF-8 string
+// 3.5.1  fe = "�"
+// 3.5.2  ff = "�"
+// 3.5.3  fe fe ff ff = "����"
+final byte[] bytes = {(byte)0xfe, (byte)0xfe, (byte)0xff, (byte)0xff};
+log.info("bytes={}", bytes);
+final String s = new String(bytes);
+log.info("s={}", s);
+log.info("s.length={}", s.length());
+log.info("s.bytes={}", s.getBytes());
+</code></pre>
+    <p>StandardCharsets.UTF_8.newEncoder().canEncode(s) returns true and the log output shows that the String class constructor is changing the byte array as follows:</p>
+    <pre><code>bytes=[-2, -2, -1, -1]
+s=����
+s.length=4
+s.bytes=[-17, -65, -67, -17, -65, -67, -17, -65, -67, -17, -65, -67]
+</code></pre>
+    <p>I tried several variations on this with similar results using other invalid UTF-8 byte arrays described in <a href="https://www.cl.cam.ac.uk/%7Emgk25/ucs/examples/UTF-8-test.txt" rel="nofollow noreferrer">https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt</a></p>
+    <p>It seems as if the String class is robustly creating valid UTF-8 strings despite my efforts to supply invalid byte arrays.</p>
+    <p>I tried Base64 as suggested here <a href="https://stackoverflow.com/questions/51856137/how-can-i-generate-non-utf-8-string-char-in-java-for-testing-purposes">How can I generate non-UTF-8 string / char in Java for testing purposes?</a></p>
+    <pre><code>final byte[] bytes = {(byte)0xfe, (byte)0xfe, (byte)0xff, (byte)0xff};
+log.info("bytes={}", bytes);
+final String s = new String(Base64.getEncoder().encode(bytes));
+log.info("s={}", s);
+log.info("s.length={}", s.length());
+log.info("s.bytes={}", s.getBytes());
+</code></pre>
+    <p>Base64.getEncoder().encode doesn't return string. It returns byte[]. Therefore I must still call new String(byte[]) which changes the byte array to a valid UTF-8 byte array. StandardCharsets.UTF_8.newEncoder().canEncode still returns true and I get this log output:</p>
+    <pre><code>bytes=[-2, -2, -1, -1]
+s=/v7//w==
+s.length=8
+s.bytes=[47, 118, 55, 47, 47, 119, 61, 61]
+</code></pre>
+    <p>Is it possible to create a Java String object that contains a string that can't be encoded as UTF-8? If not, does it mean my <code>containsDisallowedChars</code> method is unnecessary since it can never return true? Or is there a different validation approach I should consider instead of StandardCharsets.UTF_8.newEncoder().canEncode?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">utf-8</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Before you do anything else: Specify a charset in your conversions between bytes and String! Unless you are using a fairly recent version of Java, <code>new String(bytes)</code> and <code>s.getBytes()</code> will use the system’s default charset, which may or may not be UTF-8. Don’t take chances—be certain by using <code>new String(bytes, StandardCharsetes.UTF_8)</code> and <code>s.getBytes(StandardCharsets.UTF_8)</code> respectively. To answer your question: You can write <code>"\ufffe\uffff"</code> in your code. They’re not valid Unicode codepoints, but they are valid 16-bit char values.</span> <span> - </span> <span class="display-name">VGR</span> <span> </span> <span class="date">10 Jan 2023 at 14:29</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Jan 2023 at 15:16</span>
+     </div>
+    </div>
+    <div>
+     <p>In your question, you noted:</p>
+     <blockquote>
+      <p>It seems as if the String class is robustly creating valid UTF-8 strings despite my efforts to supply invalid byte arrays.</p>
+     </blockquote>
+     <p>If you want to test a byte array to see if it is valid for a specific encoding, then you can use <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/nio/charset/CharsetDecoder.html" rel="nofollow noreferrer"><code>CharsetDecoder</code></a> (not <code>CharsetEncoder</code>).</p>
+     <p>The <code>CharsetDecoder</code> can:</p>
+     <blockquote>
+      <p>transform a sequence of bytes in a specific charset into a sequence of sixteen-bit Unicode characters.</p>
+     </blockquote>
+     <p>If you pass the <code>decode()</code> method a <code>ByteBuffer</code>, you can use use it as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>private static boolean testBytes(byte[] bytes) {
+    boolean isValid = true;
+    try {
+        StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes));
+    } catch (CharacterCodingException ex) {
+        //Logger.getLogger(MyTester.class.getName()).log(Level.SEVERE, null, ex);
+        isValid = false;
+    }
+    return isValid;
+}
+</code></pre>
+     <p>So, for example, the following will print <code>false</code> because <code>0xFF</code> is not a valid <a href="https://en.wikipedia.org/wiki/UTF-8#Encoding" rel="nofollow noreferrer">UTF-8 byte sequence</a>.</p>
+     <pre class="lang-java prettyprint-override"><code>byte[] b = HexFormat.of().parseHex("ff");
+System.out.println(testBytes(b));
+</code></pre>
+     <p>Your example <code>{(byte)0xfe, (byte)0xfe, (byte)0xff, (byte)0xff}</code> will also return <code>false</code>.</p>
+     <hr>
+     <p>In your question, you asked:</p>
+     <blockquote>
+      <p>Is it possible to create a Java String object that contains a string that can't be encoded as UTF-8?</p>
+     </blockquote>
+     <p>By the time you have created a Java String, it's "too late" to check because, as you have seen, any unsupported byte sequences have already been replaced by the Unicode <a href="https://www.fileformat.info/info/unicode/char/fffd/index.htm" rel="nofollow noreferrer">replacement character</a> - which is itself a valid character in a Java string (the Java <code>String</code> object itself "represents a string in the UTF-16 format" - and both UTF-8 and UTF-16 cover all valid Unicode code points).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

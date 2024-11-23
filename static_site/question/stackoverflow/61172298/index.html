@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>LocalDateTime parses invalid dates to valid date and does not throw any exception</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>LocalDateTime parses invalid dates to valid date and does not throw any exception</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>4</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>darth_vader</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Apr 2020 at 13:35</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61172298/localdatetime-parses-invalid-dates-to-valid-date-and-does-not-throw-any-exceptio">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using LocalDateTime in the request body of my API in Spring.</p>
+    <pre><code>  @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-mm-dd HH:mm:ss")
+  @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+  @JsonDeserialize(using = LocalDateTimeDeserializer.class)
+  @JsonSerialize(using = LocalDateTimeSerializer.class)
+  private LocalDateTime createdAt;
+</code></pre>
+    <p>When I put an invalid date in request such as "2020-02-31 00:00:00" it is automatically converted to "2020-02-29 00:00:00". I want to throw Exception in case of an invalid date. It is mentioned in the official documentation that it converts to previous valid date .</p>
+    <pre><code> In some cases, changing the specified field can cause the resulting date-time to become invalid,
+ such as changing the month from 31st January to February would make the day-of-month invalid.
+ In cases like this, the field is responsible for resolving the date.
+ Typically it will choose the previous valid date, 
+ which would be the last valid day of February in this example.
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">spring-boot</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span></span> <span> - </span> <span class="display-name">Ole V.V.</span> <span> </span> <span class="date">12 Apr 2020 at 22:03</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>akuzminykh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Apr 2020 at 14:04</span>
+     </div>
+    </div>
+    <div>
+     <p>You need to write a custom serializer for that.</p>
+     <pre class="lang-java prettyprint-override"><code>class CustomLocalDateTimeSerializer extends StdSerializer&lt;LocalDateTime&gt; {
+    private static final DateTimeFormatter FORMATTER
+            = DateTimeFormatter.ofPattern("yyyy-mm-dd HH:mm:ss");
+
+    ...
+
+    @Override
+    public void serialize(LocalDateTime value, JsonGenerator generator, SerializerProvider provider)
+            throws IOException, JsonProcessingException {
+        // Do your validation using FORMATTER.
+        // Serialize the value using generator and provider.
+    }
+}
+</code></pre>
+     <p>Then you can just use it in your annotation.</p>
+     <pre class="lang-java prettyprint-override"><code>@JsonSerialize(using = CustomLocalDateTimeSerializer.class)
+</code></pre>
+     <p>Note that <a href="https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html" rel="nofollow noreferrer"><code>DateTimeFormatter</code></a> throws an exception when formatting/parsing invalid values.</p>
+     <p>Check out the source of <a href="https://github.com/FasterXML/jackson-datatype-jsr310/blob/master/src/main/java/com/fasterxml/jackson/datatype/jsr310/ser/LocalDateTimeSerializer.java" rel="nofollow noreferrer"><code>LocalDateTimeSerializer</code></a> to know what has to be done. Check out <a href="https://www.baeldung.com/jackson-serialize-dates#java-8-no-dependency" rel="nofollow noreferrer"><em>Jackson Date - 10. Serialize Java 8 Date Without Any Extra Dependency</em></a> for examples of writing a custom serializer. This is done analogous for a custom deserializer.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

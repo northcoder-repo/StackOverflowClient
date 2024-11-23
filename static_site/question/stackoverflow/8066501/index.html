@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How should I use try-with-resources with JDBC?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How should I use try-with-resources with JDBC?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>163</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jonas</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Nov 2011 at 14:31</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/8066501/how-should-i-use-try-with-resources-with-jdbc">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a method for getting users from a database with JDBC:</p>
+    <pre><code>public List&lt;User&gt; getUser(int userId) {
+    String sql = "SELECT id, name FROM users WHERE id = ?";
+    List&lt;User&gt; users = new ArrayList&lt;User&gt;();
+    try {
+        Connection con = DriverManager.getConnection(myConnectionURL);
+        PreparedStatement ps = con.prepareStatement(sql); 
+        ps.setInt(1, userId);
+        ResultSet rs = ps.executeQuery();
+        while(rs.next()) {
+            users.add(new User(rs.getInt("id"), rs.getString("name")));
+        }
+        rs.close();
+        ps.close();
+        con.close();
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return users;
+}
+</code></pre>
+    <p>How should I use Java 7 <a href="http://download.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html" rel="noreferrer"><strong>try-with-resources</strong></a> to improve this code?</p>
+    <p>I have tried with the code below, but it uses many <code>try</code> blocks, and doesn't improve the <strong>readability</strong> much. Should I use <code>try-with-resources</code> in another way?</p>
+    <pre><code>public List&lt;User&gt; getUser(int userId) {
+    String sql = "SELECT id, name FROM users WHERE id = ?";
+    List&lt;User&gt; users = new ArrayList&lt;&gt;();
+    try {
+        try (Connection con = DriverManager.getConnection(myConnectionURL);
+             PreparedStatement ps = con.prepareStatement(sql);) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery();) {
+                while(rs.next()) {
+                    users.add(new User(rs.getInt("id"), rs.getString("name")));
+                }
+            }
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return users;
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jdbc</span><span class="tag">java-7</span><span class="tag">try-with-resources</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>9</td>
+       <td><span>In your second example, you don't need the inner <code>try (ResultSet rs = ps.executeQuery()) {</code> because <a href="https://docs.oracle.com/javase/7/docs/api/java/sql/ResultSet.html#close%28%29" rel="nofollow noreferrer">A ResultSet object is automatically closed by the Statement object that generated it</a></span> <span> - </span> <span class="display-name">Alexander Farber</span> <span> </span> <span class="date">12 Jul 2017 at 10:14</span></td>
+      </tr>
+      <tr>
+       <td>6</td>
+       <td><span>@AlexanderFarber Unfortunately, there have been notorious problems with drivers that failed to close resources on their own. The School of Hard Knocks teaches us to always close all the JDBC resources explicitly, made easier using try-with-resources around <code>Connection</code>, <code>PreparedStatement</code>, and <code>ResultSet</code> too. No reason not to really, as the try-with-resources makes it so easy and makes our code more self-documenting as to our intentions.</span> <span> - </span> <span class="display-name">Basil Bourque</span> <span> </span> <span class="date">14 Feb 2020 at 20:50</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>203</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jeanne Boyarsky</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Sep 2012 at 03:27</span>
+     </div>
+    </div>
+    <div>
+     <p>I realize this was long ago answered but want to suggest an additional approach that avoids the nested try-with-resources double block.</p>
+     <pre><code>public List&lt;User&gt; getUser(int userId) {
+    try (Connection con = DriverManager.getConnection(myConnectionURL);
+         PreparedStatement ps = createPreparedStatement(con, userId); 
+         ResultSet rs = ps.executeQuery()) {
+
+         // process the resultset here, all resources will be cleaned up
+
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+}
+
+private PreparedStatement createPreparedStatement(Connection con, int userId) throws SQLException {
+    String sql = "SELECT id, username FROM users WHERE id = ?";
+    PreparedStatement ps = con.prepareStatement(sql);
+    ps.setInt(1, userId);
+    return ps;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>When I tried this approach, Eclipse complained that the call to "con.prepareStatement" throws an unhandled exception (of type SQLException). Apparently a method called from the try-with-resources statement is not covered by the try block.</span> <span> - </span> <span class="display-name">Basil Bourque</span> <span> </span> <span class="date">15 Apr 2013 at 20:56</span></td>
+       </tr>
+       <tr>
+        <td>29</td>
+        <td><span>No, it is covered, the problem is that the code above is calling prepareStatement from inside a method which doesn't declare to throw SQLException. Also, the code above has at least one path where it can fail without closing the prepared statement (if an SQLException occurs while calling setInt.)</span> <span> - </span> <span class="display-name">Hakanai</span> <span> </span> <span class="date">8 May 2013 at 06:19</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Trejkaz good point on the possibility of not closing the PreparedStatement. I didn't think of that, but you are right!</span> <span> - </span> <span class="display-name">Jeanne Boyarsky</span> <span> </span> <span class="date">9 May 2013 at 23:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I realize this is dependent on the instantiation order of Connection. Is it guaranteed the order in try-with-resources?</span> <span> - </span> <span class="display-name">ArturoTena</span> <span> </span> <span class="date">24 Sep 2013 at 21:33</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@ArturoTena yes - the order is guaranteed</span> <span> - </span> <span class="display-name">Jeanne Boyarsky</span> <span> </span> <span class="date">25 Sep 2013 at 00:05</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@JeanneBoyarsky is there another way to do this? If not I would need to create a specific createPreparedStatement method for each sql sentence</span> <span> - </span> <span class="display-name">John Alexander Betts</span> <span> </span> <span class="date">2 Oct 2013 at 16:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JohnB you could create a subclass to override the method. Or use a library like Spring JDBCTemplate that handles this for you.</span> <span> - </span> <span class="display-name">Jeanne Boyarsky</span> <span> </span> <span class="date">4 Oct 2013 at 02:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JeanneBoyarsky Could you elaborate on "you could create a subclass to override the method"? I don't quite get it.</span> <span> - </span> <span class="display-name">Enrique</span> <span> </span> <span class="date">2 Jan 2016 at 16:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JeanneBoyarsky does the current code still has this problem?</span> <span> - </span> <span class="display-name">Jeremy S.</span> <span> </span> <span class="date">8 Mar 2017 at 11:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JeanneBoyarsky the code above, and the problem mentioned by @Trejkaz <code>if an SQLException occurs while calling setInt</code></span> <span> - </span> <span class="display-name">Jeremy S.</span> <span> </span> <span class="date">11 Mar 2017 at 09:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JeremyS. Ah. No, it doesn't address the problem Trejkaz mentioned. In real life, I'd use a JDBC framework and never have this problem.</span> <span> - </span> <span class="display-name">Jeanne Boyarsky</span> <span> </span> <span class="date">12 Mar 2017 at 00:41</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Regarding Trejkaz's comment, <code>createPreparedStatement</code> is unsafe regardless how you use it. To fix it you would have to add a try-catch around the setInt(...), catch any <code>SQLException</code>, and when it happens call ps.close() and rethrow the exception. But that would result in a code almost as long and unelegant as the code the OP wanted to improve.</span> <span> - </span> <span class="display-name">Florian F</span> <span> </span> <span class="date">9 Aug 2017 at 20:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Where would the class declaration <code>Class.forName("com.mysql.jdbc.Driver");</code> go in try with resources approach? If I put it in try parentheses, it shows a syntax error. If I keep it above try block, It needs to be kept in another try/catch block to handle the <code>classNotFoundException</code>.</span> <span> - </span> <span class="display-name">Shashank Garg</span> <span> </span> <span class="date">12 Sep 2017 at 08:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This is absolutely the worst way how to list anything from database. Creating a new java.sql.Connection every time you call the getUser method is definitely not a good idea. Creating the new connection will not only take about 100ms (depending on db engine) on localhost but 500ms + at best on a remote db host...</span> <span> - </span> <span class="display-name">Welite</span> <span> </span> <span class="date">17 Oct 2018 at 18:21</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Welite I agree that one should use a datasource. I was just trying to use try-with-resources in an example with databases. (because it is easy to create a connection leak). Pretend in my toy that it is only run once!</span> <span> - </span> <span class="display-name">Jeanne Boyarsky</span> <span> </span> <span class="date">28 Oct 2018 at 01:28</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>What happens if ps.setInt throws an exception? the createPreparedStatement ps will not be assigned to ps in the try block so will it not remain open?</span> <span> - </span> <span class="display-name">Jeppz</span> <span> </span> <span class="date">3 Jul 2019 at 09:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>102</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>bpgergo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Nov 2011 at 14:38</span>
+     </div>
+    </div>
+    <div>
+     <p>There's no need for the outer try in your example, so you can at least go down from 3 to 2, and also you don't need closing <code>;</code> at the end of the resource list. The advantage of using two try blocks is that all of your code is present up front so you don't have to refer to a separate method:</p>
+     <pre><code>public List&lt;User&gt; getUser(int userId) {
+    String sql = "SELECT id, username FROM users WHERE id = ?";
+    List&lt;User&gt; users = new ArrayList&lt;&gt;();
+    try (Connection con = DriverManager.getConnection(myConnectionURL);
+         PreparedStatement ps = con.prepareStatement(sql)) {
+        ps.setInt(1, userId);
+        try (ResultSet rs = ps.executeQuery()) {
+            while(rs.next()) {
+                users.add(new User(rs.getInt("id"), rs.getString("name")));
+            }
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return users;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>7</td>
+        <td><span>How do you call <a href="http://docs.oracle.com/javase/8/docs/api/java/sql/Connection.html#setAutoCommit-boolean-" rel="nofollow noreferrer"><code>Connection::setAutoCommit</code></a>? Such a call is not allowed within the <code>try</code> between the <code>con = </code> and <code>ps =</code>. When getting a Connection from a DataSource that may be backed with a connection pool, we cannot assume how autoCommit is set.</span> <span> - </span> <span class="display-name">Basil Bourque</span> <span> </span> <span class="date">31 Jul 2015 at 04:28</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>you would usually inject the connection into the method (unlike the ad-hoc approach shown in OP's question), you could use a connection managing class that will be called to provide or close a connection (be it pooled or not). in that manager you can specify your connection behavior</span> <span> - </span> <span class="display-name">svarog</span> <span> </span> <span class="date">14 Oct 2015 at 07:46</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@BasilBourque you could move <code>DriverManager.getConnection(myConnectionURL)</code> into a method that also sets the autoCommit flag and returns the connection (or set it in the equivalent of the <code>createPreparedStatement</code> method in the preceding example...)</span> <span> - </span> <span class="display-name">rogerdpack</span> <span> </span> <span class="date">17 Aug 2017 at 16:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@rogerdpack Yes, that makes sense. Have your own implementation of <a href="https://docs.oracle.com/javase/8/docs/api/javax/sql/DataSource.html" rel="nofollow noreferrer"><code>DataSource</code></a> where the <code>getConnection</code> method does as you say, get connection and configure it as needed, then passing on the connection.</span> <span> - </span> <span class="display-name">Basil Bourque</span> <span> </span> <span class="date">17 Aug 2017 at 18:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I like having that extra method to get the PreparedStatement. That way it can be reused if you're going to have the same, or a similar, PreparedStatement. In some cases (one that I'm working on) a generic method can be abstracted out and reused. Having a separate method means you can also name the method in a way that is descriptive, which increases readability. It also decreases the number of try blocks. With ctrl+click to go into the method in every IDE I use, the extra method really isn't an issue given the benefits. I also think the accepted answer looks cleaner. Just my two cents.</span> <span> - </span> <span class="display-name">adprocas</span> <span> </span> <span class="date">9 Jan 2018 at 19:19</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@rogerdpack thanks for the clarification in the answer. I have updated this to the selected answer.</span> <span> - </span> <span class="display-name">Jonas</span> <span> </span> <span class="date">24 Oct 2019 at 19:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Should ps also be explicitly closed in the above code block, to avoid any memory leaks?</span> <span> - </span> <span class="display-name">chaitra.kear</span> <span> </span> <span class="date">8 Feb 2020 at 07:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Such code triggers bug alert: Nullcheck of connection at line XXX of value previously dereferenced. For line with prepareStatement</span> <span> - </span> <span class="display-name">Nikolay Klimchuk</span> <span> </span> <span class="date">16 Dec 2022 at 23:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Basil Bourque</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Feb 2020 at 20:59</span>
+     </div>
+    </div>
+    <div>
+     <p>As others have stated, your code is basically correct though the outer <code>try</code> is unneeded. Here are a few more thoughts.</p>
+     <h1><code>DataSource</code></h1>
+     <p>Other answers here are correct and good, such the <a href="https://stackoverflow.com/a/8066594/642706">accepted Answer</a> by bpgergo. But none of them show the use of <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.sql/javax/sql/DataSource.html" rel="nofollow noreferrer"><code>DataSource</code></a>, commonly recommended over use of <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.sql/java/sql/DriverManager.html" rel="nofollow noreferrer"><code>DriverManager</code></a> in modern Java.</p>
+     <p>So for the sake of completeness, here is a complete example that fetches the current date from the database server. The database used here is <a href="https://en.wikipedia.org/wiki/PostgreSQL" rel="nofollow noreferrer">Postgres</a>. Any other database would work similarly. You would replace the use of <a href="https://jdbc.postgresql.org/documentation/publicapi/org/postgresql/ds/PGSimpleDataSource.html" rel="nofollow noreferrer"><code>org.postgresql.ds.PGSimpleDataSource</code></a> with an implementation of <code>DataSource</code> appropriate to your database. An implementation is likely provided by your particular driver, or connection pool if you go that route.</p>
+     <p>A <code>DataSource</code> implementation need <em>not</em> be closed, because it is never “opened”. A <code>DataSource</code> is not a resource, is not connected to the database, so it is not holding networking connections nor resources on the database server. A <code>DataSource</code> is simply information needed when making a connection to the database, with the database server's network name or address, the user name, user password, and various options you want specified when a connection is eventually made. So your <code>DataSource</code> implementation object does <em>not</em> go inside your try-with-resources parentheses.</p>
+     <p>The purpose of <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.sql/javax/sql/DataSource.html" rel="nofollow noreferrer"><code>DataSource</code></a> is to externalize your database connection information. If you hard-code username, password, and such within your your source code, then a change to your database server configuration means having to recompile and redeploy your code — not fun. Instead, such database configuration details should be stored <em>outside</em> your source code, then retrieved at runtime. You can retrieve the configuration details via <a href="https://en.wikipedia.org/wiki/Java_Naming_and_Directory_Interface" rel="nofollow noreferrer">JNDI</a> from a naming and directory server such as <a href="https://en.wikipedia.org/wiki/Lightweight_Directory_Access_Protocol" rel="nofollow noreferrer">LDAP</a>. Or you might retrieve from the <a href="https://en.wikipedia.org/wiki/Web_container" rel="nofollow noreferrer">Servlet container</a> or <a href="https://en.wikipedia.org/wiki/Jakarta_EE" rel="nofollow noreferrer">Jakarta EE</a> server running your app.</p>
+     <h1>Nested try-with-resources</h1>
+     <p>Your code makes proper use of nested try-with-resources statements.</p>
+     <p>Notice in the example code below that we also use the try-with-resources syntax <em>twice</em>, one nested inside the other. The outer <code>try</code> defines two resources: <code>Connection</code> and <code>PreparedStatement</code>. The inner <code>try</code> defines the <code>ResultSet</code> resource. This is a common code structure.</p>
+     <p>If an exception is thrown from the inner one, and not caught there, the <code>ResultSet</code> resource will automatically be closed (if it exists, is not null). Following that, the <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.sql/java/sql/PreparedStatement.html" rel="nofollow noreferrer"><code>PreparedStatement</code></a> will be closed, and lastly the <a href="https://docs.oracle.com/en/java/javase/11/docs/api/jdk.jdi/com/sun/jdi/connect/spi/Connection.html" rel="nofollow noreferrer"><code>Connection</code></a> is closed. Resources are automatically closed in reverse order in which they were declared within the try-with-resource statements.</p>
+     <p>The example code here is overly simplistic. As written, it could be executed with a single try-with-resources statement. But in a real work you will likely be doing more work between the nested pair of <code>try</code> calls. For example, you may be extracting values from your user-interface or a POJO, and then passing those to fulfill <code>?</code> placeholders within your SQL via calls to <code>PreparedStatement::set…</code> methods.</p>
+     <h1>Syntax notes</h1>
+     <h2>Trailing semicolon</h2>
+     <p>Notice that the semicolon trailing the last resource statement within the parentheses of the try-with-resources is optional. I include it in my own work for two reasons: Consistency and it looks complete, and it makes copy-pasting a mix of lines easier without having to worry about end-of-line semicolons. Your IDE may flag the last semicolon as superfluous, but there is no harm in leaving it.</p>
+     <h2>Java 9 – Use existing vars in try-with-resources</h2>
+     <p><a href="https://docs.oracle.com/javase/9/whatsnew/toc.htm#JSNEW-GUID-825576B5-203C-4C8D-85E5-FFDA4CA0B346" rel="nofollow noreferrer">New in Java 9</a> is an enhancement to try-with-resources syntax. We can now declare and populate the resources outside the parentheses of the <code>try</code> statement. I have not yet found this useful for JDBC resources, but keep it in mind in your own work.</p>
+     <h2><code>ResultSet</code> should close itself, but may not</h2>
+     <p>In an ideal world the <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.sql/java/sql/ResultSet.html" rel="nofollow noreferrer"><code>ResultSet</code></a> would close itself as the documentation promises:</p>
+     <blockquote>
+      <p>A ResultSet object is automatically closed when the Statement object that generated it is closed, re-executed, or used to retrieve the next result from a sequence of multiple results.</p>
+     </blockquote>
+     <p>Unfortunately, in the past some JDBC drivers infamously failed to fulfill this promise. As a result, many JDBC programmers learned to explicitly close all their JDBC resources including <code>Connection</code>, <code>PreparedStatement</code>, and <code>ResultSet</code> too. The modern try-with-resources syntax has made doing so easier, and with more compact code. Notice that the Java team went to the bother of marking <code>ResultSet</code> as <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/AutoCloseable.html" rel="nofollow noreferrer"><code>AutoCloseable</code></a>, and I suggest we make use of that. Using a try-with-resources around all your JDBC resources makes your code more self-documenting as to your intentions.</p>
+     <h1>Code example</h1>
+     <pre class="lang-none prettyprint-override"><code>package work.basil.example;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.util.Objects;
+
+public class App
+{
+    public static void main ( String[] args )
+    {
+        App app = new App();
+        app.doIt();
+    }
+
+    private void doIt ( )
+    {
+        System.out.println( "Hello World!" );
+
+        org.postgresql.ds.PGSimpleDataSource dataSource = new org.postgresql.ds.PGSimpleDataSource();
+
+        dataSource.setServerName( "1.2.3.4" );
+        dataSource.setPortNumber( 5432 );
+
+        dataSource.setDatabaseName( "example_db_" );
+        dataSource.setUser( "scott" );
+        dataSource.setPassword( "tiger" );
+
+        dataSource.setApplicationName( "ExampleApp" );
+
+        System.out.println( "INFO - Attempting to connect to database: " );
+        if ( Objects.nonNull( dataSource ) )
+        {
+            String sql = "SELECT CURRENT_DATE ;";
+            try (
+                    Connection conn = dataSource.getConnection() ;
+                    PreparedStatement ps = conn.prepareStatement( sql ) ;
+            )
+            {
+                … make `PreparedStatement::set…` calls here.
+                try (
+                        ResultSet rs = ps.executeQuery() ;
+                )
+                {
+                    if ( rs.next() )
+                    {
+                        LocalDate ld = rs.getObject( 1 , LocalDate.class );
+                        System.out.println( "INFO - date is " + ld );
+                    }
+                }
+            }
+            catch ( SQLException e )
+            {
+                e.printStackTrace();
+            }
+        }
+
+        System.out.println( "INFO - all done." );
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>In case the inner one throws an exception but there is no catch there, could it be captured by a catch on the outer one?</span> <span> - </span> <span class="display-name">Guilherme Taffarel Bergamin</span> <span> </span> <span class="date">4 May 2022 at 11:59</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@GuilhermeTaffarelBergamin Yes, that’s how exceptions work in Java. If uncaught by the local code, they “bubble up” to the outer calling code. The bubbling up continues through all your called methods, until finally escaping your app and reaching the JVM for handling.</span> <span> - </span> <span class="display-name">Basil Bourque</span> <span> </span> <span class="date">4 May 2022 at 16:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you. My question was because you don't need to declare a catch for a try with resources and it will execute an implicit finally, which means, this try has its own particularities. In my head, it could be ignoring the exception because there was no catch but there was a finally (which usually happens after catches). In any case, thanks for the explanation</span> <span> - </span> <span class="display-name">Guilherme Taffarel Bergamin</span> <span> </span> <span class="date">4 May 2022 at 21:45</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Naveen Sisupalan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Dec 2012 at 16:01</span>
+     </div>
+    </div>
+    <div>
+     <p>What about creating an additional wrapper class?<br></p>
+     <pre><code>package com.naveen.research.sql;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public abstract class PreparedStatementWrapper implements AutoCloseable {
+
+    protected PreparedStatement stat;
+
+    public PreparedStatementWrapper(Connection con, String query, Object ... params) throws SQLException {
+        this.stat = con.prepareStatement(query);
+        this.prepareStatement(params);
+    }
+
+    protected abstract void prepareStatement(Object ... params) throws SQLException;
+
+    public ResultSet executeQuery() throws SQLException {
+        return this.stat.executeQuery();
+    }
+
+    public int executeUpdate() throws SQLException {
+        return this.stat.executeUpdate();
+    }
+
+    @Override
+    public void close() {
+        try {
+            this.stat.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
+</code></pre>
+     <p><br></p>
+     <p>Then in the calling class you can implement prepareStatement method as:<br></p>
+     <pre><code>try (Connection con = DriverManager.getConnection(JDBC_URL, prop);
+    PreparedStatementWrapper stat = new PreparedStatementWrapper(con, query,
+                new Object[] { 123L, "TEST" }) {
+            @Override
+            protected void prepareStatement(Object... params) throws SQLException {
+                stat.setLong(1, Long.class.cast(params[0]));
+                stat.setString(2, String.valueOf(params[1]));
+            }
+        };
+        ResultSet rs = stat.executeQuery();) {
+    while (rs.next())
+        System.out.println(String.format("%s, %s", rs.getString(2), rs.getString(1)));
+} catch (SQLException e) {
+    e.printStackTrace();
+}
+</code></pre>
+     <p></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Nothing in the comment above ever says it doesn't.</span> <span> - </span> <span class="display-name">Hakanai</span> <span> </span> <span class="date">8 May 2013 at 06:21</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>inder</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jan 2016 at 17:32</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a concise way using lambdas and JDK 8 Supplier to fit everything in the outer try:</p>
+     <pre class="lang-java prettyprint-override"><code>try (Connection con = DriverManager.getConnection(JDBC_URL, prop);
+    PreparedStatement stmt = ((Supplier&lt;PreparedStatement&gt;)() -&gt; {
+    try {
+        PreparedStatement s = con.prepareStatement("SELECT userid, name, features FROM users WHERE userid = ?");
+        s.setInt(1, userid);
+        return s;
+    } catch (SQLException e) { throw new RuntimeException(e); }
+    }).get();
+    ResultSet resultSet = stmt.executeQuery()) {
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>This is more concise than the "classic approach" as described by @bpgergo ? I do not think so and the code is more difficult to understand. So please explain the advantage of this approach.</span> <span> - </span> <span class="display-name">rmuller</span> <span> </span> <span class="date">8 Oct 2016 at 19:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I don't think , in this case, that you are required to catch the SQLException explicitly. It is actually "optional" on a try-with-resources. No other answers mention this. So, you can probably simplify this further.</span> <span> - </span> <span class="display-name">djangofan</span> <span> </span> <span class="date">10 Sep 2017 at 21:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>what if DriverManager.getConnection(JDBC_URL, prop); returns null?</span> <span> - </span> <span class="display-name">Gaurav</span> <span> </span> <span class="date">21 May 2018 at 12:53</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>1. This is not more concise but a lot more confusing, 2. It also has the problem like the "extracted method answer" that the "<code>PreparedStatement s</code>" resource is still leaked and not closed, when there is an exception on the "<code>s.setInt</code>" call.</span> <span> - </span> <span class="display-name">Sebsen36</span> <span> </span> <span class="date">12 Apr 2021 at 20:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

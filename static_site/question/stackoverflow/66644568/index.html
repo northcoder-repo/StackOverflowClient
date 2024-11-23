@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How do I use dates from a LinkedHashMap for the x-axis on a Highcharts line graph (using Thymeleaf)?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How do I use dates from a LinkedHashMap for the x-axis on a Highcharts line graph (using Thymeleaf)?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Buck</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Mar 2021 at 19:35</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66644568/how-do-i-use-dates-from-a-linkedhashmap-for-the-x-axis-on-a-highcharts-line-grap">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am new to using Highcharts, so this may be a trivial issue. However, I have not had much success through my own googling about this.</p>
+    <p>I am trying to get a line graph to display strength progress over time, but every time I plug in the keySet() (of type java.util.Date) to be what is on the X-axis, the graph disappears from the web page.</p>
+    <p>I want the record of an event being done and the date it was done on to be a point on the graph (i.e. the (x,y) would be (action, date)).</p>
+    <p><strong>Java stuff:</strong></p>
+    <pre><code>List&lt;StrengthProgressPoint&gt; records = getAllStrengthLogsForExercise(session, exerciseName);
+Map&lt;Date, Double&gt; strengthGraph = new LinkedHashMap&lt;&gt;();
+for(StrengthProgressPoint p : records) { 
+    strengthGraph.put(p.getDate(), p.getWeight()); 
+}
+</code></pre>
+    <p><strong>Highcharts stuff:</strong></p>
+    <pre><code>&lt;script&gt;
+$(function () {
+$('#progressGraphContainer').highcharts({
+        title: {
+            text: ''
+        },
+
+        subtitle: {
+            text: ''
+        },
+
+        yAxis: {
+            min: 0,
+            title: {
+                text: 'Weight Lifted'
+            }
+        },
+
+        xAxis: {
+            categories: [[${strengthGraph.keySet()}]],
+        },
+
+        legend: {
+            enabled: false
+        },
+
+        plotOptions: {
+            series: {
+                label: {
+                    connectorAllowed: false,
+                    connectNulls: true
+                },
+            }
+        },
+
+        series: [{
+            name: 'Weight',
+            data: [[${strengthGraph.values()}]]
+        }],
+
+        responsive: {
+            rules: [{
+                condition: {
+                    maxWidth: 500
+                },
+                chartOptions: {
+                    legend: {
+                        enabled: false
+                    }
+                }
+            }]
+        }
+});
+});
+&lt;/script&gt;
+</code></pre>
+    <p>I did get a graph to display on my web page a few times, but never what I wanted. I have seemingly narrowed it down to the 'categories: [[${strengthGraph.keySet()}]]' being the culprit of causing the graph to just not show up on the web page. I just want the dates in the HashMap to display on the x-axis (and correspond to the appropriate values of course).</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">date</span><span class="tag">highcharts</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Mar 2021 at 21:15</span>
+     </div>
+    </div>
+    <div>
+     <p>Because you are using Thymeleaf with JavaScript, you need to indicate this in your <code>&lt;script&gt;</code> tag:</p>
+     <pre><code>&lt;script th:inline="javascript"&gt;
+</code></pre>
+     <p>Without this, the rendering from your Java objects to the equivalent JavaScript objects will not take place.</p>
+     <p>I assume you have already included the Thymeleaf namespace in the page's <code>&lt;html&gt;</code> tag:</p>
+     <pre><code>&lt;html xmlns:th="http://www.thymeleaf.org"&gt;
+</code></pre>
+     <p>Dates will be displayed on the x-axis - but the format may be a bit cumbersome - for example:</p>
+     <pre><code>2021-03-15T00:00:00.000-04:00
+</code></pre>
+     <p>So, you can add a label formatter. There are many ways to format a date, and I expect HighCharts has built-in ways to do this, but I am not familiar with them - so here is a plain JavaScript way:</p>
+     <pre class="lang-js prettyprint-override"><code>xAxis: {
+    categories: [[${strengthGraph.keySet()}]],
+    labels: {
+        formatter: function () {
+            var d = Date.parse(this.value);
+            const ye = new Intl.DateTimeFormat('en', {year: 'numeric'}).format(d);
+            const mo = new Intl.DateTimeFormat('en', {month: 'short'}).format(d);
+            const da = new Intl.DateTimeFormat('en', {day: '2-digit'}).format(d);
+            return `${da}-${mo}-${ye}`;
+        }
+    }
+
+},
+...
+</code></pre>
+     <p>Now the axis will use labels such as this:</p>
+     <pre><code>15-Mar-2021
+</code></pre>
+     <p>I took this formatter code from <a href="https://stackoverflow.com/questions/3552461/how-to-format-a-javascript-date">this question</a>, where there are other approaches also.</p>
+     <hr>
+     <p>Worth mentioning: When you place Thymeleaf expressions in JavaScript, you can suppress JavaScript syntax errors by placing the Thymeleaf expression inside comments - and by also providing a default value in its place:</p>
+     <pre><code>categories: /*[[${strengthGraph.keySet()}]]*/ []
+</code></pre>
+     <p>In this case the <code>[]</code> is the default value. When Thymeleaf renders the expression, it will remove the <code>/*</code> and <code>*/</code> comment delimiters, and also remove the default expression.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I forgot to add a warning about not using the troublesome <code>java.util.Date</code> and moving to the modern <code>java.time</code> classes instead, wherever possible. See <a href="https://stackoverflow.com/questions/28730136/should-i-use-java-util-date-or-switch-to-java-time-localdate">here</a> for some details.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Mar 2021 at 21:31</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

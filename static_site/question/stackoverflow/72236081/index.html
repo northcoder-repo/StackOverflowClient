@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Different Java Regex matching behavior when using UNICODE_CHARACTER_CLASS flag</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Different Java Regex matching behavior when using UNICODE_CHARACTER_CLASS flag</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>swap310</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 May 2022 at 22:53</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/72236081/different-java-regex-matching-behavior-when-using-unicode-character-class-flag">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I was testing the behavior of the <code>Pattern.UNICODE_CHARACTER_CLASS</code> flag for different punctuation characters and noticed that the matches for grave accent character (U+0060) <code>`</code> occur differently depending on whether <code>Pattern.UNICODE_CHARACTER_CLASS</code> is used.</p>
+    <p>For example, see the below code:</p>
+    <pre><code>
+public class GraceAccentTest {
+    public static void main(String args[]) {
+       Pattern p = Pattern.compile("\\p{Punct}");
+       Matcher m = p.matcher("`");
+       System.out.println(m.matches()); // returns true
+       
+       Pattern p1 = Pattern.compile("\\p{Punct}", Pattern.UNICODE_CHARACTER_CLASS);
+       Matcher m1 = p1.matcher("`");
+       System.out.println(m1.matches()); // returns false 
+    }
+}
+</code></pre>
+    <p>When I don't use <code>Pattern.UNICODE_CHARACTER_CLASS</code> flag grave accent character matches with <code>\p{Punct}</code> character class but when I use the flag it doesn't match. Can someone explain the reasoning for this ?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">regex</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 May 2022 at 16:48</span>
+     </div>
+    </div>
+    <div>
+     <p>When you use <code>Pattern p = Pattern.compile("\\p{Punct}");</code>, then <code>\p{Punct}</code> refers to the following 32 characters:</p>
+     <pre><code>!"#$%&amp;'()*+,-./:;&lt;=&gt;?@[\]^_`{|}~
+</code></pre>
+     <p>Reference: <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/regex/Pattern.html" rel="nofollow noreferrer">the <code>Pattern</code> class</a>.</p>
+     <p>These 32 characters correspond to the ASCII character set characters <code>0x21</code> through <code>0x7e</code>, excluding letters and digits. They also happen to represent all the non-letter and non-digit symbols on my standard U.S. keyboard (your keyboard may be different, of course).</p>
+     <p>The grave accent (also known as a backtick) is in that list and on my keyboard.</p>
+     <p>That is a simple example of a "predefined character class" - and explains why your <code>m.matches()</code> returns <code>true</code>.</p>
+     <hr>
+     <p>When you add the <code>Pattern.UNICODE_CHARACTER_CLASS</code> flag things get more complicated.</p>
+     <p>As the <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/regex/Pattern.html#UNICODE_CHARACTER_CLASS" rel="nofollow noreferrer">documentation</a> for this flag explains, it:</p>
+     <blockquote>
+      <p><em>Enables the Unicode version of Predefined character classes and POSIX character classes.</em></p>
+     </blockquote>
+     <p>and:</p>
+     <blockquote>
+      <p><em>When this flag is specified then the (US-ASCII only) Predefined character classes and POSIX character classes are in conformance with Unicode Technical Standard #18: Unicode Regular Expressions Annex C: Compatibility Properties.</em></p>
+     </blockquote>
+     <p>Looking at the <a href="http://www.unicode.org/reports/tr18/#Compatibility_Properties" rel="nofollow noreferrer">Annex C</a> referred to above, we find a table showing the "recommended assignments for compatibility property names".</p>
+     <p>For our property name (<code>punct</code>), the standard recommendation is to use characters defined by this:</p>
+     <pre><code>\p{gc=Punctuation}
+</code></pre>
+     <p>Here, "gc" stands for "general category". Unicode characters are assigned a <a href="https://en.wikipedia.org/wiki/Unicode_character_property#General_Category" rel="nofollow noreferrer">"general category"</a> value. In this case, that is <code>Punctuation</code> - also abbreviated to <code>P</code> and further broken down into various sub-categories such as <code>Pc</code> for connectors, <code>Pd</code> for dashes, and so on. There is also a catch-all <code>Po</code> for "other punctuation characters".</p>
+     <p>The grave character is assigned to the <code>Symbol</code> general category in Unicode - and to the <code>Modifier</code> subcategory. You can see that assignment to <code>Sk</code> <a href="https://www.fileformat.info/info/unicode/char/0060/index.htm" rel="nofollow noreferrer">here</a>.</p>
+     <p>Contrast that with a character such as the ASCII exclamation mark (also part of our original <code>\p{Punct}</code> list, shown above). For that <a href="https://www.fileformat.info/info/unicode/char/0021/index.htm" rel="nofollow noreferrer">we can see</a> that the general category assignment is <code>Po</code>.</p>
+     <p>That explains why the grave is no longer matched when we add the <code>Pattern.UNICODE_CHARACTER_CLASS</code> flag to our original pattern.</p>
+     <p>It is assigned to a different general category from the punctuation category we are using in our regex.</p>
+     <hr>
+     <p>The obvious next question is <em>why did the grave character not get included in the Unicode <code>Po</code> general category?</em> Why is it in <code>Sk</code> instead?</p>
+     <p>I do not have a good answer for that - I'm sure there are "historical reasons". It's worth noting, however, that the <code>Sk</code> cateogry includes characters such as the acute accent, the cedilla, the diaeresis, and so on - and (as already noted) our grave accent.</p>
+     <p>All these are diacritics - typically used in combination with a base letter to alter the pronunciation. So maybe that is the underlying reason.</p>
+     <p>The grave is a bit of an oddity, perhaps, given it has a historical usage outside of being used as a diacritic.</p>
+     <p>It may be more relevant to ask how the grave ended up as part of the original ASCII character set, in the first place. Some background about this is provided in the Wikipedia page for the <a href="https://en.wikipedia.org/wiki/Backtick" rel="nofollow noreferrer">backtick</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Gatusko</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 May 2022 at 15:18</span>
+     </div>
+    </div>
+    <div>
+     <p>Reading the documentation for <code>UNICODE_CHARACTER_CLASS</code></p>
+     <blockquote>
+      <p>When this flag is specified then the (US-ASCII only) <strong>Predefined character classes and POSIX</strong> character classes are in conformance with Unicode Technical Standard #18: Unicode Regular Expression Annex C: Compatibility Properties.</p>
+     </blockquote>
+     <p>So this is saying that is using US-ASCII only. So if you check the table of characters <strong>Punctuation</strong> you will check there is a lot of missing chars.</p>
+     <p>Tables :</p>
+     <p><a href="https://www.fileformat.info/info/unicode/category/Po/list.htm" rel="nofollow noreferrer">https://www.fileformat.info/info/unicode/category/Po/list.htm</a></p>
+     <p><a href="https://www.gaijin.at/en/infos/unicode-character-table-punctuation" rel="nofollow noreferrer">https://www.gaijin.at/en/infos/unicode-character-table-punctuation</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>HighMap data table not loading points</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>HighMap data table not loading points</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>sfjeld</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Jan 2021 at 20:51</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65864244/highmap-data-table-not-loading-points">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to populate a map of the U.S. in HighMaps with data from an html table. The map is showing but the data point is not. It's a latitude/longitude point. The documentation is sparse, so I'm not sure what I'm doing wrong. Here's a JSFiddle: <a href="https://jsfiddle.net/sfjeld/1wjm04fc/6/" rel="nofollow noreferrer">https://jsfiddle.net/sfjeld/1wjm04fc/6/</a></p>
+    <pre class="lang-js prettyprint-override"><code> Highcharts.mapChart('container', {
+    chart: {
+      map: 'countries/us/custom/us-all-territories'
+    },
+
+    series: [{
+        name: 'Basemap',
+        dataLabels: {
+          enabled: true,
+          format: '{point.name}'
+        }
+      },
+      {
+        // Specify points using lat/lon
+        type: 'mappoint',
+        data: {
+          table: 'pvsoiling-table',
+          startRow: 1, 
+          startColumn: 1,
+          endColumn: 2
+        },
+        name: 'PV',
+        marker: {
+          fillColor: 'white',
+          lineColor: 'black',
+          lineWidth: 2,
+          radius: 10
+        },
+        color: Highcharts.getOptions().colors[1]
+      }
+    ]
+  });
+</code></pre>
+    <p>thanks, Shauna</p>
+   </div>
+   <div class="tags">
+    <span class="tag">highcharts</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jan 2021 at 22:55</span>
+     </div>
+    </div>
+    <div>
+     <p>You can make the following changes to your code:</p>
+     <ol>
+      <li>At the start of your <code>&lt;script&gt;</code> section, load your HTML table data into a JavaScript array:</li>
+     </ol>
+     <pre class="lang-js prettyprint-override"><code>var mapData = [];
+
+Highcharts.data({
+  table: document.getElementById('pvsoiling-table'),
+  startColumn: 1,
+  endColumn: 2,
+  firstRowAsNames: true,
+  complete: function (options) {
+    options.series[0].data.forEach(function (p) {
+      mapData.push({
+        lat: p[0],
+        lon: p[1]
+      });
+    });
+  //console.log(mapData);
+  }
+});
+</code></pre>
+     <p>We will refer to this <code>mapData</code> array later on. Here is what it contains:</p>
+     <pre class="lang-js prettyprint-override"><code>[
+  { "lat": 33.3, "lon": -111.67 }
+]
+</code></pre>
+     <ol start="2">
+      <li>Make changes to the <code>series</code> section in your <code>Highcharts.mapChart</code>.</li>
+     </ol>
+     <pre class="lang-js prettyprint-override"><code>    series: [{
+      name: 'Basemap',
+      nullColor: '#e0f9e3',
+      dataLabels: {
+        enabled: true,
+        format: '{point.name}'
+      }},
+      {
+        // Specify points using lat/lon
+        data: mapData, 
+        type: 'mappoint',
+        name: 'PV',
+        marker: {
+          fillColor: 'white',
+          lineColor: 'black',
+          lineWidth: 1,
+          radius: 3
+        },
+        color: Highcharts.getOptions().colors[1]
+      }
+    ]
+</code></pre>
+     <p>The key part to note is the <code>data: mapData</code> option. The JavaScript <code>mapData</code> variable is the exact array that we need to represent a set of points on the map. In our case the array only contains one point - but that's because there is only one relevant row of data in the HTML table.</p>
+     <p>My map ends up looking like this:</p>
+     <p><a href="https://i.stack.imgur.com/ZkeCH.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/ZkeCH.png" alt="enter image description here"></a></p>
+     <p>It looks like the marker is in or near Phoenix, AZ.</p>
+     <p>Final notes:</p>
+     <p>(a) I also adjusted the marker to have <code>lineWidth: 1</code> and <code>radius: 3</code> (a bit smaller).</p>
+     <p>(b) I added a <code>document ready</code> function around everything, to ensure the DataTable is loaded before you try to read its data.</p>
+     <p>(c) There may be a more elegant way to do this, but I followed the approach in <a href="https://jsfiddle.net/gh/get/library/pure/highcharts/highcharts/tree/master/samples/maps/demo/us-data-labels" rel="nofollow noreferrer">this demo</a>. The demo actually shows how to join 2 different sets of data - not what you need. But it does show a good approach for extracting the HTML data so it can be used in the map.</p>
+     <hr>
+     <p>Using the the <code>Highcharts.data({...})</code> approach lets you access any HTML table. But since you are using DataTables, you can choose to do the following, instead. It uses the DataTables API to access each row of data:</p>
+     <pre class="lang-js prettyprint-override"><code>var mapData = [];
+
+$('#pvsoiling-table').DataTable({
+  "initComplete": function(settings, json) {
+    var api = this.api();
+    api.rows().data().each(function (p) {
+      mapData.push({ lat: Number(p[1]), lon: Number(p[2]) });
+    });
+    // your Highcharts.mapChart() logic, in a function:
+    buildChart();
+  }
+});
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Andrew, thanks so much for the very detailed explanation. It works great and i learned a lot. Shauna</span> <span> - </span> <span class="display-name">sfjeld</span> <span> </span> <span class="date">24 Jan 2021 at 18:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You're welcome. Just for extra info: It occurred to me that because you are using DataTables for your HTML table, you can build the lat/lon array data directly from DataTables itself, without needing to use the <code>Highcharts.data({...})</code> function. I will add that to the answer, just for future reference.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">24 Jan 2021 at 18:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

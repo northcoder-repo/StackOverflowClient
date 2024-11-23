@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Encode a codepoint</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Encode a codepoint</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>k314159</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Feb 2021 at 22:23</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66233031/encode-a-codepoint">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a Unicode codepoint, which could be <em>anything</em>: possibly ASCII, possibly something in the BMP, and possibly an exotic emoji such as U+1F612.</p>
+    <p>I expected there would be an easy way to take a codepoint and encode it into a byte array, but I can't find a simple way. I can turn it into a String, and then encode it, but that is a round-about way involving first encoding it to UTF-16 and then re-encoding it to the required encoding. I'd like to encode it directly to bytes.</p>
+    <pre><code>public static byte[] encodeCodePoint(int codePoint, Charset charset) {
+    // Surely there's got to be a better way than this:
+    return new StringBuilder().appendCodePoint(codePoint).toString().getBytes(charset);
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">unicode</span><span class="tag">character-encoding</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Since <code>CharsetEncoder</code> only deals in <code>char</code> (and multiple thereof), I'm afraid you won't find a more direct way. You can avoid building a <code>String</code>, but you'll need some kind of <code>CharSequence</code> (such as a <code>CharBuffer</code>). Is the final goal <b>really</b> to encode <i>individual</i> codepoints and not just a whole stream of them?</span> <span> - </span> <span class="display-name">Joachim Sauer</span> <span> </span> <span class="date">17 Feb 2021 at 13:08</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Remy Lebeau</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Feb 2021 at 22:16</span>
+     </div>
+    </div>
+    <div>
+     <p>There is really no way to avoid using UTF-16, since Java uses UTF-16 for text data, and that is what the charset convertors are designed for. But, that doesn't mean you have to use a <code>String</code> for the UTF-16 data:</p>
+     <pre class="lang-java prettyprint-override"><code>public static byte[] encodeCodePoint(int codePoint, Charset charset) {
+    char[] chars = Character.toChars(codePoint);
+    CharBuffer cb = CharBuffer.wrap(chars);
+    ByteBuffer buff = charset.encode(cb);
+    byte[] bytes = new byte[buff.remaining()];
+    buff.get(bytes);
+    return bytes;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Thanks, but I believe this might not always work, as the array is the allocated array and may in some cases be bigger than the actual data inside it.</span> <span> - </span> <span class="display-name">k314159</span> <span> </span> <span class="date">17 Feb 2021 at 22:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I can't think of any reason why <code>encode()</code> would return a <code>ByteBuffer</code> that is larger than the actual output. And every example I have seen assumes that <code>encode().array()</code> is the proper length. But whatever, you can easily account for this, if needed. I have updated my answer to show how.</span> <span> - </span> <span class="display-name">Remy Lebeau</span> <span> </span> <span class="date">17 Feb 2021 at 22:31</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Try, for example, <code>StandardCharsets.UTF_8.encode(CharBuffer.wrap(Character.toCh‌​ars(0x1F612)))</code>. You'll get a ByteBuffer with a limit of 4 and a capacity of 5. The array() method returns the full backing array, with 5 elements, only 4 of which are used, the last one being 0. So your "alternative" is in fact the only option.</span> <span> - </span> <span class="display-name">k314159</span> <span> </span> <span class="date">18 Feb 2021 at 10:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

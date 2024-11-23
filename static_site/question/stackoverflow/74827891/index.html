@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jQuery DataTables server side mode not loading table rows</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jQuery DataTables server side mode not loading table rows</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>RTF</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Dec 2022 at 17:30</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74827891/jquery-datatables-server-side-mode-not-loading-table-rows">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm using the DataTables javascript library (v1.13.1) and trying to get a basic server-side example up and running, but there's just no rows appearing in the table, only the headers. I have to tell DataTables the location in my server response where my array of objects is using the <code>ajax.dataSrc</code> option. I'm logging my servers JSON response to the console and it looks correct to me (I am including the required response values e.g. <code>draw</code>).</p>
+    <p>I've been pouring over the docs and looking at the official examples, but I just can't see what I'm doing wrong. There's no console errors, just no results in the table. Am I missing some required options?</p>
+    <p>Server Response:</p>
+    <pre><code>{
+    "draw": 1,
+    "recordsFiltered": 13,
+    "recordsTotal": 13,
+    "watchlist": [
+        {
+            "added": 1610556680,
+            ​​​​"status": 1151,
+            "type": 2,
+​            "name": "Blah"
+        },
+        ...and 12 more with same exact format
+    ]
+}
+</code></pre>
+    <p>HTML:</p>
+    <pre><code>&lt;table id="my-datatable" class="stripe hover"&gt;
+    &lt;thead&gt;
+        &lt;tr&gt;
+            &lt;th&gt;Added&lt;/th&gt;
+            &lt;th&gt;Type&lt;/th&gt;
+            &lt;th&gt;Status&lt;/th&gt;
+            &lt;th&gt;Name&lt;/th&gt;
+        &lt;/tr&gt;
+    &lt;/thead&gt;
+&lt;/table&gt;
+</code></pre>
+    <p>Script:</p>
+    <pre><code>var ajaxOpts = {
+    url: '/MyEndpoint',
+    success: function(data) {
+        console.log('success', data); // looks fine
+        $('#my-spinner').fadeOut(200);
+    },
+    error: function() {
+        alert('Ajax Error...');
+    },
+    dataSrc: function(data) {
+        console.log('dataSrc', data); // never called
+        return JSON.parse(data).watchlist;
+    },
+    // dataSrc: 'watchlist', // also doesn't work
+};
+
+$('#my-datatable').DataTable({
+    serverSide: true,
+    ajax: ajaxOpts,
+    pageLength: 50,
+    columns: [
+        { data: 'added' },
+        { data: 'type' },
+        { data: 'status' },
+        { data: 'name' },
+    ],
+});
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Thanks @andrewJames that was the solution for me. If you put it into an answer I'll accept it for you.</span> <span> - </span> <span class="display-name">RTF</span> <span> </span> <span class="date">17 Dec 2022 at 11:17</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Dec 2022 at 14:33</span>
+     </div>
+    </div>
+    <div>
+     <p>Some notes:</p>
+     <p>(1) Don't use <code>success</code> in the DataTables Ajax configuration - this is used by DataTables and should not be used by you.</p>
+     <p>(2) You were correct to use <code>dataSrc: 'watchlist'</code>, since that is where your array of objects is located in your JSON. But it won't work until you fix point (1).</p>
+     <p>See the <a href="https://datatables.net/reference/option/ajax.dataSrc" rel="nofollow noreferrer"><code>ajax.dataSrc</code></a> documentation for notes about not using <code>success</code>:</p>
+     <blockquote>
+      <p>the <code>success</code> option of <code>ajax</code> should not be altered - DataTables uses it internally to execute the table draw when the data load is complete.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ali Salavati</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 May 2023 at 12:07</span>
+     </div>
+    </div>
+    <div>
+     <p>Don't use success and try this:</p>
+     <pre><code>    ...
+    dataSrc: function (json) {
+        $('#my-spinner').fadeOut(200)
+        return json.watchlist
+    },
+    ...
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

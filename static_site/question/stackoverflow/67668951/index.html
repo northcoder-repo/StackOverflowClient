@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Paginate datatables with rowspans</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Paginate datatables with rowspans</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>pepito</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 May 2021 at 08:33</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67668951/paginate-datatables-with-rowspans">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am having some issues for paginating a datatable with rowspans. My issue is that, when indicating the "<code>pageLength</code>" atttribute, it considers all trs. For example, if I have something like this, I would need to use <code>"pageLength": 3</code>.</p>
+    <pre><code>--------------------------------------------
+                     |
+tr with rowspan = 2  | tr inside #1
+                     |----------------------
+                     |
+                     | tr inside #2
+--------------------------------------------
+</code></pre>
+    <p>My problem here is that, due to this, when paging along the different pages of the table, it can happen that some trs end up being "orphan". For example, if the page ends with the tr #1, the tr #2 may appear "alone" (without the tr with rowspan = 2) on the next page. Is there any way to paginate these tables only taking into account those "parent" rows, the one with rowspan?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">html</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 May 2021 at 13:49</span>
+     </div>
+    </div>
+    <div>
+     <p>I don't know of a way to do exactly what you are asking. Having said that, I provide some notes below in case they are an acceptable alternative.</p>
+     <hr>
+     <p>You can create a fake <code>rowspan</code> effect, which will always display the relevant value in the first column, regardless of which page you are on:</p>
+     <p><a href="https://i.stack.imgur.com/OOVvC.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/OOVvC.png" alt="enter image description here"></a></p>
+     <p>But even with this, you may still get some rows in the span at the bottom of one page, and the remainder of the span's rows at the top of the next page. I do not see any way around that (<em>except for one possible scenario mentioned at the end of this answer</em>).</p>
+     <p>As an alternative, you may want to look into the <a href="https://datatables.net/extensions/rowgroup/examples/" rel="nofollow noreferrer">row group</a> extension. But, again there are no guarantees that an entire group will always appear on only one page.</p>
+     <hr>
+     <p>If the "fake rowspan" is of interest to you, here is an example. It works by manipulating the DOM nodes on each page, so that repeated values in the first column are not shown (and the cell's <code>border-top</code> line is removed).</p>
+     <p>The data in the DataTable itself is not altered, so if you search for "Edinburgh" you will still find all 3 records.</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>var dataSet = {
+  "data": [
+    {
+      "id": "1",
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "salary": "$320,800",
+      "start_date": "2011/04/25",
+      "office": "Edinburgh",
+      "extn": "5421"
+    },
+    {
+      "id": "2",
+      "name": "Garrett Winters",
+      "position": "Accountant",
+      "salary": "$170,750",
+      "start_date": "2011/07/25",
+      "office": "Tokyo",
+      "extn": "8422"
+    },
+    {
+      "id": "3",
+      "name": "Ashton Cox",
+      "position": "Junior Technical Author",
+      "salary": "$86,000",
+      "start_date": "2009/01/12",
+      "office": "Tokyo",
+      "extn": "1562"
+    },
+    {
+      "id": "4",
+      "name": "Cedric Kelly",
+      "position": "Senior Javascript Developer",
+      "salary": "$433,060",
+      "start_date": "2012/03/29",
+      "office": "New York",
+      "extn": "6224"
+    },
+    {
+      "id": "5",
+      "name": "Airi Satou",
+      "position": "Accountant",
+      "salary": "$162,700",
+      "start_date": "2008/11/28",
+      "office": "Tokyo",
+      "extn": "5407"
+    },
+    {
+      "id": "6",
+      "name": "Brielle Williamson",
+      "position": "Integration Specialist",
+      "salary": "$372,000",
+      "start_date": "2012/12/02",
+      "office": "New York",
+      "extn": "4804"
+    },
+    {
+      "id": "7",
+      "name": "Herrod Chandler",
+      "position": "Sales Assistant",
+      "salary": "$137,500",
+      "start_date": "2012/08/06",
+      "office": "San Francisco",
+      "extn": "9608"
+    },
+    {
+      "id": "8",
+      "name": "Rhona Davidson",
+      "position": "Integration Specialist",
+      "salary": "$327,900",
+      "start_date": "2010/10/14",
+      "office": "Tokyo",
+      "extn": "6200"
+    },
+    {
+      "id": "9",
+      "name": "Colleen Hurst",
+      "position": "Javascript Developer",
+      "salary": "$205,500",
+      "start_date": "2009/09/15",
+      "office": "San Francisco",
+      "extn": "2360"
+    },
+    {
+      "id": "10",
+      "name": "Sonya Frost",
+      "position": "Software Engineer",
+      "salary": "$103,600",
+      "start_date": "2008/12/13",
+      "office": "Edinburgh",
+      "extn": "1667"
+    },
+    {
+      "id": "11",
+      "name": "Jena Gaines",
+      "position": "Office Manager",
+      "salary": "$90,560",
+      "start_date": "2008/12/19",
+      "office": "London",
+      "extn": "3814"
+    },
+    {
+      "id": "12",
+      "name": "Quinn Flynn",
+      "position": "Support Lead",
+      "salary": "$342,000",
+      "start_date": "2013/03/03",
+      "office": "Edinburgh",
+      "extn": "9497"
+    }
+  ]
+};
+
+var previous = '';
+ 
+$(document).ready(function() {
+
+var table = $('#example').DataTable( {
+  data: dataSet.data,
+  "order": [[ 0, 'asc' ]],
+  columns: [
+    { title: "Office", data: "office" },
+    { title: "Name", data: "name" },
+    //{ title: "Office2", data: "office" },
+    { title: "Position", data: "position" },
+    { title: "Start date", data: "start_date" },
+    { title: "Salary", data: "salary" }
+  ],
+  "initComplete": function(settings, json) {
+    // in case the initial sort order leads to 
+    // cells needing to be altered:
+    processColumnNodes( $('#example').DataTable() );
+  }
+} ); 
+    
+table.on( 'draw', function () {
+  processColumnNodes( $('#example').DataTable() );
+} );
+
+function processColumnNodes(tbl) {
+  // see https://datatables.net/reference/type/selector-modifier
+  var selector_modifier = { order: 'current', page: 'current', search: 'applied' }
+
+  var previous = '';
+  var officeNodes = tbl.column(0, selector_modifier).nodes();
+  var officeData = tbl.column(0, selector_modifier).data();
+    for (var i = 0; i &lt; officeData.length; i++) {
+    var current = officeData[i];
+    if (current === previous) {
+      officeNodes[i].textContent = '';
+      officeNodes[i].setAttribute("style", "border-top:none;");
+    } else {
+      officeNodes[i].textContent = current;
+    }
+    previous = current;
+  }
+}
+
+} );</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="cell-border" style="width:100%"&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>When you run the above snippet you will see 2 out of the 4 rows for "Tokyo" at the end of page 1. You will see the 2 remaining ("orphaned") Tokyo rows at the top of page 2 - but you will also see the "Tokyo" label as well.</p>
+     <hr>
+     <p>If your <code>rowspan</code> sizes are always exactly "2" then you can also set the values in the "page length" dropdown to only use even numbers:</p>
+     <pre><code>"lengthMenu": [ 10, 20, 50, 100 ]
+</code></pre>
+     <p>That way you will never have any "orphans" split across different pages.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

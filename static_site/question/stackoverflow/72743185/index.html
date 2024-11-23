@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to make childrow always open without getting performance hit</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to make childrow always open without getting performance hit</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>TheNerdy97</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Jun 2022 at 11:09</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/72743185/how-to-make-childrow-always-open-without-getting-performance-hit">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a Datatable with childrow:</p>
+    <pre><code>$(document).ready(function () {
+    var table = $('#example').DataTable({
+        ajax: 'static/ajax/data/data.json',
+        
+        columns: [
+            {
+                className: 'dt-control',
+                orderable: false,
+                data: null,
+                defaultContent: '',
+            },
+            { data: 'Value1' },
+            { data: 'Value2' },
+            { data: 'Value3' },
+        ],
+        order: [[1, 'asc']],
+    });
+    
+    // Add event listener for opening and closing details
+    $('#example tbody').on('click', 'td.dt-control', function () {
+        var tr = $(this).closest('tr');
+        var row = table.row(tr);
+ 
+        if (row.child.isShown()) {
+            // This row is already open - close it
+            row.child.hide();
+            tr.removeClass('shown');
+        } else {
+            // Open this row
+            row.child(format(row.data())).show();
+            tr.addClass('shown');
+        }
+
+});
+</code></pre>
+    <p>How can I make the child row always open without a performance hit and remove the default green cross? I'm using ajax as a data source.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">datatable</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2022 at 14:31</span>
+     </div>
+    </div>
+    <div>
+     <p>To create a DataTable with all child data always displayed, you can take the standard approach (for example, using the <a href="https://datatables.net/examples/api/row_details.html" rel="nofollow noreferrer">demo shown here</a>), and then make the following changes:</p>
+     <p>1 - remove the first (empty) column from the header <code>&lt;th&gt;&lt;/th&gt;</code> - and also from the footer if needed.</p>
+     <p>2 - remove the first body column also, as defined in the DataTable itself:</p>
+     <pre><code>{
+  className: 'dt-control',
+  orderable: false,
+  data: null,
+  defaultContent: '',
+},
+</code></pre>
+     <p>The above 2 changes ensure there still the same number of body columns as there are header (and footer) columns.</p>
+     <p>3 - remove the event listener code (it is no longer needed):</p>
+     <pre><code>$('#example tbody').on('click', 'td.dt-control', function () { ... });
+</code></pre>
+     <p>4 - Add an <code>initComplete</code> section to the DataTable:</p>
+     <pre class="lang-js prettyprint-override"><code>initComplete: function( settings, json ) {
+  this.api().rows().every( function () {
+    this.child( format(this.data()) ).show();
+  });
+}
+</code></pre>
+     <hr>
+     <p>The following example shows the above approach, but it uses a small JavaScript-sourced data set instead of Ajax data.</p>
+     <p>That does not make a difference to the above steps. Just replace my <code>data: dataSet,</code> option with your <code>ajax</code> option.</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>var dataSet = [
+    {
+      "id": "1",
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "salary": "$320,800",
+      "start_date": "2011/04/25",
+      "office": "Zürich",
+      "extn": "5421"
+    },
+    {
+      "id": "57",
+      "name": "Donna Snider",
+      "position": "Customer Support",
+      "salary": "$112,000",
+      "start_date": "2011/01/25",
+      "office": "New York",
+      "extn": "4226"
+    }
+  ];
+
+/* Formatting function for row details - modify as you need */
+function format ( d ) {
+    // `d` is the original data object for the row
+    return '&lt;table class="cell-border" cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;"&gt;'+
+        '&lt;tr&gt;'+
+            '&lt;td&gt;Full name:&lt;/td&gt;'+
+            '&lt;td&gt;'+d.name+'&lt;/td&gt;'+
+        '&lt;/tr&gt;'+
+        '&lt;tr&gt;'+
+            '&lt;td&gt;Extension number:&lt;/td&gt;'+
+            '&lt;td&gt;'+d.extn+'&lt;/td&gt;'+
+        '&lt;/tr&gt;'+
+        '&lt;tr&gt;'+
+            '&lt;td&gt;Extra info:&lt;/td&gt;'+
+            '&lt;td&gt;And any further details here (images etc)...&lt;/td&gt;'+
+        '&lt;/tr&gt;'+
+    '&lt;/table&gt;';
+}
+
+$(document).ready(function() {
+
+    var table = $('#example').DataTable( {
+        data: dataSet,
+        columns: [
+            { data: "name" },
+            { data: "position" },
+            { data: "office" },
+            { data: "salary" }
+        ],
+        
+        initComplete: function( settings, json ) {
+          this.api().rows().every( function () {
+            this.child( format(this.data()) ).show();
+          });
+        }
+        
+    } );
+
+} );</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+    &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office&lt;/th&gt;
+                &lt;th&gt;Salary&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

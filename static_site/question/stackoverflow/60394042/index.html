@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to pass an array of HashMaps to partial</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to pass an array of HashMaps to partial</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Tom Bom</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Feb 2020 at 11:54</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60394042/how-to-pass-an-array-of-hashmaps-to-partial">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm building an app with Java and Thymeleaf and I need to pass a HashMap to a partial. I don't want to pass it from a controller.</p>
+    <p>This is what I tried so far:</p>
+    <p>user.html</p>
+    <pre><code>&lt;div th:replace="partials/icons.html :: icons(icons=${ {name='user', title='User'}, {name='blog', title='Blog'} })"&gt;&lt;/div&gt;
+</code></pre>
+    <p>/partials/icons.html</p>
+    <pre><code>&lt;div th:fragment="icons"&gt;
+    &lt;th:block th:each="icon : ${icons}"&gt;
+        &lt;button th:class="'icon-' + ${icon.name}" th:text="${icon.title}"&gt;&lt;/button&gt;
+    &lt;/th:block&gt;
+&lt;/div&gt;
+</code></pre>
+    <p>It gives me an error that <code>=</code> is unexpected. What would be the correct syntax?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring-mvc</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Feb 2020 at 15:58</span>
+     </div>
+    </div>
+    <div>
+     <p><em>EDIT: I should have clarified up-front: there is no way to do what you are trying to do with the syntax of <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#parameterizable-fragment-signatures" rel="nofollow noreferrer">fragment parameters</a>. My approach below is a work-around.</em></p>
+     <p>Assuming you have the following object as a starting point:</p>
+     <pre><code>public class Icon {
+
+    private String name;
+    private String title;
+
+    // getters and setters...
+}
+</code></pre>
+     <p>Assuming you then have a <code>List</code> of such objects, called <code>icons</code>...</p>
+     <p>This list is passed to your Thymeleaf renderer in the usual way. I don't use Spring, so how you do that is (I assume) through an annotation. I may be wrong - it shouldn't affect the approach below, however. In my no-Spring approach the list is added to the Thymeleaf model as <code>map.put("icons", icons);</code></p>
+     <p>I have the following in my parent Thymeleaf template:</p>
+     <pre><code>&lt;div th:replace = "/iconsfragment.html :: icons(iconlist='icons')"&gt;
+&lt;/div&gt;
+</code></pre>
+     <p>I have the following in <code>iconsfragment.html</code>:</p>
+     <pre><code>&lt;div th:fragment="icons(iconlist)"&gt;
+    &lt;th:block th:each="icon : ${__${iconlist}__}"&gt;
+        &lt;div th:class="'icon-' + ${icon.name}" th:text="${icon.title}"&gt;&lt;/div&gt;
+    &lt;/th:block&gt;
+&lt;/div&gt;
+</code></pre>
+     <p>It uses a preprocessor <code>__${...}__</code> to convert the parameter (a string) back into an iterable object.</p>
+     <p>The resulting HTML that you care about is:</p>
+     <pre><code>&lt;div class="icon-firstName"&gt;firstTitle&lt;/div&gt;
+
+&lt;div class="icon-secondName"&gt;secondTitle&lt;/div&gt;
+</code></pre>
+     <p>This only really makes sense if you want to re-use that fragment in various different ways, of course. Otherwise just pass the <code>${icons}</code> object directly to the fragment.</p>
+     <p>And my <code>&lt;div&gt;</code> example would of course need to be adapted to your <code>&lt;button&gt;</code> example.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

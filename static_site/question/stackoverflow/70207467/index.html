@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to get data from nested array in DataTables?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to get data from nested array in DataTables?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Barney Gumble</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>2 Dec 2021 at 22:55</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/70207467/how-to-get-data-from-nested-array-in-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I used to download data from a json file in this format to my DataTables table:</p>
+    <pre><code>{
+    "data": [
+        ["n/a","668","01.11.2021 14:16:20", ... ],
+        ["n/a","670","05.11.2021 23:23:54", ...]
+    ]
+}
+
+...
+        "ajax": "first.json",
+        columns: [ 
+            { data: 0 },
+            { data: 1 }
+...
+</code></pre>
+    <p>And everythig was ok</p>
+    <p>But now format of my json was changed:</p>
+    <pre><code>{
+    "data": {
+        "deals": [["n/a", "718", "30/11/2021 21:46:14"], ["", "718", "30/11/2021 21:46:14"], ... ], 
+        "stops": [["07/10/2021 21:48:28", "BTCUSDT"], ["07/10/2021 21:48:28", "BTCUSDT"], ... ] 
+    }
+}
+</code></pre>
+    <p>And I try to get data like this and get "No data available in table":</p>
+    <pre><code>...
+        "ajax": "first.json",
+        columns: [ 
+            { data: 'deals.0' },
+            { data: 'deals.1' }
+...
+</code></pre>
+    <p>How can I get data from new format of json to my table?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Dec 2021 at 01:26</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is your new JSON structure, provided by the URL:</p>
+     <pre class="lang-js prettyprint-override"><code>{
+    "data": {
+        "deals": [
+            ["n/a", "718", "30/11/2021 21:46:14"],
+            ["", "718", "30/11/2021 21:46:14"]
+        ],
+        "stops": [
+            ["07/10/2021 21:48:28", "BTCUSDT"],
+            ["07/10/2021 21:48:28", "BTCUSDT"]
+        ]
+    }
+}
+</code></pre>
+     <p>In this structure, the location of the deals data is <code>data.deals</code>. This location points to an array of arrays, which is what DataTables needs (or an array of objects).</p>
+     <p>(This means the table will only have access to the <code>deals</code> data, since the <code>stops</code> data is in a separate location entirely. But I will assume you only want the <code>deals</code> data to match your original example.)</p>
+     <p>You therefore need to use the DataTables <a href="https://datatables.net/reference/option/ajax.dataSrc" rel="nofollow noreferrer"><code>dataSrc</code></a> option to tell DataTables where to look in your new JSON:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;table id="example" class="display" style="width:100%"&gt;&lt;/table&gt;
+</code></pre>
+     <p>and:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).ready(function() {
+
+  $('#example').DataTable( {
+    ajax: {
+      method: "GET",
+      url: "first.json", // or whatever URL you want to use
+      dataSrc: "data.deals"
+    },
+    "columns": [
+      { "title": "Col 1" },
+      { "title": "Col 2" },
+      { "title": "Col 3" }
+    ]
+            
+  } );
+
+} );
+</code></pre>
+     <p>Because each row of data is an array, you don't need to specify the specific array indexes in your <code>columns</code> - DataTables will iterate over each row array for you.</p>
+     <p>The result is:</p>
+     <p><a href="https://i.stack.imgur.com/DtgAF.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/DtgAF.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

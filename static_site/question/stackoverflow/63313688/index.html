@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Access DataTable data returned from server</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Access DataTable data returned from server</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user13437588</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Aug 2020 at 09:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63313688/access-datatable-data-returned-from-server">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm implementing a checkbox to select all rows, but only rows in the current page are selected.</p>
+    <p>So I'm trying to access the returned data object so that I can implement my logic to check all checkboxes.</p>
+    <p>Here's my code:</p>
+    <pre><code>$.fn.dataTable.pipeline = function ( opts ) {
+// Configuration options
+
+var conf = $.extend( {
+    pages: 5,     // number of pages to cache
+    url: opts.url,      // script url
+    data: opts.data,   // function or object with parameters to send to the server
+                  // matching how `ajax.data` works in DataTables
+    method: 'post' // Ajax HTTP method
+}, opts );
+// Private variables for storing the cache
+var cacheLower = -1;
+var cacheUpper = null;
+var cacheLastRequest = null;
+var cacheLastJson = null;
+
+return function ( request, drawCallback, settings ) {
+    var ajax          = false;
+    var requestStart  = request.start;
+    var drawStart     = request.start;
+    var requestLength = request.length;
+    var requestEnd    = requestStart + requestLength;
+    if ( settings.clearCache ) {
+        // API requested that the cache be cleared
+        ajax = true;
+        settings.clearCache = false;
+      
+    }
+    else if ( cacheLower &lt; 0 || requestStart &lt; cacheLower || requestEnd &gt; cacheUpper ) {
+        // outside cached data - need to make a request
+        ajax = true;
+    }
+    else if ( JSON.stringify( request.order )   !== JSON.stringify( cacheLastRequest.order ) ||
+              JSON.stringify( request.columns ) !== JSON.stringify( cacheLastRequest.columns ) ||
+              JSON.stringify( request.search )  !== JSON.stringify( cacheLastRequest.search )
+    ) {
+        // properties changed (ordering, columns, searching)
+
+        ajax = true;
+    }
+     
+    // Store the request for checking next time around
+    cacheLastRequest = $.extend( true, {}, request );
+
+    if ( ajax ) {
+        // Need data from the server
+        // console.log(requestLength)
+        if ( requestStart &lt; cacheLower ) {
+            requestStart = requestStart - (requestLength*(conf.pages-1));
+
+            if ( requestStart &lt; 0 ) {
+                requestStart = 0;
+            }
+        }
+         
+        cacheLower = requestStart;
+        cacheUpper = requestStart + (requestLength * conf.pages);
+
+        request.start = requestStart;
+        request.length = requestLength*conf.pages;
+
+        // Provide the same `data` options as DataTables.
+        if ( typeof conf.data === 'function' ) {
+            // As a function it is executed with the data object as an arg
+            // for manipulation. If an object is returned, it is used as the
+            // data object to submit
+            var d = conf.data( request );
+            if ( d ) {
+                $.extend( request, d );
+            }
+        }
+        else if ( $.isPlainObject( conf.data ) ) {
+            // As an object, the data given extends the default
+            // console.log('=====================================')
+            // console.log('yes its a data')
+            $.extend( request, conf.data );
+        }
+
+        return $.ajax( {
+            "type":     conf.method,
+            "url":      conf.url,
+            "data":     request,
+            "dataType": "json",
+            "cache":    false,
+            "success":  function ( json ) {
+              console.log(json)
+                cacheLastJson = $.extend(true, {}, json);
+
+                if ( cacheLower != drawStart ) {
+                    json.aaData.splice( 0, drawStart-cacheLower );
+                }
+                if ( requestLength &gt;= -1 ) {
+                    json.aaData.splice( requestLength, json.aaData.length );
+                }
+
+                drawCallback( json );
+            }
+        } );
+    }
+    else {
+        json = $.extend( true, {}, cacheLastJson );
+        json.draw = request.draw; // Update the echo for each response
+        json.aaData.splice( 0, requestStart-cacheLower );
+        json.aaData.splice( requestLength, json.aaData.length );
+        drawCallback(json);
+    }
+}
+};
+
+// Register an API method that will empty the pipelined data, forcing an Ajax
+// fetch on the next draw (i.e. `table.clearPipeline().draw()`)
+$.fn.dataTable.Api.register( 'clearPipeline()', function () {
+return this.iterator( 'table', function ( settings ) {
+    settings.clearCache = true;
+} );
+} );
+
+function triggerTable(data){
+ var table = $('#example').DataTable({
+//   fixedHeader: true,
+  "lengthMenu": [[10, 100, 500], [10, 100, 500]],
+  'processing': true,
+  'serverSide': true,
+  'serverMethod': 'post',
+  "order": [[ 5, "desc" ]],
+  "ajax": $.fn.dataTable.pipeline( {
+        url: '&lt;?php echo base_url()?&gt;Masters_cntrl/orgPartnerEmpList_AJAXPagination',
+        data: data,
+        pages: data.fetchCount, // number of pages to cache
+    } ),
+  'columns': [
+    { data: 'checkbox' },
+     { data: 'status' },
+     { data: 'member_fullname'},
+     { data: 'member_mobile_no' },
+     { data: 'organization_name' },
+  ]
+});
+return table;
+}
+var data = {
+  'org_id' : '&lt;?php echo $org_id ?&gt;',
+  'query'   : '&lt;?php echo $Query ?&gt;',
+  'fetchCount' : 5,
+};
+var table =  triggerTable(data);
+</code></pre>
+    <p>And, below is the code where I'm trying to access all records</p>
+    <pre><code>   $('#selectAll').on('click', function(){
+      $("#example").find("tr").each(function (e) {
+        console.log(e)
+      });
+   });
+</code></pre>
+    <p>But it is showing only the ten records of the current page.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span><span class="tag">pipeline</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Have you tried <b><a href="https://stackoverflow.com/a/29898352/7471180">this</a></b> by chance?</span> <span> - </span> <span class="display-name">Sagnalrac</span> <span> </span> <span class="date">8 Aug 2020 at 10:44</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>yes, its the code from the app I'm developing. it's a working code. the only thing I need is to access the returned data.</span> <span> - </span> <span class="display-name">user13437588</span> <span> </span> <span class="date">8 Aug 2020 at 11:07</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I need to loop through all the table row, But I couldn't loop beyond the first ten records</span> <span> - </span> <span class="display-name">user13437588</span> <span> </span> <span class="date">8 Aug 2020 at 11:18</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Aug 2020 at 14:17</span>
+     </div>
+    </div>
+    <div>
+     <p>You can access all the HTML cells in a column (across all pages of results) using the DataTables <code>column().nodes()</code> function, and then you can handle the checkboxes from there.</p>
+     <p>Assuming you have a button such as this:</p>
+     <pre><code>&lt;button type="button" onclick="selectAllRows()"&gt;Select All&lt;/button&gt;
+</code></pre>
+     <p>And some table data (for testing) like this:</p>
+     <pre><code>    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;&lt;/th&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office&lt;/th&gt;
+                &lt;th&gt;Age&lt;/th&gt;
+                &lt;th&gt;Start date&lt;/th&gt;
+                &lt;th&gt;Salary&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Tiger Nixon&lt;/td&gt;
+                &lt;td&gt;System Architect&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;2011/04/25&lt;/td&gt;
+                &lt;td&gt;$320,800&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Garrett Winters&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;63&lt;/td&gt;
+                &lt;td&gt;2011/07/25&lt;/td&gt;
+                &lt;td&gt;$170,750&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Ashton Cox&lt;/td&gt;
+                &lt;td&gt;Junior Technical Author&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;66&lt;/td&gt;
+                &lt;td&gt;2009/01/12&lt;/td&gt;
+                &lt;td&gt;$86,000&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Cedric Kelly&lt;/td&gt;
+                &lt;td&gt;Senior Javascript Developer&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;22&lt;/td&gt;
+                &lt;td&gt;2012/03/29&lt;/td&gt;
+                &lt;td&gt;$433,060&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Airi Satou&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;33&lt;/td&gt;
+                &lt;td&gt;2008/11/28&lt;/td&gt;
+                &lt;td&gt;$162,700&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Brielle Williamson&lt;/td&gt;
+                &lt;td&gt;Integration Specialist&lt;/td&gt;
+                &lt;td&gt;New York&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;2012/12/02&lt;/td&gt;
+                &lt;td&gt;$372,000&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Herrod Chandler&lt;/td&gt;
+                &lt;td&gt;Sales Assistant&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;59&lt;/td&gt;
+                &lt;td&gt;2012/08/06&lt;/td&gt;
+                &lt;td&gt;$137,500&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Rhona Davidson&lt;/td&gt;
+                &lt;td&gt;Integration Specialist&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;55&lt;/td&gt;
+                &lt;td&gt;2010/10/14&lt;/td&gt;
+                &lt;td&gt;$327,900&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Colleen Hurst&lt;/td&gt;
+                &lt;td&gt;Javascript Developer&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;39&lt;/td&gt;
+                &lt;td&gt;2009/09/15&lt;/td&gt;
+                &lt;td&gt;$205,500&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Sonya Frost&lt;/td&gt;
+                &lt;td&gt;Software Engineer&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;23&lt;/td&gt;
+                &lt;td&gt;2008/12/13&lt;/td&gt;
+                &lt;td&gt;$103,600&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Jena Gaines&lt;/td&gt;
+                &lt;td&gt;Office Manager&lt;/td&gt;
+                &lt;td&gt;London&lt;/td&gt;
+                &lt;td&gt;30&lt;/td&gt;
+                &lt;td&gt;2008/12/19&lt;/td&gt;
+                &lt;td&gt;$90,560&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;input type = "checkbox"&gt;&lt;/td&gt;
+                &lt;td&gt;Quinn Flynn&lt;/td&gt;
+                &lt;td&gt;Support Lead&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;22&lt;/td&gt;
+                &lt;td&gt;2013/03/03&lt;/td&gt;
+                &lt;td&gt;$342,000&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+</code></pre>
+     <p>Then you can use the following script to loop through every row in the table (across all pages):</p>
+     <pre><code>&lt;script type="text/javascript"&gt;
+
+$(document).ready(function() {
+  $('#example').DataTable();
+} );
+
+function selectAllRows() {
+  var table = $('#example').dataTable().api();
+  table.column(0).nodes().each( function ( cell, index ) {
+    $('input', cell).prop('checked', true);
+  } );
+}
+
+&lt;/script&gt;
+</code></pre>
+     <p>This uses the DataTables <code>api()</code> call to get a referent to the DataTable.</p>
+     <p>It then iterates across each node in the first column (column index 0). That gives us the <code>&lt;td&gt;</code> cells from the first column.</p>
+     <p>Finally the function sets the checkbox in the selected cell.</p>
+     <p>You can read more info about <code>column().nodes()</code> in the documentation <a href="https://datatables.net/reference/api/column().nodes()" rel="nofollow noreferrer">here</a>.</p>
+     <p>When I navigate to the second page of records, I can see that they are already checked:</p>
+     <p><a href="https://i.stack.imgur.com/nonoe.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/nonoe.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

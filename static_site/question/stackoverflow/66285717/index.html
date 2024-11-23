@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Opencsv: Allow for a more customized error message when using @PreAssignmentValidator</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Opencsv: Allow for a more customized error message when using @PreAssignmentValidator</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>alotia</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Feb 2021 at 22:17</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66285717/opencsv-allow-for-a-more-customized-error-message-when-using-preassignmentvali">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Given this bean:</p>
+    <pre><code>@Data
+public class Contact {
+    @PreAssignmentValidator(validator = MustMatchRegexExpression.class, paramString = "^[A-Za-z]{3,8}$")
+    @CsvBindByName(column = "Contact First Name", required = true)
+    private String contactFirstName;
+
+    @PreAssignmentValidator(validator = MustMatchRegexExpression.class, paramString = "^[0-9]{10}$")
+    @CsvBindByName(column = "Phone Number", required = true)
+    private String phone;
+}
+</code></pre>
+    <p>and the CsvToBeanBuilder() configured as follows:</p>
+    <pre><code>...
+final CsvToBean&lt;Contact&gt; beans = new CsvToBeanBuilder&lt;Contact&gt;(
+                    Files.newBufferedReader(csvFilePath, StandardCharsets.UTF_8))
+                    .withType(Contact.class)
+                    .withThrowExceptions(false)
+                    .build();
+
+this.contacts = beans.parse();
+
+beans.getCapturedExceptions().stream().forEach(ex -&gt; System.out.println(ex.getMessage()));
+...
+</code></pre>
+    <p>If I give it a file like:</p>
+    <pre><code>Contact First Name,Phone Number
+joe1,1234567890
+jane,123456789
+</code></pre>
+    <p>I (correctly) get these error messages:</p>
+    <pre><code>Field userName value "joe1" did not match expected format of ^[A-Za-z]{3,8}$
+Field phone value "123456789" did not match expected format of ^[0-9]{10}$
+</code></pre>
+    <p>Since I am passing these messages back to the user, I would prefer if the error message used the CSV column name instead of the bean's field name, and if I can provide a custom validation message -- maybe as an additional field the @PreAssignmentValidator? -- so that the messages look like:</p>
+    <pre><code>Field 'User Name' value "joe1" did not match expected format of '3 - 8 alphabetic characters'
+Field 'Phone Number' value "123456789" did not match expected format of '10 digits'
+</code></pre>
+    <p>Any suggestions/pointers on how I can do this without writing some custom logic to transform these messages?</p>
+    <p>Thank you!</p>
+    <hr>
+    <p>Code updated based on suggestion from @andrewjames</p>
+    <pre><code>@Getter
+public class Contact {
+    //@PreAssignmentValidator(validator = MustMatchRegexExpression.class, paramString = "^[A-Za-z]{3,8}$")
+    @CsvBindByName(column = "Contact First Name", required = true)
+    private String contactFirstName;
+
+    //@PreAssignmentValidator(validator = MustMatchRegexExpression.class, paramString = "^[0-9]{10}$")
+    @CsvBindByName(column = "Phone Number", required = true)
+    private String phone;
+
+    public void setContactFirstName(String contactFirstName) throws CsvValidationException {
+        if (contactFirstName.length() &lt; 3 || contactFirstName.length() &gt; 8) {
+            throw new CsvValidationException("'Contact First Name' must be between 3-8 characters long");
+        }
+        this.contactFirstName = contactFirstName;
+    }
+
+    public void setPhone(String phone) throws CsvValidationException {
+        if (phone.length() != 10) {
+            throw new CsvValidationException("'Phone Number' must be between 10 digits long");
+        }
+        this.phone = phone;
+    }
+}
+
+public class ContactTest {
+    private static final String HEADER = "Contact First Name,Phone Number\n";
+
+
+    @Test
+    public void test() throws Exception {
+        String data = HEADER
+                + "jo,1234567890\n"
+                + "al,123456789";  // This row should generate two exceptions
+
+        CsvToBean&lt;Contact&gt; csvToBean = new CsvToBeanBuilder&lt;Contact&gt;(new StringReader(data))
+                .withType(Contact.class)
+                .withThrowExceptions(false)
+//                .withExceptionHandler(new ExceptionHandlerQueue())  // Tried this way after commenting previous line
+                .build();
+
+        List&lt;Contact&gt; beans = csvToBean.parse();
+
+        csvToBean.getCapturedExceptions().stream().forEach((ex) -&gt; {
+                System.out.println((int) ex.getLineNumber() + " -- " + ex.getMessage());
+        });
+    }
+}
+</code></pre>
+    <p>But now the csvToBean.parse() just throws the exeptions. And For the second row, I only get the first exception:</p>
+    <pre><code>Exception in thread "pool-1-thread-2" java.lang.RuntimeException: com.opencsv.exceptions.CsvBeanIntrospectionException: An introspection error was thrown while attempting to manipulate property contactFirstName of bean org.lotia.example.entity.Contact.
+    at com.opencsv.bean.concurrent.ProcessCsvLine.run(ProcessCsvLine.java:111)
+    at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+    at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+    at java.base/java.lang.Thread.run(Thread.java:834)
+Caused by: com.opencsv.exceptions.CsvBeanIntrospectionException: An introspection error was thrown while attempting to manipulate property contactFirstName of bean org.lotia.example.entity.Contact.
+    at com.opencsv.bean.AbstractBeanField.assignValueToField(AbstractBeanField.java:290)
+    at com.opencsv.bean.AbstractBeanField.setFieldValue(AbstractBeanField.java:182)
+    at com.opencsv.bean.AbstractMappingStrategy.setFieldValue(AbstractMappingStrategy.java:607)
+    at com.opencsv.bean.AbstractMappingStrategy.populateNewBean(AbstractMappingStrategy.java:330)
+    at com.opencsv.bean.concurrent.ProcessCsvLine.processLine(ProcessCsvLine.java:131)
+    at com.opencsv.bean.concurrent.ProcessCsvLine.run(ProcessCsvLine.java:87)
+    ... 3 more
+Caused by: java.lang.reflect.InvocationTargetException
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+    at com.opencsv.bean.FieldAccess.lambda$determineAssignmentMethod$3(FieldAccess.java:79)
+    at com.opencsv.bean.FieldAccess.setField(FieldAccess.java:115)
+    at com.opencsv.bean.AbstractBeanField.assignValueToField(AbstractBeanField.java:286)
+    ... 8 more
+Caused by: com.opencsv.exceptions.CsvValidationException: 'Contact First Name' must be between 3-8 characters long
+    at org.lotia.example.entity.Contact.setContactFirstName(Contact.java:23)
+    ... 15 more
+Exception in thread "pool-1-thread-1" java.lang.RuntimeException: com.opencsv.exceptions.CsvBeanIntrospectionException: An introspection error was thrown while attempting to manipulate property contactFirstName of bean org.lotia.example.entity.Contact.
+    at com.opencsv.bean.concurrent.ProcessCsvLine.run(ProcessCsvLine.java:111)
+    at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+    at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+    at java.base/java.lang.Thread.run(Thread.java:834)
+Caused by: com.opencsv.exceptions.CsvBeanIntrospectionException: An introspection error was thrown while attempting to manipulate property contactFirstName of bean org.lotia.example.entity.Contact.
+    at com.opencsv.bean.AbstractBeanField.assignValueToField(AbstractBeanField.java:290)
+    at com.opencsv.bean.AbstractBeanField.setFieldValue(AbstractBeanField.java:182)
+    at com.opencsv.bean.AbstractMappingStrategy.setFieldValue(AbstractMappingStrategy.java:607)
+    at com.opencsv.bean.AbstractMappingStrategy.populateNewBean(AbstractMappingStrategy.java:330)
+    at com.opencsv.bean.concurrent.ProcessCsvLine.processLine(ProcessCsvLine.java:131)
+    at com.opencsv.bean.concurrent.ProcessCsvLine.run(ProcessCsvLine.java:87)
+    ... 3 more
+Caused by: java.lang.reflect.InvocationTargetException
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+    at com.opencsv.bean.FieldAccess.lambda$determineAssignmentMethod$3(FieldAccess.java:79)
+    at com.opencsv.bean.FieldAccess.setField(FieldAccess.java:115)
+    at com.opencsv.bean.AbstractBeanField.assignValueToField(AbstractBeanField.java:286)
+    ... 8 more
+Caused by: com.opencsv.exceptions.CsvValidationException: 'Contact First Name' must be between 3-8 characters long
+    at org.lotia.example.entity.Contact.setContactFirstName(Contact.java:23)
+    ... 15 more
+
+java.lang.RuntimeException: com.opencsv.exceptions.CsvBeanIntrospectionException: An introspection error was thrown while attempting to manipulate property contactFirstName of bean org.lotia.example.entity.Contact.
+
+    at com.opencsv.bean.concurrent.IntolerantThreadPoolExecutor.checkExceptions(IntolerantThreadPoolExecutor.java:253)
+    at com.opencsv.bean.concurrent.LineExecutor.checkExceptions(LineExecutor.java:67)
+    at com.opencsv.bean.concurrent.IntolerantThreadPoolExecutor.areMoreResultsAvailable(IntolerantThreadPoolExecutor.java:303)
+    at com.opencsv.bean.concurrent.IntolerantThreadPoolExecutor.tryAdvance(IntolerantThreadPoolExecutor.java:313)
+    at com.opencsv.bean.concurrent.LineExecutor.tryAdvance(LineExecutor.java:24)
+    at java.base/java.util.Spliterator.forEachRemaining(Spliterator.java:326)
+    at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:484)
+    at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:474)
+    at java.base/java.util.stream.ReduceOps$ReduceOp.evaluateSequential(ReduceOps.java:913)
+    at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234)
+    at java.base/java.util.stream.ReferencePipeline.collect(ReferencePipeline.java:578)
+    at com.opencsv.bean.CsvToBean.parse(CsvToBean.java:117)
+    at org.lotia.example.ContactTest.test(ContactTest.java:28)
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+    at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:50)
+    at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+    at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:47)
+    at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+    at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:325)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:78)
+    at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:57)
+    at org.junit.runners.ParentRunner$3.run(ParentRunner.java:290)
+    at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:71)
+    at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:288)
+    at org.junit.runners.ParentRunner.access$000(ParentRunner.java:58)
+    at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:268)
+    at org.junit.runners.ParentRunner.run(ParentRunner.java:363)
+    at org.junit.runner.JUnitCore.run(JUnitCore.java:137)
+    at com.intellij.junit4.JUnit4IdeaTestRunner.startRunnerWithArgs(JUnit4IdeaTestRunner.java:69)
+    at com.intellij.rt.junit.IdeaTestRunner$Repeater.startRunnerWithArgs(IdeaTestRunner.java:33)
+    at com.intellij.rt.junit.JUnitStarter.prepareStreamsAndStart(JUnitStarter.java:220)
+    at com.intellij.rt.junit.JUnitStarter.main(JUnitStarter.java:53)
+Caused by: com.opencsv.exceptions.CsvBeanIntrospectionException: An introspection error was thrown while attempting to manipulate property contactFirstName of bean org.lotia.example.entity.Contact.
+    at com.opencsv.bean.AbstractBeanField.assignValueToField(AbstractBeanField.java:290)
+    at com.opencsv.bean.AbstractBeanField.setFieldValue(AbstractBeanField.java:182)
+    at com.opencsv.bean.AbstractMappingStrategy.setFieldValue(AbstractMappingStrategy.java:607)
+    at com.opencsv.bean.AbstractMappingStrategy.populateNewBean(AbstractMappingStrategy.java:330)
+    at com.opencsv.bean.concurrent.ProcessCsvLine.processLine(ProcessCsvLine.java:131)
+    at com.opencsv.bean.concurrent.ProcessCsvLine.run(ProcessCsvLine.java:87)
+    at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+    at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+    at java.base/java.lang.Thread.run(Thread.java:834)
+Caused by: java.lang.reflect.InvocationTargetException
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+    at com.opencsv.bean.FieldAccess.lambda$determineAssignmentMethod$3(FieldAccess.java:79)
+    at com.opencsv.bean.FieldAccess.setField(FieldAccess.java:115)
+    at com.opencsv.bean.AbstractBeanField.assignValueToField(AbstractBeanField.java:286)
+    ... 8 more
+Caused by: com.opencsv.exceptions.CsvValidationException: 'Contact First Name' must be between 3-8 characters long
+    at org.lotia.example.entity.Contact.setContactFirstName(Contact.java:23)
+    ... 15 more
+
+
+Process finished with exit code 255
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">csv</span><span class="tag">opencsv</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>There is no option to provide a customized message when using a <code>PreAssignmentValidator</code>. You can, however, use any standard validation library (such as <a href="https://hibernate.org/validator/" rel="nofollow noreferrer">Hibernate Validator</a>), to perform <i>post-conversion</i> validation. Hibernate, for example, supports custom parameterized messages.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Feb 2021 at 00:53</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewjames Thanks for your suggestion. I am still struggling to see how to get it to work the way I would like it to function. I added some simple validation to the setter and if the validation fails, throw a CsvValidationException. But it's not doing how I had intended. I will update my sample with what I have done. If you are able to post an example, that would be really helpful.</span> <span> - </span> <span class="display-name">alotia</span> <span> </span> <span class="date">21 Feb 2021 at 18:20</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Are you asking for an example based on your approach (which I am not able to do) or for an example based on Hibernate?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Feb 2021 at 19:37</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@andrewjames If the hibernate approach can show how to capture the validation errors during parsing, and then list these out at the end of parsing, that would be really helpful!</span> <span> - </span> <span class="display-name">alotia</span> <span> </span> <span class="date">22 Feb 2021 at 02:32</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sigma1510</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Dec 2021 at 13:46</span>
+     </div>
+    </div>
+    <div>
+     <p>If you don't want to add another library, you can also create a custom validator to use instead of MustMatchRegexExpression:</p>
+     <pre><code>public class MySpecialMustMatchRegexExpression implements StringValidator {
+    private String regex = "";
+
+
+    public MustMatchRegexExpression() {
+        this.regex = "";
+    }
+
+    @Override
+    public boolean isValid(String value) {
+        if (regex.isEmpty()) {
+            return true;
+        }
+        return value.matches(regex);
+    }
+
+    @Override
+    public void validate(String value, BeanField field) throws CsvValidationException {
+        if (!isValid(value)) {
+            throw new CsvValidationException(String.format(ResourceBundle.getBundle("mustMatchRegex", field.getErrorLocale())
+                    .getString("validator.regex.mismatch"), field.getDeclaredAnnotations[1], value, regex));
+        }
+    }
+
+    @Override
+    public void setParameterString(String value) {
+        if (value != null &amp;&amp; !value.isEmpty()) {
+            regex = value;
+        }
+    }
+}
+</code></pre>
+     <p>And use that in your preassignment validator:</p>
+     <pre><code>@PreAssignmentValidator(validator = MySpecialMustMatchRegexExpression.class, paramString = "^[A-Za-z]{3,8}$")
+@CsvBindByName(column = "Contact First Name", required = true)
+private String contactFirstName;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Feb 2021 at 04:03</span>
+     </div>
+    </div>
+    <div>
+     <p>Hibernate's validation is post-conversion - so that means you have to read the data from CSV into the target <code>Contact</code> list of beans first.</p>
+     <p>But you can still capture all the validation messages in a systematic way - and you can customize them to meet your specific needs.</p>
+     <p>First you need some extra libraries:</p>
+     <ul>
+      <li>Hibernate validator (and its dependencies)</li>
+      <li>Glassfish's EL (expression language) processor</li>
+     </ul>
+     <p>I use Maven for these:</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;org.hibernate.validator&lt;/groupId&gt;
+    &lt;artifactId&gt;hibernate-validator&lt;/artifactId&gt;
+    &lt;version&gt;6.2.0.Final&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.glassfish&lt;/groupId&gt;
+    &lt;artifactId&gt;javax.el&lt;/artifactId&gt;
+    &lt;version&gt;3.0.1-b11&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>Now you can remove your <code>@PreAssignmentValidator</code> annotations from the <code>Contact</code> class and use this new import:</p>
+     <pre><code>import javax.validation.constraints.Pattern;
+</code></pre>
+     <p>The annotations:</p>
+     <pre><code>@Pattern(regexp="^[A-Za-z]{3,8}$", 
+        message="The value '${validatedValue}' in the 'Contact First Name' column did not match the expected format of 3 to 8 letters.")
+@CsvBindByName(column = "Contact First Name", required = true)
+private String contactFirstName;
+
+@Pattern(regexp="^[0-9]{10}$", message="Another custom message...")
+@CsvBindByName(column = "Phone Number", required = true)
+private String phone;
+</code></pre>
+     <p>When processing the CSV file, your logic remains the same as in the original question. But instead of using <code>beans.getCapturedExceptions()</code>, you can use Hibernate.</p>
+     <p>The following imports are needed:</p>
+     <pre><code>import javax.validation.ValidatorFactory;
+import javax.validation.Validator;
+import javax.validation.Validation;
+import javax.validation.ConstraintViolation;
+</code></pre>
+     <p>Hibernate provides the implementation classes you need for these.</p>
+     <p>The main logic (adapted for my test cases):</p>
+     <pre><code>Path csvFilePath = Paths.get("C:/tmp/csv/test_01.csv");
+final CsvToBean&lt;Contact&gt; beans = new CsvToBeanBuilder&lt;Contact&gt;(
+        Files.newBufferedReader(csvFilePath, StandardCharsets.UTF_8))
+        .withType(Contact.class)
+        .withThrowExceptions(false)
+        .build();
+
+List&lt;Contact&gt; contacts = beans.parse();
+
+ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+Validator validator = factory.getValidator();
+
+for (Contact contact : contacts) {
+    Set&lt;ConstraintViolation&lt;Contact&gt;&gt; violations = validator.validate(contact);
+    for (ConstraintViolation&lt;Contact&gt; violation : violations) {
+        System.out.println(violation.getMessage());
+    }
+}
+</code></pre>
+     <p>For a CSV input row of this:</p>
+     <pre><code>joe9,123456789
+</code></pre>
+     <p>You will get the following error message printed:</p>
+     <blockquote>
+      <p>The value 'joe9' in the 'Contact First Name' column did not match the expected format of 3 to 8 letters.</p>
+     </blockquote>
+     <p>To be clear, this is <em>not</em> happening during CSV parsing, but as a separate step afterwards. This is (in my experience) typically how Hibernate is used, for basic validation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

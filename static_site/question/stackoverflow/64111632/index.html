@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Is it possible to create a prepared statement and reuse it later with Java under postgres?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Is it possible to create a prepared statement and reuse it later with Java under postgres?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Hadi</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>29 Sep 2020 at 01:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64111632/is-it-possible-to-create-a-prepared-statement-and-reuse-it-later-with-java-under">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to test a few things out with postgres. I want to know if it's possible to create define a PreparedStatement such as</p>
+    <pre><code>String statement = "Insert into table_one values (?)";
+PreparedStatement insert = con.prepareStatement(statement);
+insert.execute()
+// tell postgres to create this Prepared statement without 
+</code></pre>
+    <p>When I tried, I received an error stating: <br><code>SQLState: 22023 No value specified for parameter 1</code></p>
+    <p>Additionally, is if I were to do the following instead</p>
+    <pre><code>    PreparedStatement insert = con.prepareStatement(statement);
+    insert.setInt(1, 10); //insert into table_one values (10);
+    insert.execute()
+    .... //commit other transactions to postgres
+    insert.setInt(1, 20);
+    insert.execute();
+</code></pre>
+    <p>Will postgres "remember"/has registered the above as a prepared statement (I'm not talking about caching the actual statement)?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">sql</span><span class="tag">postgresql</span><span class="tag">prepared-statement</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Can you use a <i>parameterized</i> query without supplying values for all parameters? No. Can you reuse a <i>prepared</i> query (with the same or other values if it is also parameterized)? Yes.</span> <span> - </span> <span class="display-name">sticky bit</span> <span> </span> <span class="date">29 Sep 2020 at 01:36</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Laurenz Albe</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Sep 2020 at 06:08</span>
+     </div>
+    </div>
+    <div>
+     <p>When you use a <code>java.sql.PreparedStatement</code> with the PostgreSQL JDBC driver, it will at first not create a real prepared statement on the database server, but just construct a simple SQL statement to send to the database server. Only at the sixth execution it will think that it is worth the effort to create a <em>named prepared statement</em> on the server that it reuses for future executions.</p>
+     <p>You can use the <code>prepareThreshold</code> connection property to influence the behavior, see <a href="https://jdbc.postgresql.org/documentation/head/server-prepare.html" rel="nofollow noreferrer">the documentation</a>. So to make your second example use a server prepared statement, you would have to lower the threshold to 0. This is useful only if you know you will reuse all your prepared statements; consider that prepared statements are often used for other purposes like avoiding SQL injection problems.</p>
+     <p>On the database server there is a similar functionality: the first five times a prepared statement is executed, PostgreSQL computes a <em>custom plan</em> for it. Only at the sixth execution it will consider switching to a <em>generic plan</em> instead, so that you can avoid the overhead of planning from then on. This can be influenced with the PostgreSQL parameter <a href="https://www.postgresql.org/docs/current/runtime-config-query.html#GUC-PLAN-CACHE_MODE" rel="nofollow noreferrer"><code>plan_cache_mode</code></a> from v12 on.</p>
+     <p>So, with the default settings, it will take ten executions of a <code>java.sql.PreparedStatement</code> before you see a performance increase from avoiding planning costs.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>rzwitserloot</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Sep 2020 at 01:55</span>
+     </div>
+    </div>
+    <div>
+     <p>As your second snippet shows, yup, you can do that.</p>
+     <p>You can create a preparedstatement, then wait ages and ages, then set each 'parameter' (call e.g. <code>.setInt(1, ...)</code>, for every question mark in the SQL string you passed), and call one of the execute methods, and then... wait some more ages and do that again, as many times as you like.</p>
+     <p>A preparedstatement lives as long as the connection lives, or until you close it, which you should. The real rub lies there: Closing them. <strong>You do have to close them explicitly</strong>. They are like files and net sockets that way.</p>
+     <p>I you mess that up, your app won't immediately crash and no tests will fail. However, the connection is permanently 'damaged', as it has only room for a limited amount of prepared statements. As you keep making more and never closing them, eventually you run out, and bizarre SQL Exceptions will occur. Your app is a ticking time bomb. This is the worst class of bugs: Hard to test for, will <strong>inevitably</strong> explode your app, exactly as things get busy. When bossman starts asking the legal team if they can sue you for gross negligence, that's when you go: Oof, maybe I shouldn't toy with code styles that lead to bugs that cannot easily be tested for, are hard to spot, and will only cause issues riight when things are busy.</p>
+     <p>So, follow (rigidly) protocols to avoid such things:</p>
+     <ol>
+      <li>Any resource that is created (via either <code>new SomeResource()</code>, or via a method that is crystal clear that it is a creator, such as <code>Files.newInputStream</code>, must be closed by the same code, <em>OR</em>, that code must in turn be a closable resource.</li>
+      <li>Sharpening up #1, unless you are a closable entity yourself, you can only open resources in a try-with block.</li>
+     </ol>
+     <p>In other words, either you do this:</p>
+     <pre><code>try (PreparedStatement ps = ....) {
+    // use ps here, as often as you want....
+} // ps is closed here
+</code></pre>
+     <p>or you do this:</p>
+     <pre><code>class WhateverTool implements AutoClosable {
+    private PreparedStatement ps; // long-lived
+
+    @Override public void close() throws SQLException {
+        if (ps != null) ps.close();
+    }
+}
+</code></pre>
+     <p>and your <strong>only</strong> interaction with this class is, itself, in the form of:</p>
+     <pre><code>try (WhateverTool t = new WhateverTool()) {
+    // do whatever you want here...
+} // but this is where it ends
+</code></pre>
+     <p>And there are no other options allowed in your code base to interact with resources.</p>
+     <p>Java doesn't enforce this, but you are definitely going to have a buggy mess if you don't follow these rules.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>The question I have is more of a postgres question.. does postgres keep the preparestatement alive or is it Java sending out the message all the time and postgres just sort of deals with it as is.</span> <span> - </span> <span class="display-name">Hadi</span> <span> </span> <span class="date">29 Sep 2020 at 03:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

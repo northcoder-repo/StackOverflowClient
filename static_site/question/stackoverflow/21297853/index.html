@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to determine SSL cert expiration date from a PEM encoded certificate?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to determine SSL cert expiration date from a PEM encoded certificate?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>511</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>GL2014</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Jan 2014 at 01:55</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/21297853/how-to-determine-ssl-cert-expiration-date-from-a-pem-encoded-certificate">source</a>
+    </div>
+   </div>
+   <div>
+    <p>If I have the actual file and a Bash shell in Mac or Linux, how can I query the cert file for when it will expire? Not a web site, but actually the certificate file itself, assuming I have the csr, key, pem and chain files.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">linux</span><span class="tag">bash</span><span class="tag">ssl</span><span class="tag">openssl</span><span class="tag">certificate</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>947</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>that other guy</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jan 2014 at 02:01</span>
+     </div>
+    </div>
+    <div>
+     <p>With <code>openssl</code>:</p>
+     <pre><code>openssl x509 -enddate -noout -in file.pem
+</code></pre>
+     <p>The output is on the form:</p>
+     <pre><code>notAfter=Nov  3 22:23:50 2014 GMT
+</code></pre>
+     <p>Also see <a href="https://stackoverflow.com/a/31718838/1899640">MikeW's answer</a> for how to easily check whether the certificate has expired or not, or whether it will within a certain time period, without having to parse the date above.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>33</td>
+        <td><span>You also have the <code>-startdate</code> and <code>-enddate</code> options built into the <code>x509</code> utility. They will save you the <code>grep</code>.</span> <span> - </span> <span class="display-name">jww</span> <span> </span> <span class="date">23 Jan 2014 at 09:53</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>this also works if the file is not in pem format. works fine for server.crt</span> <span> - </span> <span class="display-name">look</span> <span> </span> <span class="date">5 Apr 2019 at 18:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>224</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>MikeW</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Jul 2015 at 08:32</span>
+     </div>
+    </div>
+    <div>
+     <p>If you just want to know whether the certificate has expired (or will do so within the next N seconds), the <code>-checkend &lt;seconds&gt;</code> option to <code>openssl x509</code> will tell you:</p>
+     <pre><code>if openssl x509 -checkend 86400 -noout -in file.pem
+then
+  echo "Certificate is good for another day!"
+else
+  echo "Certificate has expired or will do so within 24 hours!"
+  echo "(or is invalid/not found)"
+fi
+</code></pre>
+     <p>This saves having to do date/time comparisons yourself.</p>
+     <p><code>openssl</code> will return an exit code of <code>0</code> (zero) if the certificate has not expired and will not do so for the next 86400 seconds, in the example above. If the certificate will have expired or has already done so - or some other error like an invalid/nonexistent file - the return code is <code>1</code>.</p>
+     <p>(Of course, it assumes the time/date is set correctly)</p>
+     <p>Be aware that older versions of openssl have a bug which means if the time specified in <code>checkend</code> is too large, 0 will always be returned (<a href="https://github.com/openssl/openssl/issues/6180" rel="noreferrer">https://github.com/openssl/openssl/issues/6180</a>).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>11</td>
+        <td><span>To determine whether a certificate is currently expired, use a duration of zero seconds. Omit the <code>-noout</code> option to see a helpful message using a single command without extra logic. E.g., <code>openssl x509 -checkend 0 -in file.pem</code> will give the output "Certificate will expire" or "Certificate will not expire" indicating whether the certificate will expire in zero seconds.</span> <span> - </span> <span class="display-name">Mr. Lance E Sloan</span> <span> </span> <span class="date">26 Jan 2018 at 15:07</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Providing values &gt; 30 years (922752000) to -checkend causes the option to behave unexpectedly (returns 0 even though certificate would expire during this timeframe).</span> <span> - </span> <span class="display-name">Mustermann</span> <span> </span> <span class="date">20 Sep 2020 at 22:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>40</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nicholas Sushkin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jan 2017 at 18:36</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's my bash command line to list multiple certificates in order of their expiration, most recently expiring first.</p>
+     <pre><code>for pem in /etc/ssl/certs/*.pem; do 
+   printf '%s: %s\n' \
+      "$(date --date="$(openssl x509 -enddate -noout -in "$pem"|cut -d= -f 2)" --iso-8601)" \
+      "$pem"
+done | sort
+</code></pre>
+     <p>Sample output:</p>
+     <pre><code>2015-12-16: /etc/ssl/certs/Staat_der_Nederlanden_Root_CA.pem
+2016-03-22: /etc/ssl/certs/CA_Disig.pem
+2016-08-14: /etc/ssl/certs/EBG_Elektronik_Sertifika_Hizmet_S.pem
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Very nice! This is what I was after. Now I have an overview of the certificiates that I have to renew soon. Saved it as checkcerts.sh in my home folder so I can check it regularly. Next thing would be to have a CRON job to check every month and email the certificates that need renewal.</span> <span> - </span> <span class="display-name">Pete</span> <span> </span> <span class="date">7 Feb 2017 at 12:10</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>Very usefull thanks. I use this cronjob <code>0 7 * * 1 /path/to/cert.sh | mail -s "certbot" my@email.com</code></span> <span> - </span> <span class="display-name">Matthieu</span> <span> </span> <span class="date">4 Mar 2017 at 13:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>25</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rahul Srivastava</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Sep 2021 at 14:30</span>
+     </div>
+    </div>
+    <div>
+     <p>Command:</p>
+     <pre><code># cat {key_name} | openssl x509 -noout -enddate
+Example: # cat tower.cert | openssl x509 -noout -enddate
+</code></pre>
+     <p>Result:</p>
+     <pre><code>notAfter=Dec  7 04:03:32 2023 GMT
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Andrew</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Dec 2017 at 00:44</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's a bash function which checks all your servers, assuming you're using DNS round-robin. Note that this requires GNU date and won't work on Mac OS</p>
+     <pre><code>function check_certs () {
+  if [ -z "$1" ]
+  then
+    echo "domain name missing"
+    exit 1
+  fi
+  name="$1"
+  shift
+
+  now_epoch=$( date +%s )
+
+  dig +noall +answer $name | while read _ _ _ _ ip;
+  do
+    echo -n "$ip:"
+    expiry_date=$( echo | openssl s_client -showcerts -servername $name -connect $ip:443 2&gt;/dev/null | openssl x509 -inform pem -noout -enddate | cut -d "=" -f 2 )
+    echo -n " $expiry_date";
+    expiry_epoch=$( date -d "$expiry_date" +%s )
+    expiry_days="$(( ($expiry_epoch - $now_epoch) / (3600 * 24) ))"
+    echo "    $expiry_days days"
+  done
+}
+</code></pre>
+     <p>Output example:</p>
+     <pre><code>$ check_certs stackoverflow.com
+151.101.1.69: Aug 14 12:00:00 2019 GMT    603 days
+151.101.65.69: Aug 14 12:00:00 2019 GMT    603 days
+151.101.129.69: Aug 14 12:00:00 2019 GMT    603 days
+151.101.193.69: Aug 14 12:00:00 2019 GMT    603 days
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>surprisingly osx 10.13.4 runs your shell OK ( don't judge me I am only on osx today to push an app to app store ... booting back to linux shortly ;-)</span> <span> - </span> <span class="display-name">Scott Stensland</span> <span> </span> <span class="date">9 May 2018 at 22:20</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ScottStensland We are judging :-P . I use Mac a lot but Linux is really much better.</span> <span> - </span> <span class="display-name">Mike Q</span> <span> </span> <span class="date">11 May 2018 at 19:22</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Thank you very much for that code snippit! What an annoying task :), I wish there was a unixtime timestamp flag for openssl.</span> <span> - </span> <span class="display-name">user1279741</span> <span> </span> <span class="date">10 Jul 2018 at 17:20</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>For those of you on an alpine linux container, your <code>expiry_date</code> value will need to have the timezone name removed from the end of it. Add an additional <code>cut</code> to the end of the pipe to do this: <code>| cut -d ' ' -f 1-4</code></span> <span> - </span> <span class="display-name">yurisich</span> <span> </span> <span class="date">28 Feb 2020 at 10:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Srihari Karanth</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Mar 2020 at 11:23</span>
+     </div>
+    </div>
+    <div>
+     <p>Same as accepted answer, But note that it works even with <code>.crt</code> file and not just <code>.pem</code> file, just in case if you are not able to find <code>.pem</code> file location.</p>
+     <pre><code>openssl x509 -enddate -noout -in e71c8ea7fa97ad6c.crt
+</code></pre>
+     <p>Result:</p>
+     <pre><code>notAfter=Mar 29 06:15:00 2020 GMT
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>sidenote : the <code>-text</code> option shouldn't be placed together with <code>-enddate</code></span> <span> - </span> <span class="display-name">Ham</span> <span> </span> <span class="date">2 Feb 2022 at 09:07</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alexey</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Nov 2018 at 07:29</span>
+     </div>
+    </div>
+    <div>
+     <p>One line checking on true/false if cert of domain will be expired in some time later(ex. 15 days):</p>
+     <pre><code>openssl x509 -checkend $(( 24*3600*15 )) -noout -in &lt;(openssl s_client -showcerts -connect my.domain.com:443 &lt;/dev/null 2&gt;/dev/null | openssl x509 -outform PEM)
+if [ $? -eq 0 ]; then
+  echo 'good'
+else
+  echo 'bad'
+fi
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Donald.M</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Apr 2017 at 01:50</span>
+     </div>
+    </div>
+    <div>
+     <p>For MAC OSX (El Capitan) This modification of Nicholas' example worked for me.</p>
+     <pre><code>for pem in /path/to/certs/*.pem; do
+    printf '%s: %s\n' \
+        "$(date -jf "%b %e %H:%M:%S %Y %Z" "$(openssl x509 -enddate -noout -in "$pem"|cut -d= -f 2)" +"%Y-%m-%d")" \
+    "$pem";
+done | sort
+</code></pre>
+     <p>Sample Output:</p>
+     <pre><code>2014-12-19: /path/to/certs/MDM_Certificate.pem
+2015-11-13: /path/to/certs/MDM_AirWatch_Certificate.pem
+</code></pre>
+     <p>macOS didn't like the <code>--date=</code> or <code>--iso-8601</code> flags on my system.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>How would you do this if you didn't have make the .pem files, but just had <code>.cer</code> certs you just made and downloaded from the Apple Dev site?</span> <span> - </span> <span class="display-name">Alex Zavatone</span> <span> </span> <span class="date">16 May 2017 at 21:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>F. Hauri - Give Up GitHub</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Aug 2022 at 10:37</span>
+     </div>
+    </div>
+    <div>
+     <h2>Into <a href="/questions/tagged/bash" class="post-tag" title="show questions tagged 'bash'" aria-label="show questions tagged 'bash'" rel="tag" aria-labelledby="bash-container">bash</a> variables</h2>
+     <p>As this question is tagged <a href="/questions/tagged/bash" class="post-tag" title="show questions tagged 'bash'" aria-label="show questions tagged 'bash'" rel="tag" aria-labelledby="bash-container">bash</a>, I often use <em><code>UNIX EPOCH</code></em> to store dates, this is useful for compute time left with <code>$EPOCHSECONDS</code> and format output via <code>printf '%(dateFmt)T</code> <em>bashism</em>:</p>
+     <pre class="lang-bash prettyprint-override"><code>{ read -r certStart;read -r certEnd;}&lt; &lt;(date -f &lt;(cut -d = -f 2 &lt;(
+    openssl x509 -dates -noout -in "$file")) +%s)
+</code></pre>
+     <p>Then</p>
+     <pre class="lang-bash prettyprint-override"><code>printf '%-6s %(%a %d %b %Y, %H %Z)T\n' start $certStart end $certEnd
+</code></pre>
+     <pre class="lang-none prettyprint-override"><code>start  Mon 01 Nov 2004, 17 UTC
+end    Mon 01 Jan 2035, 05 UTC
+</code></pre>
+     <p>Sample, listing content of <code>/etc/ssl/certs</code> and compute days left:</p>
+     <pre class="lang-bash prettyprint-override"><code>for file in /etc/ssl/certs/*pem;do
+    { read -r certStart;read -r certEnd;}&lt; &lt;(
+        date -f &lt;(cut -d = -f 2 &lt;(
+            openssl x509 -dates -noout -in "$file")) +%s)
+    printf "%(%d %b %Y %T)T - %(%d %b %Y %T)T: %6d %s\n" \
+        $certStart $certEnd $(( (certEnd - EPOCHSECONDS)/86400 )) ${file##*/}
+done
+</code></pre>
+     <pre class="lang-none prettyprint-override"><code>05 May 2011 09:37:37 - 31 Dec 2030 09:37:37:   3034 ACCVRAIZ1.pem
+26 Oct 2010 08:38:03 - 26 Oct 2040 08:38:03:   6620 Buypass_Class_2_Root_CA.pem
+19 Jan 2010 00:00:00 - 18 Jan 2038 23:59:59:   5609 COMODO_RSA_Certification_Authority.pem
+13 Nov 2012 00:00:00 - 19 Jan 2038 03:14:07:   5609 GlobalSign_ECC_Root_CA_-_R4.pem
+06 Apr 2001 07:29:40 - 06 Apr 2021 07:29:40:   -522 Sonera_Class_2_Root_CA.pem
+29 Jun 2004 17:39:16 - 29 Jun 2034 17:39:16:   4310 Starfield_Class_2_CA.pem
+04 Feb 2016 12:32:16 - 31 Dec 2029 17:23:16:   2669 TrustCor_RootCert_CA-1.pem
+01 Nov 2004 17:14:04 - 01 Jan 2035 05:37:19:   4495 XRamp_Global_CA_Root.pem
+...
+</code></pre>
+     <h3>More complete <a href="/questions/tagged/bash" class="post-tag" title="show questions tagged 'bash'" aria-label="show questions tagged 'bash'" rel="tag" aria-labelledby="bash-container">bash</a> x509 reading:</h3>
+     <pre class="lang-bash prettyprint-override"><code>for file in /etc/ssl/certs/*pem;do
+    mapfile -t x509 &lt; &lt;(openssl x509 -noout -dates -subject -in "$file")
+    x509=("${x509[@]#*=}")
+    mapfile -t dates &lt; &lt;(IFS=$'\n';date -f - &lt;&lt;&lt;"${x509[*]::2}" +%s) 
+    str="${x509[-1]}"
+    declare -A Subj='([CN]="${file##*/}")'
+    while [[ "$str" ]] ;do
+        lhs=${str%%=*} rhs=${str#$lhs= } rhs=${rhs%% = *} rhs=${rhs%, *}
+        Subj[${lhs// }]="$rhs"
+        str=${str#"$lhs= $rhs"} str=${str#, }
+    done
+    printf "%(%d %b %Y %T)T - %(%d %b %Y %T)T: %s\n" \
+        ${dates[@]} "${Subj[CN]}"
+done
+</code></pre>
+     <pre class="lang-none prettyprint-override"><code>05 May 2011 09:37:37 - 31 Dec 2030 09:37:37:   3034 ACCVRAIZ1
+26 Oct 2010 08:38:03 - 26 Oct 2040 08:38:03:   6620 Buypass Class 2 Root CA
+19 Jan 2010 00:00:00 - 18 Jan 2038 23:59:59:   5609 COMODO RSA Certification Authority
+13 Nov 2012 00:00:00 - 19 Jan 2038 03:14:07:   5609 GlobalSign
+06 Apr 2001 07:29:40 - 06 Apr 2021 07:29:40:   -522 Sonera Class2 CA
+29 Jun 2004 17:39:16 - 29 Jun 2034 17:39:16:   4310 Starfield_Class_2_CA.pem
+04 Feb 2016 12:32:16 - 31 Dec 2029 17:23:16:   2669 TrustCor RootCert CA-1
+01 Nov 2004 17:14:04 - 01 Jan 2035 05:37:19:   4495 XRamp Global Certification Authority
+...
+</code></pre>
+     <p>Note: Some certs don't have <em><code>CN</code></em> field in subject. For this I've initialized <code>$Subj</code> array by setting <code>CN</code> field to filename: <code>declare -A Subj='([CN]="${file##*/}")'</code></p>
+     <h2>Full <a href="/questions/tagged/bash" class="post-tag" title="show questions tagged 'bash'" aria-label="show questions tagged 'bash'" rel="tag" aria-labelledby="bash-container">bash</a> script</h2>
+     <p>Sharing here a full bash script, showing all certificates from command line arguments, which could by <em><code>file</code></em>, <em><code>domain name</code></em> or <em><code>IPv4 address</code></em>. Will ouput <em>past days</em>, <em>days left</em>, <em>number of alternative domain</em>, and all <em>alts</em> in one (long) line:</p>
+     <pre class="lang-bash prettyprint-override"><code>#!/bin/bash
+
+showCert() {
+    local x509 dates lhs rhs str alts
+    mapfile -t x509 &lt; &lt;(
+        openssl x509 -noout -dates -subject -ext subjectAltName -in "$1")
+    x509=("${x509[@]#*=}")
+    mapfile -t dates &lt; &lt;(IFS=$'\n';date -f - &lt;&lt;&lt;"${x509[*]::2}" +%s)
+    str="${x509[2]}"
+    local -A Subj;Subj[CN]="${file##*/}"
+    while [[ -n "$str" ]]; do
+        lhs=${str%%=*} rhs=${str#$lhs= } rhs=${rhs%% = *} rhs=${rhs%, *}
+        Subj[${lhs// }]="$rhs"
+        str=${str#"$lhs= $rhs"} str=${str#, }
+    done
+    read -ra alts &lt;&lt;&lt;"${x509[4]//,}"
+    alts=("${alts[@]#*:}")
+    printf "  %(%d %b %Y %H:%M)T %(%d %b %Y %H:%M)T %6d %6d %-30s %3d %s\n" \
+        "${dates[@]}" $(((dates[1]-EPOCHSECONDS)/86400)) $(((EPOCHSECONDS-
+          dates[0])/86400)) "${Subj[CN]}" "${#alts[@]}" "${alts[*]}" 
+}
+</code></pre>
+     <pre class="lang-bash prettyprint-override"><code>checkIsIpv4() { # throw an error if not valid IPv4
+    local _iPointer _i _a _vareq=()
+    for _i ;do
+        case $_i in *[^0-9.]* ) return 1 ;; esac
+        read -ra _a &lt;&lt;&lt;"${_i//./ }"
+        [ ${#_a[@]} -eq 4 ] || return 1
+        for _iPointer in "${_a[@]}" ;do
+            (( _iPointer == ( _iPointer &amp; 255 ) ))  || return 2
+        done
+    done
+}
+checkIsLabel() {
+    ((${#1}&lt;4 || ${#1}&gt;253)) &amp;&amp; return 1
+    [[ -z ${1//[a-zA-Z0-9.-]} ]] || return 2
+    [[ -z ${1//.} ]] &amp;&amp; return 3
+    set -- ${1//./ }
+    (($#&lt;2 )) &amp;&amp; return 4
+    :
+}
+</code></pre>
+     <pre class="lang-bash prettyprint-override"><code>printf '  %-17s %-17s %6s %6s %-30s %2s\n' Not\ before Not\ after left \
+       past Common\ Name Alt 
+
+for arg ;do
+    if [ -f "$arg" ] ;then
+        showCert "$arg"
+    elif checkIsLabel "$arg" || checkIsIpv4 "$arg" ;then
+        showCert &lt;(openssl s_client -ign_eof -connect "$arg:443" \
+                           &lt;&lt;&lt;$'HEAD / HTTP/1.0\r\n\r' 2&gt; /dev/null)
+    else
+        echo "Unknown argument: '$arg'."
+    fi
+done
+</code></pre>
+     <p>Usage sample:</p>
+     <pre class="lang-none prettyprint-override"><code>./certShow.sh /etc/ssl/certs/ssl-cert-snakeoil.pem www.example.com
+  Not before        Not after           left   past Common Name                    Alt
+  08 Sep 2021 16:49 06 Sep 2031 16:49   3277    372 hostname.local                   1 hostname.local
+  14 Mar 2022 00:00 14 Mar 2023 23:59    179    186 www.example.org                  8 www.example.org example.net example.edu example.com example.org www.example.com www.example.edu www.example.net
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Attila123</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Apr 2018 at 15:53</span>
+     </div>
+    </div>
+    <div>
+     <p>If (for some reason) you want to use a GUI application in Linux, use <code>gcr-viewer</code> (in most distributions it is installed by the package <code>gcr</code> (otherwise in package <code>gcr-viewer</code>))</p>
+     <pre><code>gcr-viewer file.pem
+# or
+gcr-viewer file.crt
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Zeeshan Jamal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Nov 2020 at 14:31</span>
+     </div>
+    </div>
+    <div>
+     <p>I have made a bash script related to the same to check if the certificate is expired or not. You can use the same if required.</p>
+     <p><strong>Script</strong></p>
+     <p><a href="https://github.com/zeeshanjamal16/usefulScripts/blob/master/sslCertificateExpireCheck.sh" rel="nofollow noreferrer">https://github.com/zeeshanjamal16/usefulScripts/blob/master/sslCertificateExpireCheck.sh</a></p>
+     <p><strong>ReadMe</strong></p>
+     <p><a href="https://github.com/zeeshanjamal16/usefulScripts/blob/master/README.md" rel="nofollow noreferrer">https://github.com/zeeshanjamal16/usefulScripts/blob/master/README.md</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

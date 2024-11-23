@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Dynamic tag names with JAXB</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Dynamic tag names with JAXB</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>21</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>shane</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Jul 2010 at 19:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/3293493/dynamic-tag-names-with-jaxb">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using Jersey and JAXB to build a simple RESTful webservice I have a HashMap of 'String' to 'Integer':</p>
+    <pre><code>2010-04 -&gt; 24 
+2010-05 -&gt; 45
+</code></pre>
+    <p>I need to generate an XML response which looks like this:</p>
+    <pre><code> &lt;map&gt;
+   &lt;2010-04&gt;24&lt;/2010-04&gt;
+   &lt;2010-05&gt;45&lt;/2010-05&gt;
+ &lt;/map&gt;
+</code></pre>
+    <p>What is the best way to generate dynamic tag names with JAXB?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">xml</span><span class="tag">jaxb</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>Are you sure you want to do this? It's almost certainly a bad idea. Something like <code>&lt;item month="2010-04"&gt;24&lt;/item&gt;</code> is much nicer and easier to handle.</span> <span> - </span> <span class="display-name">skaffman</span> <span> </span> <span class="date">20 Jul 2010 at 19:21</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Agree, but unfortunately we have some existing code that is going to consume the file with that specific schema, and I am trying to avoid introducing any new changes there... but if this is not possible with JAXB, adding a name attribute would be the next best thing :)</span> <span> - </span> <span class="display-name">shane</span> <span> </span> <span class="date">20 Jul 2010 at 19:30</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>You <i>might</i> be able to bend JAXB to your will, using various extensions/plugins/etc, but it's really not the tool for the job here.</span> <span> - </span> <span class="display-name">skaffman</span> <span> </span> <span class="date">20 Jul 2010 at 19:34</span></td>
+      </tr>
+      <tr>
+       <td>4</td>
+       <td><span>Tag names cannot begin with digits in xml...</span> <span> - </span> <span class="display-name">redben</span> <span> </span> <span class="date">12 Apr 2011 at 12:24</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>31</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>axtavt</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Jul 2010 at 19:43</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use an <code>@XmlAnyElement</code>-annotated property and return the elements as <code>JAXBElement</code>s:</p>
+     <pre><code>private Map&lt;String, Integer&gt; months = ...;
+
+@XmlAnyElement
+public List&lt;JAXBElement&lt;Integer&gt;&gt; getMonths() {
+    List&lt;JAXBElement&lt;Integer&gt;&gt; elements = new ArrayList&lt;JAXBElement&lt;Integer&gt;&gt;();
+    for (Map.Entry&lt;String, Integer&gt; month: months.entrySet()) 
+        elements.add(new JAXBElement(new QName(month.getKey()), 
+                                     Integer.class, month.getValue()));
+    return elements;
+}
+</code></pre>
+     <p>This approach is ugly, but not uglier than the XML it produces.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>how do you unmarshal this?</span> <span> - </span> <span class="display-name">les2</span> <span> </span> <span class="date">18 Sep 2013 at 19:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>22</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>mec_test_1</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jun 2016 at 07:14</span>
+     </div>
+    </div>
+    <div>
+     <p>Also came into this kind of problem recently. After referencing axtavt's answer listed above (and a bunch of other question threads), I made a summary for this kind of problem:</p>
+     <ol>
+      <li>A container class that holds a list (or array) of <code>JAXBElement</code> objects, where this list (or array) is annotated with <code>@XmlAnyElement</code>, thus dynamic element names could be generated.</li>
+      <li>An <code>XmlAdapter</code> class that handles marshalling/unmarshalling between Map to/from this container class.</li>
+      <li>Annotate any Map fields of your java bean with <code>@XmlJavaTypeAdapter</code>, with this <code>XmlAdapter</code> class as its value (or you can simply use the container class directly, as you can see below).</li>
+     </ol>
+     <p>Now I'll take <code>Map&lt;String, String&gt;</code> as an example here, where</p>
+     <pre><code>{"key1": "value1", "key2": "value2"} 
+</code></pre>
+     <p>will be marshalled into</p>
+     <pre><code>&lt;root&gt;
+    &lt;key1&gt;value1&lt;/key1&gt;
+    &lt;key2&gt;value2&lt;/key2&gt;
+&lt;/root&gt;
+</code></pre>
+     <p>Below is the full code snippet &amp; comments, as well as examples:</p>
+     <h2>1, The Container (for @XmlAnyElement)</h2>
+     <pre><code>/**
+ * &lt;dl&gt;
+ * &lt;dt&gt;References:
+ * &lt;/dt&gt;
+ * &lt;dd&gt;
+ *  &lt;ul&gt;
+ *      &lt;li&gt;&lt;a href="http://stackoverflow.com/questions/21382202/use-jaxb-xmlanyelement-type-of-style-to-return-dynamic-element-names"&gt;Dynamic element names in JAXB&lt;/a&gt;&lt;/li&gt;
+ *      &lt;li&gt;&lt;a href="http://stackoverflow.com/questions/3941479/jaxb-how-to-marshall-map-into-keyvalue-key"&gt;Marshal Map into key-value pairs&lt;/a&gt;&lt;/li&gt;
+ *      &lt;li&gt;&lt;a href="http://stackoverflow.com/questions/3293493/dynamic-tag-names-with-jaxb"&gt;Dynamic tag names with JAXB&lt;/a&gt;&lt;/li&gt;
+ *  &lt;/ul&gt;
+ * &lt;/dd&gt;
+ * &lt;/dl&gt;
+ * @author MEC
+ *
+ */
+@XmlType
+public static class MapWrapper{
+    private List&lt;JAXBElement&lt;String&gt;&gt; properties = new ArrayList&lt;&gt;();
+
+    public MapWrapper(){
+
+    }
+    /**
+     * &lt;p&gt;
+     * Funny fact: due to type erasure, this method may return 
+     * List&lt;Element&gt; instead of List&lt;JAXBElement&lt;String&gt;&gt; in the end;
+     * &lt;/p&gt;
+     * &lt;h4&gt;WARNING: do not use this method in your programme&lt;/h4&gt;
+     * &lt;p&gt;
+     * Thus to retrieve map entries you've stored in this MapWrapper, it's 
+     * recommended to use {@link #toMap()} instead.
+     * &lt;/p&gt;
+     * @return
+     */
+    @XmlAnyElement
+    public List&lt;JAXBElement&lt;String&gt;&gt; getProperties() {
+        return properties;
+    }
+    public void setProperties(List&lt;JAXBElement&lt;String&gt;&gt; properties) {
+        this.properties = properties;
+    }
+
+
+
+
+    /**
+     * &lt;p&gt;
+     * Only use {@link #addEntry(JAXBElement)} and {{@link #addEntry(String, String)}
+     * when this &lt;code&gt;MapWrapper&lt;/code&gt; instance is created by yourself 
+     * (instead of through unmarshalling).
+     * &lt;/p&gt;
+     * @param key map key
+     * @param value map value
+     */
+    public void addEntry(String key, String value){
+        JAXBElement&lt;String&gt; prop = new JAXBElement&lt;String&gt;(new QName(key), String.class, value);
+        addEntry(prop);
+    }
+    public void addEntry(JAXBElement&lt;String&gt; prop){
+        properties.add(prop);
+    }
+
+    @Override
+    public String toString() {
+        return "MapWrapper [properties=" + toMap() + "]";
+    }
+
+    /**
+     * &lt;p&gt;
+     * To Read-Only Map
+     * &lt;/p&gt;
+     * 
+     * @return
+     */
+    public Map&lt;String, String&gt; toMap(){
+        //Note: Due to type erasure, you cannot use properties.stream() directly when unmashalling is used..
+        List&lt;?&gt; props = properties;
+        return props.stream().collect(Collectors.toMap(MapWrapper::extractLocalName, MapWrapper::extractTextContent));
+    }
+
+
+    /**
+     * &lt;p&gt;
+     * Extract local name from &lt;code&gt;obj&lt;/code&gt;, whether it's javax.xml.bind.JAXBElement or org.w3c.dom.Element;
+     * &lt;/p&gt;
+     * @param obj
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+    private static String extractLocalName(Object obj){
+
+        Map&lt;Class&lt;?&gt;, Function&lt;? super Object, String&gt;&gt; strFuncs = new HashMap&lt;&gt;();
+        strFuncs.put(JAXBElement.class, (jaxb) -&gt; ((JAXBElement&lt;String&gt;)jaxb).getName().getLocalPart());
+        strFuncs.put(Element.class, ele -&gt; ((Element) ele).getLocalName());
+        return extractPart(obj, strFuncs).orElse("");
+    }
+
+    /**
+     * &lt;p&gt;
+     * Extract text content from &lt;code&gt;obj&lt;/code&gt;, whether it's javax.xml.bind.JAXBElement or org.w3c.dom.Element;
+     * &lt;/p&gt;
+     * @param obj
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+    private static String extractTextContent(Object obj){
+        Map&lt;Class&lt;?&gt;, Function&lt;? super Object, String&gt;&gt; strFuncs = new HashMap&lt;&gt;();
+        strFuncs.put(JAXBElement.class, (jaxb) -&gt; ((JAXBElement&lt;String&gt;)jaxb).getValue());
+        strFuncs.put(Element.class, ele -&gt; ((Element) ele).getTextContent());
+        return extractPart(obj, strFuncs).orElse("");
+    }
+
+    /**
+     * Check class type of &lt;code&gt;obj&lt;/code&gt; according to types listed in &lt;code&gt;strFuncs&lt;/code&gt; keys,
+     * then extract some string part from it according to the extract function specified in &lt;code&gt;strFuncs&lt;/code&gt;
+     * values.
+     * @param obj
+     * @param strFuncs
+     * @return
+     */
+    private static &lt;ObjType, T&gt; Optional&lt;T&gt; extractPart(ObjType obj, Map&lt;Class&lt;?&gt;, Function&lt;? super ObjType, T&gt;&gt; strFuncs){
+        for(Class&lt;?&gt; clazz : strFuncs.keySet()){
+            if(clazz.isInstance(obj)){
+                return Optional.of(strFuncs.get(clazz).apply(obj));
+            }
+        }
+        return Optional.empty();
+    }
+}
+</code></pre>
+     <p>Notes:</p>
+     <ol>
+      <li>For the JAXB Binding, all you need to pay attention is this <code>getProperties</code> method, which get annotated by <code>@XmlAnyElement</code>.</li>
+      <li>Two <code>addEntry</code> methods are introduced here for easy of use. They should be used carefully though, as things may turn out horribly wrong when they are used for a freshly unmarshalled <code>MapWrapper</code> through <code>JAXBContext</code> (instead of created by yourself through a <code>new</code> operator).</li>
+      <li><code>toMap</code> is introduced here for info probe, i.e. help to check map entries stored in this <code>MapWrapper</code> instance.</li>
+     </ol>
+     <h2>2, The Adapter (XmlAdapter)</h2>
+     <p><code>XmlAdapter</code> is used in pair with <code>@XmlJavaTypeAdapter</code>, which in this case is only needed when <code>Map&lt;String, String&gt;</code> is used as a bean property.</p>
+     <pre><code>/**
+ * &lt;p&gt;
+ * ref: http://stackoverflow.com/questions/21382202/use-jaxb-xmlanyelement-type-of-style-to-return-dynamic-element-names
+ * &lt;/p&gt;
+ * @author MEC
+ *
+ */
+public static class MapAdapter extends XmlAdapter&lt;MapWrapper, Map&lt;String, String&gt;&gt;{
+
+    @Override
+    public Map&lt;String, String&gt; unmarshal(MapWrapper v) throws Exception {
+        Map&lt;String, String&gt; map = v.toMap();
+
+        return map;
+    }
+
+    @Override
+    public MapWrapper marshal(Map&lt;String, String&gt; m) throws Exception {
+        MapWrapper wrapper = new MapWrapper();
+
+        for(Map.Entry&lt;String, String&gt; entry : m.entrySet()){
+             wrapper.addEntry(new JAXBElement&lt;String&gt;(new QName(entry.getKey()), String.class, entry.getValue()));
+        }
+
+        return wrapper;
+    }
+
+}
+</code></pre>
+     <h2>3, Examples</h2>
+     <p>Here are two examples showing usage of the container &amp; adapter.</p>
+     <h3>3.1 Example 1</h3>
+     <p>To map this xml:</p>
+     <pre><code>&lt;root&gt;
+    &lt;key1&gt;value1&lt;/key1&gt;
+    &lt;key2&gt;value2&lt;/key2&gt;
+&lt;root&gt;
+</code></pre>
+     <p>You can use the following class:</p>
+     <pre><code>@XmlRootElement(name="root")
+public class CustomMap extends MapWrapper{
+    public CustomMap(){
+
+    }
+}
+</code></pre>
+     <p>Test Code:</p>
+     <pre><code>CustomMap map = new CustomMap();
+map.addEntry("key1", "value1");
+map.addEntry("key1", "value2");
+
+StringWriter sb = new StringWriter();
+JAXBContext.newInstance(CustomMap.class).createMarshaller().marshal(map, sb);
+out.println(sb.toString());
+</code></pre>
+     <p>Note that no <code>@XmlJavaTypeAdapter</code> is used here.</p>
+     <h3>3.2 Example 2</h3>
+     <p>To map this xml:</p>
+     <pre><code>&lt;root&gt;
+    &lt;map&gt;
+        &lt;key1&gt;value1&lt;/key1&gt;
+        &lt;key2&gt;value2&lt;/key2&gt;
+    &lt;/map&gt;
+    &lt;other&gt;other content&lt;/other&gt;
+&lt;/root&gt;
+</code></pre>
+     <p>You can use the following class:</p>
+     <pre><code>@XmlRootElement(name="root")
+@XmlType(propOrder={"map", "other"})
+public class YetAnotherBean{
+    private Map&lt;String, String&gt; map = new HashMap&lt;&gt;();
+    private String other;
+    public YetAnotherBean(){
+
+    }
+    public void putEntry(String key, String value){
+        map.put(key, value);
+    }
+    @XmlElement(name="map")
+    @XmlJavaTypeAdapter(MapAdapter.class)
+    public Map&lt;String, String&gt; getMap(){
+        return map;
+    }
+    public void setMap(Map&lt;String, String&gt; map){
+        this.map = map;
+    }
+    @XmlElement(name="other")
+    public String getOther(){
+        return other;
+    }
+    public void setOther(String other){
+        this.other = other;
+    }
+}
+</code></pre>
+     <p>Test Code:</p>
+     <pre><code>YetAnotherBean yab = new YetAnotherBean();
+yab.putEntry("key1", "value1");
+yab.putEntry("key2", "value2");
+yab.setOther("other content");
+
+StringWriter sb = new StringWriter();
+JAXBContext.newInstance(YetAnotherBean.class).createMarshaller().marshal(yab, sb);
+out.println(sb.toString());
+</code></pre>
+     <p>Note that <code>@XmlJavaTypeAdapter</code> is applied onto the <code>Map&lt;String, String&gt;</code> field with <code>MapAdapter</code> as its value.</p>
+     <h3>3.3 Example 3</h3>
+     <p>Now let's add add some attributes to these elements. Due to some mysterious reasons, I have this kind of XML structure to map:</p>
+     <pre><code>&lt;sys-config&gt;
+  &lt;sys-params&gt;
+    &lt;ACCESSLOG_FILE_BY attr="C" desc="AccessLog file desc"&gt;SYSTEM&lt;/ACCESSLOG_FILE_BY&gt;
+    &lt;ACCESSLOG_WRITE_MODE attr="D" desc=""&gt;DB&lt;/ACCESSLOG_WRITE_MODE&gt;
+    &lt;CHANEG_BUTTON_IMAGES attr="E" desc="Button Image URL, eh, boolean value. ...Wait, what?"&gt;FALSE&lt;/CHANEG_BUTTON_IMAGES&gt;
+  &lt;/sys-params&gt;
+&lt;/sys-config&gt;
+</code></pre>
+     <p>As you can see, system parameter names are all set to be the element's name instead of as its attribute. To resolve this problem we can use a little help from <code>JAXBElement</code> again:</p>
+     <pre><code>@XmlRootElement(name="sys-config")
+public class SysParamConfigXDO{
+    private SysParamEntries sysParams = new SysParamEntries();
+
+    public SysParamConfigXDO(){
+
+    }
+
+    public void addSysParam(String name, String value, String attr, String desc){
+        sysParams.addEntry(name, value, attr, desc);;
+    }
+
+    @XmlElement(name="sys-params")
+    @XmlJavaTypeAdapter(SysParamEntriesAdapter.class)
+    public SysParamEntries getSysParams() {
+        return sysParams;
+    }
+
+    public void setSysParams(SysParamEntries sysParams) {
+        this.sysParams = sysParams;
+    }
+
+    @Override
+    public String toString() {
+        return "SysParamConfigXDO [sysParams=" + sysParams + "]";
+    }
+}
+
+@XmlRootElement(name="root")
+public class SysParamXDO extends SysParamEntriesWrapper{
+    public SysParamXDO(){
+
+    }
+}
+@SuppressWarnings("unchecked")
+@XmlType
+public class SysParamEntriesWrapper{
+    /**
+     * &lt;p&gt;
+     * Here is the tricky part:
+     * &lt;ul&gt;
+     *  &lt;li&gt;When this &lt;code&gt;SysParamEntriesWrapper&lt;/code&gt; is created by yourself, objects 
+     * stored in this &lt;code&gt;entries&lt;/code&gt; list is of type SystemParamEntry&lt;/li&gt;
+     *  &lt;li&gt;Yet during the unmarshalling process, this &lt;code&gt;SysParamEntriesWrapper&lt;/code&gt; is 
+     * created by the JAXBContext, thus objects stored in the &lt;code&gt;entries&lt;/code&gt; is 
+     * of type Element actually.&lt;/li&gt;
+     * &lt;/ul&gt;
+     * &lt;/p&gt;
+     */
+    List&lt;JAXBElement&lt;SysParamEntry&gt;&gt; entries = new ArrayList&lt;&gt;();
+    public SysParamEntriesWrapper(){
+    }
+
+
+    public void addEntry(String name, String value, String attr, String desc){
+        addEntry(new SysParamEntry(name, value, attr, desc));
+    }
+    public void addEntry(String name, String value){
+        addEntry(new SysParamEntry(name, value));
+    }
+
+    public void addEntry(SysParamEntry entry){
+        JAXBElement&lt;SysParamEntry&gt; bean = new JAXBElement&lt;SysParamEntry&gt;(new QName("", entry.getName()), SysParamEntry.class, entry);
+        entries.add(bean);
+    }
+
+    @XmlAnyElement
+    public List&lt;JAXBElement&lt;SysParamEntry&gt;&gt; getEntries() {
+        return entries;
+    }
+    public void setEntries(List&lt;JAXBElement&lt;SysParamEntry&gt;&gt; entries) {
+        this.entries = entries;
+    }
+
+
+    @Override
+    public String toString() {
+        return "SysParammEntriesWrapper [entries=" + toMap() + "]";
+    }
+
+
+    public Map&lt;String, SysParamEntry&gt; toMap(){
+        Map&lt;String, SysParamEntry&gt; retval = new HashMap&lt;&gt;();
+
+        List&lt;?&gt; entries = this.entries;
+
+        entries.stream().map(SysParamEntriesWrapper::convertToParamEntry).
+            forEach(entry -&gt; retval.put(entry.getName(), entry));;
+        return retval;
+    }
+
+
+    private static SysParamEntry convertToParamEntry(Object entry){
+        String name = extractName(entry);
+        String attr = extractAttr(entry);
+        String desc = extractDesc(entry);
+        String value = extractValue(entry);
+        return new SysParamEntry(name, value, attr, desc);
+    }
+    @SuppressWarnings("unchecked")
+    private static String extractName(Object entry){
+        return extractPart(entry, nameExtractors).orElse("");
+    }
+    @SuppressWarnings("unchecked")
+    private static String extractAttr(Object entry){
+        return extractPart(entry, attrExtractors).orElse("");
+    }
+    @SuppressWarnings("unchecked")
+    private static String extractDesc(Object entry){
+        return extractPart(entry, descExtractors).orElse("");
+    }
+    @SuppressWarnings("unchecked")
+    private static String extractValue(Object entry){
+        return extractPart(entry, valueExtractors).orElse("");
+    }
+    private static &lt;ObjType, RetType&gt; Optional&lt;RetType&gt; extractPart(ObjType obj, Map&lt;Class&lt;?&gt;,
+            Function&lt;? super ObjType, RetType&gt;&gt; extractFuncs ){
+        for(Class&lt;?&gt; clazz : extractFuncs.keySet()){
+            if(clazz.isInstance(obj)){
+                return Optional.ofNullable(extractFuncs.get(clazz).apply(obj));
+            }
+        }
+        return Optional.empty();
+    }
+
+
+    private static Map&lt;Class&lt;?&gt;, Function&lt;? super Object, String&gt;&gt; nameExtractors = new HashMap&lt;&gt;();
+    private static Map&lt;Class&lt;?&gt;, Function&lt;? super Object, String&gt;&gt; attrExtractors = new HashMap&lt;&gt;();
+    private static Map&lt;Class&lt;?&gt;, Function&lt;? super Object, String&gt;&gt; descExtractors = new HashMap&lt;&gt;();
+    private static Map&lt;Class&lt;?&gt;, Function&lt;? super Object, String&gt;&gt; valueExtractors = new HashMap&lt;&gt;();
+    static{
+        nameExtractors.put(JAXBElement.class, jaxb -&gt; ((JAXBElement&lt;SysParamEntry&gt;)jaxb).getName().getLocalPart());
+        nameExtractors.put(Element.class, ele -&gt; ((Element) ele).getLocalName());
+
+        attrExtractors.put(JAXBElement.class, jaxb -&gt; ((JAXBElement&lt;SysParamEntry&gt;)jaxb).getValue().getAttr());
+        attrExtractors.put(Element.class, ele -&gt; ((Element) ele).getAttribute("attr"));
+
+        descExtractors.put(JAXBElement.class, jaxb -&gt; ((JAXBElement&lt;SysParamEntry&gt;)jaxb).getValue().getDesc());
+        descExtractors.put(Element.class, ele -&gt; ((Element) ele).getAttribute("desc"));
+
+        valueExtractors.put(JAXBElement.class, jaxb -&gt; ((JAXBElement&lt;SysParamEntry&gt;)jaxb).getValue().getValue());
+        valueExtractors.put(Element.class, ele -&gt; ((Element) ele).getTextContent());
+    }
+}
+
+public class SysParamEntriesAdapter extends XmlAdapter&lt;SysParamEntriesWrapper, SysParamEntries&gt;{
+
+    @Override
+    public SysParamEntries unmarshal(SysParamEntriesWrapper v) throws Exception {
+        SysParamEntries retval = new SysParamEntries();
+        v.toMap().values().stream().forEach(retval::addEntry);
+        return retval;
+    }
+
+    @Override
+    public SysParamEntriesWrapper marshal(SysParamEntries v) throws Exception {
+        SysParamEntriesWrapper entriesWrapper = new SysParamEntriesWrapper();
+        v.getEntries().forEach(entriesWrapper::addEntry);
+        return entriesWrapper;
+    }
+}
+
+public class SysParamEntries{
+    List&lt;SysParamEntry&gt; entries = new ArrayList&lt;&gt;();;
+    public SysParamEntries(){
+
+    }
+    public SysParamEntries(List&lt;SysParamEntry&gt; entries) {
+        super();
+        this.entries = entries;
+    }
+
+    public void addEntry(SysParamEntry entry){
+        entries.add(entry);
+    }
+    public void addEntry(String name, String value){
+        addEntry(name, value, "C");
+    }
+
+    public void addEntry(String name, String value, String attr){
+        addEntry(name, value, attr, "");
+    }
+
+    public void addEntry(String name, String value, String attr, String desc){
+        entries.add(new SysParamEntry(name, value, attr, desc));
+    }
+    public List&lt;SysParamEntry&gt; getEntries() {
+        return entries;
+    }
+    public void setEntries(List&lt;SysParamEntry&gt; entries) {
+        this.entries = entries;
+    }
+    @Override
+    public String toString() {
+        return "SystemParamEntries [entries=" + entries + "]";
+    }
+
+}
+@XmlType
+public class SysParamEntry{
+    String name;
+    String value = "";
+    String attr = "";
+    String desc = "";
+    public SysParamEntry(){
+
+    }
+
+    public SysParamEntry(String name, String value) {
+        super();
+        this.name = name;
+        this.value = value;
+    }
+
+    public SysParamEntry(String name, String value, String attr) {
+        super();
+        this.name = name;
+        this.value = value;
+        this.attr = attr;
+    }
+
+    public SysParamEntry(String name, String value, String attr, String desc) {
+        super();
+        this.name = name;
+        this.value = value;
+        this.attr = attr;
+        this.desc = desc;
+    }
+    @XmlTransient
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
+    @XmlValue
+    public String getValue() {
+        return value;
+    }
+    public void setValue(String value) {
+        this.value = value;
+    }
+    @XmlAttribute(name="attr")
+    public String getAttr() {
+        return attr;
+    }
+    public void setAttr(String attr) {
+        this.attr = attr;
+    }
+    @XmlAttribute(name="desc")
+    public String getDesc() {
+        return desc;
+    }
+    public void setDesc(String desc) {
+        this.desc = desc;
+    }
+    @Override
+    public String toString() {
+        return "SystemParamEntry [name=" + name + ", value=" + value + ", attr=" + attr + ", desc=" + desc + "]";
+    }
+}
+</code></pre>
+     <p>And it's time for test:</p>
+     <pre><code>//Marshal
+SysParamConfigXDO xdo = new SysParamConfigXDO();
+xdo.addSysParam("ACCESSLOG_FILE_BY", "SYSTEM", "C", "AccessLog file desc");
+xdo.addSysParam("ACCESSLOG_WRITE_MODE", "DB", "D", "");
+xdo.addSysParam("CHANEG_BUTTON_IMAGES", "FALSE", "E", "Button Image URL, eh, boolean value. ...Wait, what?");
+
+JAXBContext jaxbCtx = JAXBContext.newInstance(SysParamConfigXDO.class, SysParamEntries.class);
+jaxbCtx.createMarshaller().marshal(xdo, System.out);
+
+
+//Unmarshal
+Path xmlFile = Paths.get("path_to_the_saved_xml_file.xml");
+
+JAXBContext jaxbCtx = JAXBContext.newInstance(SysParamConfigXDO.class, SysParamEntries.class);
+SysParamConfigXDO xdo = (SysParamConfigXDO) jaxbCtx.createUnmarshaller().unmarshal(xmlFile.toFile());
+out.println(xdo.toString());
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>In Example 2 I want this type of XML generation :&lt;root&gt; &lt;key1&gt;value1&lt;/key1&gt; &lt;key2&gt;value2&lt;/key2&gt; &lt;other&gt;other content&lt;/other&gt; &lt;/root&gt; . Just don't want extra &lt;map&gt;&lt;/map&gt; tag. Can I achive this ?</span> <span> - </span> <span class="display-name">pankaj</span> <span> </span> <span class="date">8 Feb 2019 at 05:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Pretty useful piece of information. Already upvoted! One more question: what if my XML structure has dynamic sub fields, as follows: &lt;sys-config&gt; &lt;sys-params&gt; &lt;ACCESSLOG_FILE_BY attr="C" desc="AccessLog file desc"&gt;SYSTEM&lt;/ACCESSLOG_FILE_BY&gt; &lt;ACCESSLOG_WRITE_MODE attr="D" desc=""&gt;DB&lt;/ACCESSLOG_WRITE_MODE&gt; &lt;CHANEG_BUTTON_IMAGES attr="E" desc="Button Image URL, eh, boolean value. ...Wait, what?"&gt;FALSE&lt;/CHANEG_BUTTON_IMAGES&gt; &lt;author&gt; &lt;personnel_info attr="Name Surname" desc="This is a person"&gt;Export&lt;/personnel_info&gt; &lt;/author&gt; &lt;/sys-params&gt; &lt;/sys-config&gt;</span> <span> - </span> <span class="display-name">saygley</span> <span> </span> <span class="date">16 Apr 2023 at 20:23</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>beendr</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Feb 2019 at 12:55</span>
+     </div>
+    </div>
+    <div>
+     <p>Maybe somebody is interested in an easier solution with marshall and unmarshall example. It is not a map but still a key-value solution because we are using <code>JAXBElement</code> with a key (=localname) and value (=textcontent).</p>
+     <pre><code>@XmlRootElement(name="map")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class XmlMap {
+    //one caveat (as mec_test_1 pointed out) unmarshalled objects are from type org.w3c.dom.Element and during marshall it is JAXBElement
+    @XmlAnyElement
+    List&lt;JAXBElement&lt;String&gt;&gt; dates = new ArrayList&lt;&gt;();
+</code></pre>
+     <p>To unmarshall lets say this xml file</p>
+     <pre><code>&lt;map&gt;
+   &lt;2019-01-01&gt;Yes&lt;/2019-01-01&gt;
+   &lt;2019-02-01&gt;No&lt;/2019-02-01&gt;
+&lt;/map&gt;
+</code></pre>
+     <p>You have to run:</p>
+     <pre><code>JAXBContext c = JAXBContext.newInstance(XmlMap.class);
+XmlMap map = c.createUnmarshaller().unmarshall(new File("xmlfile.xml"));
+//access the objects via
+System.out.println("Key: " + ((org.w3c.dom.Element) map.dates.get(0)).getLocalName());
+System.out.println("Value: " + ((org.w3c.dom.Element) map.dates.get(0)).getTextContent());
+</code></pre>
+     <p>An to marshall a object:</p>
+     <pre><code>import javax.xml.namespace.QName;
+import javax.xml.bind.JAXBElement;
+
+XmlMap xmlMap = new XmlMap();
+xmlMap.dates.add(new JAXBElement&lt;String&gt;(new QName("key"), String.class, "value"));
+xmlMap.dates.add(new JAXBElement&lt;String&gt;(new QName("2019-01-01"), String.class, "Yes"));
+
+JAXBContext context = JAXBContext.newInstance(XmlMap.class);
+Marshaller m = context.createMarshaller();
+m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+m.marshal(verzObj, System.out);
+</code></pre>
+     <p>Output:</p>
+     <pre><code>&lt;map&gt;
+   &lt;key&gt;val&lt;/key&gt;
+   &lt;2019-01-01&gt;Yes&lt;/2019-01-01&gt;
+&lt;/map&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

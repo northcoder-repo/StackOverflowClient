@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>A realistic example where using BigDecimal for currency is strictly better than using double</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>A realistic example where using BigDecimal for currency is strictly better than using double</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>45</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>maaartinus</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>18 Mar 2017 at 07:06</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/42871564/a-realistic-example-where-using-bigdecimal-for-currency-is-strictly-better-than">source</a>
+    </div>
+   </div>
+   <div>
+    <p>We <a href="https://stackoverflow.com/q/3730019/581205">know</a> that using <code>double</code> for currency is error-prone and not recommended. However, I'm yet to see a <strong>realistic</strong> example, where <code>BigDecimal</code> works while <code>double</code> fails and can't be simply fixed by some rounding.</p>
+    <hr>
+    <p>Note that trivial problems</p>
+    <pre><code>double total = 0.0;
+for (int i = 0; i &lt; 10; i++) total += 0.1;
+for (int i = 0; i &lt; 10; i++) total -= 0.1;
+assertTrue(total == 0.0);
+</code></pre>
+    <p>don't count as they're trivially solved by rounding (in this example anything from zero to sixteen decimal places would do).</p>
+    <hr>
+    <p>Computations involving summing big values may need some intermediate rouding, but given the <a href="https://en.wikipedia.org/wiki/Circulation_(currency)#Total_currency_in_circulation" rel="noreferrer">total currency in circulation</a> being <code>USD 1e12</code>, Java <code>double</code> (i.e., the standard <a href="https://en.wikipedia.org/wiki/Double-precision_floating-point_format" rel="noreferrer">IEEE double precision</a>) with its 15 decimal digits is still sufficient event for cents.</p>
+    <hr>
+    <p>Computations involving division are in general imprecise even with <code>BigDecimal</code>. I can construct a computation which can't be performed with <code>double</code>s, but can be performed with <code>BigDecimal</code> using a scale of 100, but it's not something you can encounter in reality.</p>
+    <hr>
+    <p><em>I don't claim that such a</em> realistic <em>example does not exist, it's just that I haven't seen it yet.</em></p>
+    <p>I also surely agree, that using <code>double</code> is more error-prone.</p>
+    <h3>Example</h3>
+    <p>What I'm looking for is a method like the following (based on the answer by Roland Illig)</p>
+    <pre><code>/** 
+  * Given an input which has three decimal places,
+  * round it to two decimal places using HALF_EVEN.
+*/
+BigDecimal roundToTwoPlaces(BigDecimal n) {
+    // To make sure, that the input has three decimal places.
+    checkArgument(n.scale() == 3);
+    return n.round(new MathContext(2, RoundingMode.HALF_EVEN));
+}
+</code></pre>
+    <p>together with a test like</p>
+    <pre><code>public void testRoundToTwoPlaces() {
+    final BigDecimal n = new BigDecimal("0.615");
+    final BigDecimal expected = new BigDecimal("0.62");
+    final BigDecimal actual = roundToTwoPlaces(n);
+    Assert.assertEquals(expected, actual);
+}
+</code></pre>
+    <p>When this gets naively rewritten using <code>double</code>, then the test could fail (it doesn't for the given input, but it does for others). However, it can be done correctly:</p>
+    <pre><code>static double roundToTwoPlaces(double n) {
+    final long m = Math.round(1000.0 * n);
+    final double x = 0.1 * m;
+    final long r = (long) Math.rint(x);
+    return r / 100.0;
+}
+</code></pre>
+    <p>It's ugly and error-prone (and can probably be simplified), but it can be easily encapsulated somewhere. That's why I'm looking for more answers.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">floating-point</span><span class="tag">currency</span><span class="tag">biginteger</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>My understanding is that some (most?) countries legally require accounting and financial related math to be done in some form of decimal based math, following some specific rules about rounding and specify how many digits past the decimal point are to be used.</span> <span> - </span> <span class="display-name">rcgldr</span> <span> </span> <span class="date">18 Mar 2017 at 07:21</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Well what do you consider <i>realistic</i> exactly? You mention total currency in circulation of ~1 trillion, but clearly calculations involving "money" need to deal with non-physical amounts which often greatly exceed paper money floating around. For example, the GDP of the world is &gt; 1e14, and I can certainly imagine other monetary figures with much larger values. So can an example use large numbers like 1e16?</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">18 Jun 2017 at 19:21</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>In particular "an expression suffering from round-off errors doesn't count" is a confusing requirement: you could position <i>any</i> inaccuracy in a floating point result as being related to "round off errors". Perhaps it would help to give an example of the type of method which you are looking for (even if it does work with <code>double</code>).</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">18 Jun 2017 at 19:25</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@BeeOnRope If you work with such numbers and need such precision, then it counts. OTOH it feels a bit like cheating and it might apply maybe to 0.01% of programmers? <code>+++</code> I see, I was being unclear. I meant "an expression <i>alone</i> doesn't count". Everybody knows tons of expressions leading to inaccuracies, but I'd like to see 1. what is required and what it is good for and 2. how it gets nicely computed with <code>BigDecimal</code>. I've just added an example (surely not very good).</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 00:30</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thanks for the example. I don't personally (currently) work with currency values at all, so I guess that eliminates me from contention. In fact, I'd say that if you restrict the answers to people who currently work on a method that has/will failed in such a way, you'll only include an infinitesimally small portion of the total SO audience. I have some examples where <code>double</code> goes off the rails, but they either involve larger numbers, or very small numbers, etc.</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">19 Jun 2017 at 00:36</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Excluding rounding errors excludes the entire problem. It's not clear what exactly you're asking for, and specifically what exactly would satisfy you. It is trivially easy to find numbers that aren't rounded by floating point according to the banker's rules, and if you're not obeying banker's rules you're doing it wrong. I saw IBM lose a five-figured sum by allowing a contractor to use FP for money, even though I was watching over the project as software auditor and had already told him not to do it. They had to go back in six months later and rework.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">19 Jun 2017 at 00:36</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>You probably already know that a double has 53 bits of precision, so any calculation which (in cents) never leaves those bounds will be identical to the <code>BigDecimal</code> version. I can create scenarios where 53 bits of precision are "not enough", but I don't know if they fit your definition of <i>realistic</i>, or whether the delta in the approaches is relevant (i.e., if you are talking about a GDP of $1e12, does an error of $1 matter?). The most interesting cases are where you calculate two large values and take their difference. In that case, the absolute error may be large, but is it <i>realistic</i>?</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">19 Jun 2017 at 00:39</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@BeeOnRope and OP No. The interesting cases are when the result is out by one cent. This is intolerable in accounting terms. I've seen bank branch staff kept behind because the branch didn't balance by a few cents. This is usually a missed transaction but if it was caused by software it would also be intolerable. And your statement about not exceeding 53 bits is only correct for whole numbers. Once there is a fraction, all bets are off, as the fraction is in binary radix, which is incommensurable with fractions in decimal radix. This <i>is</i> the problem. No example required.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">19 Jun 2017 at 00:41</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@EJP - then I think Roland's answer is sufficient. There are certainly cases where the <code>double</code> rounding will result in differences from the exact result, even though various expression optimizations might hide them. They can certainly be exposed in some scenario.</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">19 Jun 2017 at 00:45</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@EJP - the point about 53 bits is that fractions don't come into it as much as you'd expect, since the various financial standards and laws generally involve specific rounding, usually after each transaction that could result in a fractional "cent" amount (or otherwise in some other specific way), and so the OP's claim is that such divergences can be accounted for by "rounding correctly" at the specific points the law dictates, which is also a problem faced by <code>BigDecimal</code>.</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">19 Jun 2017 at 00:47</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@BeeOnRope All that has actually nothing to do with 53 bits. The problem is in getting the FPU to obey the accounting standards.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">19 Jun 2017 at 00:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I surely didn't mean to eliminate you. It's just that we can come up with very big currency-related numbers (the estimated GDP of the observable universe since it's creation), but if nobody needs it... <i>I'm really not restricting who can answer,</i> but if someone actually did such a computation, it makes it automatically realistic. <i>I'm neither excluding rounding errors,</i> but a rounding error is a well-known thing, while I'm looking for a computation defined with requirements and an implementation.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 00:50</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@EJP - right, but it's not the FPU, it's Java (since this is tagged Java). And I suppose IEEE can be nudged in the right direction by judicious use of the accounting standards, especially if you stay in the <i>exact</i> domain that <code>double</code> offers for some of its range. In particular, some people are certainly implementing various financial packages with 4 or 6 or 8 bytes of integer range, so <code>double</code> is good enough for at least 4 or 6 bytes and you could implement the same behavior with it with "appropriate rounding".</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">19 Jun 2017 at 00:52</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>So basically I find the question ill-defined. By definition you can implement <code>BigInteger</code> based on the <code>int</code> primitive, and you can also use <code>double</code> to emulate anything you did with <code>int</code> (double strictly covers the range of <code>int</code>). So then <code>double</code> can be used in the same way as <code>BigDecimal</code> with enough care. Of course, the OP is talking about using a <i>single</i> <code>double</code> value in place of <code>BigDecimal</code>, not a bunch, but then when you show a failing example it's may be easy to reorganize it so that the rounding is done "right" and the same value pops out, if the range is limited.</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">19 Jun 2017 at 00:57</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@BeeOnRope The question is surely far from perfect, feel free to improve it. My motivation was: 1. people complain about <code>double</code> errors, 2. they switch to <code>BigDecimal</code>, 3. they complain about <code>BigDecimal</code> slowness. 4. all currency computations I've seen so far work with <code>double</code>, if you do them carefully. <code>+++</code> My motivation excludes emulating <code>BigDecimal</code> as it'd even slower. Using two <code>double</code>s is an option if extraordinary precision is required and if it's still way faster than <code>BigDecimal</code>; using bunch of them is not.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 01:18</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@BeeOnRope Yes, I'm assuming a limited input range. The rounding can be done not only "right", but right. For example, when the input is a list of no more than one million numbers below one million with two decimal places, then simply summing them up as <code>double</code>s and rounding the sum to two decimal places gives <i>provably</i> the <i>exact</i> result.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 01:25</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>What is being requested here isn't particularly specific; potential examples for financial applications where BigDecimal is a better choice than double is vast. Valid responses appear to have been rejected.</span> <span> - </span> <span class="display-name">James</span> <span> </span> <span class="date">20 Jun 2017 at 21:44</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@James I probably wasn't clear with what I want.... using <code>BigDecimal</code> is usually the right choice because of its simplicity and its lower risk. But for every example given, there's a simple and fast workaround (simple but sometimes tricky) allowing to get the <i>exact result</i> using <code>double</code>. I've gave the workaround for each of three real answers.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">20 Jun 2017 at 21:54</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>How many "simple but sometimes tricky" <i>workarounds</i> do you require before <code>BigDecimal</code> is a better choice than <code>double</code> ;-)</span> <span> - </span> <span class="display-name">James</span> <span> </span> <span class="date">20 Jun 2017 at 23:02</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@James It depends ;) The more tricks your computation needs, the higher I personally rank your answer. Let's say, I'm interested in the worst case.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">20 Jun 2017 at 23:13</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@maaartinus - even though I think using "realistic" leaves a lot of wiggle room and makes it technically undefined, you've made it clear enough for me to take a shot at an answer, anyway.</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">21 Jun 2017 at 05:21</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@GhostCat I've just accepted an answer, though I'm not really satisfied with it. My question turned out to be more complicated than I thought.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">12 Jan 2018 at 12:44</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>30</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BeeOnRope</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jun 2017 at 09:40</span>
+     </div>
+    </div>
+    <div>
+     <p>I can see four basic ways that <code>double</code> can screw you when dealing with currency calculations.</p>
+     <h1>Mantissa Too Small</h1>
+     <p>With ~15 decimal digits of precision in the mantissa, you are you going to get the wrong result any time you deal with amounts larger than that. If you are tracking cents, problems would start to occur before 10<sup>13</sup> (ten trillion) dollars.</p>
+     <p>While that's a big number, it's not <em>that big</em>. The US GDP of ~18 trillion exceeds it, so anything dealing with country or even corporation sized amounts could easily get the wrong answer.</p>
+     <p>Furthermore, there are plenty of ways that much smaller amounts could exceed this threshold during calculation. You might be doing a growth projection or a over a number of years, which results in a large final value. You might be doing a "what if" scenario analysis where various possible parameters are examined and some combination of parameters might result in very large values. You might be working under financial rules which allow <a href="http://www.investopedia.com/terms/s/sub-pennying.asp" rel="noreferrer">fractions of a cent</a> which could chop another two orders of magnitude or more off of your range, putting you roughly in line with the wealth of <a href="https://en.wikipedia.org/wiki/The_World%27s_Billionaires#2017" rel="noreferrer">mere individuals</a> in USD.</p>
+     <p>Finally, let's not take a US centric view of things. What about other currencies? One USD is worth is <a href="https://www.google.com/search?q=1+USD+in+IDR" rel="noreferrer">worth roughly</a> 13,000 Indonesian Rupiah, so that's another 2 orders of magnitude you need to track currency amounts in that currency (assuming there are no "cents"!). You're almost getting down to amounts that are of interest to mere mortals.</p>
+     <p>Here is <a href="https://gist.github.com/anonymous/0d15f97c3f1b5ce4005531a7c41afdfc" rel="noreferrer">an example</a> where a growth projection calculation starting from 1e9 at 5% goes wrong:</p>
+     <pre><code>method   year                         amount           delta
+double      0             $ 1,000,000,000.00
+Decimal     0             $ 1,000,000,000.00  (0.0000000000)
+double     10             $ 1,628,894,626.78
+Decimal    10             $ 1,628,894,626.78  (0.0000004768)
+double     20             $ 2,653,297,705.14
+Decimal    20             $ 2,653,297,705.14  (0.0000023842)
+double     30             $ 4,321,942,375.15
+Decimal    30             $ 4,321,942,375.15  (0.0000057220)
+double     40             $ 7,039,988,712.12
+Decimal    40             $ 7,039,988,712.12  (0.0000123978)
+double     50            $ 11,467,399,785.75
+Decimal    50            $ 11,467,399,785.75  (0.0000247955)
+double     60            $ 18,679,185,894.12
+Decimal    60            $ 18,679,185,894.12  (0.0000534058)
+double     70            $ 30,426,425,535.51
+Decimal    70            $ 30,426,425,535.51  (0.0000915527)
+double     80            $ 49,561,441,066.84
+Decimal    80            $ 49,561,441,066.84  (0.0001678467)
+double     90            $ 80,730,365,049.13
+Decimal    90            $ 80,730,365,049.13  (0.0003051758)
+double    100           $ 131,501,257,846.30
+Decimal   100           $ 131,501,257,846.30  (0.0005645752)
+double    110           $ 214,201,692,320.32
+Decimal   110           $ 214,201,692,320.32  (0.0010375977)
+double    120           $ 348,911,985,667.20
+Decimal   120           $ 348,911,985,667.20  (0.0017700195)
+double    130           $ 568,340,858,671.56
+Decimal   130           $ 568,340,858,671.55  (0.0030517578)
+double    140           $ 925,767,370,868.17
+Decimal   140           $ 925,767,370,868.17  (0.0053710938)
+double    150         $ 1,507,977,496,053.05
+Decimal   150         $ 1,507,977,496,053.04  (0.0097656250)
+double    160         $ 2,456,336,440,622.11
+Decimal   160         $ 2,456,336,440,622.10  (0.0166015625)
+double    170         $ 4,001,113,229,686.99
+Decimal   170         $ 4,001,113,229,686.96  (0.0288085938)
+double    180         $ 6,517,391,840,965.27
+Decimal   180         $ 6,517,391,840,965.22  (0.0498046875)
+double    190        $ 10,616,144,550,351.47
+Decimal   190        $ 10,616,144,550,351.38  (0.0859375000)
+</code></pre>
+     <p>The delta (difference between <code>double</code> and <code>BigDecimal</code> first hits &gt; 1 cent at year 160, around 2 trillion (which might not be all that much 160 years from now), and of course just keeps getting worse.</p>
+     <p>Of course, the 53 bits of Mantissa mean that the <em>relative</em> error for this kind of calculation is likely to be very small (hopefully you don't lose your job over 1 cent out of 2 trillion). Indeed, the relative error basically holds fairly steady through most of the example. You could certainly organize it though so that you (for example) subtract two various with loss of precision in the mantissa resulting in an arbitrarily large error (exercise up to reader).</p>
+     <h1>Changing Semantics</h1>
+     <p>So you think you are pretty clever, and managed to come up with a rounding scheme that lets you use <code>double</code> and have exhaustively tested your methods on your local JVM. Go ahead and deploy it. Tomorrow or next week or whenever is worst for you, the results change and your tricks break.</p>
+     <p>Unlike almost every other basic language expression and certainly unlike integer or <code>BigDecimal</code> arithmetic, by default the results of many floating point expressions don't have a single standards defined value due to the <a href="https://en.wikipedia.org/wiki/Strictfp" rel="noreferrer">strictfp</a> feature. Platforms are free to use, at their discretion, higher precision intermediates, which may result in different results on different hardware, JVM versions, etc. The result, for the same inputs, may even <a href="http://www.exploringbinary.com/nondeterministic-floating-point-conversions-in-java/" rel="noreferrer">vary at runtime</a> when the method switches from interpreted to JIT-compiled!</p>
+     <p>If you had written your code in the pre-Java 1.2 days, you'd be pretty pissed when Java 1.2 suddenly introduces the now-default variable FP behavior. You might be tempted to just use <code>strictfp</code> everywhere and hope you don't run into any of the <a href="https://www.google.com.gt/search?q=strictfp+site%3Abugs.openjdk.java.net" rel="noreferrer">multitude of related bugs</a> - but on some platforms you'd be throwing away much of the performance that double bought you in the first place.</p>
+     <p>There's nothing to say that the JVM spec won't again change in the future to accommodate further changes in FP hardware, or that the JVM implementors won't use the rope that the default non-strictfp behavior gives them to do something tricky.</p>
+     <h1>Inexact Representations</h1>
+     <p>As Roland pointed out in his answer, a key problem with <code>double</code> is that it doesn't have exact representations for some most non-integer values. Although a single non-exact value like <code>0.1</code> will often "roundtrip" OK in some scenarios (e.g., <code>Double.toString(0.1).equals("0.1")</code>), as soon as you do math on these imprecise values the error can compound, and this can be irrecoverable.</p>
+     <p>In particular, if you are "close" to a rounding point, e.g., ~1.005, you might get a value of 1.00499999... when the true value is 1.0050000001..., <strong>or vice-versa</strong>. Because the errors go in both directions, there is no rounding magic that can fix this. There is no way to tell if a value of 1.004999999... should be bumped up or not. Your <code>roundToTwoPlaces()</code> method (a type of double rounding) only works because it handled a case where 1.0049999 should be bumped up, but it will never be able to cross the boundary, e.g., if cumulative errors cause 1.0050000000001 to be turned into 1.00499999999999 it can't fix it.</p>
+     <p>You don't need big or small numbers to hit this. You only need some math and for the result to fall close to the boundary. The more math you do, the larger the possible deviations from the true result, and the more chance of straddling a boundary.</p>
+     <p>As requested here <a href="https://gist.github.com/anonymous/eabdabea96b7378372f8ff1594811eca" rel="noreferrer">a searching test</a> that does a simple calculation: <code>amount * tax</code> and rounds it to 2 decimal places (i.e., dollars and cents). There are a few rounding methods in there, the one currently used, <code>roundToTwoPlacesB</code> is a souped-up version of yours<sup>1</sup> (by increasing the multiplier for <code>n</code> in the first rounding you make it a lot more sensitive - the original version fails right away on trivial inputs).</p>
+     <p>The test spits out the failures it finds, and they come in bunches. For example, the first few failures:</p>
+     <pre><code>Failed for 1234.57 * 0.5000 = 617.28 vs 617.29
+Raw result : 617.2850000000000000000000, Double.toString(): 617.29
+Failed for 1234.61 * 0.5000 = 617.30 vs 617.31
+Raw result : 617.3050000000000000000000, Double.toString(): 617.31
+Failed for 1234.65 * 0.5000 = 617.32 vs 617.33
+Raw result : 617.3250000000000000000000, Double.toString(): 617.33
+Failed for 1234.69 * 0.5000 = 617.34 vs 617.35
+Raw result : 617.3450000000000000000000, Double.toString(): 617.35
+</code></pre>
+     <p>Note that the "raw result" (i.e., the exact unrounded result) is always close to a <code>x.xx5000</code> boundary. Your rounding method errs both on the high and low sides. You can't fix it generically.</p>
+     <h1>Imprecise Calculations</h1>
+     <p>Several of the <code>java.lang.Math</code> methods don't require correctly rounded results, but rather allow errors of up to 2.5 ulp. Granted, you probably aren't going to be using the hyperbolic functions much with currency, but functions such as <code>exp()</code> and <code>pow()</code> often find their way into currency calculations and these only have an accuracy of 1 ulp. So the number is already "wrong" when it is returned.</p>
+     <p>This interacts with the "Inexact Representation" issue, since this type of error is much more serious than that from the normal mathematic operations which are at least choosing the best possible value from with the representable domain of <code>double</code>. It means that you can have many more round-boundary crossing events when you use these methods.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span><b>Mantissa Too Small</b> - there's nothing I could do (apart from simulating something like. <code>BigDecimal</code>. <b>Changing Semantics</b> - this can be solved by rounding twice: First to a number of decimals the exact result can have (e.g., 1.23 * 45.678 to five decimals) and then rounding the result to the desired precision. <b>Inexact Representations</b> - solvable by double rounding, too (I'll post details if you want), as it removes any excess precision. <b>Imprecise Calculations</b> - apart from <code>pow</code>, they're missing from <code>BigDecimal</code>, too. And <code>BigDecimal.pow</code> is imprecise (&gt;1 ulp), too.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">21 Jun 2017 at 19:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>All that said, I like your answer most... though I prefer a single problem I could solve or not. I'll try on the parts requiring double rounding. Btw., later I've found out that <code>round</code> is useless as it rounds towards +INF, <code>rint</code> is the way to go. I guess, it could need some benchmark, too, as double rounding could be a bit costly.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">21 Jun 2017 at 20:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@maar I think I explained above why double rounding can't solve the inexact representation problem: the information about the true value of the expression that produced the value has been <i>lost</i>. Sure you can write code that rounds 1.0049999999 to 1.01, but that code can't know whether it should instead round it to 1.00 because the exact value was actually &lt; 1.005. I.e. it has to produce different values for the <i>same</i> input so it isn't even a function!</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">21 Jun 2017 at 20:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@maartinus - yeah, the main "solvable" (or not) problem is the inexact representation one. That's the crux of my reply (the mantissa bits one is interesting but as you point out there's not much you can do about it). I'll be interested to see what you come up with for the double rounding. Note that from one point of view your job is harder than mine - you have to come up with a function that works for all values, not just one case. I only need one counter-example. OTOH sometimes the counter-example is hard to find!</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">21 Jun 2017 at 20:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>But how did you come to <code>1.0049999999</code>? Was it maybe something like <code>0.1 + 0.2 + 0.3 + 0.2 * 2.025</code>? Then you know that by rounding to three places you get (the best approximation of) the exact value 1.005. Sure, this information is to be supplied by the <i>optimizing programmer</i>. In order to obtain two decimals from three, my doubly-rounding method does <code>rint(rint(1000 * a) / 10) / 100</code>. It can't work for all values, but it works, when 1. you know how many decimals the exact result has, 2. there isn't too much precision already lost.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">21 Jun 2017 at 20:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You get it from some expression. In my linked test it was a simple multiplication. I don't agree with your logic. You don't necessarily know that at all. Furthermore how do you know how many decimal places you need to round to? The inputs can be of arbitrary complexity and the result of other calculations. I'm not talking about adding up integer number of pennies or anything, I'm talking about essentially arbitrary values you get from even simple things like compounding interest, or anything involving division, etc, etc. See my linked test.</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">21 Jun 2017 at 20:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Let us <a href="http://chat.stackoverflow.com/rooms/147308/discussion-between-maaartinus-and-beeonrope">continue this discussion in chat</a>.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">21 Jun 2017 at 20:38</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Roland Illig</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Mar 2017 at 07:38</span>
+     </div>
+    </div>
+    <div>
+     <p>When you round <code>double price = 0.615</code> to two decimal places, you get 0.61 (rounded down) but probably expected 0.62 (rounded up, because of the 5).</p>
+     <p>This is because double 0.615 is actually 0.6149999999999999911182158029987476766109466552734375.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Interesting. And <code>0.615</code> can be obtained e.g. from <code>1.23</code> with <code>50%</code> off. However, with <code>round(1.23*.5 * 1e2) / 1e2</code>, I get <code>0.62</code>, so my addendum to your example doesn't work. +++ Anyway, I believe, 1. it can be made work, but 2. the rounding problem can be solved, and 3. it may get pretty complicated.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">18 Mar 2017 at 07:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Just loop over all numbers between 0.0000 and 10.0000 to see whether they all behave consistently. Also, when your methods are not marked as <code>strictfp</code>, you <i>may</i> get different results after the code has been optimized.</span> <span> - </span> <span class="display-name">Roland Illig</span> <span> </span> <span class="date">18 Mar 2017 at 07:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>10% of 21.15 should be 2.12 but <code>Math.round((21.15*.1)*1e2)/1e2</code> yields 2.11 so be assured cases exist. Anyway, these cases can be handled properly when taking into account that they only occur after multiplying an amount with some factor and that you generally also know how many decimal digits an exact result of such multiplication would have at maximum.</span> <span> - </span> <span class="display-name">Markus Benko</span> <span> </span> <span class="date">20 Mar 2017 at 21:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><a href="https://github.com/Maaartinus/published2/blob/master/src/maaartinus/currency/ReplacingBigDecimal.java" rel="nofollow noreferrer">I actually do get <code>0.62</code></a>. This is probably just an incident, but I'd bet, I can get correctly rounded for any such input (assuming a sane input range).</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 01:34</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@maartinus You are measuring something else. When you multiply with 100, the bit pattern of the mantissa changes. The general problem stays the same.</span> <span> - </span> <span class="display-name">Roland Illig</span> <span> </span> <span class="date">19 Jun 2017 at 06:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@RolandIllig It's not something else, as there's no build-in method like <code>roundDoubleToTwoDecimalPlaces</code> and this is the most straightforward implementation. It fails for other inputs, but I've solved it; see my edit.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 13:09</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Henry</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Mar 2017 at 07:12</span>
+     </div>
+    </div>
+    <div>
+     <p>The main problems you are facing in practice are related to the fact that <code>round(a) + round(b)</code> is not necessarily equal to <code>round(a+b)</code>. By using <code>BigDecimal</code> you have fine control over the rounding process and can therefore make your sums come out correctly.</p>
+     <p>When you calculate taxes, say 18 % VAT, it is easy to get values that have more than two decimal places when represented exactly. So rounding becomes an issue.</p>
+     <p>Lets assume you buy 2 articles for $ 1.3 each</p>
+     <pre><code>Article  Price  Price+VAT (exact)  Price+VAT (rounded)
+A        1.3    1.534              1.53
+B        1.3    1.534              1.53
+sum      2.6    3.068              3.06
+exact rounded   3.07
+</code></pre>
+     <p>So if you do the calculations with double and only round to print the result, you would get a total of 3.07 while the amount on the bill should actually be 3.06.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Right, but a monetary input is already rounded, so when rounding the result, I do get the exact value. +++ With 18% VAT, I have to round to four decimal places instead of two. This is something you must consider with <code>BigDecimal</code>, too.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">18 Mar 2017 at 07:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The error occurs because of the intermediate rounding and can be avoided by rounding just once: <code>round((1.3 * 1.18 + 1.3 * 1.18) * 1e2) / 1e2</code>.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">18 Mar 2017 at 07:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes sure, that's exactly the point since you may be forced to show rounded intermediate results on the bill. Therefore the mathematically more exact result (3.07 in the example) seems wrong.</span> <span> - </span> <span class="display-name">Henry</span> <span> </span> <span class="date">18 Mar 2017 at 07:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>But I can get the other result, too, and the logic is trivial. Whenever I'm forced to show a value with which I should compute further, I replace the inexact value by the rounded value: <code>a = round((1.3 * 1.18) * 1e2) / 1e2; a+a</code>.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">18 Mar 2017 at 08:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Indeed, financial calculations such as these are generally rounded at very specific times and in a very specific manner (or you get <i>Superman III</i>).</span> <span> - </span> <span class="display-name">Sneftel</span> <span> </span> <span class="date">18 Mar 2017 at 17:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><i>Whatever result you prefer, I can do it easily with <code>double</code>s.</i> Rounding at every step may cost performance, but I'd bet, it's still faster than <code>BigDecimal</code>.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 16:14</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>GhostCat again on strike</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jun 2017 at 09:48</span>
+     </div>
+    </div>
+    <div>
+     <p>Let's give a "less technical, more philosophical" answer here: why do you think that "Cobol" isn't using floating point arithmetic when dealing with currency?!</p>
+     <p>("Cobol" in quotes, as in: existing legacy approaches to solve real world business problems).</p>
+     <p>Meaning: almost 50 years ago, when people started using computers for business aka financial work, they quickly realized that "floating point" representation isn't going to work for the financial industry (maybe expect some rare niche corners as pointed out in the question).</p>
+     <p>And keep in mind: back then, <em>abstractions</em> were truly expensive! It was expensive enough to have a bit here and and a register there; and still it quickly become obvious to the giants on whose shoulders we stand ... that using "floating points" would not solve their problems; and that they had to rely on something else; more abstract - more expensive!</p>
+     <p>Our industry had 50+ years to come up with "floating point that works for currency" - and the <strong>common</strong> answer is still: <em>don't do it</em>. Instead, you turn to solutions such as BigDecimal.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user207421</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jun 2017 at 00:46</span>
+     </div>
+    </div>
+    <div>
+     <p>You don't need an example. You just need fourth-form mathematics. Fractions in floating-point are represented in binary radix, and binary radix is incommensurable with decimal radix. Tenth grade stuff.</p>
+     <p>Therefore there will always be rounding and approximation, and neither is acceptable in accounting in any way, shape, or form. The books have to balance to the last cent, and so FYI does a bank branch at the end of each day, and the entire bank at regular intervals.</p>
+     <blockquote>
+      <p>an expression suffering from round-off errors doesn't count'</p>
+     </blockquote>
+     <p>Ridiculous. This <em>is</em> the problem. Excluding rounding errors excludes the entire problem.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I've already explained that I'm not excluding rounding as problem. What I'm excluding is an example consisting of something like <b>"Look ma, <code>1.0-0.9</code> returns <code>0.099999</code>. We <i>must</i> use <code>BigDecimal</code>"</b>. Given some limits, the rounding errors are provably fixable by final rounding like <a href="https://stackoverflow.com/questions/42871564/a-realistic-example-where-using-bigdecimal-for-currency-is-strictly-better-than#comment76228101_42871564">here</a>.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 01:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I quoted you accurately. FP Rounding problems are fixable with a great deal of trouble that most programmers don't know about, and that already takes place inside <code>BIgDecimal</code> (it uses binary interally, with three guard bits: highly non-trivial).</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">19 Jun 2017 at 01:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sure, you quoted me accurately. Thank you for pointing me to a misleading formulation of my bounty text. Feel free to improve it. If you can.... Otherwise, please accept my later explanation as I can't edit it either. I meant that an example <i>alone</i> doesn't count. <code>+++</code> I fully agree with you saying that using <code>double</code> means a lot of trouble and I'm <i>not</i> recommending doing it without a good reason. But there are <a href="https://stackoverflow.com/questions/611732/what-to-do-with-java-bigdecimal-performance#comment15703198_612063">people having done it succesfully</a>.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 02:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>To be fair, I don't think it's strictly true that <i>binary radix is incommensurable with decimal radix</i>. For example, binary radix can store all integers just as decimal radix can. For fractional decimal values, for whatever precision you want, there is some (quite reasonable) size of binary radix mantissa that can be used to reversibly store all decimal fractional values of that type (exactly how, for example, Double.toString(0.1) returns <code>"0.1"</code> and not something like <code>"0.99...995</code>. Now it may not be the <i>natural</i> way to represent it, but can work for representation.</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">21 Jun 2017 at 21:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>BigDecimal</code> internally is using "binary" of course (indirectly via <code>BigInteger</code>) for its mantissa, although yes the scale is inherently decimal. The real problem with <code>double</code> is with <i>operations</i> I think - most operations on <code>BigDecimal</code> that are inherently exact, and some of the plain <code>double</code> operations are inexact and those often errors can't be fixed once the info is lost. Now <code>BigDecimal</code> has some inexact operations too, but only a few (eg, division with repeated decimals) so you can just implement so much more with <code>BigDecimal</code>... I guess I ended up agreeing with "incommensurable" ??</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">21 Jun 2017 at 21:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BeeOnRope 'Binary radix is incommensurable with decimal radix' doesn't mean what you seem to think. It means that there isn't an integral multiplier between the numbers of digiits required in each.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">25 Feb 2020 at 19:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@user207421 - fair enough, I didn't realize there was a mathematical definition of that word, but there is: <i>(of numbers) in a ratio that cannot be expressed as a ratio of integers</i> (from Oxford). So yeah I was wrong there. I was more disagreeing with what you said next: <i>Therefore there will always be rounding and approximation</i> which because of the "Therefore" I thought you were saying directly from incommensurable. In fact, this would be right if you said there will <i>sometimes</i> be rounding/approximation.</span> <span> - </span> <span class="display-name">BeeOnRope</span> <span> </span> <span class="date">25 Feb 2020 at 23:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>geza</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jun 2017 at 11:40</span>
+     </div>
+    </div>
+    <div>
+     <p>Suppose that you have 1000000000001.5 (it is in the 1e12 range) money. And you have to calculate 117% of it.</p>
+     <p>In double, it becomes 1170000000001.7549 (this number is <strong>already imprecise</strong>). Then apply your round algorithm, and it becomes 1170000000001.75.</p>
+     <p>In precise arithmetic, it becomes 1170000000001.7550, which is rounded to 1170000000001.76. <strong>Ouch, you lost 1 cent.</strong></p>
+     <p>I think that it is a realistic example, where double is inferior to precise arithmetic.</p>
+     <p>Sure, you can fix this somehow (even, you can implement BigDecimal using double arihmetic, so in a way, double can be used for everything, and it will be precise), but what's the point?</p>
+     <p>You can use double for integer arithmetic, if numbers are less than 2^53. If you can express your math within these constraints, then calculation will be precise (division needs special care, of course). As soon as you leave this territory, your calculations can be imprecise.</p>
+     <p>As you can see, 53 bits is not enough, <strong>double is not enough</strong>. But, if you store money in decimal-fixed point number (I mean, store the number <code>money*100</code>, if you need cents precision), then 64 bits might be enough, so a 64-bit integer can be used instead of <code>BigDecimal</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ryan - Llaver</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jun 2017 at 17:49</span>
+     </div>
+    </div>
+    <div>
+     <p>Using BigDecimal would be most necessary when dealing with high value digital forms of currency such as cyprtocurrency (BTC, LTC, etc.), stocks, etc. In situations like these a lot of times you will be dealing with very specific values at 7 or 8 significant figures. If your code accidentally causes rounding error at 3 or 4 sig figs then the losses could be extremely significant. Losing money because of a rounding error is not going to be fun, especially if it's for clients.</p>
+     <p>Sure, you could probably get away with using a Double for everything if you made sure to do everything right, but it would probably be better to not take the risk, especially if you're starting from scratch.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I disagree. Bitcoin has 8 decimal places and as long as you don't have more than ten million of them, working with double works. Just round intermediate results to 8 decimal places when too much error can accumulate.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 17:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Right, it's fine if the rounding error is at the 8th decimal place, but if you have a rounding error at the second or third decimal place your problem has automatically become 10 times worse for every decimal place.</span> <span> - </span> <span class="display-name">Ryan - Llaver</span> <span> </span> <span class="date">19 Jun 2017 at 17:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>No, what I'm proposing is an <i>exact computation</i> based on the knowledge that there are no more than eight decimal places. For example with <code>a = 0.00000001</code> we get <code>a+a+a</code> as <code>3.0000000000000004e-8</code>, which is slightly off. The errors could accumulate, but when we round, we get <code>3e-8</code> as exactly as representable. With rounding on the output, we get <code>"0.00000003"</code> with no error at all.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">19 Jun 2017 at 18:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Ahh okay I see what you're getting at.</span> <span> - </span> <span class="display-name">Ryan - Llaver</span> <span> </span> <span class="date">19 Jun 2017 at 18:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>dan.m was user2321368</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jun 2017 at 18:05</span>
+     </div>
+    </div>
+    <div>
+     <p>The following would appear to be a decent implementation of a method that needed to "round down to the nearest penny".</p>
+     <pre><code>private static double roundDowntoPenny(double d ) {
+    double e = d * 100;
+    return ((int)e) / 100.0;
+}
+</code></pre>
+     <p>However, the output of the following shows that the behavior isn't quite what we expect.</p>
+     <pre><code>public static void main(String[] args) {
+    System.out.println(roundDowntoPenny(10.30001));
+    System.out.println(roundDowntoPenny(10.3000));
+    System.out.println(roundDowntoPenny(10.20001));
+    System.out.println(roundDowntoPenny(10.2000));
+}
+</code></pre>
+     <p>Output:</p>
+     <pre><code>10.3
+10.3
+10.2
+10.19 // Not expected!
+</code></pre>
+     <p>Of course, a method can be written which produces the output that we want. The problem is that it actually very difficult to do so (and to do so in every place where you need to manipulate prices).</p>
+     <p>For every numeral-system (base-10, base-2, base-16, etc.) with a finite number of digits, there are rationals that cannot be stored exactly. For example, 1/3 cannot be stored (with finite digits) in base-10. Similarly, 3/10 cannot be stored (with finite digits) in base-2.</p>
+     <p>If we needed to chose a numeral-system to store arbitrary rationals, it wouldn't matter what system we chose - any system chosen would have some rationals that couldn't be stored exactly.</p>
+     <p>However, humans began assigning prices to things way before the development of computer systems. Therefore, we see prices like 5.30 rather that 5 + 1/3. For example, our stock exchanges use decimal prices, which mean that they accept orders, and issue quotes, only in prices that can be represented in base-10. Likewise, it means that they can issue quotes and accept orders in prices that cannot be accurately represented in base-2.</p>
+     <p>By storing (transmitting, manipulating) those prices in base-2, we are essentially relying on rounding logic to always correctly round our (in-exact) base-2 (representation of) numbers back to their (exact) base-10 representation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

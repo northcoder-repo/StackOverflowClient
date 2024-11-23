@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Using Lucene Analyzer Without Indexing - Is My Approach Reasonable?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Using Lucene Analyzer Without Indexing - Is My Approach Reasonable?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>andrewJames</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 Jan 2020 at 19:43</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/59723144/using-lucene-analyzer-without-indexing-is-my-approach-reasonable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>My objective is to leverage some of Lucene's many tokenizers and filters to transform input text, but without the creation of any indexes.</p>
+    <p>For example, given this (contrived) input string...</p>
+    <p><code>" Someone’s - [texté] goes here, foo . "</code></p>
+    <p>...and a Lucene analyzer like this...</p>
+    <pre><code>Analyzer analyzer = CustomAnalyzer.builder()
+        .withTokenizer("icu")
+        .addTokenFilter("lowercase")
+        .addTokenFilter("icuFolding")
+        .build();
+</code></pre>
+    <p>I want to get the following output:</p>
+    <p><code>someone's texte goes here foo</code></p>
+    <p>The below Java method does what I want.</p>
+    <p><strong>But is there a better (i.e. more typical and/or concise) way that I should be doing this?</strong></p>
+    <p>I am specifically thinking about the way I have used <code>TokenStream</code> and <code>CharTermAttribute</code>, since I have never used them like this before. Feels clunky.</p>
+    <p>Here is the code:</p>
+    <p>Lucene 8.3.0 imports:</p>
+    <pre><code>import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.custom.CustomAnalyzer;
+</code></pre>
+    <p>My method:</p>
+    <pre><code>private String transform(String input) throws IOException {
+
+    Analyzer analyzer = CustomAnalyzer.builder()
+            .withTokenizer("icu")
+            .addTokenFilter("lowercase")
+            .addTokenFilter("icuFolding")
+            .build();
+
+    TokenStream ts = analyzer.tokenStream("myField", new StringReader(input));
+    CharTermAttribute charTermAtt = ts.addAttribute(CharTermAttribute.class);
+
+    StringBuilder sb = new StringBuilder();
+    try {
+        ts.reset();
+        while (ts.incrementToken()) {
+            sb.append(charTermAtt.toString()).append(" ");
+        }
+        ts.end();
+    } finally {
+        ts.close();
+    }
+    return sb.toString().trim();
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Mar 2020 at 23:22</span>
+     </div>
+    </div>
+    <div>
+     <p>I have been using this set-up for a few weeks without issue. I have not found a more concise approach. I think the code in the question is OK.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

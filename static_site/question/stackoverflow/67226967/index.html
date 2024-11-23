@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jQuery DataTables - Calling multiple plug-ins? (date range / range search)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jQuery DataTables - Calling multiple plug-ins? (date range / range search)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>jscodes</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Apr 2021 at 08:59</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67226967/jquery-datatables-calling-multiple-plug-ins-date-range-range-search">source</a>
+    </div>
+   </div>
+   <div>
+    <p>How do I combine these 2 plug-ins into my jquery datatables setup?</p>
+    <p>When I remove one of them, the one left over works (ex: remove date range, range search with numbers works). I've linked both below.</p>
+    <p><a href="https://datatables.net/extensions/datetime/examples/integration/datatables.html" rel="nofollow noreferrer">Date Range Plug-in</a></p>
+    <p><a href="https://datatables.net/examples/plug-ins/range_filtering.html" rel="nofollow noreferrer">Range Search Plug-in</a></p>
+    <p>After calling the DataTable, I'm then calling for the table.draw() for everything to update based on my input for either the range picker or the date picker.</p>
+    <pre><code>$(document).ready(function(){
+    var table = $('#example').DataTable();
+}
+</code></pre>
+    <p>I'm thinking what I have wrong is how I've setup the $.fn.dataTable.ext.search.push - I've checked TONS of times that my IDs are correct and that the data indexes are also correct. As mentioned, I remove one of these plug-ins and the other one works. I've tried a couple other examples I've found online, but coming up with nothing.</p>
+    <pre><code>  $.fn.dataTable.ext.search.push(
+function( settings, data, dataIndex ) {
+    var min = parseInt( $('#minNumber').val(), 10 );
+    var max = parseInt( $('#maxNumber').val(), 10 );
+    var risk = parseFloat( data[0] ) || 0;
+
+    var minDateTime = minDate.val();
+    var maxDateTime = maxDate.val();
+    var date = new Date( data[1] );
+
+    if ( ( isNaN( min ) &amp;&amp; isNaN( max ) ) ||
+         ( isNaN( min ) &amp;&amp; risk &lt;= max ) ||
+         ( min &lt;= risk   &amp;&amp; isNaN( max ) ) ||
+         ( min &lt;= risk   &amp;&amp; risk &lt;= max ) )
+    {
+        return true;
+    }
+
+    if (
+        ( minDateTime === null &amp;&amp; maxDateTime === null ) ||
+        ( minDateTime === null &amp;&amp; date &lt;= maxDateTime ) ||
+        ( minDateTime &lt;= date   &amp;&amp; maxDateTime === null ) ||
+        ( minDateTime &lt;= date   &amp;&amp; date &lt;= maxDateTime )
+    ) {
+        return true;
+    }
+    return false;
+}
+);
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Apr 2021 at 17:49</span>
+     </div>
+    </div>
+    <div>
+     <p>You need to combine the logic for your number range checker with the logic for your date range checker. You want all of the 4 input fields to be evaluated in a single <code>if</code> statement to determine whether a record should be hidden or displayed.</p>
+     <p>Currently they are operating as 2 independent pieces of code, one after the other.</p>
+     <p>Combine them with an <code>&amp;&amp;</code> operator:</p>
+     <pre class="lang-js prettyprint-override"><code>if (((isNaN(min) &amp;&amp; isNaN(max)) ||
+    (isNaN(min) &amp;&amp; risk &lt;= max) ||
+    (min &lt;= risk &amp;&amp; isNaN(max)) ||
+    (min &lt;= risk &amp;&amp; risk &lt;= max)) &amp;&amp;
+  (
+    (minDateTime === null &amp;&amp; maxDateTime === null) ||
+    (minDateTime === null &amp;&amp; date &lt;= maxDateTime) ||
+    (minDateTime &lt;= date &amp;&amp; maxDateTime === null) ||
+    (minDateTime &lt;= date &amp;&amp; date &lt;= maxDateTime)
+  ))
+
+{
+  return true;
+} else {
+  return false;
+}
+</code></pre>
+     <hr>
+     <p>The above logic may be hard to read - so an equivalent approach is the following:</p>
+     <pre class="lang-js prettyprint-override"><code>var withinRisk = ( 
+    ( isNaN( min ) &amp;&amp; isNaN( max ) ) ||
+    ( isNaN( min ) &amp;&amp; risk &lt;= max ) ||
+    ( min &lt;= risk  &amp;&amp; isNaN( max ) ) ||
+    ( min &lt;= risk  &amp;&amp; risk &lt;= max ) 
+);
+
+var withinDates = (
+    ( minDateTime === null &amp;&amp; maxDateTime === null ) ||
+    ( minDateTime === null &amp;&amp; date &lt;= maxDateTime ) ||
+    ( minDateTime &lt;= date  &amp;&amp; maxDateTime === null ) ||
+    ( minDateTime &lt;= date  &amp;&amp; date &lt;= maxDateTime )
+); 
+
+if (withinRisk &amp;&amp; withinDates)  {
+  return true;
+} else {
+  return false; 
+}
+</code></pre>
+     <p>Here, we keep the two range checks separate, and only combine them at the end.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

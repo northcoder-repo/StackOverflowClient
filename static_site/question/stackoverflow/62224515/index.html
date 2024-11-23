@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Dynamic filtering values in select elements in Datatables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Dynamic filtering values in select elements in Datatables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>gkoul</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>5 Jun 2020 at 21:43</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62224515/dynamic-filtering-values-in-select-elements-in-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Using the following code of multi-filtering <code>select</code> inputs in <code>Datatables</code> is it possible to show only available values in the other select inputs upon a selection in one filter? To be more precise, in this <a href="https://www.datatables.net/examples/api/multi_filter_select.html" rel="nofollow noreferrer">example</a> if I select 'Tokyo' as an <em>Office</em>, I would like to populate only the values 'Accountant', 'Integration Specialist', 'Support Engineer' and 'Regional Marketing' in the dropdown menu of <em>Position</em>.</p>
+    <pre><code>$(document).ready(function() {
+$('#example').DataTable( {
+    initComplete: function () {
+        this.api().columns([1,2]).every( function () {
+            var column = this;
+            var select = $('&lt;select&gt;&lt;option value=""&gt;&lt;/option&gt;&lt;/select&gt;')
+                .appendTo( $(column.footer()).empty() )
+                .on( 'change', function () {
+                    var val = $.fn.dataTable.util.escapeRegex(
+                        $(this).val()
+                    );
+
+                    column
+                        .search( val ? '^'+val+'$' : '', true, false )
+                        .draw();
+                } );
+
+            column.data().unique().sort().each( function ( d, j ) {
+                select.append( '&lt;option value="'+d+'"&gt;'+d+'&lt;/option&gt;' )
+            } );
+        } );
+    }
+} );
+} );
+
+////// here I get the unique values of each filtered `select` option
+$('select').on('change', function () {
+            var dtable = $('#datatable').DataTable();
+
+            var filteredArray = [];
+            var filteredArray2 = [];
+
+            dtable.column(1, { search: 'applied' }).data()
+            .unique()
+            .sort()
+            .each(function (value, index) {
+                filteredArray.push(value);
+            });
+
+            dtable.column(2, { search: 'applied' })
+            .data()
+            .unique()
+            .sort()
+            .each(function (value, index) {
+                filteredArray2.push(value);
+            });
+
+            console.log(filteredArray);
+            console.log(filteredArray2);
+
+});
+</code></pre>
+    <p>In my case I have filters in two columns only as it is shown in the above snippet, so upon selection in one of the two filters I would ideally like to show only available values in the other filter.</p>
+    <p>Although I have managed to get the unique values of each filter upon a selection I am struggling to hide all the <code>input</code> values that do not exist in the <em>filteredArray</em>s</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">datatables</span><span class="tag">input-filtering</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Jun 2020 at 20:18</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is one approach for doing this.</p>
+     <p>The end result is as follows:</p>
+     <p><a href="https://i.stack.imgur.com/0XWma.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/0XWma.png" alt="enter image description here"></a></p>
+     <p>Building a drop-down which only contains the unfiltered (visible) values of a column is relatively straightforward. At the heart of doing this we use the following:</p>
+     <pre><code>columns( { search: 'applied' } ).data()[index]
+</code></pre>
+     <p>Most of the complexity relates to managing the inter-related states of the two drop-downs. After loading the page, whichever drop-down gets used first is designated as the "primary" drop-down and the other is the "secondary". Whenever the user selects a new value from the primary drop-down, we have to clear the secondary drop-down; and then after the primary drop-down filter has been applied, we have to re-build the secondary drop-down's list of values.</p>
+     <p>The end result is this:</p>
+     <pre><code>&lt;script type="text/javascript"&gt;
+
+/* Each drop-down selection affects the values in the other drop-downs */
+
+var primaryColIdx;
+var secondaryColIdx;
+
+$(document).ready(function() {
+    $('#example').DataTable( {
+        initComplete: function () {
+          populateDropdowns(this);
+        }
+    } );
+
+} );
+
+function populateDropdowns(table) {
+    table.api().columns([1,2]).every( function () {
+        var column = this;
+        //console.log("processing col idx " + column.index());
+        var select = $('&lt;select&gt;&lt;option value=""&gt;&lt;/option&gt;&lt;/select&gt;')
+            .appendTo( $(column.footer()).empty() )
+            .on( 'change', function () {
+                var dropdown = this;
+                doFilter(table, dropdown, column);
+                rebuildSecondaryDropdown(table, column.index());
+            } );
+
+        column.data().unique().sort().each( function ( val, idx ) {
+            select.append( '&lt;option value="' + val + '"&gt;' + val + '&lt;/option&gt;' )
+        } );
+    } );
+}
+
+function doFilter(table, dropdown, column) {
+    // first time a drop-down is used, it becomes the primary. This
+    // remains the case until the page is refreshed:
+    if (primaryColIdx == null) {
+        primaryColIdx = column.index();
+        secondaryColIdx = (primaryColIdx == 1) ? 2 : 1;
+    }
+
+    if (column.index() === primaryColIdx) {
+        // reset all the filters because the primary is changing:
+        table.api().search( '' ).columns().search( '' );
+    }
+
+    var filterVal = $.fn.dataTable.util.escapeRegex($(dropdown).val());
+    //console.log("firing dropdown for col idx " + column.index() + " with value " + filterVal);
+    column
+        .search( filterVal ? '^' + filterVal + '$' : '', true, false )
+        .draw();
+}
+
+function rebuildSecondaryDropdown(table, primaryColIdx) {
+    var secondaryCol;
+
+    table.api().columns(secondaryColIdx).every( function () {
+        secondaryCol = this;
+    } );
+
+    // get only the unfiltered (unhidden) values for the "other" column:
+    var raw = table.api().columns( { search: 'applied' } ).data()[secondaryColIdx];
+    // the following uses "spread syntax" (...) for sorting and de-duping:
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax
+    var uniques = [...new Set(raw)].sort();
+
+    var filteredSelect = $('&lt;select&gt;&lt;option value=""&gt;&lt;/option&gt;&lt;/select&gt;')
+        .appendTo( $(secondaryCol.footer()).empty() )
+        .on( 'change', function () {
+            var dropdown = this;
+            doFilter(table, dropdown, secondaryCol);
+            //rebuildSecondaryDropdown(table, column.index());
+        } );
+
+    uniques.forEach(function (item, index) {
+        filteredSelect.append( '&lt;option value="' + item + '"&gt;' + item + '&lt;/option&gt;' )
+    } );
+
+}
+
+&lt;/script&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>what about if there are several dropdowns? I have a scrollable table with around 40 dropdowns, is there an other way to do it?</span> <span> - </span> <span class="display-name">andQlimax</span> <span> </span> <span class="date">19 Jan 2021 at 12:07</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@andQlimax - Do you mean 40 drop-downs which are all inter-dependent? (The selected value in any one drop-down will affect the available values in all the others?)</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Jan 2021 at 13:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>yes exactly..but not sure if there is an easy way to manage (I'm using jquery datatables, but anyway still need to update the dropdown options)</span> <span> - </span> <span class="display-name">andQlimax</span> <span> </span> <span class="date">19 Jan 2021 at 13:27</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>If you don't mind me asking - what is the scenario where you have this requirement? It's very unusual, I think, because it would be potentially complex for a user to actually use. Or, to ask the question a different way: What do you lose if you have 40 independent drop-downs?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Jan 2021 at 13:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Well the customers want to be able to apply filters like in excel (every filter applied, update the reamining filters), obviously they will not use all 40 filters together, but maybe only 2 or 3 together (but still I need to manage on all columns of the table)</span> <span> - </span> <span class="display-name">andQlimax</span> <span> </span> <span class="date">19 Jan 2021 at 13:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>OK - understood. In that case, this is more like a drill-down than a traditional filter (or perhaps a hybrid of the two). Take a look at the new <a href="https://datatables.net/blog/2020-09-01" rel="nofollow noreferrer">SearchBuilder</a> extension for DataTables. Click on the "Add condition" button to see it in action. If that is not the way forward for you, then it's going to be a custom JavaScript solution, with a UI similar to how Excel does it. (Or, you can ask the community in a new question - they may have a better approach than I can think of).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Jan 2021 at 13:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>WOW that's powerful..It can help my scenario. Actually I already develoved the dropdown filters on each column of the table, but they are all independed, probably I better remove the dropdown on each column and add the "Search Builder", I didn't kknow it exists</span> <span> - </span> <span class="display-name">andQlimax</span> <span> </span> <span class="date">19 Jan 2021 at 13:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It does not provide your requirement to have the "next" drop-down list filtered based on previous ones - but otherwise, it may be useful. In fact, I wonder if you can customize that aspect of its behavior.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 Jan 2021 at 13:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

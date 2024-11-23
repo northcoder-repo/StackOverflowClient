@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to design a REST API that can "prompt" the client about long-running operations?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to design a REST API that can "prompt" the client about long-running operations?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>42</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>meci</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>1 Aug 2020 at 06:16</span>
+    </div>
+    <div>
+     <a href="https://softwareengineering.stackexchange.com/questions/414355/how-to-design-a-rest-api-that-can-prompt-the-client-about-long-running-operati">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Say you were to develop a REST API that provides access to a set of complex, long-running, operations.</p>
+    <p>The typical paradigm for an API like this (as I understand it) usually involves (the client) making a request to the server, asking it to perform a given long-running operation. The server will respond with a <code>202 Accepted</code> message indicating that the request has been received and, with it, provides the location of the result, where it will eventually become available. The client, from then on, polls this location until the result of the long-running task becomes available.</p>
+    <p>This much makes sense. However, imagine now that these long-running tasks are more complex. Imagine that, during the execution of a task, a specific resource, file, network, etc. becomes unavailable and, in order to proceed, the API must "ask" the client whether the job should continue anyway or whether the task should end here.</p>
+    <p>How would this requirement change the original paradigm? Instead of having some result located at the given location, would you optionally return some notion of a "question" that needs to be posted back to the server in order to continue?</p>
+    <p>Assume for the purposes of this question that you can't encode some kind of blanket "continue if error" parameter in the original request and that these questions must be addressed on a case-by-case basis, as they arise, if they arise.</p>
+    <p>Maybe I'm thinking about this problem the wrong way? I'd be curious to hear how a paradigm like this is usually accomplished, or if it's as simple as, "yeah, just respond with the prompt, post back the result to the server, and continue to query the original location."</p>
+    <p>I would really appreciate any help I could get.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">design-patterns</span><span class="tag">rest</span><span class="tag">api</span><span class="tag">api-design</span><span class="tag">web-api</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>14</td>
+       <td><span>For something much more complex than start-job/monitor-job-status I wouldn't go with REST. I'd use websockets. If without websockets I'd implement a long-polling (comet) endpoint so I can get real-time (within milliseconds) update from the server.</span> <span> - </span> <span class="display-name">slebetman</span> <span> </span> <span class="date">2 Aug 2020 at 00:30</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>That is an excellent point and it's a direction I'm definitely considering. I think a websocket approach makes a lot of sense given the complexity. However, I wanted to compare it with a REST approach first to better understand how something like this might be implemented. I really like @hans-martin-mosner's approach of modeling jobs as resources. So, I may have the client API initialize the request and return a "handle" to the job via some kind of proxy job object. The job object could then directly communicate with the server over websockets and raise "server-prompt" events when they occur.</span> <span> - </span> <span class="display-name">meci</span> <span> </span> <span class="date">2 Aug 2020 at 03:02</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Unfortunately I don't have the rep to answer, but... You could also register a URL for a callback when the processing is done. So, make the initial request, including a callback URL in the request. When the processing is done, the service running the process can hit the callback URL it was given, with the result of the operation. This keeps everything as a REST API, without any setup required for websockets. Not sure how 'pure' REST this is, but it's good enough for Microsoft <a href="https://docs.microsoft.com/en-us/partner-center/develop/partner-center-webhook-events" rel="nofollow noreferrer">docs.microsoft.com/en-us/partner-center/develop/…</a></span> <span> - </span> <span class="display-name">J Lewis</span> <span> </span> <span class="date">3 Aug 2020 at 09:19</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Yet another possibility would be the use of push notifications. This would even allow the user to close the window and still receive notifications of completion/interaction required.</span> <span> - </span> <span class="display-name">jcaron</span> <span> </span> <span class="date">4 Aug 2020 at 10:52</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>79</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hans-Martin Mosner</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Aug 2020 at 07:04</span>
+     </div>
+    </div>
+    <div>
+     <p>For long-running operations, it often helps to model the active job as a REST resource with its own structure and/or sub-resources.</p>
+     <p>For example, starting a job may return a result such as</p>
+     <pre><code>202 Accepted
+Location: https://example.com/jobs/123
+</code></pre>
+     <p>At that URL, the client will get a structure such as</p>
+     <pre><code>{
+  "status":"running"
+}
+</code></pre>
+     <p>as long as the job is running,</p>
+     <pre><code>{
+  "status":"finished",
+  "result":"https://example.com/jobs/123/result"
+}
+</code></pre>
+     <p>when it is completed and a result is available, or</p>
+     <pre><code>{
+  "status":"interaction-required",
+  "prompt":"xyz service not available, please restart it or cancel job.",
+  "continue":"https://example.com/jobs/123/continue/&lt;token&gt;",
+  "cancel":"https://example.com/jobs/123/cancel"
+}
+</code></pre>
+     <p>to interact with the user. The job would continue (retrying xyz access) after the client posts something to the continue URL (which would include an idempotency token as suggested by @NPSF3000 to prevent accidentally continuing the next interaction), or would be cancelled by posting something to the cancel URL. Another option for cancellation would be a DELETE verb on the job URL. The cancel link could also be made part of the initial job structure to communicate that the job can be cancelled at any time if the application supports that.</p>
+     <p>The details about which kinds of interaction are possible and how they are presented in the client would need to be designed based on the specific needs of these jobs, but the main thing is that the operation start does not just return the location of the result but of a reified job object that can be queried and manipulated.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>Excellent answer, which should get more focus on the opening paragraph's core: modeling your API might require you to have a different model than your business process - you might consider the entities "operation" and "result" as your business operations, but your rest API needs to model "job" as an entity.</span> <span> - </span> <span class="display-name">Avner Shahar-Kashtan</span> <span> </span> <span class="date">1 Aug 2020 at 15:31</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>More information in <a href="https://stackoverflow.com/questions/2641901/how-to-manage-state-in-rest?noredirect=1&amp;lq=1">How to manage state in REST</a></span> <span> - </span> <span class="display-name">HenryM</span> <span> </span> <span class="date">1 Aug 2020 at 17:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@HenryM thanks for the reference, indeed a good read.</span> <span> - </span> <span class="display-name">Hans-Martin Mosner</span> <span> </span> <span class="date">1 Aug 2020 at 18:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Why would <code>result</code> be another URL, and not just the result?</span> <span> - </span> <span class="display-name">BlueRaja - Danny Pflughoeft</span> <span> </span> <span class="date">2 Aug 2020 at 00:04</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@BlueRaja-DannyPflughoeft that might make sense when you want to clean up jobs but keep results available, separately. You could also reuse a previously computed result, in some applications. You might also want to serve job statistics, or use different security policies for the result and the job itself.</span> <span> - </span> <span class="display-name">WorldSEnder</span> <span> </span> <span class="date">2 Aug 2020 at 00:23</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>Adding some sort of <code>idempotency token</code> to the continue could be a good idea for a production system.</span> <span> - </span> <span class="display-name">NPSF3000</span> <span> </span> <span class="date">2 Aug 2020 at 00:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This is such a clean, easy and elegant solution to implement. I was expecting something extremelly more complicated. Just one small nitpick: where's the cancel link? One solution I see could be to implement an <code>"actions": { ... }</code> object or similar, where it could be <code>"actions": {"continue": "...", "cancel": " ... "}</code>. In the future, if more actions are required, you can just add them there. And the status could be changed to <code>"action-required"</code>. An example of an extra action is asking a file upload for a task that failed to fetch a remote file. Or an option to cancel or retry.</span> <span> - </span> <span class="display-name">Ismael Miguel</span> <span> </span> <span class="date">3 Aug 2020 at 10:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@IsmaelMiguel Yes, these are details that you will need to decide, there's a lot of room for improvement. Regarding the cancel action, I'm not fully sure which option is best. For cancellation of the complete job, I see different options: one would be a "cancel" link, another would be more RESTful by patching the "status" field of the job. This would also enable interrupting a long-running job when there is no current interaction. At the end of the day, it needs to work for your application, so you got to decide how you implement it.</span> <span> - </span> <span class="display-name">Hans-Martin Mosner</span> <span> </span> <span class="date">3 Aug 2020 at 12:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Hans-MartinMosner You are right. I still think that a cancel <i>example</i> could improve the last example. Something like ` "cancel":"<a href="https://example.com/jobs/123/cancel" rel="nofollow noreferrer">example.com/jobs/123/cancel</a>"` could be enough <i>for an example</i>. What do you think?</span> <span> - </span> <span class="display-name">Ismael Miguel</span> <span> </span> <span class="date">3 Aug 2020 at 12:35</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

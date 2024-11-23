@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Difference between / and /* in servlet mapping url pattern</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Difference between / and /* in servlet mapping url pattern</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>191</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Candy Chiu</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>10 Nov 2010 at 01:28</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/4140448/difference-between-and-in-servlet-mapping-url-pattern">source</a>
+    </div>
+   </div>
+   <div>
+    <p>The familiar code:</p>
+    <pre class="lang-xml prettyprint-override"><code>&lt;servlet-mapping&gt;
+    &lt;servlet-name&gt;main&lt;/servlet-name&gt;
+    &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+&lt;/servlet-mapping&gt;
+
+&lt;servlet-mapping&gt;
+    &lt;servlet-name&gt;main&lt;/servlet-name&gt;
+    &lt;url-pattern&gt;/&lt;/url-pattern&gt;
+&lt;/servlet-mapping&gt;
+</code></pre>
+    <p>My understanding is that <code>/*</code> maps to <code>http://host:port/context/*</code>.</p>
+    <p>How about <code>/</code>? It sure doesn't map to <code>http://host:port/context</code> root only. In fact, it will accept <code>http://host:port/context/hello</code>, but reject <code>http://host:port/context/hello.jsp</code>.</p>
+    <p>Can anyone explain how is <code>http://host:port/context/hello</code> mapped?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">servlets</span><span class="tag">web.xml</span><span class="tag">url-pattern</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>296</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BalusC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Nov 2010 at 02:13</span>
+     </div>
+    </div>
+    <div>
+     <h3><code>&lt;url-pattern&gt;/*&lt;/url-pattern&gt;</code></h3>
+     <p>The <code>/*</code> on a servlet overrides all other servlets, including all servlets provided by the servletcontainer such as the default servlet and the JSP servlet. Whatever request you fire, it will end up in that servlet. This is thus a bad URL pattern for servlets. Usually, you'd like to use <code>/*</code> on a <a href="http://download.oracle.com/javaee/6/api/javax/servlet/Filter.html" rel="noreferrer"><code>Filter</code></a> only. It is able to let the request continue to any of the servlets listening on a more specific URL pattern by calling <a href="http://download.oracle.com/javaee/6/api/javax/servlet/FilterChain.html#doFilter%28javax.servlet.ServletRequest,%20javax.servlet.ServletResponse%29" rel="noreferrer"><code>FilterChain#doFilter()</code></a>.</p>
+     <h3><code>&lt;url-pattern&gt;/&lt;/url-pattern&gt;</code></h3>
+     <p>The <code>/</code> doesn't override any other servlet. It only replaces the servletcontainer's built in default servlet for all requests which doesn't match any other registered servlet. This is normally only invoked on static resources (CSS/JS/image/etc) and directory listings. The servletcontainer's built in default servlet is also capable of dealing with HTTP cache requests, media (audio/video) streaming and file download resumes. Usually, you don't want to override the default servlet as you would otherwise have to take care of all its tasks, which is not exactly trivial (JSF utility library <a href="http://omnifaces.org" rel="noreferrer">OmniFaces</a> has an <a href="https://github.com/omnifaces/omnifaces/blob/master/src/main/java/org/omnifaces/servlet/FileServlet.java" rel="noreferrer">open source</a> <a href="http://showcase.omnifaces.org/servlets/FileServlet" rel="noreferrer">example</a>). This is thus also a bad URL pattern for servlets. As to why JSP pages doesn't hit this servlet, it's because the servletcontainer's built in JSP servlet will be invoked, which is already by default mapped on the more specific URL pattern <code>*.jsp</code>.</p>
+     <h3><code>&lt;url-pattern&gt;&lt;/url-pattern&gt;</code></h3>
+     <p>Then there's also the empty string URL pattern <code> </code>. This will be invoked when the context root is requested. This is different from the <a href="https://stackoverflow.com/questions/14648167/how-to-configure-welcome-file-list-in-web-xml/"><code>&lt;welcome-file&gt;</code></a> approach that it isn't invoked when any subfolder is requested. This is most likely the URL pattern you're actually looking for in case you want a "<a href="https://stackoverflow.com/questions/33248473/change-default-homepage-in-root-path-to-servlet-with-doget/">home page servlet</a>". I only have to admit that I'd intuitively expect the empty string URL pattern <code> </code> and the slash URL pattern <code>/</code> be defined exactly the other way round, so I can understand that a lot of starters got confused on this. But it is what it is.</p>
+     <h3>Front Controller</h3>
+     <p>In case you <em>actually</em> intend to have a front controller servlet, then you'd best map it on a more specific URL pattern like <code>*.html</code>, <code>*.do</code>, <code>/pages/*</code>, <code>/app/*</code>, etc. You can hide away the front controller URL pattern and cover static resources on a common URL pattern like <code>/resources/*</code>, <code>/static/*</code>, etc with help of a servlet filter. See also <a href="https://stackoverflow.com/questions/13521946/how-to-prevent-static-resources-from-being-handled-by-front-controller-servlet-w">How to prevent static resources from being handled by front controller servlet which is mapped on /*</a>. Noted should be that Spring MVC has a built in static resource servlet, so that's why you could map its front controller on <code>/</code> if you configure a common URL pattern for static resources in Spring. See also <a href="https://stackoverflow.com/questions/1483063/spring-mvc-3-and-handling-static-content-am-i-missing-something">How to handle static content in Spring MVC?</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>10</td>
+        <td><span>Thanks. After some research, I'd like to clarify a subtle point. / overwrites the default servlet the web server installs. For example, Tomcat installs a DefaultServlet which serves static resources. Using / gets rid of the default servlet as a (most likely undesirable) side effect.</span> <span> - </span> <span class="display-name">Candy Chiu</span> <span> </span> <span class="date">10 Nov 2010 at 05:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Well, I wouldn't call it "overwriting", but "replacing". It can be useful to replace the default servlet like that.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">10 Nov 2010 at 12:54</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>&lt;url-pattern&gt;&lt;/url-pattern&gt; throws an error: Invalid &lt;url-pattern&gt; in servlet mapping</span> <span> - </span> <span class="display-name">slim</span> <span> </span> <span class="date">18 Jan 2016 at 17:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The error message was from tomcat, not my IDE; however, I'm using Tomcat 6, so that's probably the issue ;)</span> <span> - </span> <span class="display-name">slim</span> <span> </span> <span class="date">19 Jan 2016 at 16:11</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@BalusC, can you please tell me what <code>/**</code> pattern indicates?</span> <span> - </span> <span class="display-name">Sajib Acharya</span> <span> </span> <span class="date">23 Feb 2016 at 19:46</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Sajib: that's not part of Servlet API. A decent container would throw a deployment exception on this. The <code>/**</code> suffix pattern is however recognizable from 3rd party libraries/frameworks such as Spring and Shiro. Consult its documentation for detail instead.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">23 Feb 2016 at 19:47</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I believe this answer is incorrect. <code>/*</code> does not override all other servlets, and not all requests end up there. The container will first try to find an exact match, and then the longest path-prefix match. So a servlet with mapping <code>/foo/bar</code> or one with mapping <code>/foo/*</code> will fire before a servlet with mapping <code>/*</code>. However, the one with <code>/*</code> will override any extension mapping like <code>*.html</code>.</span> <span> - </span> <span class="display-name">Robert Tupelo-Schneck</span> <span> </span> <span class="date">27 Jul 2017 at 20:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If I understand the mapping rules mentioned by @CandyChiu correctly, Tomcat will try to map the request URI by the exact path over wildcard paths. So "/*" in some cases may not override all possible servlets. In fact, if there are some other servlets with mappings of exact path that matches with the request URI, those servlets will be invoked instead of "/*" servlet?</span> <span> - </span> <span class="display-name">torez233</span> <span> </span> <span class="date">8 Aug 2020 at 17:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>50</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Candy Chiu</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Nov 2010 at 17:00</span>
+     </div>
+    </div>
+    <div>
+     <p>I'd like to supplement BalusC's answer with the mapping rules and an example.</p>
+     <p>Mapping rules from Servlet 2.5 specification:</p>
+     <ol>
+      <li>Map exact URL</li>
+      <li>Map wildcard paths</li>
+      <li>Map extensions</li>
+      <li>Map to the default servlet</li>
+     </ol>
+     <p>In our example, there're three servlets. / is the default servlet installed by us. Tomcat installs two servlets to serve jsp and jspx. So to map <code>http://host:port/context/hello</code></p>
+     <ol>
+      <li>No exact URL servlets installed, next.</li>
+      <li>No wildcard paths servlets installed, next.</li>
+      <li>Doesn't match any extensions, next.</li>
+      <li>Map to the default servlet, return.</li>
+     </ol>
+     <p>To map <code>http://host:port/context/hello.jsp</code></p>
+     <ol>
+      <li>No exact URL servlets installed, next.</li>
+      <li>No wildcard paths servlets installed, next.</li>
+      <li>Found extension servlet, return.</li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>26</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>hakunami</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Sep 2015 at 07:01</span>
+     </div>
+    </div>
+    <div>
+     <p>Perhaps you need to know how urls are mapped too, since I suffered <code>404</code> for hours. There are two kinds of handlers handling requests. <code>BeanNameUrlHandlerMapping</code> and <code>SimpleUrlHandlerMapping</code>. When we defined a <code>servlet-mapping</code>, we are using <code>SimpleUrlHandlerMapping</code>. One thing we need to know is these two handlers share a common property called <code>alwaysUseFullPath</code> which defaults to <code>false</code>.</p>
+     <p><code>false</code> here means Spring will not use the full path to mapp a url to a controller. What does it mean? It means when you define a <code>servlet-mapping</code>:</p>
+     <pre><code>&lt;servlet-mapping&gt;
+    &lt;servlet-name&gt;viewServlet&lt;/servlet-name&gt;
+    &lt;url-pattern&gt;/perfix/*&lt;/url-pattern&gt;
+&lt;/servlet-mapping&gt;
+</code></pre>
+     <p>the handler will actually use the <code>*</code> part to find the controller. For example, the following controller will face a <code>404</code> error when you request it using <code>/perfix/api/feature/doSomething</code></p>
+     <pre><code>@Controller()
+@RequestMapping("/perfix/api/feature")
+public class MyController {
+    @RequestMapping(value = "/doSomething", method = RequestMethod.GET) 
+    @ResponseBody
+    public String doSomething(HttpServletRequest request) {
+        ....
+    }
+}
+</code></pre>
+     <p>It is a perfect match, right? But why <code>404</code>. As mentioned before, default value of <code>alwaysUseFullPath</code> is false, which means in your request, only <code>/api/feature/doSomething</code> is used to find a corresponding Controller, but there is no Controller cares about that path. You need to either change your url to <code>/perfix/perfix/api/feature/doSomething</code> or remove <code>perfix</code> from MyController base <code>@RequestingMapping</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>hehe</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Nov 2014 at 09:41</span>
+     </div>
+    </div>
+    <div>
+     <p>I think Candy's answer is mostly correct. There is one small part I think otherwise.</p>
+     <p>To map host:port/context/hello.jsp</p>
+     <ol>
+      <li>No exact URL servlets installed, next.</li>
+      <li><strong>Found wildcard paths servlets</strong>, return.</li>
+     </ol>
+     <p>I believe that why "/*" does not match host:port/context/hello because it treats "/hello" as a path instead of a file (since it does not have an extension).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Robert Tupelo-Schneck</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Jul 2017 at 20:49</span>
+     </div>
+    </div>
+    <div>
+     <p>The essential difference between <code>/*</code> and <code>/</code> is that a servlet with mapping <code>/*</code> will be selected before any servlet with an extension mapping (like <code>*.html</code>), while a servlet with mapping <code>/</code> will be selected only after extension mappings are considered (and will be used for any request which doesn't match anything else---it is the "default servlet").</p>
+     <p>In particular, a <code>/*</code> mapping will always be selected before a <code>/</code> mapping. Having either prevents any requests from reaching the container's own default servlet.</p>
+     <p>Either will be selected only after servlet mappings which are exact matches (like <code>/foo/bar</code>) and those which are path mappings longer than <code>/*</code> (like <code>/foo/*</code>). Note that the empty string mapping is an exact match for the context root (<code>http://host:port/context/</code>).</p>
+     <p>See Chapter 12 of the Java Servlet Specification, available in version 3.1 at <a href="http://download.oracle.com/otndocs/jcp/servlet-3_1-fr-eval-spec/index.html" rel="nofollow noreferrer">http://download.oracle.com/otndocs/jcp/servlet-3_1-fr-eval-spec/index.html</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,1161 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java 8: Lambda-Streams, Filter by Method with Exception</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java 8: Lambda-Streams, Filter by Method with Exception</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>205</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Martin Weber</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>3 Nov 2013 at 19:51</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/19757300/java-8-lambda-streams-filter-by-method-with-exception">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a problem trying out the Lambda expressions of Java 8. Usually it works fine, but now I have methods that throw <code>IOException</code>'s. It's best if you look at the following code:</p>
+    <pre><code>class Bank{
+    ....
+    public Set&lt;String&gt; getActiveAccountNumbers() throws IOException {
+        Stream&lt;Account&gt; s =  accounts.values().stream();
+        s = s.filter(a -&gt; a.isActive());
+        Stream&lt;String&gt; ss = s.map(a -&gt; a.getNumber());
+        return ss.collect(Collectors.toSet());
+    }
+    ....
+}
+
+interface Account{
+    ....
+    boolean isActive() throws IOException;
+    String getNumber() throws IOException;
+    ....
+}
+</code></pre>
+    <p>The problem is, it doesn't compile, because I have to catch the possible exceptions of the isActive- and the getNumber-Methods. But even if I explicitly use a try-catch-Block like below, it still doesn't compile because I don't catch the Exception. So either there is a bug in JDK, or I don't know how to catch these Exceptions.</p>
+    <pre><code>class Bank{
+    ....
+    //Doesn't compile either
+    public Set&lt;String&gt; getActiveAccountNumbers() throws IOException {
+        try{
+            Stream&lt;Account&gt; s =  accounts.values().stream();
+            s = s.filter(a -&gt; a.isActive());
+            Stream&lt;String&gt; ss = s.map(a -&gt; a.getNumber());
+            return ss.collect(Collectors.toSet());
+        }catch(IOException ex){
+        }
+    }
+    ....
+}
+</code></pre>
+    <p>How can I get it work? Can someone hint me to the right solution?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">exception</span><span class="tag">lambda</span><span class="tag">java-8</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Related: <a href="http://stackoverflow.com/questions/18198176/java-8-lambda-function-that-throws-exception" title="java 8 lambda function that throws exception">stackoverflow.com/questions/18198176/…</a></span> <span> - </span> <span class="display-name">Vadzim</span> <span> </span> <span class="date">27 Jul 2015 at 20:03</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Related: <a href="http://stackoverflow.com/questions/31637892/throwing-exception-from-lambda/31638189" title="throwing exception from lambda">stackoverflow.com/questions/31637892/…</a></span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">31 Jul 2015 at 11:31</span></td>
+      </tr>
+      <tr>
+       <td>5</td>
+       <td><span>The simple and correct answer: catch the exception inside the lambda.</span> <span> - </span> <span class="display-name">Brian Goetz</span> <span> </span> <span class="date">24 Oct 2015 at 14:50</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I am not sure but if <code>Account</code> object is domain in such application like <code>Bank</code> then why we would throw <code>IoException</code> on the domain method. In an ideal scenario we would be having some service where we might be fetching the account and then active and other state for that domain would be already there and we can just filter or do operation on those.</span> <span> - </span> <span class="display-name">Kunal Varpe</span> <span> </span> <span class="date">31 Dec 2022 at 12:08</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>236</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Marko Topolnik</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Nov 2013 at 20:04</span>
+     </div>
+    </div>
+    <div>
+     <p>You must catch the exception <em>before</em> it escapes the lambda:</p>
+     <pre class="lang-java prettyprint-override"><code>s = s.filter(a -&gt; {
+    try {
+        return a.isActive();
+    } catch (IOException e) {
+        throw new UncheckedIOException(e);
+    }
+});
+</code></pre>
+     <p>Consider the fact that the lambda isn't evaluated at the place you write it, but at some completely unrelated place, within a JDK class. So that would be the point where that checked exception would be thrown, and at that place it isn't declared.</p>
+     <p>You can deal with it by using a wrapper of your lambda that translates checked exceptions to unchecked ones:</p>
+     <pre class="lang-java prettyprint-override"><code>public static &lt;T&gt; T uncheckCall(Callable&lt;T&gt; callable) {
+    try {
+        return callable.call();
+    } catch (RuntimeException e) {
+        throw e;
+    } catch (Exception e) {
+        throw new RuntimeException(e);
+    }
+}
+</code></pre>
+     <p>Your example would be written as</p>
+     <pre><code>return s.filter(a -&gt; uncheckCall(a::isActive))
+        .map(Account::getNumber)
+        .collect(toSet());
+</code></pre>
+     <hr>
+     <p>In my projects I deal with this issue without wrapping; instead I use a method which effectively defuses compiler's checking of exceptions. Needless to say, this should be handled with care and everybody on the project must be aware that a checked exception may appear where it is not declared. This is the plumbing code:</p>
+     <pre><code>public static &lt;T&gt; T uncheckCall(Callable&lt;T&gt; callable) {
+    try {
+        return callable.call();
+    } catch (Exception e) {
+        sneakyThrow(e);
+        return null; // Unreachable but needed to satisfy compiler
+    }
+}
+
+public static void uncheckRun(RunnableExc r) {
+    try {
+        r.run();
+    } catch (Exception e) {
+        sneakyThrow(e);
+    }
+}
+
+public interface RunnableExc {
+    void run() throws Exception;
+}
+
+@SuppressWarnings("unchecked")
+private static &lt;T extends Throwable&gt; void sneakyThrow(Throwable t) throws T {
+    throw (T) t;
+}
+</code></pre>
+     <p>and you can expect to get an <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/io/IOException.html" rel="nofollow noreferrer"><code>IOException</code></a> thrown in your face, even though <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/stream/Stream.html#collect(java.util.stream.Collector)" rel="nofollow noreferrer"><code>collect</code></a> does not declare it. In <em>most, but not all</em> real-life cases you would want to just rethrow the exception, anyway, and handle it as a generic failure. In all those cases, nothing is lost in clarity or correctness. Just beware of those other cases, where you would actually want to react to the exception on the spot. The developer will not be made aware by the compiler that there is an <code>IOException</code> to catch there and the compiler will in fact complain if you try to catch it because we have fooled it into believing that no such exception can be thrown.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>I've seen NettyIO do the "sneaky throw" before, and I wanted to throw my chair out the window. "What? Where did that checked exception leak from?" This is the first legit use case for sneaky throw I have seen yet. As a programmer you have to be vigilant about indicating sneaky throw is possible. Maybe better is just to create another stream interface/impl that supports checked exception?</span> <span> - </span> <span class="display-name">kevinarpe</span> <span> </span> <span class="date">25 Aug 2015 at 12:23</span></td>
+       </tr>
+       <tr>
+        <td>9</td>
+        <td><span>No sane API should deliver undeclared checked exceptions to the client, that's for sure. <i>Within</i> the API there can be an understanding, though, that checked exception can leak. They don't cause harm as long as they are just another sign of general failure and are about to be caught and handled wholesale.</span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">25 Aug 2015 at 12:27</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@kevinarpe This is the exact reason why sneaky throws are a bad idea. Shortcircuiting the compiler is bound to confuse future maintainers.</span> <span> - </span> <span class="display-name">Thorbjørn Ravn Andersen</span> <span> </span> <span class="date">24 Sep 2015 at 15:41</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@ThorbjørnRavnAndersen Checked exceptions are another bad idea, especially within lambda bodies. If they weren't, nobody would ever consider the sneaky throw.</span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">24 Sep 2015 at 19:08</span></td>
+       </tr>
+       <tr>
+        <td>36</td>
+        <td><span>Just because you don't like the rules, doesn't mean its a good idea to take the law into your own hands. Your advice is irresponsible because it places the convenience of the code writer over the far more important considerations of transparency and maintainability of the program.</span> <span> - </span> <span class="display-name">Brian Goetz</span> <span> </span> <span class="date">24 Oct 2015 at 14:56</span></td>
+       </tr>
+       <tr>
+        <td>44</td>
+        <td><span>@brian Just because something is a rule doesn't mean it's a good idea. But I'm surprised that you refer to the second part of my answer as "advice" since I thought I made it patently obvious what I propose as a solution, and what I offer as an FYI to the interested reader, with profuse disclaimers.</span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">24 Oct 2015 at 18:46</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Would you suggest to use the lambda-expression with a try-catch-block when iterating over a java-stream with forEach instead of an enhanced-for-loop? Im updating one of my older projects to Java 8. The lambda-expressions came in handy for a long time, but there is a part in the project that handles exception at a high level, meaning everything keeps passing the thrown Exceptions. Are the pros of lambda-expressions overwhelming the cons of the constrained way to handle Exceptions within those expression?</span> <span> - </span> <span class="display-name">leif_good</span> <span> </span> <span class="date">22 Apr 2016 at 15:14</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I find your try-catch lambda notation useful, although there is a small syntax error there, the correct form looks like this: <code>s = s.filter(a -&gt; { try { return a.isActive(); } catch (IOException e) { throw new UncheckedIOException(e); } } );</code></span> <span> - </span> <span class="display-name">wpodgorski</span> <span> </span> <span class="date">9 May 2016 at 17:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Note, that class is called <code>Utils</code>, if you wonder about <code>Utils.&lt;RuntimeException, T&gt;sneakyThrow0(e);</code></span> <span> - </span> <span class="display-name">luckydonald</span> <span> </span> <span class="date">6 Oct 2016 at 21:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@luckydonald The class in this answer is called <code>Util</code>, not <code>Utils</code>, but the name has no particular significance.</span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">7 Oct 2016 at 06:14</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>There is a library that provides these and some more helpers: <a href="https://github.com/zalando/faux-pas" rel="nofollow noreferrer">github.com/zalando/faux-pas</a></span> <span> - </span> <span class="display-name">Bernhard</span> <span> </span> <span class="date">9 Feb 2019 at 07:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Bernhard Faux Pas uses an approach that has been around for a long time and its weakness is that it must special-case each functional interface individually. In my approach, all you need is just two functional interfaces to un-check <i>any</i> functional interface.</span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">9 Feb 2019 at 08:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You need to add <code>return false;</code> to the catch condition. Otherwise there's an error.</span> <span> - </span> <span class="display-name">gene b.</span> <span> </span> <span class="date">27 Mar 2019 at 19:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@geneb. Which of all the catch conditions in the answer, and what's the error?</span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">28 Mar 2019 at 10:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The very first code snippet. You have <code>return a.isActive();</code> in the Try block. But you also need an explicit <code>return</code> in the Catch block.</span> <span> - </span> <span class="display-name">gene b.</span> <span> </span> <span class="date">28 Mar 2019 at 13:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@geneb. Code after the <code>throw</code> statement is unreachable so actually if I added it, <i>then</i> I'd have a compiler error.</span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">28 Mar 2019 at 13:41</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>The <code>sneakyThrow</code> method can be found in <code>apache.commons.lang3.exception.ExceptionUtils</code> under the name <code>typeErasure</code>. Use it if you can so that <i>you</i> don't have to be the committer that added <code>sneakyThrow</code> to your project. ;-)</span> <span> - </span> <span class="display-name">Marty Neal</span> <span> </span> <span class="date">31 May 2019 at 17:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The misguided design decision of Checked Exceptions should have been mitigated by javac supporting a compile-scope attribute and functionality like the Project Lombok @SneakyThrows attribute, but with support for more scopes like a single statement, including a chained stream sequence.</span> <span> - </span> <span class="display-name">Infernoz</span> <span> </span> <span class="date">17 Feb 2020 at 23:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>private static &lt;T extends Throwable&gt; void sneakyThrow(Throwable t) throws T</code> - From this method signature, how does Java infers the value of T, i.e., exception class that will be re-thrown?</span> <span> - </span> <span class="display-name">shiva</span> <span> </span> <span class="date">23 Dec 2021 at 19:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@shiva Lacking any other constraints, it will infer it to <code>RuntimeException</code>. The point is that you can throw something that isn't a <code>RuntimeException</code> from this because no actual cast is made with <code>(T) t</code>, and the method doesn't declare a checked exception.</span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">25 Dec 2021 at 08:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How could one modify <code>uncheckCall</code> to also accept void return type statements? I cannot seem to get it to work for both <code>&lt;T&gt; T&gt;</code> return type and <code>void</code>.</span> <span> - </span> <span class="display-name">Philzen</span> <span> </span> <span class="date">8 Feb 2022 at 01:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Philzen The inability to do that is the reason the code in the answer declares <code>uncheckRun</code> and <code>RunnableExc</code>.</span> <span> - </span> <span class="display-name">Marko Topolnik</span> <span> </span> <span class="date">8 Feb 2022 at 07:20</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>34</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Andrey Chaschev</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Nov 2013 at 23:47</span>
+     </div>
+    </div>
+    <div>
+     <p>You can also propagate your static pain with lambdas, so the whole thing looks readable:</p>
+     <pre><code>s.filter(a -&gt; propagate(a::isActive))
+</code></pre>
+     <p><code>propagate</code> here receives <code>java.util.concurrent.Callable</code> as a parameter and converts any exception caught during the call into <code>RuntimeException</code>. There is a similar conversion method <a href="http://docs.guava-libraries.googlecode.com/git/javadoc/com/google/common/base/Throwables.html#propagate%28java.lang.Throwable%29">Throwables#propagate(Throwable)</a> in Guava.</p>
+     <p>This method seems being essential for lambda method chaining, so I hope one day it will be added to one of the popular libs or this propagating behavior would be by default.</p>
+     <pre><code>public class PropagateExceptionsSample {
+    // a simplified version of Throwables#propagate
+    public static RuntimeException runtime(Throwable e) {
+        if (e instanceof RuntimeException) {
+            return (RuntimeException)e;
+        }
+
+        return new RuntimeException(e);
+    }
+
+    // this is a new one, n/a in public libs
+    // Callable just suits as a functional interface in JDK throwing Exception 
+    public static &lt;V&gt; V propagate(Callable&lt;V&gt; callable){
+        try {
+            return callable.call();
+        } catch (Exception e) {
+            throw runtime(e);
+        }
+    }
+
+    public static void main(String[] args) {
+        class Account{
+            String name;    
+            Account(String name) { this.name = name;}
+
+            public boolean isActive() throws IOException {
+                return name.startsWith("a");
+            }
+        }
+
+
+        List&lt;Account&gt; accounts = new ArrayList&lt;&gt;(Arrays.asList(new Account("andrey"), new Account("angela"), new Account("pamela")));
+
+        Stream&lt;Account&gt; s = accounts.stream();
+
+        s
+          .filter(a -&gt; propagate(a::isActive))
+          .map(a -&gt; a.name)
+          .forEach(System.out::println);
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Also, if you choose to use <code>propagate</code> method from Guava, then take into account that it is deprecated. Use <code>throwIfUnchecked</code> instead.</span> <span> - </span> <span class="display-name">yaromir</span> <span> </span> <span class="date">8 May 2021 at 18:19</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>There is a good reason why Guava deprecated <code>propagate</code>: <a href="https://github.com/google/guava/wiki/Why-we-deprecated-Throwables.propagate" rel="nofollow noreferrer">github.com/google/guava/wiki/…</a></span> <span> - </span> <span class="display-name">kane</span> <span> </span> <span class="date">6 Aug 2021 at 01:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>25</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>MarcG</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Dec 2014 at 20:15</span>
+     </div>
+    </div>
+    <div>
+     <p>This <code>UtilException</code> helper class lets you use any checked exceptions in Java streams, like this:</p>
+     <pre><code>Stream.of("java.lang.Object", "java.lang.Integer", "java.lang.String")
+      .map(rethrowFunction(Class::forName))
+      .collect(Collectors.toList());
+</code></pre>
+     <p>Note <code>Class::forName</code> throws <code>ClassNotFoundException</code>, which is <strong>checked</strong>. The stream itself also throws <code>ClassNotFoundException</code>, and NOT some wrapping unchecked exception.</p>
+     <pre><code>public final class UtilException {
+
+@FunctionalInterface
+public interface Consumer_WithExceptions&lt;T, E extends Exception&gt; {
+    void accept(T t) throws E;
+    }
+
+@FunctionalInterface
+public interface BiConsumer_WithExceptions&lt;T, U, E extends Exception&gt; {
+    void accept(T t, U u) throws E;
+    }
+
+@FunctionalInterface
+public interface Function_WithExceptions&lt;T, R, E extends Exception&gt; {
+    R apply(T t) throws E;
+    }
+
+@FunctionalInterface
+public interface Supplier_WithExceptions&lt;T, E extends Exception&gt; {
+    T get() throws E;
+    }
+
+@FunctionalInterface
+public interface Runnable_WithExceptions&lt;E extends Exception&gt; {
+    void run() throws E;
+    }
+
+/** .forEach(rethrowConsumer(name -&gt; System.out.println(Class.forName(name)))); or .forEach(rethrowConsumer(ClassNameUtil::println)); */
+public static &lt;T, E extends Exception&gt; Consumer&lt;T&gt; rethrowConsumer(Consumer_WithExceptions&lt;T, E&gt; consumer) throws E {
+    return t -&gt; {
+        try { consumer.accept(t); }
+        catch (Exception exception) { throwAsUnchecked(exception); }
+        };
+    }
+
+public static &lt;T, U, E extends Exception&gt; BiConsumer&lt;T, U&gt; rethrowBiConsumer(BiConsumer_WithExceptions&lt;T, U, E&gt; biConsumer) throws E {
+    return (t, u) -&gt; {
+        try { biConsumer.accept(t, u); }
+        catch (Exception exception) { throwAsUnchecked(exception); }
+        };
+    }
+
+/** .map(rethrowFunction(name -&gt; Class.forName(name))) or .map(rethrowFunction(Class::forName)) */
+public static &lt;T, R, E extends Exception&gt; Function&lt;T, R&gt; rethrowFunction(Function_WithExceptions&lt;T, R, E&gt; function) throws E {
+    return t -&gt; {
+        try { return function.apply(t); }
+        catch (Exception exception) { throwAsUnchecked(exception); return null; }
+        };
+    }
+
+/** rethrowSupplier(() -&gt; new StringJoiner(new String(new byte[]{77, 97, 114, 107}, "UTF-8"))), */
+public static &lt;T, E extends Exception&gt; Supplier&lt;T&gt; rethrowSupplier(Supplier_WithExceptions&lt;T, E&gt; function) throws E {
+    return () -&gt; {
+        try { return function.get(); }
+        catch (Exception exception) { throwAsUnchecked(exception); return null; }
+        };
+    }
+
+/** uncheck(() -&gt; Class.forName("xxx")); */
+public static void uncheck(Runnable_WithExceptions t)
+    {
+    try { t.run(); }
+    catch (Exception exception) { throwAsUnchecked(exception); }
+    }
+
+/** uncheck(() -&gt; Class.forName("xxx")); */
+public static &lt;R, E extends Exception&gt; R uncheck(Supplier_WithExceptions&lt;R, E&gt; supplier)
+    {
+    try { return supplier.get(); }
+    catch (Exception exception) { throwAsUnchecked(exception); return null; }
+    }
+
+/** uncheck(Class::forName, "xxx"); */
+public static &lt;T, R, E extends Exception&gt; R uncheck(Function_WithExceptions&lt;T, R, E&gt; function, T t) {
+    try { return function.apply(t); }
+    catch (Exception exception) { throwAsUnchecked(exception); return null; }
+    }
+
+@SuppressWarnings ("unchecked")
+private static &lt;E extends Throwable&gt; void throwAsUnchecked(Exception exception) throws E { throw (E)exception; }
+
+}
+</code></pre>
+     <p>Many other examples on how to use it (after statically importing <code>UtilException</code>):</p>
+     <pre><code>@Test
+public void test_Consumer_with_checked_exceptions() throws IllegalAccessException {
+    Stream.of("java.lang.Object", "java.lang.Integer", "java.lang.String")
+          .forEach(rethrowConsumer(className -&gt; System.out.println(Class.forName(className))));
+
+    Stream.of("java.lang.Object", "java.lang.Integer", "java.lang.String")
+          .forEach(rethrowConsumer(System.out::println));
+    }
+
+@Test
+public void test_Function_with_checked_exceptions() throws ClassNotFoundException {
+    List&lt;Class&gt; classes1
+          = Stream.of("Object", "Integer", "String")
+                  .map(rethrowFunction(className -&gt; Class.forName("java.lang." + className)))
+                  .collect(Collectors.toList());
+
+    List&lt;Class&gt; classes2
+          = Stream.of("java.lang.Object", "java.lang.Integer", "java.lang.String")
+                  .map(rethrowFunction(Class::forName))
+                  .collect(Collectors.toList());
+    }
+
+@Test
+public void test_Supplier_with_checked_exceptions() throws ClassNotFoundException {
+    Collector.of(
+          rethrowSupplier(() -&gt; new StringJoiner(new String(new byte[]{77, 97, 114, 107}, "UTF-8"))),
+          StringJoiner::add, StringJoiner::merge, StringJoiner::toString);
+    }
+
+@Test    
+public void test_uncheck_exception_thrown_by_method() {
+    Class clazz1 = uncheck(() -&gt; Class.forName("java.lang.String"));
+
+    Class clazz2 = uncheck(Class::forName, "java.lang.String");
+    }
+
+@Test (expected = ClassNotFoundException.class)
+public void test_if_correct_exception_is_still_thrown_by_method() {
+    Class clazz3 = uncheck(Class::forName, "INVALID");
+    }
+</code></pre>
+     <p><strong>But don't use it before understanding the following advantages, disadvantages, and limitations</strong>:</p>
+     <p>• If the calling-code is to handle the checked exception you MUST add it to the throws clause of the method that contains the stream. The compiler will not force you to add it anymore, so it's easier to forget it.</p>
+     <p>• If the calling-code already handles the checked exception, the compiler WILL remind you to add the throws clause to the method declaration that contains the stream (if you don't it will say: Exception is never thrown in body of corresponding try statement).</p>
+     <p>• In any case, you won't be able to surround the stream itself to catch the checked exception INSIDE the method that contains the stream (if you try, the compiler will say: Exception is never thrown in body of corresponding try statement).</p>
+     <p>• If you are calling a method which literally can never throw the exception that it declares, then you should not include the throws clause. For example: new String(byteArr, "UTF-8") throws UnsupportedEncodingException, but UTF-8 is guaranteed by the Java spec to always be present. Here, the throws declaration is a nuisance and any solution to silence it with minimal boilerplate is welcome.</p>
+     <p>• If you hate checked exceptions and feel they should never be added to the Java language to begin with (a growing number of people think this way, and I am NOT one of them), then just don't add the checked exception to the throws clause of the method that contains the stream. The checked exception will, then, behave just like an UNchecked exception.</p>
+     <p>• If you are implementing a strict interface where you don't have the option for adding a throws declaration, and yet throwing an exception is entirely appropriate, then wrapping an exception just to gain the privilege of throwing it results in a stacktrace with spurious exceptions which contribute no information about what actually went wrong. A good example is Runnable.run(), which does not throw any checked exceptions. In this case, you may decide not to add the checked exception to the throws clause of the method that contains the stream.</p>
+     <p>• In any case, if you decide NOT to add (or forget to add) the checked exception to the throws clause of the method that contains the stream, be aware of these 2 consequences of throwing CHECKED exceptions:</p>
+     <p>1) The calling-code won't be able to catch it by name (if you try, the compiler will say: Exception is never thrown in body of corresponding try statement). It will bubble and probably be catched in the main program loop by some "catch Exception" or "catch Throwable", which may be what you want anyway.</p>
+     <p>2) It violates the principle of least surprise: it will no longer be enough to catch RuntimeException to be able to guarantee catching all possible exceptions. For this reason, I believe this should not be done in framework code, but only in business code that you completely control.</p>
+     <p><strong>In conclusion: I believe the limitations here are not serious, and the <code>UtilException</code> class may be used without fear. However, it's up to you!</strong></p>
+     <ul>
+      <li>References: 
+       <ul>
+        <li><a href="http://www.philandstuff.com/2012/04/28/sneakily-throwing-checked-exceptions.html" rel="noreferrer">http://www.philandstuff.com/2012/04/28/sneakily-throwing-checked-exceptions.html</a></li>
+        <li><a href="http://www.mail-archive.com/javaposse@googlegroups.com/msg05984.html" rel="noreferrer">http://www.mail-archive.com/javaposse@googlegroups.com/msg05984.html</a></li>
+        <li>Project Lombok annotation: @SneakyThrows</li>
+        <li>Brian Goetz opinion (against) here: <a href="https://stackoverflow.com/questions/27644361/how-can-i-throw-checked-exceptions-from-inside-java-8-streams">How can I throw CHECKED exceptions from inside Java 8 streams?</a></li>
+        <li><a href="https://softwareengineering.stackexchange.com/questions/225931/workaround-for-java-checked-exceptions?newreg=ddf0dd15e8174af8ba52e091cf85688e">https://softwareengineering.stackexchange.com/questions/225931/workaround-for-java-checked-exceptions?newreg=ddf0dd15e8174af8ba52e091cf85688e</a> *</li>
+       </ul></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jeffrey</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Apr 2014 at 23:15</span>
+     </div>
+    </div>
+    <div>
+     <p>You can potentially roll your own <code>Stream</code> variant by wrapping your lambda to throw an unchecked exception and then later unwrapping that unchecked exception on terminal operations:</p>
+     <pre><code>@FunctionalInterface
+public interface ThrowingPredicate&lt;T, X extends Throwable&gt; {
+    public boolean test(T t) throws X;
+}
+
+@FunctionalInterface
+public interface ThrowingFunction&lt;T, R, X extends Throwable&gt; {
+    public R apply(T t) throws X;
+}
+
+@FunctionalInterface
+public interface ThrowingSupplier&lt;R, X extends Throwable&gt; {
+    public R get() throws X;
+}
+
+public interface ThrowingStream&lt;T, X extends Throwable&gt; {
+    public ThrowingStream&lt;T, X&gt; filter(
+            ThrowingPredicate&lt;? super T, ? extends X&gt; predicate);
+
+    public &lt;R&gt; ThrowingStream&lt;T, R&gt; map(
+            ThrowingFunction&lt;? super T, ? extends R, ? extends X&gt; mapper);
+
+    public &lt;A, R&gt; R collect(Collector&lt;? super T, A, R&gt; collector) throws X;
+
+    // etc
+}
+
+class StreamAdapter&lt;T, X extends Throwable&gt; implements ThrowingStream&lt;T, X&gt; {
+    private static class AdapterException extends RuntimeException {
+        public AdapterException(Throwable cause) {
+            super(cause);
+        }
+    }
+
+    private final Stream&lt;T&gt; delegate;
+    private final Class&lt;X&gt; x;
+
+    StreamAdapter(Stream&lt;T&gt; delegate, Class&lt;X&gt; x) {
+        this.delegate = delegate;
+        this.x = x;
+    }
+
+    private &lt;R&gt; R maskException(ThrowingSupplier&lt;R, X&gt; method) {
+        try {
+            return method.get();
+        } catch (Throwable t) {
+            if (x.isInstance(t)) {
+                throw new AdapterException(t);
+            } else {
+                throw t;
+            }
+        }
+    }
+
+    @Override
+    public ThrowingStream&lt;T, X&gt; filter(ThrowingPredicate&lt;T, X&gt; predicate) {
+        return new StreamAdapter&lt;&gt;(
+                delegate.filter(t -&gt; maskException(() -&gt; predicate.test(t))), x);
+    }
+
+    @Override
+    public &lt;R&gt; ThrowingStream&lt;R, X&gt; map(ThrowingFunction&lt;T, R, X&gt; mapper) {
+        return new StreamAdapter&lt;&gt;(
+                delegate.map(t -&gt; maskException(() -&gt; mapper.apply(t))), x);
+    }
+
+    private &lt;R&gt; R unmaskException(Supplier&lt;R&gt; method) throws X {
+        try {
+            return method.get();
+        } catch (AdapterException e) {
+            throw x.cast(e.getCause());
+        }
+    }
+
+    @Override
+    public &lt;A, R&gt; R collect(Collector&lt;T, A, R&gt; collector) throws X {
+        return unmaskException(() -&gt; delegate.collect(collector));
+    }
+}
+</code></pre>
+     <p>Then you could use this the same exact way as a <code>Stream</code>:</p>
+     <pre><code>Stream&lt;Account&gt; s = accounts.values().stream();
+ThrowingStream&lt;Account, IOException&gt; ts = new StreamAdapter&lt;&gt;(s, IOException.class);
+return ts.filter(Account::isActive).map(Account::getNumber).collect(toSet());
+</code></pre>
+     <p>This solution would require quite a bit of boilerplate, so I suggest you take a look at the <a href="https://github.com/JeffreyFalgout/ThrowingStream" rel="noreferrer">library I already made</a> which does exactly what I have described here for the entire <code>Stream</code> class (and more!).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Hello... tiny bug? <code>new StreamBridge&lt;&gt;(ts, IOException.class);</code> -&gt; <code>new StreamBridge&lt;&gt;(s, IOException.class);</code></span> <span> - </span> <span class="display-name">kevinarpe</span> <span> </span> <span class="date">25 Aug 2015 at 12:41</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@kevinarpe Yep. It also should have said <code>StreamAdapter</code>.</span> <span> - </span> <span class="display-name">Jeffrey</span> <span> </span> <span class="date">26 Aug 2015 at 04:03</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>siegi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Apr 2016 at 21:36</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>TLDR:</strong> Try to avoid the issue by refactoring your code: Split "error-prone" operations from "safe" operations and just use the safe ones in lambdas.</p>
+     <hr>
+     <p><strong>Details:</strong></p>
+     <p>This does not directly answer the question (there are many other answers that do) but tries to avoid the problem in the first place:</p>
+     <p>In my experience the need to handle exceptions in a <code>Stream</code> (or other lambda expression) often comes from the fact that the exceptions are declared to be thrown from methods where they should not be thrown. This often comes from mixing business logic with in- and output. Your <code>Account</code> interface is a perfect example:</p>
+     <pre><code>interface Account {
+    boolean isActive() throws IOException;
+    String getNumber() throws IOException;
+}
+</code></pre>
+     <p>Instead of throwing an <code>IOException</code> on each getter, consider this design:</p>
+     <pre><code>interface AccountReader {
+    Account readAccount(…) throws IOException;
+}
+
+interface Account {
+    boolean isActive();
+    String getNumber();
+}
+</code></pre>
+     <p>The method <code>AccountReader.readAccount(…)</code> could read an account from a database or a file or whatever and throw an exception if it does not succeed. It constructs an <code>Account</code> object that already contains all values, ready to be used. As the values have already been loaded by <code>readAccount(…)</code>, the getters would not throw an exception. Thus you can use them freely in lambdas without the need of wrapping, masking or hiding the exceptions.</p>
+     <p>Note that you <em>still</em> need to handle the exception thrown by <code>readAccount(…)</code>. After all, that is why exceptions exist in the first place. But the assumption is that <code>readAccount(…)</code> is used "somewhere else", i.e. outside of lambdas, where you can use the "normal" exception handling mechanisms Java provides, i.e. <code>try-catch</code> to handle it or <code>throws</code> to let it "bubble up".</p>
+     <p>Of course it is not always possible to do it the way I described, but often it is and it leads to cleaner code altogether (IMHO):</p>
+     <ul>
+      <li>Better <a href="https://en.wikipedia.org/wiki/Separation_of_concerns" rel="nofollow noreferrer">separation of concerns</a> and following <a href="https://en.wikipedia.org/wiki/Single_responsibility_principle" rel="nofollow noreferrer">single responsibility principle</a></li>
+      <li>Less boilerplate: You don't have to clutter your code with <code>throws IOException</code> for no use but to satisfy the compiler</li>
+      <li>Error handling: You handle the errors where they happen - when reading from a file or database - instead of somewhere in the middle of your business logic only because you want to get a fields value</li>
+      <li>You may be able to make <code>Account</code> <a href="https://en.wikipedia.org/wiki/Immutable_object" rel="nofollow noreferrer">immutable</a> and profit from the advantages thereof (e.g. thread safety)</li>
+      <li>You don't need "dirty tricks" or workarounds to use <code>Account</code> in lambdas (e.g. in a <code>Stream</code>)</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>So you mean you handle the database or file exception in <code>readAccount()</code> and wrap it into IOException? But IOException is still checked exception and it will have to be caught in the caller if it wants to construct a stream right?</span> <span> - </span> <span class="display-name">WesternGun</span> <span> </span> <span class="date">17 Aug 2022 at 08:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@WesternGun, if you need to wrap the exception in <code>readAccount()</code> or just let it "bubble up" without wrapping depends on your case. You can also throw a <code>SQLException</code> there or whatever. The important thing is, <i>only</i> <code>readAccount()</code> may fail. The methods in <code>Account</code> don't. And yes, the caller of <code>readAccount()</code> needs to handle the exception some way. But <i>using</i> the <code>Account</code> within a stream is easy, because it never throws something and <i>that</i> was the point of the question. <b>TLDR:</b> Split "error-prone" operations from "safe" operations and just use the safe ones in lambdas.</span> <span> - </span> <span class="display-name">siegi</span> <span> </span> <span class="date">17 Aug 2022 at 18:20</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@WesternGun, see my last edit to the answer :-)</span> <span> - </span> <span class="display-name">siegi</span> <span> </span> <span class="date">17 Aug 2022 at 18:44</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nik Handyman</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jul 2014 at 19:50</span>
+     </div>
+    </div>
+    <div>
+     <p>Use #propagate() method. Sample non-Guava implementation from <a href="http://web.archive.org/web/20140406000326/http://java8blog.com/post/37385501926/fixing-checked-exceptions-in-java-8" rel="nofollow">Java 8 Blog by Sam Beran</a>:</p>
+     <pre><code>public class Throwables {
+    public interface ExceptionWrapper&lt;E&gt; {
+        E wrap(Exception e);
+    }
+
+    public static &lt;T&gt; T propagate(Callable&lt;T&gt; callable) throws RuntimeException {
+        return propagate(callable, RuntimeException::new);
+    }
+
+    public static &lt;T, E extends Throwable&gt; T propagate(Callable&lt;T&gt; callable, ExceptionWrapper&lt;E&gt; wrapper) throws E {
+        try {
+            return callable.call();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw wrapper.wrap(e);
+        }
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>The Java 8 blog link is dead.</span> <span> - </span> <span class="display-name">Spycho</span> <span> </span> <span class="date">27 Mar 2015 at 11:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>PaoloC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jun 2015 at 11:00</span>
+     </div>
+    </div>
+    <div>
+     <p>Extending @marcg solution, you can normally throw and catch a <strong>checked</strong> exception in Streams; that is, <strong>compiler will ask you to catch/re-throw</strong> as is you were outside streams!!</p>
+     <pre><code>@FunctionalInterface
+public interface Predicate_WithExceptions&lt;T, E extends Exception&gt; {
+    boolean test(T t) throws E;
+}
+
+/**
+ * .filter(rethrowPredicate(t -&gt; t.isActive()))
+ */
+public static &lt;T, E extends Exception&gt; Predicate&lt;T&gt; rethrowPredicate(Predicate_WithExceptions&lt;T, E&gt; predicate) throws E {
+    return t -&gt; {
+        try {
+            return predicate.test(t);
+        } catch (Exception exception) {
+            return throwActualException(exception);
+        }
+    };
+}
+
+@SuppressWarnings("unchecked")
+private static &lt;T, E extends Exception&gt; T throwActualException(Exception exception) throws E {
+    throw (E) exception;
+}
+</code></pre>
+     <p>Then, your example would be written as follows (adding tests to show it more clearly):</p>
+     <pre><code>@Test
+public void testPredicate() throws MyTestException {
+    List&lt;String&gt; nonEmptyStrings = Stream.of("ciao", "")
+            .filter(rethrowPredicate(s -&gt; notEmpty(s)))
+            .collect(toList());
+    assertEquals(1, nonEmptyStrings.size());
+    assertEquals("ciao", nonEmptyStrings.get(0));
+}
+
+private class MyTestException extends Exception { }
+
+private boolean notEmpty(String value) throws MyTestException {
+    if(value==null) {
+        throw new MyTestException();
+    }
+    return !value.isEmpty();
+}
+
+@Test
+public void testPredicateRaisingException() throws MyTestException {
+    try {
+        Stream.of("ciao", null)
+                .filter(rethrowPredicate(s -&gt; notEmpty(s)))
+                .collect(toList());
+        fail();
+    } catch (MyTestException e) {
+        //OK
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This example doesn't compile</span> <span> - </span> <span class="display-name">Roman M</span> <span> </span> <span class="date">4 Jul 2016 at 12:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi @RomanM thanks for pointing this: i've corrected the missing return type on method "throwActualException". We're using this in production so I hope it's working on your side too.</span> <span> - </span> <span class="display-name">PaoloC</span> <span> </span> <span class="date">6 Jul 2016 at 08:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user_3380739</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Dec 2016 at 01:45</span>
+     </div>
+    </div>
+    <div>
+     <p>It can be resolved by below simple code with <a href="https://htmlpreview.github.io/?https://github.com/landawn/abacus-common/master/docs/Stream_view.html" rel="nofollow noreferrer">Stream</a> and <a href="https://htmlpreview.github.io/?https://github.com/landawn/abacus-common/master/docs/Try_view.html" rel="nofollow noreferrer">Try</a> in <a href="https://github.com/landawn/abacus-common" rel="nofollow noreferrer">abacus-common</a>:</p>
+     <pre><code>Stream.of(accounts)
+      .filter(a -&gt; Try.call(a::isActive))
+      .map(a -&gt; Try.call(a::getNumber))
+      .toSet();
+</code></pre>
+     <p>Or:</p>
+     <pre><code>Stream.of(accounts)
+      .filterE(Account::isActive)
+      .mapE(Account::getNumber)
+      .toSet();
+</code></pre>
+     <p>Disclosure： I'm the developer of <code>abacus-common</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>The Coordinator</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Nov 2013 at 02:10</span>
+     </div>
+    </div>
+    <div>
+     <p>To properly add IOException (to RuntimeException) handling code, your method will look like this:</p>
+     <pre><code>Stream&lt;Account&gt; s =  accounts.values().stream();
+
+s = s.filter(a -&gt; { try { return a.isActive(); } 
+  catch (IOException e) { throw new RuntimeException(e); }});
+
+Stream&lt;String&gt; ss = s.map(a -&gt; { try { return a.getNumber() }
+  catch (IOException e) { throw new RuntimeException(e); }});
+
+return ss.collect(Collectors.toSet());
+</code></pre>
+     <p>The problem now is that the <code>IOException</code> will have to be captured as a <code>RuntimeException</code> and converted back to an <code>IOException</code> -- and that will add even more code to the above method.</p>
+     <p>Why use <code>Stream</code> when it can be done just like this -- and the method throws <code>IOException</code> so no extra code is needed for that too:</p>
+     <pre><code>Set&lt;String&gt; set = new HashSet&lt;&gt;();
+for(Account a: accounts.values()){
+  if(a.isActive()){
+     set.add(a.getNumber());
+  } 
+}
+return set;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Grzegorz Piwowarek</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Feb 2016 at 18:22</span>
+     </div>
+    </div>
+    <div>
+     <p>Keeping this issue in mind I developed a small library for dealing with checked exceptions and lambdas. Custom adapters allow you to integrate with existing functional types:</p>
+     <pre><code>stream().map(unchecked(URI::new)) //with a static import
+</code></pre>
+     <p><a href="https://github.com/TouK/ThrowingFunction/" rel="nofollow">https://github.com/TouK/ThrowingFunction/</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>SeregaLBN</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Mar 2016 at 13:18</span>
+     </div>
+    </div>
+    <div>
+     <p>Your example can be written as:</p>
+     <pre><code>import utils.stream.Unthrow;
+
+class Bank{
+   ....
+   public Set&lt;String&gt; getActiveAccountNumbers() {
+       return accounts.values().stream()
+           .filter(a -&gt; Unthrow.wrap(() -&gt; a.isActive()))
+           .map(a -&gt; Unthrow.wrap(() -&gt; a.getNumber()))
+           .collect(Collectors.toSet());
+   }
+   ....
+}
+</code></pre>
+     <p>The <strong>Unthrow</strong> class can be taken here <a href="https://github.com/SeregaLBN/StreamUnthrower" rel="nofollow">https://github.com/SeregaLBN/StreamUnthrower</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user16547619</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Sep 2021 at 10:55</span>
+     </div>
+    </div>
+    <div>
+     <p>It's also possible to use some external (to stream) error indicator for throwing exception at higher level:</p>
+     <pre><code>List&lt;String&gt; errorMessages = new ArrayList&lt;&gt;(); // error indicator
+//..
+errorMessages.clear();
+
+List&lt;String&gt; names = new ArrayList&lt;&gt;(Arrays.asList("andrey", "angela", "pamela"));
+
+names.stream()
+.map(name -&gt; {
+    if (name != "pamela") {
+      errorMessages.add(name + " is wrong here!"); 
+      return null; // triggering the indicator
+    }
+    return name;
+} )
+.filter(elem -&gt; (elem != null)) // bypassing propagation of only current unwanted data
+//.filter(elem -&gt; (errorMessages.size() == 0)) // or blocking any propagation once unwanted data detected
+.forEach(System.out::println);
+
+if (errorMessages.size() &gt; 0) { // handling the indicator
+  throw  new RuntimeException(String,join(", ", errorMessages));
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>John McClean</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Feb 2016 at 17:36</span>
+     </div>
+    </div>
+    <div>
+     <p>If you don't mind using 3rd party libraries, AOL's <a href="https://github.com/aol/cyclops-react/" rel="nofollow">cyclops-react</a> lib, disclosure::I am a contributor, has a <a href="http://static.javadoc.io/com.aol.simplereact/cyclops-react/1.0.0-RC1/com/aol/cyclops/util/ExceptionSoftener.html" rel="nofollow">ExceptionSoftener</a> class that can help here.</p>
+     <pre><code> s.filter(softenPredicate(a-&gt;a.isActive()));
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>JuanMoreno</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Nov 2018 at 19:08</span>
+     </div>
+    </div>
+    <div>
+     <p>The functional interfaces in Java don’t declare any checked or unchecked exception. We need to change the signature of the methods from:</p>
+     <pre><code>boolean isActive() throws IOException; 
+String getNumber() throwsIOException;
+</code></pre>
+     <p>To:</p>
+     <pre><code>boolean isActive();
+String getNumber();
+</code></pre>
+     <p>Or handle it with try-catch block:</p>
+     <pre><code>public Set&lt;String&gt; getActiveAccountNumbers() {
+  Stream&lt;Account&gt; s =  accounts.values().stream();
+  s = s.filter(a -&gt; 
+    try{
+      a.isActive();
+    }catch(IOException e){
+      throw new RuntimeException(e);
+    }
+  );
+  Stream&lt;String&gt; ss = s.map(a -&gt; 
+    try{
+      a.getNumber();
+    }catch(IOException e){
+      throw new RuntimeException(e);
+    }
+  );
+  return ss.collect(Collectors.toSet());
+}
+</code></pre>
+     <p>Another option is to write a custom wrapper or use a library like ThrowingFunction. With the library we only need to add the dependency to our pom.xml:</p>
+     <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;pl.touk&lt;/groupId&gt;
+    &lt;artifactId&gt;throwing-function&lt;/artifactId&gt;
+    &lt;version&gt;1.3&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>And use the specific classes like ThrowingFunction, ThrowingConsumer, ThrowingPredicate, ThrowingRunnable, ThrowingSupplier.</p>
+     <p>At the end the code looks like this:</p>
+     <pre><code>public Set&lt;String&gt; getActiveAccountNumbers() {
+  return accounts.values().stream()
+    .filter(ThrowingPredicate.unchecked(Account::isActive))
+    .map(ThrowingFunction.unchecked(Account::getNumber))
+    .collect(Collectors.toSet());
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Steve Gelman</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Sep 2019 at 16:35</span>
+     </div>
+    </div>
+    <div>
+     <p>If you want to handled the exception within the stream and continue processing the additional ones, there is an excellent article in <a href="https://dzone.com/articles/exception-handling-in-java-streams" rel="nofollow noreferrer">DZone</a> by Brian Vermeer using the concept of an Either. It shows an excellent way of handling this situation. The only thing missing is sample code. This is a sample of my exploration using the concepts from that article.</p>
+     <pre><code>@Test
+public void whenValuePrinted_thenPrintValue() {
+
+    List&lt;Integer&gt; intStream = Arrays.asList(0, 1, 2, 3, 4, 5, 6);
+    intStream.stream().map(Either.liftWithValue(item -&gt; doSomething(item)))
+             .map(item -&gt; item.isLeft() ? item.getLeft() : item.getRight())
+             .flatMap(o -&gt; {
+                 System.out.println(o);
+                 return o.isPresent() ? Stream.of(o.get()) : Stream.empty();
+             })
+             .forEach(System.out::println);
+}
+
+private Object doSomething(Integer item) throws Exception {
+
+    if (item == 0) {
+        throw new Exception("Zero ain't a number!");
+    } else if (item == 4) {
+        return Optional.empty();
+    }
+
+    return item;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

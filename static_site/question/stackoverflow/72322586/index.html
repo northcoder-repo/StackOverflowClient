@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Get a Thymeleaf template fragment in Java</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Get a Thymeleaf template fragment in Java</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Yanis Yakuza</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 May 2022 at 17:15</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/72322586/get-a-thymeleaf-template-fragment-in-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a template :</p>
+    <pre><code>&lt;div th:fragment="subject"&gt;
+    [[${var1}]] -  blabla
+&lt;/div&gt;
+&lt;div th:fragment="body"&gt;
+titi
+&lt;/div&gt;
+</code></pre>
+    <p>In Java :</p>
+    <p>I want to retrieve only the subject fragment and put it in a variable.</p>
+    <pre><code>String subject =  templateEngine.process(template.getPath()+" :: subject", context);
+</code></pre>
+    <p>but I got the error :</p>
+    <pre><code>java.io.FileNotFoundException: ClassLoader resource "mail/templates/mail_depot.html :: subject" could not be resolved
+</code></pre>
+    <p>I can successfully call:</p>
+    <pre><code>String subject =  templateEngine.process(template.getPath(), context);
+</code></pre>
+    <p>but when I add " :: subject" to only retrieve the subject fragment I got an error.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 May 2022 at 17:44</span>
+     </div>
+    </div>
+    <div>
+     <p>The <code>TemplateEngine</code> has different versions of the <code>process()</code> method. The one you need is:</p>
+     <pre class="lang-java prettyprint-override"><code>public final String process​(String template, Set&lt;String&gt; templateSelectors, IContext context)
+</code></pre>
+     <p>This method takes a set of strings, where each string can be the name of a fragment.</p>
+     <p>For example:</p>
+     <pre class="lang-java prettyprint-override"><code>Set&lt;String&gt; selectors = new HashSet&lt;&gt;();
+selectors.add("subject");
+
+String subject =  templateEngine.process(template.getPath(), selectors, context);
+</code></pre>
+     <p>In your case, this will return a string containing:</p>
+     <pre><code>&lt;div&gt;
+    ??? -  blabla
+&lt;/div&gt;
+</code></pre>
+     <p>But with the <code>???</code> replaced by whatever value <code>[[${var1}]]</code> resolves to.</p>
+     <hr>
+     <p>See the <a href="https://www.thymeleaf.org/apidocs/thymeleaf/3.0.15.RELEASE/org/thymeleaf/TemplateEngine.html#process(java.lang.String,org.thymeleaf.context.IContext)" rel="nofollow noreferrer"><code>TemplateEngine</code> JavaDoc</a> for more details.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>Follow-up related question: If you want to directly access the content of the fragment, excluding the enclosing HTML tags, you can use the following:</p>
+     <pre><code>&lt;th:block th:fragment="subject"&gt;
+    foo
+&lt;/th:block&gt;
+&lt;div th:fragment="body"&gt;
+    bar
+&lt;/div&gt;
+</code></pre>
+     <p>The Thymeleaf <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#synthetic-thblock-tag" rel="nofollow noreferrer"><code>&lt;th:block&gt;</code></a> tag removes itself.</p>
+     <p>If you have nested tags inside your fragment, those will not be removed if you use <code>&lt;th:block&gt;</code>.</p>
+     <p>Otherwise, use an HTML parser such as Jsoup:</p>
+     <pre><code>Jsoup.parse(yourHtmlString).text()
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>thanks, what would be the easiest way to get only "??? - blabla" whithout the html tags ?</span> <span> - </span> <span class="display-name">Yanis Yakuza</span> <span> </span> <span class="date">20 May 2022 at 18:13</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>I would recommend using an HTML parser for that. For example, Jsoup - something like <code>Jsoup.parse(yourHtmlString).text()</code>. You may see a lot of examples which suggest using regular expressions, but I would stay away from those, personally.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 May 2022 at 18:26</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span><a href="https://stackoverflow.com/q/240546/12567365">Remove HTML tags from a String</a> - and probably various similar questions, if you dig around.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 May 2022 at 18:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>ok, I just wanted to know if there was a way to retrieve only the content of the fragment without the html tag surrounding but looks like the answer is no.</span> <span> - </span> <span class="display-name">Yanis Yakuza</span> <span> </span> <span class="date">20 May 2022 at 18:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I misunderstood - I added a note to the answer about that. But I think an HTML parser is still the way to go.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 May 2022 at 18:56</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

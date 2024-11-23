@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Open CSV Performance to write data</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Open CSV Performance to write data</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Vikas J</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Mar 2020 at 20:30</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60781273/open-csv-performance-to-write-data">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I came through a link: <a href="https://github.com/hyee/OpenCSV" rel="nofollow noreferrer">https://github.com/hyee/OpenCSV</a> which drastically improves the writing time of the JDBC ResultSet to CSV due to setAsyncMode, RESULT_FETCH_SIZE</p>
+    <pre><code>//Extract ResultSet to CSV file, auto-compress if the fileName extension is ".zip" or ".gz"
+//Returns number of records extracted
+public int ResultSet2CSV(final ResultSet rs, final String fileName, final String header, final boolean aync) throws Exception {
+    try (CSVWriter writer = new CSVWriter(fileName)) {
+        //Define fetch size(default as 30000 rows), higher to be faster performance but takes more memory
+        ResultSetHelperService.RESULT_FETCH_SIZE=10000;
+        //Define MAX extract rows, -1 means unlimited.
+        ResultSetHelperService.MAX_FETCH_ROWS=20000;
+        writer.setAsyncMode(aync);
+        int result = writer.writeAll(rs, true);
+        return result - 1;
+    }
+}
+</code></pre>
+    <p>But the problem is I don't know how I can merge above into my requirement. As the link has many other classes involved which I am not sure what they do and if I even need it for my requirement. Still, I tried but it fails to compile whenever I enable 2 commented line code. Below is my code.</p>
+    <p>Any help on how I can achieve this will be greatly appreciated.</p>
+    <pre><code>package test;
+
+
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.Date;
+
+
+import com.opencsv.CSVWriter;
+import com.opencsv.ResultSetHelperService;
+
+public class OpenCSVTest1
+{
+
+    static Connection con =null;
+    static Statement stmt = null;
+    static ResultSet rs = null;
+
+    public static void main(String args[]) throws Exception
+    { 
+
+
+        connection ();
+        retrieveData(con);
+
+    }
+
+    private static void connection() throws Exception 
+    {
+
+
+        try
+        {
+            Class.forName("&lt;jdbcdriver&gt;");
+            con = DriverManager.getConnection("jdbc:","&lt;username&gt;","&lt;pass&gt;");
+            System.out.println("Connection successful");
+        }
+
+
+        catch (Exception e)
+        {
+            System.out.println("Exception while establishing sql connection");
+            throw e;
+        }
+    }
+
+
+    private static void retrieveData(Connection con) throws Exception
+    {
+        try
+        {
+            stmt=con.createStatement(); 
+            stmt = con.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+            String query = "SELECT  * FROM dbo.tablename";
+
+            rs=stmt.executeQuery(query);
+
+            CSVWriter writer = new CSVWriter(new BufferedWriter(new FileWriter("C:\\Data\\File1.csv")));    
+
+            ResultSetHelperService service = new ResultSetHelperService(); 
+
+            /***    ResultSetHelperService.RESULT_FETCH_SIZE=10000;   ***/    // to add 
+
+
+            service.setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS"); 
+
+            System.out.println("**** Started writing Data to CSV **** " +  new Date());         
+
+            writer.setResultService(service);
+
+            /***   writer.setAsyncMode(aync);  ***/   // to add 
+
+
+            int lines = writer.writeAll(rs, true, true, false); 
+
+            writer.flush();
+            writer.close();
+
+            System.out.println("** OpenCSV -Completed writing the resultSet at " +  new Date() + " Number of lines written to the file " + lines);  
+        }
+
+
+        catch (Exception e)
+        {
+            System.out.println("Exception while retrieving data" );
+            e.printStackTrace();
+            throw e;
+        }
+
+        finally 
+        {
+            rs.close();
+            stmt.close();
+            con.close();
+
+        }
+    }
+
+
+
+
+
+
+
+}
+</code></pre>
+    <p><strong>UPDATE</strong></p>
+    <p>I have updated my code. Right now code is writing complete resultset in CSV at once using writeAll method which is resulting in time consumption.</p>
+    <p>Now what I want to do is write resultset to CSV in batches as resultset's first column will always have <strong>dynamically</strong> generated via SELECT query Auto Increment column (Sqno) with values as (1,2,3..) So not sure how I can read result sets first column and split it accoridngly to write in CSV. may be HashMap might help, so I have also added resultset-tohashmap conversion code if required.</p>
+    <pre><code>import com.opencsv.CSVWriter;
+import com.opencsv.ResultSetHelperService;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+public class OpenCSVTest1
+{ 
+    static int fetchlimit_src  = 100;
+    static Connection con =null;
+    static Statement stmt = null;
+    static ResultSet rs = null;
+    static String filename = "C:\\Data\\filename.csv";
+    static CSVWriter writer;
+    public static void main(String args[])
+    {  
+        try
+        {  
+            connection();
+            retrieveData(con);
+        }
+        catch(Exception e)
+        { 
+            System.out.println(e);
+        }  
+    }
+    private static void connection() throws Exception 
+    {
+        try
+        {
+            Class.forName("&lt;jdbcdriver&gt;");
+            con = DriverManager.getConnection("jdbc:","&lt;username&gt;","&lt;pass&gt;");
+            System.out.println("Connection successful");
+        }
+        catch (Exception e)
+        {
+            System.out.println("Exception while establishing sql connection");
+            throw e;
+        }
+    }  
+    private static void retrieveData(Connection con) throws Exception
+    {
+        try
+        {
+            stmt=con.createStatement(); 
+            String query = "SELECT ROWNUM AS Sqno, * FROM dbo.tablename ";   // Oracle
+            //  String query = "SELECT ROW_NUMBER() OVER(ORDER BY Id ASC) AS Sqno, *  FROM dbo.tablename ";  // SQLServer
+            System.out.println(query);
+            stmt = con.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+            stmt.setFetchSize(fetchlimit_src);
+            System.out.println("**** Started querying src **** " +  new Date());
+            rs=stmt.executeQuery(query);
+            System.out.println("**** Completing querying src **** " +  new Date());
+            //  resultset_List(rs);   // If required store resultset(rs) to HashMap
+            writetoCSV(rs,filename);  
+            /** How to write resultset to CSV in batches instead of writing all at once to speed up write performance ? 
+             * Hint: resultset first column is Autoincrement [Sqno] (1,2,3...) which might help to split result in batches.
+             *
+             **/
+        }
+        catch (Exception e)
+        {
+            System.out.println("Exception while retrieving data" );
+            e.printStackTrace();
+            throw e;
+        }
+        finally 
+        {
+            rs.close();
+            stmt.close();
+            con.close();
+        }
+    }
+    private static List&lt;Map&lt;String, Object&gt;&gt; resultset_List(ResultSet rs) throws SQLException
+    {
+        ResultSetMetaData md = rs.getMetaData();
+        int columns = md.getColumnCount();
+        List&lt;Map&lt;String, Object&gt;&gt; rows = new ArrayList&lt;Map&lt;String, Object&gt;&gt;();
+        while (rs.next())
+        {
+            Map&lt;String, Object&gt; row = new HashMap&lt;String, Object&gt;(columns);
+            for(int i = 1; i &lt;= columns; ++i)
+            {
+                row.put(md.getColumnName(i), rs.getObject(i));
+            }
+            rows.add(row);
+        }
+        //    System.out.println(rows.toString());
+        return rows;
+    }
+    private static void writetoCSV(ResultSet rs, String filename) throws Exception
+    {
+        try
+        {
+            writer = new CSVWriter(new BufferedWriter(new FileWriter(filename)));
+            ResultSetHelperService service = new ResultSetHelperService();
+            service.setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS");
+            long batchlimit = 1000;
+            long Sqno  = 1;
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String columnname = rsmd.getColumnLabel(1);  // To retrieve columns with labels (for example SELECT ROWNUM AS Sqno)
+            System.out.println("**** Started writing Data to CSV **** " +  new Date());
+            writer.setResultService(service);
+            int lines = writer.writeAll(rs, true, true, false); 
+    System.out.println("** OpenCSV -Completed writing the resultSet at " +  new Date() + " Number of lines written to the file " + lines);
+        }
+        catch (Exception e)
+        {
+            System.out.println("Exception while writing data" );
+            e.printStackTrace();
+            throw e;
+        }
+        finally
+        {
+            writer.flush();
+            writer.close();
+        }
+    }
+}  
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jdbc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Mar 2020 at 16:44</span>
+     </div>
+    </div>
+    <div>
+     <p>You should be able to use the OpenCSV sample, pretty much exactly as it is provided in the documentation. So, there should be no need for you to write any of your own batching logic.</p>
+     <p>I was able to write a 6 million record result set to a CSV file in about 10 seconds. To be clear -that was just the file-write time, not the DB data-fetch time - but I think that should be fast enough for your needs.</p>
+     <p>Here is your code, with adaptations for using OpenCSV based on its documented approach... But please see the warning at the end of my notes!</p>
+     <pre><code>import com.opencsv.CSVWriter;
+import com.opencsv.ResultSetHelperService;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.Date;
+import java.text.SimpleDateFormat;
+
+public class OpenCSVDemo {
+
+    static int fetchlimit_src = 100;
+    static Connection con = null;
+    static Statement stmt = null;
+    static ResultSet rs = null;
+    static String filename = "C:\\Data\\filename.csv";
+
+    public static void main(String args[]) {
+        try {
+            connection();
+            retrieveData(con);
+
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }
+
+    private static void connection() throws Exception {
+        try {
+            final String jdbcDriver = "YOURS GOES HERE";
+            final String dbUrl = "YOURS GOES HERE";
+            final String user = "YOURS GOES HERE";
+            final String pass = "YOURS GOES HERE";
+            Class.forName(jdbcDriver);
+            con = DriverManager.getConnection(dbUrl, user, pass);
+            System.out.println("Connection successful");
+        } catch (Exception e) {
+            System.out.println("Exception while establishing sql connection");
+            throw e;
+        }
+    }
+
+    private static void retrieveData(Connection con) throws Exception {
+        try {
+            stmt = con.createStatement();
+            String query = "select title_id, primary_title from imdb.title";
+            System.out.println(query);
+            stmt = con.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+            stmt.setFetchSize(fetchlimit_src);
+            System.out.println("**** Started querying src **** " + new Date());
+            rs = stmt.executeQuery(query);
+            System.out.println("**** Completing querying src **** " + new Date());
+            //  resultset_List(rs);   // If required store resultset(rs) to HashMap
+
+            System.out.println();
+            String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
+            System.out.println("Started writing CSV:  " + timeStamp);
+            writeToCsv(rs, filename, null, Boolean.FALSE);
+            timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
+            System.out.println("Finished writing CSV: " + timeStamp);
+            System.out.println();
+
+        } catch (Exception e) {
+            System.out.println("Exception while retrieving data");
+            e.printStackTrace();
+            throw e;
+        } finally {
+            rs.close();
+            stmt.close();
+            con.close();
+        }
+    }
+
+    public static int writeToCsv(final ResultSet rs, final String fileName, 
+            final String header, final boolean aync) throws Exception {
+        try (CSVWriter writer = new CSVWriter(fileName)) {
+            //Define fetch size(default as 30000 rows), higher to be faster performance but takes more memory
+            ResultSetHelperService.RESULT_FETCH_SIZE = 1000;
+            //Define MAX extract rows, -1 means unlimited.
+            ResultSetHelperService.MAX_FETCH_ROWS = 2000;
+            writer.setAsyncMode(aync);
+            int result = writer.writeAll(rs, true);
+            return result - 1;
+        }
+    }
+
+}
+</code></pre>
+     <p>Points to note:</p>
+     <p>1) I used "async" set to false:</p>
+     <pre><code>writeToCsv(rs, filename, null, Boolean.FALSE);
+</code></pre>
+     <p>You may want to experiment with this and the other settings to see if they make any significant difference for you.</p>
+     <p>2) Regarding your comment "<em>the link has many other classes involved</em>": The OpenCSV library's entire JAR file needs to be included in your project, as does the related disruptor JAR:</p>
+     <pre><code>opencsv.jar
+disruptor-3.3.6.jar
+
+</code></pre>
+     <p>To get the JAR files, go to the <a href="https://github.com/hyee/OpenCSV" rel="nofollow noreferrer">GitHub page</a>, click on the green button, select the zip download, unzip the zip file, and look in the "OpenCSV-master\release" folder.</p>
+     <p>Add these two JARs to your project in the usual way (depends on how you build your project).</p>
+     <p>3) WARNING: This code runs OK when you use Oracle's Java 8 JDK/JRE. If you try to use OpenJDK (e.g. for Java 13 or similar) it will not run. This is because of some changes behind the scenes to hidden classes. If you are interested, there are more details <a href="https://bugs.openjdk.java.net/browse/JDK-8148117" rel="nofollow noreferrer">here</a>.</p>
+     <p>If you need to use an OpenJDK version of Java, you may therefore have better luck with the library on which this CSV library is based: <a href="http://opencsv.sourceforge.net/" rel="nofollow noreferrer">see here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks a lot, @andrewjames for such a detail explanation. That was really helpful.</span> <span> - </span> <span class="display-name">Vikas J</span> <span> </span> <span class="date">24 Mar 2020 at 17:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

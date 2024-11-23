@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Programmatically shut down Spring Boot application</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Programmatically shut down Spring Boot application</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>152</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Axel Fontaine</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Apr 2014 at 17:27</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/22944144/programmatically-shut-down-spring-boot-application">source</a>
+    </div>
+   </div>
+   <div>
+    <p>How can I <strong>programmatically shutdown</strong> a <strong>Spring Boot</strong> application <strong>without terminating the VM</strong>?</p>
+    <p>In other works, what is the opposite of</p>
+    <pre><code>new SpringApplication(Main.class).run(args);
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">spring-boot</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Good point! Calling close() on that should do the job.</span> <span> - </span> <span class="display-name">Axel Fontaine</span> <span> </span> <span class="date">8 Apr 2014 at 17:34</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Possible duplicate of <a href="https://stackoverflow.com/questions/26547532/how-to-shutdown-a-spring-boot-application-in-a-correct-way">How to shutdown a Spring Boot Application in a correct way?</a></span> <span> - </span> <span class="display-name">Anand Varkey Philips</span> <span> </span> <span class="date">14 Jun 2018 at 19:33</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@AnandVarkeyPhilips No, it definitely isn't. This one is about an API, the other is about a way for ops to do so.</span> <span> - </span> <span class="display-name">Axel Fontaine</span> <span> </span> <span class="date">14 Jun 2018 at 20:14</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Okay.. That question link might help others. Do you want me to delete the above comment?</span> <span> - </span> <span class="display-name">Anand Varkey Philips</span> <span> </span> <span class="date">15 Jun 2018 at 05:52</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>140</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sotirios Delimanolis</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Apr 2014 at 18:05</span>
+     </div>
+    </div>
+    <div>
+     <p>Closing a <a href="http://docs.spring.io/spring-boot/docs/current/api/org/springframework/boot/SpringApplication.html" rel="noreferrer"><code>SpringApplication</code></a> basically means closing the underlying <code>ApplicationContext</code>. The <a href="https://docs.spring.io/spring-boot/docs/current/api/org/springframework/boot/SpringApplication.html#run-java.lang.Object-java.lang.String...-" rel="noreferrer"><code>SpringApplication#run(String...)</code></a> method gives you that <code>ApplicationContext</code> as a <code>ConfigurableApplicationContext</code>. You can then <a href="http://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/context/ConfigurableApplicationContext.html#close--" rel="noreferrer"><code>close()</code></a> it yourself.</p>
+     <p>For example,</p>
+     <pre><code>@SpringBootApplication
+public class Example {
+    public static void main(String[] args) {
+        ConfigurableApplicationContext ctx = SpringApplication.run(Example.class, args);
+        // ...determine it's time to shut down...
+        ctx.close();
+    }
+}
+</code></pre>
+     <p>Alternatively, you can use the <code>static</code> <a href="https://docs.spring.io/spring-boot/docs/current/api/org/springframework/boot/SpringApplication.html#exit-org.springframework.context.ApplicationContext-org.springframework.boot.ExitCodeGenerator...-" rel="noreferrer"><code>SpringApplication.exit(ApplicationContext, ExitCodeGenerator...)</code></a> helper method to do it for you. For example,</p>
+     <pre><code>@SpringBootApplication
+public class Example {
+    public static void main(String[] args) {
+        ConfigurableApplicationContext ctx = SpringApplication.run(Example.class, args);
+        // ...determine it's time to stop...
+        int exitCode = SpringApplication.exit(ctx, new ExitCodeGenerator() {
+            @Override
+            public int getExitCode() {
+                // no errors
+                return 0;
+            }
+        });
+
+        // or shortened to
+        // int exitCode = SpringApplication.exit(ctx, () -&gt; 0);
+
+        System.exit(exitCode);
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>136</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>snovelli</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jan 2016 at 12:03</span>
+     </div>
+    </div>
+    <div>
+     <p>The simplest way would be to inject the following object where you need to initiate the shutdown</p>
+     <p><strong>ApplicationShutdownManager.java</strong></p>
+     <pre><code>import org.springframework.context.ApplicationContext;
+import org.springframework.boot.SpringApplication;
+
+@Component
+class ApplicationShutdownManager {
+
+    @Autowired
+    private ApplicationContext appContext;
+
+    /*
+     * Invoke with `0` to indicate no error or different code to indicate
+     * abnormal exit. es: shutdownManager.initiateShutdown(0);
+     **/
+    public void initiateShutdown(int returnCode){
+        SpringApplication.exit(appContext, () -&gt; returnCode);
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>45</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>ACV</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Aug 2015 at 21:04</span>
+     </div>
+    </div>
+    <div>
+     <p>This works, even done is printed.</p>
+     <pre><code>  SpringApplication.run(MyApplication.class, args).close();
+  System.out.println("done");
+</code></pre>
+     <p>So adding <code>.close()</code> after <code>run()</code></p>
+     <p>Explanation:</p>
+     <blockquote>
+      <p><code>public ConfigurableApplicationContext run(String... args)</code></p>
+      <p>Run the Spring application, creating and refreshing a new ApplicationContext. Parameters:</p>
+      <p><code>args</code> - the application arguments (usually passed from a Java main method)</p>
+      <p>Returns: <strong>a running ApplicationContext</strong></p>
+     </blockquote>
+     <p>and:</p>
+     <blockquote>
+      <p><code>void close()</code> Close this application context, releasing all resources and locks that the implementation might hold. This includes destroying all cached singleton beans. Note: Does not invoke close on a parent context; parent contexts have their own, independent lifecycle.</p>
+      <p>This method can be called multiple times without side effects: Subsequent close calls on an already closed context will be ignored.</p>
+     </blockquote>
+     <p>So basically, it will not close the parent context, that's why the VM doesn't quit.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Just a reminder this solution works for short lived process like batch, but don't use this on Spring MVC applications. The application just shutdown after booting.</span> <span> - </span> <span class="display-name">Michaël COLL</span> <span> </span> <span class="date">8 Nov 2019 at 13:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@MichaelCOLL the question is about how to programatically shutdown a spring boot app regardless of type. It also works for Spring MVC</span> <span> - </span> <span class="display-name">ACV</span> <span> </span> <span class="date">8 Nov 2019 at 16:51</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ACV You're right it works, it works very well. But for an app that must stay up (like Spring MVC app), I think, it's not the good way of doing this. In my case, I've used <code>SpringApplication.exit(appContext, () -&gt; returnCode)</code>.</span> <span> - </span> <span class="display-name">Michaël COLL</span> <span> </span> <span class="date">10 Nov 2019 at 16:55</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>What VM are you referring to in your last line? If you're starting your Spring Boot application with <code>SpringApplication.run(MyApplication.class, args)</code>, then there is no parent context. There's only one context, the context created and returned by <code>run</code>, which you then immediately <code>close</code>. @Michael is right. This won't work for programs that need to do anything after the Spring context is initialized, which is most programs.</span> <span> - </span> <span class="display-name">Savior</span> <span> </span> <span class="date">22 Jun 2020 at 17:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Savior JVM. There is a parent context. Here we're talking about how to shut down a Spring boot application. You normally don't shut down web applications this way. So this mechanism is usually used for short lived applications that do something then need to stop. By default, Spring boot will just keep on running even after you finished your batch processing so that's where you would want to use this mechanism.</span> <span> - </span> <span class="display-name">ACV</span> <span> </span> <span class="date">24 Jun 2020 at 12:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Which parent context do you think there is, from where? <code>run</code> creates a single <code>ApplicationContext</code>, there's no hierarchy. Whether it's a web application or not, closing that context will destroy its beans (and shutdown thread pools) and, assuming the program doesn't do anything else unrelated to the context, will quit. I think the point <code>@MichaelCOLL was trying to make is that you're better off capturing the context returned by </code>run` and calling <code>close</code> when you're ready to exit the application, based on some secondary signal.</span> <span> - </span> <span class="display-name">Savior</span> <span> </span> <span class="date">24 Jun 2020 at 13:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Also, even if there was a parent context, you'd be shutting it down and destroying all of its beans, which wouldn't be much use to the other context, effectively breaking the application.</span> <span> - </span> <span class="display-name">Savior</span> <span> </span> <span class="date">24 Jun 2020 at 13:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sam</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Mar 2019 at 12:50</span>
+     </div>
+    </div>
+    <div>
+     <p>This will make sure that the SpringBoot application is closed properly and the resources are released back to the operating system,</p>
+     <pre><code>@Autowired
+private ApplicationContext context;
+
+@GetMapping("/shutdown-app")
+public void shutdownApp() {
+
+    int exitCode = SpringApplication.exit(context, (ExitCodeGenerator) () -&gt; 0);
+    System.exit(exitCode);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>+! as required the <code>System.exit(exitCode)</code> in my application, otherwise spring boot was restarting</span> <span> - </span> <span class="display-name">Jonas D</span> <span> </span> <span class="date">24 Feb 2021 at 09:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>magiccrafter</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Sep 2016 at 10:14</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>In the application</strong> you can use <code>SpringApplication</code>. This has a static <code>exit()</code> method that takes two arguments: the <code>ApplicationContext</code> and an <code>ExitCodeGenerator</code>:</p>
+     <p>i.e. you can declare this method:</p>
+     <pre><code>@Autowired
+public void shutDown(ExecutorServiceExitCodeGenerator exitCodeGenerator) {
+    SpringApplication.exit(applicationContext, exitCodeGenerator);
+}
+</code></pre>
+     <p><strong>Inside the Integration tests</strong> you can achieved it by adding <code>@DirtiesContext</code> annotation at class level:</p>
+     <ul>
+      <li><code>@DirtiesContext(classMode=ClassMode.AFTER_CLASS)</code> - The associated ApplicationContext will be marked as dirty after the test class.</li>
+      <li><code>@DirtiesContext(classMode=ClassMode.AFTER_EACH_TEST_METHOD)</code> - The associated ApplicationContext will be marked as dirty after each test method in the class.</li>
+     </ul>
+     <p>i.e.</p>
+     <pre><code>@RunWith(SpringJUnit4ClassRunner.class)
+@SpringBootTest(classes = {Application.class},
+    webEnvironment= SpringBootTest.WebEnvironment.DEFINED_PORT, properties = {"server.port:0"})
+@DirtiesContext(classMode= DirtiesContext.ClassMode.AFTER_CLASS)
+public class ApplicationIT {
+...
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Ok. Where am I supposed to get ExecutorServiceExitCodeGenerator? If it is a bean, can you show the creation snippet code (and from which class it is created)? In which class the method shutDown(ExecutorServiceExitCodeGenerator exitCodeGenerator) should be put?</span> <span> - </span> <span class="display-name">Vlad G.</span> <span> </span> <span class="date">26 Mar 2019 at 18:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>OffsetDateTime invalid format</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>OffsetDateTime invalid format</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>robert trudel</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Jul 2020 at 11:31</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63053211/offsetdatetime-invalid-format">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I try to take a string who contain a vlaue of zoneDateTime.</p>
+    <pre><code>ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule()).disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+String date = "2019-06-12T22:00:00-04:00";
+OffsetDateTime odt = objectMapper.readValue(date, OffsetDateTime.class);
+System.out.println(odt);
+</code></pre>
+    <p>Jackson said: parserException: unexpected character -</p>
+    <p>This command is valid</p>
+    <pre><code>OffsetDateTime.parse("2019-06-12T22:00:00-04:00"); 
+</code></pre>
+    <p>So seem like a jackson issue</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jackson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>From this <a href="https://stackoverflow.com/a/38048393/11023871">answer</a>, I guess your problem is that you use the character '-' in your <code>date</code> string. Your hour and minute should be separated by ':'</span> <span> - </span> <span class="display-name">David Buzatu</span> <span> </span> <span class="date">23 Jul 2020 at 12:25</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>time in the string: 22:00:00</span> <span> - </span> <span class="display-name">robert trudel</span> <span> </span> <span class="date">23 Jul 2020 at 12:42</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@DavidBuzatu It is an offset date time string. That means the <code>-04:00</code> is the offset from UTC.</span> <span> - </span> <span class="display-name">Mark Rotteveel</span> <span> </span> <span class="date">23 Jul 2020 at 14:47</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jul 2020 at 14:42</span>
+     </div>
+    </div>
+    <div>
+     <p>The <code>objectMapper.readValue(date, OffsetDateTime.class)</code> expects the string <code>date</code> to be valid JSON.</p>
+     <p>So, one way to use this would be to start with an example such as the following:</p>
+     <pre><code>String json = "{ \"odt\" : \"2019-06-12T22:00:00-04:00\" }";
+</code></pre>
+     <p>And then create an object to store this JSON, for example:</p>
+     <pre><code>import java.time.OffsetDateTime;
+
+public class ODT {
+
+    private OffsetDateTime odt;
+
+    public OffsetDateTime getOdt() {
+        return odt;
+    }
+
+    public void setOdt(OffsetDateTime odt) {
+        this.odt = odt;
+    }
+    
+}
+</code></pre>
+     <p>Now, the following code will handle the input successfully, using your object mapper:</p>
+     <pre><code>ODT myOdt = objectMapper.readValue(json, ODT.class);
+System.out.println(myOdt.getOdt());
+</code></pre>
+     <p>This prints:</p>
+     <pre><code>2019-06-13T02:00Z
+</code></pre>
+     <p><strong>Update</strong></p>
+     <p>To display this value using the original offset, instead of UTC, you can use the following:</p>
+     <pre><code>System.out.println(myOdt.getOdt().atZoneSameInstant(ZoneId.of("-04:00")));
+</code></pre>
+     <p>This prints:</p>
+     <pre><code>2019-06-12T22:00-04:00
+</code></pre>
+     <p>This is the same as the original value in our starting JSON string.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Locally, I have new york time. zone.. so -4 i was expected to get 2019-06-12T18:00</span> <span> - </span> <span class="display-name">robert trudel</span> <span> </span> <span class="date">23 Jul 2020 at 15:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Understood - I have updated my answer to cover your point (but it should be 22:00 not 18:00, right?). Since the original time was 22:00 in the -04:00 offset, that would be 02:00 the next day in UTC time (as shown in my initial answer). So, re-adjusting the display string for this offset takes us back to the starting time. Hope that makes sense.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">23 Jul 2020 at 16:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

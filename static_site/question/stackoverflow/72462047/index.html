@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Datatables footerCallback, exclude rows and sum it with JSON data</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Datatables footerCallback, exclude rows and sum it with JSON data</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Hristian Yordanov</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>1 Jun 2022 at 12:38</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/72462047/datatables-footercallback-exclude-rows-and-sum-it-with-json-data">source</a>
+    </div>
+   </div>
+   <div>
+    <p>This question is based on <a href="https://stackoverflow.com/questions/72447620/footercallback-with-duplicate-cell-numbers">footerCallback with duplicate cell numbers</a></p>
+    <p>I implement the solution from @andrewJames (thanks).</p>
+    <p>I'm trying to sum last column of the table exept the salary of <code>System Architect</code> and <code>Senior Javascript Developer</code></p>
+    <p>But now there is a problem when I use JSON data. The <code>sum</code> is always <code>0</code>... instead of $9</p>
+    <p>HTML:</p>
+    <pre><code>&lt;div class="row"&gt;
+
+  &lt;div class="large-12 columns"&gt;
+
+
+  &lt;table id="example" class="display nowrap table1" cellspacing="0" width="100%"&gt;
+      &lt;thead&gt;
+        &lt;tr&gt;
+          &lt;th&gt;Seq.&lt;/th&gt;
+          &lt;th&gt;Name&lt;/th&gt;
+          &lt;th&gt;Position&lt;/th&gt;
+          &lt;th&gt;Salary&lt;/th&gt;
+        &lt;/tr&gt;
+      &lt;/thead&gt;
+      &lt;tfoot&gt;
+        &lt;tr&gt;
+          &lt;th&gt;Seq.&lt;/th&gt;
+          &lt;th&gt;Name&lt;/th&gt;
+          &lt;th&gt;Position&lt;/th&gt;
+          &lt;th&gt;Salary&lt;/th&gt;
+        &lt;/tr&gt;
+      &lt;/tfoot&gt;
+    &lt;/table&gt;
+
+  &lt;/div&gt;
+
+&lt;/div&gt;  
+</code></pre>
+    <p>jQuery:</p>
+    <pre><code>var salaryTable = {
+    "data": [
+        {
+            "Seq": "1",
+            "Name": "Tiger Nixon",
+            "Position": "System Architect",
+            "Salary": "$1"
+        },
+        {
+            "Seq": "1",
+            "Name": "Garrett Winters",
+            "Position": "Accountant",
+            "Salary": "$1"
+        },
+        {
+            "Seq": "3",
+            "Name": "Ashton Cox",
+            "Position": "Junior Technical Author",
+            "Salary": "$3"
+        },
+        {
+            "Seq": "4",
+            "Name": "Cedric Kelly",
+            "Position": "Senior Javascript Developer",
+            "Salary": "$4"
+        },
+        {
+            "Seq": "5",
+            "Name": "Airi Satou",
+            "Position": "Accountant",
+            "Salary": "$5"
+        }
+    ]
+}; 
+ 
+ 
+ $(document).ready(function() {
+    var table = $('#example').DataTable( {
+        rowReorder: {
+        selector: 'td:nth-child(2)'
+      },
+      data: salaryTable.data,
+            columns: [
+            { data: "Seq" },
+            { data: "Name" },
+            { data: "Position" },
+            { data: "Salary" }
+        ],
+      responsive: true,
+      scrollX: true,
+      scrollY: "80vh",
+        scrollCollapse: true,
+            paging: true,
+      lengthChange: false,
+      lengthMenu: [ [10, 25, -1], [10, 25, "All"] ],
+      "order": [[ 0, "asc" ]],
+      "footerCallback": function ( row, data, start, end, display ) {
+            var api = this.api(), data;
+ 
+            // Remove the formatting to get integer data for summation
+            var intVal = function ( i ) {
+                return typeof i === 'string' ?
+                    i.replace(/[\$,]/g, '')*1 :
+                    typeof i === 'number' ?
+                        i : 0;
+            };
+ 
+            filteredTotal = api.rows().data().reduce(function (a, b) {
+              // filterMe will be true or false:
+              filterMe = b[2] === "System Architect" || b[2] === "Senior Javascript Developer";
+
+              // if filterMe is true then use 0, otherwise use the actual amount from b[3]:
+              salary = filterMe ? 0 : intVal(b[3]);
+
+              return a + salary;
+            }, 0 );
+ 
+            // Total over this page
+            pageTotal = api
+                .column( 3, { page: 'current'} )
+                .data()
+                .reduce( function (a, b) {
+                    return intVal(a) + intVal(b);
+                }, 0 );
+ 
+            // Update footer
+            $( api.column( 3 ).footer() ).html(
+                '$'+filteredTotal+'/ all $'+pageTotal
+            );
+        },
+        buttons: ['pdf', 'print']
+    } );
+ 
+    table.buttons().container()
+        .appendTo( '#example_wrapper .small-6.columns:eq(0)' );
+} );
+   $(document).foundation();
+</code></pre>
+    <p>Fiddle with the problem: <a href="https://jsfiddle.net/87360vyx/1/" rel="nofollow noreferrer">https://jsfiddle.net/87360vyx/1/</a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">html</span><span class="tag">jquery</span><span class="tag">json</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jun 2022 at 14:10</span>
+     </div>
+    </div>
+    <div>
+     <p>The difference between this Ajax approach and your <a href="https://stackoverflow.com/q/72447620/12567365">previous HTML approach</a> is this:</p>
+     <p>When DataTables pulls its data directly from an HTML table, a row of data is handled as a JavaScript array of values:</p>
+     <pre class="lang-js prettyprint-override"><code>[ '1', 'Tiger Nixon', 'System Architect', ... ]
+</code></pre>
+     <p>But with the JSON you are using in this question, the equivalent row of data is stored in DataTables as a JavaScript object:</p>
+     <pre><code>{ Seq: "1", Name: "Tiger Nixon", Position: "System Architect", ... }
+</code></pre>
+     <p>Therefore you cannot access row values using code like <code>b[2]</code>. Instead you have to use <code>b.Position</code>. And instead of <code>b[3]</code> you have to use <code>b.Salary</code>.</p>
+     <hr>
+     <p>You can see the difference for yourself by adding a <code>console.log( b );</code> statement to each of the different versions of the code, inside the <code>rows().data().reduce(...)</code> code. That will show you exactly how DataTables is handling its row data, internally.</p>
+     <p>You can also an official example here: <a href="https://datatables.net/examples/ajax/objects.html" rel="nofollow noreferrer">Ajax data source (objects)</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Thanks for the help and time to explain me... :)</span> <span> - </span> <span class="display-name">Hristian Yordanov</span> <span> </span> <span class="date">1 Jun 2022 at 14:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

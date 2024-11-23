@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How can I print all terms from a Lucene Document?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How can I print all terms from a Lucene Document?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>David</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Apr 2023 at 23:46</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/75968156/how-can-i-print-all-terms-from-a-lucene-document">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to print all terms from the documents between two docID. But some terms that I had indexed aren't printed.</p>
+    <p>Sorry because some things are written in Spain due to it's a project for my spanish university.</p>
+    <p>I have this code:</p>
+    <pre><code>package simpledemo;
+
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.ArrayList;
+
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.index.Terms;
+import org.apache.lucene.index.TermsEnum;
+import org.apache.lucene.index.Fields;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.similarities.Similarity;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.BytesRef;
+//import org.apache.lucene.search.similarities.DefaultSimilarity; // FIXME No se pq no detecta esto si aparece en el API de Lucene
+
+public class TopTermsInDocs {
+
+
+    public static void main(String[] args) {
+        // TODO Poner bien el paquete al que pertenece cd ordenemos el codigo
+        String usage = "simpledemo.TopTermsInDocs"
+        + "[-index INDEX_PATH] [-docID INT1-INT2] [-top N] [-outfile PATH]\n"
+        + "The result will be displayed on screen and in a file to be indicated in"
+        + "the -outfile path argument, will show for each document its"
+        + "docId and the top n terms with its tf, df and tf x idflog10";
+
+        String indexPath = null; // TODO mirar si poner uno por defecto o hacer que falle
+        String[] range = null;
+        Integer docIdStart = null;
+        Integer docIdEnd = null;
+        Integer topN = null;
+        String outPath = null;
+        System.out.println(usage);
+
+        for (int i = 0; i &lt; args.length; i++) {
+            switch(args[i]) {
+                case "-index": 
+                    indexPath = args[++i];
+                    break;
+                case "-docID":
+                    range = args[++i].split("-");
+                    docIdStart = Integer.parseInt(range[0]);
+                    docIdEnd = Integer.parseInt(range[1]);
+                    break;
+                case "-top":
+                    topN = Integer.parseInt(args[++i]);
+                    break;
+                case "-outfile":
+                    outPath = args[++i];
+            } 
+        }
+        IndexReader reader = null; //Ls inicializo aqui a null pq sino no los voy a poder usar fuera del try
+        // FIXME descomentar cd lo reconozca       DefaultSimilarity similarity = new DefaultSimilarity();
+        try {
+            reader = DirectoryReader.open(FSDirectory.open(Paths.get(indexPath)));
+
+            int numDocs = reader.numDocs(); // Numero de documentos total
+
+            for(int id = docIdStart; id&lt;docIdEnd; id++) {
+                System.out.println("Voy a printear el docID: " + id);
+                Fields fields = reader.getTermVectors(id); //Obtengo todos los terminos del documento
+
+                for (String fieldName : fields) {
+                    Terms terms = fields.terms(fieldName);
+                    TermsEnum termsEnum = terms.iterator();
+                    BytesRef term = null;
+
+                    while((term = termsEnum.next()) != null) {
+                        String termText = term.utf8ToString();
+                        long termFreq = termsEnum.totalTermFreq(); //Frecuencia total del termino
+                        int docFreq = termsEnum.docFreq(); //Frecuencia de documento
+                        int tf = (int) Math.round(termFreq / docFreq); //Frecuencia del termino en el documento
+                        // FIXME descomentar cd lo reconozca    double idf = similarity.idf(docFreq, numDocs);
+                        int idf = (int) Math.log(numDocs/(docFreq+1)) + 1;
+                        System.out.println("Campo: " + fieldName + " - Término: " + termText + " - tf: " + tf + " - idf: " + idf);
+                        //TODO primero probar si funciona y si funciona puedo hacer una funcion que devuelva una estructura con todo
+                    }
+
+                }
+
+                System.out.println("\n\n");
+            }
+
+        } catch (Exception e) {
+            // TODO: handle exception
+        }
+
+
+
+
+
+
+    }
+}
+</code></pre>
+    <p>I know -top and -outfile options aren't implemented for the moment. But it doesn't matter for the problem.</p>
+    <p>When I execute it for a single document it shows:</p>
+    <pre><code>Campo: LastModifiedTimeLucene - Término: 20230408150702014 - tf: 1 - idf: 2
+Campo: contents - Término: david - tf: 1 - idf: 2
+Campo: contents - Término: hola2 - tf: 1 - idf: 2
+Campo: contents - Término: txt - tf: 1 - idf: 2
+Campo: creationTime - Término: 2023-04-08 17:07:02 - tf: 1 - idf: 2
+Campo: creationTimeLucene - Término: 20230408150702014 - tf: 1 - idf: 2
+Campo: lastAccessTime - Término: 2023-04-09 01:10:26 - tf: 1 - idf: 2
+Campo: lastAccessTimeLucene - Término: 20230408231026954 - tf: 1 - idf: 2
+Campo: lastModifiedTime - Término: 2023-04-08 17:07:02 - tf: 1 - idf: 2
+</code></pre>
+    <p>About the creation of the documents I have this function:</p>
+    <pre><code>    void indexDoc(IndexWriter writer, Path file, long lastModified) throws IOException {
+        System.out.println(file.getFileName().toString());
+        // TODO Añadir la funcionalidad de onlyLines
+        if(config.validateFile(file.getFileName().toString()))
+        {
+            try (InputStream stream = Files.newInputStream(file)) {
+                // make a new, empty document
+                Document doc = new Document();
+                
+                // Add the path of the file as a field named "path". Use a
+                // field that is indexed (i.e. searchable), but don't tokenize
+                // the field into separate words and don't index term frequency
+                // or positional information:
+                Field pathField = new StringField("path", file.toString(), Field.Store.YES);
+                doc.add(pathField);
+                
+                String contents = obtainContents(stream);
+                
+                FieldType tmp_field_type = new FieldType();
+                
+                tmp_field_type.setTokenized(true);
+                tmp_field_type.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS);
+                tmp_field_type.setStoreTermVectors(contentsTermVectors);
+                tmp_field_type.setStoreTermVectorPositions(contentsTermVectors);
+                tmp_field_type.setStored(contentsStored);
+                tmp_field_type.freeze();
+                
+                // Add the contents of the file to a field named "contents". Specify a Reader,
+                // so that the text of the file is tokenized and indexed, but not stored.
+                // Note that FileReader expects the file to be in UTF-8 encoding.
+                // If that's not the case searching for special characters will fail.
+                
+                Field contentsField = new Field("contents", contents, tmp_field_type);
+                doc.add(contentsField);
+
+                // TODO Extender documentacion
+                Field hostnameField = new StringField("hostname", InetAddress.getLocalHost().getHostName(), Field.Store.YES);
+                doc.add(hostnameField);
+    
+                // TODO Extender documentacion
+                Field threadField = new StringField("thread", Thread.currentThread().getName(), Field.Store.YES);
+                doc.add(threadField);
+                
+                // TODO Extender documentacion
+                
+                BasicFileAttributes at = Files.readAttributes(file, BasicFileAttributes.class);
+                String type;
+                if (at.isDirectory()) type = "isDirectory";
+                else if (at.isRegularFile()) type = "isRegularFile";
+                else if (at.isSymbolicLink()) type = "iSSymbolicLink";
+                else if (at.isOther()) type = "isOther";
+                else type = "error";
+
+                doc.add(new StringField("type", type, Field.Store.YES));
+                
+                // TODO Extender documentacion
+                
+                doc.add(new LongPoint("sizeKB", at.size())); // ! CUIDAO
+                doc.add(new StoredField("sizeKB", at.size()));
+
+                // Add the last modified date of the file a field named "modified".
+                // Use a LongPoint that is indexed (i.e. efficiently filterable with
+                // PointRangeQuery). This indexes to milli-second resolution, which
+                // is often too fine. You could instead create a number based on
+                // year/month/day/hour/minutes/seconds, down the resolution you require.
+                // For example the long value 2011021714 would mean
+                // February 17, 2011, 2-3 PM.
+                doc.add(new LongPoint("modified", lastModified));
+                doc.add(new StoredField("modified", lastModified));
+    
+                
+                String dateFormat = "yyyy-MM-dd HH:mm:ss";
+                SimpleDateFormat simpleDateFormat = new SimpleDateFormat(dateFormat);
+
+                FileTime creationTime = at.creationTime();
+                String creationTimeFormateado = simpleDateFormat.format(new Date(creationTime.toMillis()));
+                doc.add(new Field("creationTime", creationTimeFormateado, TYPE_STORED));
+
+                FileTime lastAccessTime = at.lastAccessTime();
+                String lastAccessTimeFormateado = simpleDateFormat.format(new Date(lastAccessTime.toMillis()));
+                doc.add(new Field("lastAccessTime", lastAccessTimeFormateado, TYPE_STORED));
+
+                FileTime lastModifiedTime = at.lastModifiedTime();
+                String lastTimeModifiedTimeFormateado = simpleDateFormat.format(new Date(lastModifiedTime.toMillis()));
+                doc.add(new Field("lastModifiedTime", lastTimeModifiedTimeFormateado, TYPE_STORED));
+
+                Date creationTimelucene = new Date(creationTime.toMillis());
+                String s1 = DateTools.dateToString(creationTimelucene, DateTools.Resolution.MILLISECOND);
+                doc.add(new Field("creationTimeLucene", s1, TYPE_STORED));
+
+                Date lastAccessTimelucene = new Date(lastAccessTime.toMillis());
+                String s2 = DateTools.dateToString(lastAccessTimelucene, DateTools.Resolution.MILLISECOND);
+                doc.add(new Field("lastAccessTimeLucene", s2, TYPE_STORED));
+
+                Date lastModifiedTimelucene = new Date(lastModifiedTime.toMillis());
+                String s3 = DateTools.dateToString(lastModifiedTimelucene, DateTools.Resolution.MILLISECOND);
+                doc.add(new Field("LastModifiedTimeLucene", s3, TYPE_STORED));
+                
+                if (demoEmbeddings != null) {
+                    try (InputStream in = Files.newInputStream(file)) {
+                        float[] vector = demoEmbeddings.computeEmbedding(
+                                new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)));
+                        doc.add(
+                                new KnnVectorField("contents-vector", vector, VectorSimilarityFunction.DOT_PRODUCT));
+                    }
+                }
+    
+                if (writer.getConfig().getOpenMode() == OpenMode.CREATE) {
+                    // New index, so we just add the document (no old document can be there):
+                    System.out.println("adding " + file);
+                    writer.addDocument(doc);
+                } else {
+                    // Existing index (an old copy of this document may have been indexed) so
+                    // we use updateDocument instead to replace the old one matching the exact
+                    // path, if present:
+                    System.out.println("updating " + file);
+                    writer.updateDocument(new Term("path", file.toString()), doc);
+                }
+            }
+        }
+        else
+            System.out.println("Este archivo va a ser ignorado");
+    }```
+
+But I have indexed more fields for the document, like file type. Why are they not shown?
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>What version of Lucene are you using? How have you created the documents you are using (so we can see what fields you have defined - and how you have defined them).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">9 Apr 2023 at 01:32</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I would expect you to use <a href="https://lucene.apache.org/core/9_5_0/core/org/apache/lucene/document/Document.html#getFields()" rel="nofollow noreferrer"><code>document.getFields()</code></a> given you want fields for specific documents - and bear in mind that fields set to <code>Field.Store.NO</code> are <i>not</i> stored in any specific document, in the index. It's the difference between "fields for the document" (what I think you are asking for) and "documents for the field".</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">9 Apr 2023 at 01:34</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I am using Lucene 9.4.2</span> <span> - </span> <span class="display-name">David</span> <span> </span> <span class="date">9 Apr 2023 at 09:48</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I have edited my question and added the code I use to index each document.</span> <span> - </span> <span class="display-name">David</span> <span> </span> <span class="date">9 Apr 2023 at 09:53</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Apr 2023 at 17:28</span>
+     </div>
+    </div>
+    <div>
+     <p>You want to print specific field data:</p>
+     <blockquote>
+      <p>"<em>from the documents between two docIDs</em>"</p>
+     </blockquote>
+     <p>The missing example you specifically mentioned was <strong>"file type"</strong> - for example:</p>
+     <pre class="lang-java prettyprint-override"><code>doc.add(new StringField("type", "isDirectory", Field.Store.YES));
+</code></pre>
+     <p>Your code is expecting to be able to access this field using:</p>
+     <pre class="lang-java prettyprint-override"><code>Fields fields = reader.getTermVectors(id);
+</code></pre>
+     <p>But the <code>type</code> field is not a term vector. It's a <a href="https://lucene.apache.org/core/9_4_2/core/org/apache/lucene/document/StringField.html" rel="nofollow noreferrer">StringField</a>, which is:</p>
+     <blockquote>
+      <p>A field that is indexed but not tokenized: the entire String value is indexed as a single token.</p>
+     </blockquote>
+     <p>Instead you can get this field using the following:</p>
+     <pre class="lang-java prettyprint-override"><code>reader.document(id).getFields()
+</code></pre>
+     <p>For example (I chose to use a <code>forEach</code> here - but you can use your loop also):</p>
+     <pre class="lang-java prettyprint-override"><code>for (int id = 0; id &lt; 1; id++) {
+    reader.document(id).getFields()
+        .forEach(field -&gt; System.out.println(field.name() 
+        + " - " + field.stringValue()));
+}
+</code></pre>
+     <p>For my <code>type</code> example, the above code prints:</p>
+     <pre><code>type - isDirectory
+</code></pre>
+     <hr>
+     <p>Thank you for the edits to your question. It's difficult to use these edits, as they do not provide a <a href="https://stackoverflow.com/help/minimal-reproducible-example">mre</a> - there are references to other methods, whereas some hard-coded data would probably be more helpful - for example, like my sample:</p>
+     <pre><code>doc.add(new StringField("type", "isDirectory", Field.Store.YES));
+</code></pre>
+     <p>This is self-contained and does not rely on any files or other methods not shown in your question.</p>
+     <p>If there are additional missing fields in your output, you can take a look at what types of fields those are - and maybe provide a hard-coded data example.</p>
+     <p>It may even be worth asking a new, more focused question for these.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

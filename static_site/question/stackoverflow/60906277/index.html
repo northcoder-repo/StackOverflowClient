@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Sharing object between multiple threads</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Sharing object between multiple threads</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Priyatam Roy</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Mar 2020 at 19:59</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60906277/sharing-object-between-multiple-threads">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Can't get the correct value of <code>count</code> in writer thread. It is always 1 in the writer thread even though it is changing in reader thread.</p>
+    <pre><code>public class ReaderWriter1 {
+
+    public static void main(String args[]) {
+
+        Semaphore rs = new Semaphore(1);
+        Integer count = new Integer(0);
+
+        Thread r1 = new Thread(new Reader("Reader 1", rs, count++));
+        Thread w1 = new Thread(new Writer("Writer 1", count));
+        w1.start();
+        r1.start();
+    }
+}
+
+class Reader implements Runnable {
+
+    String tName;
+    Semaphore rs;
+    Integer count;
+
+    Reader(String tName, Semaphore rs, Integer count) {
+        this.tName = tName;
+        this.rs = rs;
+        this.count =  count;
+    }
+
+    @Override
+    public void run() {
+        try {
+            read();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    void read() throws InterruptedException {
+        while(true) {
+
+            rs.acquire();
+            count++;
+            rs.release();
+            System.out.println("Count in reader: " + count);
+            Thread.sleep(1000);
+        }
+    }
+
+}
+
+class Writer implements Runnable {
+
+    String tName;
+    Integer count;
+
+    Writer(String tName, Integer count) {
+        this.tName = tName;
+        this.count =  count;
+    }
+
+    @Override
+    public void run() {
+
+        try {
+            write();
+        } catch (InterruptedException e1) {
+            e1.printStackTrace();
+        }
+
+    }
+
+    void write() throws InterruptedException {
+        while(true) {
+            System.out.println("Count in writer: " + count);
+            Thread.sleep(1000);
+        }
+    }
+
+}
+</code></pre>
+    <p>Output:</p>
+    <pre><code>Count in writer: 1
+Count in reader: 1
+Count in writer: 1
+Count in reader: 2
+Count in reader: 3
+Count in writer: 1
+Count in writer: 1
+Count in reader: 4
+Count in writer: 1
+Count in reader: 5
+Count in writer: 1
+Count in reader: 6
+Count in writer: 1
+Count in reader: 7
+Count in reader: 8
+Count in writer: 1
+Count in reader: 9
+Count in writer: 1
+</code></pre>
+    <p>Please let me know what is wrong with my code.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">multithreading</span><span class="tag">thread-safety</span><span class="tag">semaphore</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>3</td>
+       <td><span><code>Integer</code> is immutable. It it won't get changed, instead, it is replaced with a new one who has a different value.</span> <span> - </span> <span class="display-name">Johannes Kuhn</span> <span> </span> <span class="date">28 Mar 2020 at 20:12</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thanks @JohannesKuhn. I dont know what to say. Forgot such a basic concept.</span> <span> - </span> <span class="display-name">Priyatam Roy</span> <span> </span> <span class="date">28 Mar 2020 at 20:16</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>M A</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Mar 2020 at 20:15</span>
+     </div>
+    </div>
+    <div>
+     <p>The code is not sharing the <code>Integer</code> instance. <code>count++</code> is equivalent to:</p>
+     <p><code>count = Integer.valueOf(count.intValue() + 1);</code></p>
+     <p>i.e. so you re-assign a new instance to the local variable <code>count</code>. The instance itself is not changed (indeed <code>Integer</code> is an immutable type).</p>
+     <p>In multithreaded scenarios, it might be better to use an <code>AtomicInteger</code>.</p>
+     <p><strong>Side note:</strong> you almost always should not invoke the <code>Integer</code> constructor, always use <code>Integer.valueOf(int)</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>In fact, the <a href="https://bugs.openjdk.java.net/browse/JDK-8176335" rel="nofollow noreferrer">primitive types constructors are deprecated</a></span> <span> - </span> <span class="display-name">Johannes Kuhn</span> <span> </span> <span class="date">28 Mar 2020 at 21:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

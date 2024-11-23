@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to apply ascending sort to split data in datatable</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to apply ascending sort to split data in datatable</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>leesuccess</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>1 Jun 2021 at 15:05</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67791400/how-to-apply-ascending-sort-to-split-data-in-datatable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I created a table using datatable jquery plugin. The data also includes "/", so I split it up and completed the process of making each word into a dropdown list. Now I want to sort each splite word in ascending order.</p>
+    <p>As a method found through Googling, it is a method of ordering the data before splitting. I want to know how to orderby data after split. The language I am using is Hangul, and the syntax for ascending Hangul is as follows.</p>
+    <p>(a&lt;b)?-1:(a==b)?0:1;</p>
+    <pre><code>this.api().columns().every( function () {
+            var column = this;
+            var colTitle = this.header().innerHTML;
+            var select = $('&lt;select&gt;&lt;option value="" selected&gt;' + colTitle + '&lt;/option&gt;&lt;/select&gt;')
+                .appendTo( $(column.header()).empty() )
+                .on( 'change', function () {
+                    var val = $.fn.dataTable.util.escapeRegex(
+                        $(this).val()
+                     );
+                    column
+            .search( this.value )
+            .draw();
+            } );
+
+            column.data().unique().sort().each( function( d, j ) {
+                   var name = d.split("/");
+                    name.forEach(function(number) {
+                        var optionExists = ($("select option[value='"+number+"']").length &gt; 0);
+                        if(!optionExists){
+                            select.append( '&lt;option value="'+number+'"&gt;'+number+'&lt;/option&gt;' );
+                        }
+                    });
+            } );
+        } );
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">plugins</span><span class="tag">datatable</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jun 2021 at 01:14</span>
+     </div>
+    </div>
+    <div>
+     <p>I don't think the language you are using is relevant here, because the default <code>sort()</code> method is basically the same as the one you refer to in the question: <code>(a&lt;b)?-1:(a==b)?0:1</code>. (But see my note at the end for more thoughts about that.)</p>
+     <p>There are two issues I think need to be fixed:</p>
+     <p><strong>1. Split first, the remove duplicates, then sort</strong></p>
+     <p>Currently, your code removes duplicates and splits the cell data <em>before</em> performing the sort - so we need to reverse that. This requires us to create a new array in which we will collect unsorted, unique values after performing the cell split:</p>
+     <pre><code>var items = [];
+</code></pre>
+     <p><strong>2. Separate column ordering from column filtering</strong></p>
+     <p>If you place the select list in the heading cell, then every time you click on the drop-down you will also trigger the DataTables column sorting functionality. So we need to keep these two things separate.</p>
+     <p>The easiest way to do this is to create a second heading row and put the dropdown in the header row above the column heading label (where column sorting is controlled):</p>
+     <pre><code>$('#example thead tr').clone(true).appendTo( '#example thead' );
+</code></pre>
+     <p>Here is a demo:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>$(document).ready(function() {
+
+  $('#example thead tr').clone(true).appendTo( '#example thead' );
+
+  var table = $('#example').DataTable( {
+    initComplete: function () {
+      this.api().columns().every( function () {
+        var column = this;
+        var colIdx = column.index();
+        var colTitle = this.header().innerHTML;
+
+        var select = $('&lt;select&gt;&lt;option value="" selected&gt; --select--&lt;/option&gt;&lt;/select&gt;')
+          .appendTo( $('#example thead tr:eq(0) th:eq(' + colIdx + ')').empty() )
+          .on( 'change', function () {
+          var val = $.fn.dataTable.util.escapeRegex(
+            $(this).val()
+          );
+          column
+            .search( val ? val : '', true, false )
+            .draw();
+        } );
+ 
+        var items = [];
+        
+        // first split each cell's data, and discard duplicates:
+        column.data().toArray().forEach( function ( cell, x ) {
+          cell.split("/").forEach( function ( item, y ) {
+            if (! items.includes(item)) {
+              items.push(item);
+            }
+          } );
+        } );
+
+        // then sort the results:
+        items.sort();
+
+        // now we can build the drop-down list:
+        items.forEach( function ( option, z ) {
+          select.append( '&lt;option value="' + option + '"&gt;' + option + '&lt;/option&gt;' )
+        } );
+
+      } );
+    }
+  } );
+
+} );</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Number&lt;/th&gt;
+                &lt;th&gt;Animal&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;one/two/three&lt;/td&gt;
+                &lt;td&gt;horse/chicken/dog&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;two/three/four&lt;/td&gt;
+                &lt;td&gt;chicken/pig/sheep&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;four/five/six&lt;/td&gt;
+                &lt;td&gt;sheep/horse/goat&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;/body&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <hr>
+     <p><strong>Language-sensitive string comparisons</strong></p>
+     <p>If you still have a problem with the way your Hangul data is being sorted, then you can use a custom comparison function.</p>
+     <p>This may be the case even in Western scripts, if you want to sort in "dictionary" order, so that a word such as "éléphant" is sorted alongside "elephant" (otherwise it would be sorted after "zebra").</p>
+     <p>See <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Collator/Collator" rel="nofollow noreferrer">Intl.Collator</a> for more details regarding language-sensitive string comparisons.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Prevent XXE Attack with JAXB XMLStreamReader</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Prevent XXE Attack with JAXB XMLStreamReader</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jonathan Hagen</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Dec 2020 at 20:22</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65295943/prevent-xxe-attack-with-jaxb-xmlstreamreader">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am very new to JAXB and in our code audit, there was suggestion on preventing XXE attack with JAXB. I found related answer: <a href="https://stackoverflow.com/questions/12977299/prevent-xxe-attack-with-jaxb">Prevent XXE Attack with JAXB</a></p>
+    <p>My existing code looks like this:</p>
+    <pre><code>if (properties.getProperty(MANIFEST) != null &amp;&amp; !properties.getProperty(MANIFEST).isEmpty()) {
+                String manifestString =  properties.getProperty(MANIFEST);
+                ByteArrayInputStream is = new ByteArrayInputStream(manifestString.getBytes());
+                try {
+                    this.manifest = (Manifest) getJaxbContext().createUnmarshaller().unmarshal(is);
+                }
+                catch (JAXBException e) {
+                    LOG.warn("There was an error trying to convert xml String to Manifest - {}", e.getMessage(), e);
+                }
+                
+            }
+</code></pre>
+    <p>Based on the answer, instead of using <code>ByteArrayInputStream</code>, I am supposed to use <code>XMLStreamReader</code> with some properties <code>false</code>.</p>
+    <p>In suggested answer, it says:</p>
+    <p><code>XMLStreamReader xsr = xif.createXMLStreamReader(new StreamSource("src/xxe/input.xml"));</code></p>
+    <p>I don't understand what 'src/xxe/input.xml' is and what it needs to be for my solution. Can anyone please explain?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">security</span><span class="tag">jaxb</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Dec 2020 at 21:50</span>
+     </div>
+    </div>
+    <div>
+     <p>The <code>src/xxe/input.xml</code> from the answer in the other question is that question's source location for the XML being processed - namely a filename, accessed as a URL resource.</p>
+     <p>In your case, your XML is provided in <code>String manifestString</code> - therefore your <code>StreamSource</code> needs to be given this string as its source, not a file location.</p>
+     <p>This can be done using a <code>StringReader</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>import java.io.StringReader
+
+...
+
+StringReader manifestReader = new StringReader(manifestString); 
+XMLStreamReader xsr = xif.createXMLStreamReader(new StreamSource(manifestReader));
+</code></pre>
+     <p>I split the code into 2 lines to make it clearer - but you can collapse them back to one line if you prefer:</p>
+     <pre class="lang-java prettyprint-override"><code>XMLStreamReader xsr = xif.createXMLStreamReader(
+        new StreamSource(new StringReader(manifestString)));
+</code></pre>
+     <p>The above code assumes you have already created your context and the <code>xif</code> input factory:</p>
+     <pre class="lang-java prettyprint-override"><code>JAXBContext jc = JAXBContext.newInstance(Manifest.class);
+XMLInputFactory xif = XMLInputFactory.newFactory();
+xif.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+xif.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+</code></pre>
+     <p>Then you can unmarshal in the usual way:</p>
+     <pre class="lang-java prettyprint-override"><code>Unmarshaller unmarshaller = jc.createUnmarshaller();
+Manifest manifest = (Manifest) unmarshaller.unmarshal(xsr);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

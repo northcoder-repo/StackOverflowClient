@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Remove select options from datatable header in pdf export</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Remove select options from datatable header in pdf export</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Ihtisham Khan</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Nov 2020 at 08:51</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64832257/remove-select-options-from-datatable-header-in-pdf-export">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have included select element in header of datatable. Now all the options append and show in header when I export to pdf. I do not want to show these values in header.</p>
+    <pre><code>&lt;script&gt;
+
+
+
+$(document).ready(function() {
+
+  $('#colSearch').DataTable( {
+
+    
+     dom: 'Bfrtip',
+     buttons: [
+        {
+           extend: 'excel',
+           exportOptions: {
+           columns: [ 0, 1, 2, 3, 4, 5, 6 ]
+           }
+        },
+        {
+           extend: 'pdf',
+           exportOptions: {
+           columns: [ 0, 1, 2, 3, 4, 5, 6 ],
+        },
+        
+     ],
+     
+
+     initComplete: function () {
+        this.api().columns([0,1,2,3,4,5,6]).every( function () {
+           
+        var column = this;
+        var select = $('&lt;select&gt;&lt;option value=""&gt;&lt;/option&gt;&lt;/select&gt;')
+           .appendTo( $(column.header()))
+           .on( 'change', function () {
+              var val = $.fn.dataTable.util.escapeRegex(
+                 $(this).val()
+              );
+
+              column
+              .search( val ? '^'+val+'$' : '', true, false )
+              .draw();
+           });
+
+           $( select ).click( function(e) {
+              e.stopPropagation();
+           });
+
+           column.data().unique().sort().each( function ( d, j ) {
+              var val = $('&lt;div/&gt;').html(d).text();
+              select.append( '&lt;option value="' + val + '"&gt;' + val + '&lt;/option&gt;' );
+           });
+        });
+         },
+
+      });
+   });
+&lt;/script&gt; 
+</code></pre>
+    <p>This provided solution removes all of the header. <a href="https://stackoverflow.com/a/54803204/9660462">https://stackoverflow.com/a/54803204/9660462</a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatable</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Nov 2020 at 17:47</span>
+     </div>
+    </div>
+    <div>
+     <p>You can add a <code>format.header</code> option to your existing <code>exportOptions</code>:</p>
+     <pre><code>exportOptions: {
+  columns: [ 0, 1, 2, 3, 4, 5, 6 ],
+  format: {
+    header: function ( data ) {
+      var n = data.indexOf("&lt;select&gt;");
+      if (n &gt; -1) {
+        return data.substring(0, n);
+      } else {
+        return data;
+      }
+    }
+  }
+}
+</code></pre>
+     <p>The above code assumes your DataTable contains HTML in its headings which looks similar to the following:</p>
+     <pre><code>&lt;th class="sorting"&gt;
+    Office
+    &lt;select&gt;
+      &lt;option value=""&gt;&lt;/option&gt;&lt;option value="Edinburgh"&gt;Edinburgh&lt;/option&gt;&lt;option value="London"&gt;London&lt;/option&gt;&lt;option value="New York"&gt;New York&lt;/option&gt;&lt;option value="San Francisco"&gt;San Francisco&lt;/option&gt;&lt;option value="Singapore"&gt;Singapore&lt;/option&gt;&lt;option value="Sydney"&gt;Sydney&lt;/option&gt;&lt;option value="Tokyo"&gt;Tokyo&lt;/option&gt;
+    &lt;/select&gt;
+&lt;/th&gt;
+</code></pre>
+     <p>This causes the heading to contain the following text, which is all the inner HTML from the <code>th</code> element:</p>
+     <pre><code>Office&lt;select&gt;&lt;option value=""&gt;&lt;/option&gt;&lt;optionvalue="Edinburgh"&gt;Edinburgh&lt;/option&gt;&lt;option value="London"&gt;London&lt;/option&gt;&lt;option value="New York"&gt;New York&lt;/option&gt;&lt;option value="San Francisco"&gt;San Francisco&lt;/option&gt;&lt;option value="Singapore"&gt;Singapore&lt;/option&gt;&lt;option value="Sydney"&gt;Sydney&lt;/option&gt;&lt;option value="Tokyo"&gt;Tokyo&lt;/option&gt;&lt;/select&gt;
+</code></pre>
+     <p>To exclude the drop-down values (in my case, the office locations), and to only show the heading (in my case, the word "Office"), my code checks for the location of the first <code>&lt;select&gt;</code> substring in the extracted text. It then ignores everything from that point onwards.</p>
+     <p>The <code>format.header</code> option is documented in <a href="https://datatables.net/reference/api/buttons.exportData()" rel="nofollow noreferrer">this page</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

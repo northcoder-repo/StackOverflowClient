@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>JDBC Class.forName vs DriverManager.registerDriver</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>JDBC Class.forName vs DriverManager.registerDriver</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>70</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>xdevel2000</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>30 Mar 2011 at 09:02</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/5484227/jdbc-class-forname-vs-drivermanager-registerdriver">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Which is the difference from <code>forName</code> method vs <code>registerDriver</code> to load and register a JDBC driver?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jdbc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span><code>registerDriver</code> requires the driver to be available at compile time. Failing so (availability) on runtime would result in NoClassDefFoundError (which you usually would not like to deal with). <code>Class.forName</code> implies late binding and doesn't require the driver to be available on compile time.</span> <span> - </span> <span class="display-name">bestsss</span> <span> </span> <span class="date">30 Mar 2011 at 09:04</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>94</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Joachim Sauer</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Mar 2011 at 09:04</span>
+     </div>
+    </div>
+    <div>
+     <p><a href="http://download.oracle.com/javase/6/docs/api/java/lang/Class.html#forName%28java.lang.String%29" rel="noreferrer"><code>Class.forName()</code></a> is not directly related to JDBC at all. It simply loads a class.</p>
+     <p>Most JDBC Driver classes register themselves in their static initializers by calling <a href="http://download.oracle.com/javase/6/docs/api/java/sql/DriverManager.html#registerDriver%28java.sql.Driver%29" rel="noreferrer"><code>registerDriver()</code></a>.</p>
+     <p><code>registerDriver()</code> is the real call that you hardly ever need to call yourself (unless you write your own JDBC driver).</p>
+     <p>Note that in JDBC 4 you should not need <em>either of those</em> if your JDBC driver is up-to-date, as drivers can be found using the service location mechanisms instead (i.e. simply leave out that call and open your connection as usual). See the <a href="http://download.oracle.com/javase/6/docs/api/java/sql/DriverManager.html" rel="noreferrer">documentaton of <code>DriverManager</code></a> for details:</p>
+     <blockquote>
+      <p>The DriverManager methods <code>getConnection</code> and <code>getDrivers</code> have been enhanced to support the Java Standard Edition Service Provider mechanism. JDBC 4.0 Drivers must include the file <code>META-INF/services/java.sql.Driver</code>. This file contains the name of the JDBC drivers implementation of <code>java.sql.Driver</code>. For example, to load the <code>my.sql.Driver</code> class, the <code>META-INF/services/java.sql.Driver</code> file would contain the entry:</p>
+      <pre><code>my.sql.Driver
+</code></pre>
+      <p>Applications no longer need to explictly load JDBC drivers using <code>Class.forName()</code>. Existing programs which currently load JDBC drivers using <code>Class.forName()</code> will continue to work without modification.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>As an example take a look at <a href="http://www.docjar.com/html/api/com/mysql/jdbc/Driver.java.html" rel="nofollow noreferrer">MySQL JDBC Driver source code</a>. It calls <code>registerDriver</code> in its static initializer.</span> <span> - </span> <span class="display-name">Piotr</span> <span> </span> <span class="date">30 Mar 2011 at 09:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Ok, but If I use registerDriver than I must load the class into memory?</span> <span> - </span> <span class="display-name">xdevel2000</span> <span> </span> <span class="date">30 Mar 2011 at 10:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@xdevel2000: yes. Since <code>registerDriver()</code> takes an instance of the <code>Driver</code> class as the argument, you must have loaded that class before calling the method.</span> <span> - </span> <span class="display-name">Joachim Sauer</span> <span> </span> <span class="date">30 Mar 2011 at 11:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Driver d = DriverManager.getDriver("jdbc:mysql://localhost"); do that?</span> <span> - </span> <span class="display-name">xdevel2000</span> <span> </span> <span class="date">30 Mar 2011 at 11:55</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>@xdevel: I don't understand what you're trying to do. If all you want to do is to connect to a database and you've got a sufficiently modern JDBC driver, then you don't need any of <code>Class.forName()</code>, <code>registerDriver</code> or <code>getDriver()</code>. You'd simply call <code>DriverManager.getConnection("jdbc:mysql://localhost")</code> without any other preparation. If you want to do something else, then please tell us what that is.</span> <span> - </span> <span class="display-name">Joachim Sauer</span> <span> </span> <span class="date">30 Mar 2011 at 11:57</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Ok, be patient :) my question is only for better understand the JDBC driver registration mechanism.</span> <span> - </span> <span class="display-name">xdevel2000</span> <span> </span> <span class="date">30 Mar 2011 at 12:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>My case: tomcat 7, java 1.7, postgres jdbc4 with META-INF/services/java.sql.Driver setup, it started working after adding Class.forName() preceding DriverManager.getConnection(). I was able to get tomcat 6, java 1.6, postgres jdbc3 work without calling Class.forName() using JAVA_OPTS -Djdbc.drivers=org.postgresql.Driver that does not seem to work with tomcat 7. Go figure!</span> <span> - </span> <span class="display-name">Patrick</span> <span> </span> <span class="date">3 Aug 2014 at 19:53</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JoachimSauer, Is it true that if we call <code>.registerDriver</code> directly, then before that call, the driver's static initializer would run and call <code>.registerDriver</code> too, effectively giving us <i>two</i> calls to <code>.registerDriver</code>?</span> <span> - </span> <span class="display-name">Pacerier</span> <span> </span> <span class="date">24 Aug 2014 at 21:58</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Pacerier: Yes, I would expect that to happen, and I don't know how the JDBC framework would react to that (I expect it to either ignore the second call or throw an exception on the second call, either way, the driver will be registered). As I wrote in the answer: there is really no reason to call <code>registerDriver</code> yourself unless you are writing your own JDBC driver.</span> <span> - </span> <span class="display-name">Joachim Sauer</span> <span> </span> <span class="date">24 Aug 2014 at 23:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@JoachimSauer, Another post <a href="http://stackoverflow.com/a/1311085/632951">stackoverflow.com/a/1311085/632951</a> seems to claim that calling <code>registerDriver</code> twice may give us problems, since we get a <i>different</i> instance registered. Anyway, if there is no reason to call <code>registerDriver</code>, why is it <code>public</code> then?</span> <span> - </span> <span class="display-name">Pacerier</span> <span> </span> <span class="date">24 Aug 2014 at 23:05</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Pacerier, I don't actually see that claim there. It needs to be public, because drivers aren't magical beasts, they have to follow the same access rules as any other code. If it weren't public they also couldn't call it. Not all rules in an API specification can be encoded using access restrictions (that's true for almost all languages, not just Java).</span> <span> - </span> <span class="display-name">Joachim Sauer</span> <span> </span> <span class="date">25 Aug 2014 at 22:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You still need to call one of them when running some Java code in an Apache Ant task (except when using the Java task with fork=true) as it uses an already launched JVM and I have found no way to force the scan for (SPI) plugins except for the SPIs on images (see ImageIO.scanForPlugins()). If you find a smarter solution, let me know.</span> <span> - </span> <span class="display-name">gouessej</span> <span> </span> <span class="date">3 Apr 2018 at 09:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>David O'Meara</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Mar 2011 at 09:08</span>
+     </div>
+    </div>
+    <div>
+     <p>Never call <code>DriverManager.registerDriver()</code> method manually. The JDBC spec requires a driver to register itself when the class is loaded, and the class is loaded via <code>Class.forName()</code>. In JDBC 4 the drivers are able to be loaded automatically just by being on the class path.</p>
+     <p><code>DriverManager.registerDriver()</code> manually is potentially dangerous since it actually causes the Driver to be registered twice. If your code requires you to deregister a Driver to prevent a memory leak then you would only end up deregistering it once and leave a second instance registered.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>if you call register, you will need to call deregister (that only normal I guess). Class.forName() has side effects that doesn't deregister the driver. I recall tomcat attempt to deregisters drivers loaded by the webapp on redeploy of the latter.</span> <span> - </span> <span class="display-name">bestsss</span> <span> </span> <span class="date">30 Mar 2011 at 09:38</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>No, the <code>Driver</code> is required to call <code>DriverManager.register</code> itself. If you look at the source for <code>DriverManager</code>, calling <code>register</code> will add another <code>Driver</code> regardless of whether it is already registered. Likewise <code>deregister</code> will only remove one instance regardless of how many times it was registered. Short answer: don't do that.</span> <span> - </span> <span class="display-name">David O'Meara</span> <span> </span> <span class="date">30 Mar 2011 at 10:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@DavidO'Meara, If DriverManager.registerDriver() should never be called directly, why is it a public method?</span> <span> - </span> <span class="display-name">Pacerier</span> <span> </span> <span class="date">24 Aug 2014 at 21:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Pacerier It is public because driver implementations need to be able to call it to register themselves.</span> <span> - </span> <span class="display-name">Mark Rotteveel</span> <span> </span> <span class="date">18 Sep 2014 at 07:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Puce</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Mar 2011 at 09:47</span>
+     </div>
+    </div>
+    <div>
+     <p>In additaion to what Joachim Sauer already mentioned about JDBC 4 drivers, note that in practice you usually want to <strong>inject</strong> either an EntityManager (JPA) or a pooled DataSource (and use JdbcTemplate of Spring).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Yes, a dependency injection framework. E.g. you could use Java EE: configure the DB in the application server, then inject an EntityManager into your EJB: <a href="http://docs.oracle.com/javaee/6/tutorial/doc/bnbqw.html#bnbqz" rel="nofollow noreferrer">docs.oracle.com/javaee/6/tutorial/doc/bnbqw.html#bnbqz</a> or else you could use Spring: <a href="http://static.springsource.org/spring/docs/current/spring-framework-reference/html/jdbc.html" rel="nofollow noreferrer">static.springsource.org/spring/docs/current/…</a></span> <span> - </span> <span class="display-name">Puce</span> <span> </span> <span class="date">10 Jun 2012 at 10:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>There is no mention of Spring or any other frameworks that support injection in the question.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">25 Feb 2022 at 00:37</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

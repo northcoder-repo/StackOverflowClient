@@ -1,0 +1,2690 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How can I create a memory leak in Java?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How can I create a memory leak in Java?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3696</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>MatBanik</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Jun 2011 at 16:11</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/6470651/how-can-i-create-a-memory-leak-in-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I just had an interview where I was asked to create a <em><strong>memory leak</strong></em> with Java.</p>
+    <p>Needless to say, I felt pretty dumb, having no idea how to start creating one.</p>
+    <p>What would an example be?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">memory</span><span class="tag">memory-leaks</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>47</td>
+       <td><span>Ironically, the harder question for every non-trivial Java program is how <i>not</i> to create a memory leak!</span> <span> - </span> <span class="display-name">Peter - Reinstate Monica</span> <span> </span> <span class="date">12 May 2021 at 15:00</span></td>
+      </tr>
+      <tr>
+       <td>3</td>
+       <td><span>Keep adding new objects to a container, but forget to add the code that removes them or implement partially working code that doesn't clean up all of them as the program progresses.</span> <span> - </span> <span class="display-name">Galik</span> <span> </span> <span class="date">23 Jul 2021 at 04:58</span></td>
+      </tr>
+      <tr>
+       <td>5</td>
+       <td><span>The most common memory leaks in Java server systems are in <i>shared state</i> -- caches and services which are shared between requests. Many of the answers here seem to be over-complex, ignoring this obvious and common area. One rather common leak pattern is probably an application-scoped Map with request-scoped keys (eg, some kind of hand-rolled cache).</span> <span> - </span> <span class="display-name">Thomas W</span> <span> </span> <span class="date">3 Feb 2022 at 02:37</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2576</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Daniel Pryden</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2011 at 18:05</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's a good way to create a true memory leak (objects inaccessible by running code but still stored in memory) in pure Java:</p>
+     <ol>
+      <li>The application creates a long-running thread (or use a thread pool to leak even faster).</li>
+      <li>The thread loads a class via an (optionally custom) <code>ClassLoader</code>.</li>
+      <li>The class allocates a large chunk of memory (e.g. <code>new byte[1000000]</code>), stores a strong reference to it in a static field, and then stores a reference to itself in a <code>ThreadLocal</code>. Allocating the extra memory is optional (leaking the class instance is enough), but it will make the leak work that much faster.</li>
+      <li>The application clears all references to the custom class or the <code>ClassLoader</code> it was loaded from.</li>
+      <li>Repeat.</li>
+     </ol>
+     <p>Due to the way <code>ThreadLocal</code> is implemented in Oracle's JDK, this creates a memory leak:</p>
+     <ul>
+      <li>Each <code>Thread</code> has a private field <code>threadLocals</code>, which actually stores the thread-local values.</li>
+      <li>Each <em>key</em> in this map is a weak reference to a <code>ThreadLocal</code> object, so after that <code>ThreadLocal</code> object is garbage-collected, its entry is removed from the map.</li>
+      <li>But each <em>value</em> is a strong reference, so when a value (directly or indirectly) points to the <code>ThreadLocal</code> object that is its <em>key</em>, that object will neither be garbage-collected nor removed from the map as long as the thread lives.</li>
+     </ul>
+     <p>In this example, the chain of strong references looks like this:</p>
+     <p><code>Thread</code> object → <code>threadLocals</code> map → instance of example class → example class → static <code>ThreadLocal</code> field → <code>ThreadLocal</code> object.</p>
+     <p>(The <code>ClassLoader</code> doesn't really play a role in creating the leak, it just makes the leak worse because of this additional reference chain: example class → <code>ClassLoader</code> → all the classes it has loaded. It was even worse in many JVM implementations, especially prior to Java 7, because classes and <code>ClassLoader</code>s were allocated straight into permgen and were never garbage-collected at all.)</p>
+     <p>A variation on this pattern is why application containers (like Tomcat) can leak memory like a sieve if you frequently redeploy applications which happen to use <code>ThreadLocal</code>s that in some way point back to themselves. This can happen for a number of subtle reasons and is often hard to debug and/or fix.</p>
+     <p><strong>Update</strong>: Since lots of people keep asking for it, <a href="https://gist.github.com/dpryden/b2bb29ee2d146901b4ae" rel="noreferrer">here's some example code that shows this behavior in action</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>226</td>
+        <td><span>+1 ClassLoader leaks are some of the most commonly painful memory leaks in the JEE world, often caused by 3rd party libs that transform data (BeanUtils, XML/JSON codecs). This can happen when the lib is loaded outside your application's root classloader but holds references to your classes (eg. by caching). When you undeploy/redeploy your app the JVM is unable to garbage collect the app's classloader (and therefore all classes loaded by it), so with repeat deploys the app server eventually borks. If lucky you get a clue with ClassCastException z.x.y.Abc cannot be cast to z.x.y.Abc</span> <span> - </span> <span class="display-name">earcam</span> <span> </span> <span class="date">27 Jun 2011 at 16:55</span></td>
+       </tr>
+       <tr>
+        <td>68</td>
+        <td><span>+1: Classloader leaks are a nightmare. I spent weeks trying to figure them out. The sad thing is, as what @earcam has said, they are mostly caused by 3rd party libs and also most profilers can't detect these leaks. There's a good and clear explanation on this blog about Classloader leaks. <a href="http://blogs.oracle.com/fkieviet/entry/classloader_leaks_the_dreaded_java" rel="nofollow noreferrer">blogs.oracle.com/fkieviet/entry/…</a></span> <span> - </span> <span class="display-name">Adrian M</span> <span> </span> <span class="date">8 Jul 2011 at 09:08</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1341</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Prashant Bhate</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jul 2011 at 13:33</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Static field holding an object reference [especially a</strong> <em>final</em> <strong>field]</strong></p>
+     <pre><code>class MemorableClass {
+    static final ArrayList list = new ArrayList(100);
+}
+</code></pre>
+     <p><strong>(Unclosed) open streams (file , network, etc.)</strong></p>
+     <pre><code>try {
+    BufferedReader br = new BufferedReader(new FileReader(inputFile));
+    ...
+    ...
+} catch (Exception e) {
+    e.printStackTrace();
+}
+</code></pre>
+     <p><strong>Unclosed connections</strong></p>
+     <pre><code>try {
+    Connection conn = ConnectionFactory.getConnection();
+    ...
+    ...
+} catch (Exception e) {
+    e.printStackTrace();
+}
+</code></pre>
+     <p><strong>Areas that are unreachable from JVM's garbage collector</strong>, such as memory allocated through native methods.</p>
+     <p>In web applications, some objects are stored in application scope until the application is explicitly stopped or removed.</p>
+     <pre><code>getServletContext().setAttribute("SOME_MAP", map);
+</code></pre>
+     <p><strong>Incorrect or inappropriate JVM options</strong>, such as the <code>noclassgc</code> option on IBM JDK that prevents unused class garbage collection</p>
+     <p>See <a href="http://publib.boulder.ibm.com/infocenter/wasinfo/v6r0/index.jsp?topic=/com.ibm.websphere.express.doc/info/exp/ae/tprf_tunejvm.html" rel="noreferrer">IBM JDK settings</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>215</td>
+        <td><span>I'd disagree that context and session attributes are "leaks." They're just long-lived variables. And the static final field is more or less just a constant. Maybe large constants should be avoided, but I don't think it's fair to call it a memory leak.</span> <span> - </span> <span class="display-name">Ian McLaird</span> <span> </span> <span class="date">13 Jul 2011 at 04:08</span></td>
+       </tr>
+       <tr>
+        <td>99</td>
+        <td><span><i>(Unclosed) open streams ( file , network etc... )</i>, doesn't leak for real, during finalization (which will be after the next GC cycle) close() is going to be scheduled (<code>close()</code> is usually not invoked in the finalizer thread since might be a blocking operation). It's a bad practice not to close, but it doesn't cause a leak. Unclosed java.sql.Connection is the same.</span> <span> - </span> <span class="display-name">bestsss</span> <span> </span> <span class="date">17 Jul 2011 at 18:38</span></td>
+       </tr>
+       <tr>
+        <td>41</td>
+        <td><span>In most sane JVMs, it appears as though the String class only has a weak reference on its <code>intern</code> hashtable contents. As such, it <i>is</i> garbage collected properly and not a leak. (but IANAJP) <a href="http://mindprod.com/jgloss/interned.html#GC" rel="nofollow noreferrer">mindprod.com/jgloss/interned.html#GC</a></span> <span> - </span> <span class="display-name">mbauman</span> <span> </span> <span class="date">22 Jul 2011 at 01:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>501</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Peter Lawrey</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2011 at 16:16</span>
+     </div>
+    </div>
+    <div>
+     <p>A simple thing to do is to use a HashSet with an incorrect (or non-existent) <code>hashCode()</code> or <code>equals()</code>, and then keep adding "duplicates". Instead of ignoring duplicates as it should, the set will only ever grow and you won't be able to remove them.</p>
+     <p>If you want these bad keys/elements to hang around you can use a static field like</p>
+     <pre><code>class BadKey {
+   // no hashCode or equals();
+   public final String key;
+   public BadKey(String key) { this.key = key; }
+}
+
+Map map = System.getProperties();
+map.put(new BadKey("key"), "value"); // Memory leak even if your threads die.
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>88</td>
+        <td><span>Actually, you can remove the elements from a HashSet even if the element class gets hashCode and equals wrong; just get an iterator for the set and use its remove method, as the iterator actually operates on the underlying entries themselves and not the elements. (Note that an unimplemented hashCode/equals is <i>not</i> enough to trigger a leak; the defaults implement simple object identity and so you can get the elements and remove them normally.)</span> <span> - </span> <span class="display-name">Donal Fellows</span> <span> </span> <span class="date">25 Jun 2011 at 17:23</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Donal your last statement is incorrect. You can't get the element because you have no reference to it. The only reference to the key put in the map is the one that the map itself holds. Only if you went <code>BadKey myKey = new BadKey("key"); map.put(key,"value");</code> would you ever be able to get it out. You are correct you could use the iterator to remove it, but you cannot always do that with all data structures. For example, if you don't null out the reference in @meriton's answer, that will be lost forever. You have no access to the backing array, and iterator will stop short of it.</span> <span> - </span> <span class="display-name">corsiKa</span> <span> </span> <span class="date">26 Jun 2011 at 00:13</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>The only way to remove elements when equals/hashCode is incorrect is to use Iterator.remove() when you find a match using a different method of comparison.</span> <span> - </span> <span class="display-name">Peter Lawrey</span> <span> </span> <span class="date">26 Jun 2011 at 07:14</span></td>
+       </tr>
+       <tr>
+        <td>14</td>
+        <td><span>@Donal what I'm trying to say, I guess, is I disagree with your definition of a memory leak. I would consider (to continue the analogy) your iterator-removal technique to be a drip-pan under a leak; the leak still exists regardless of the drip pan.</span> <span> - </span> <span class="display-name">corsiKa</span> <span> </span> <span class="date">26 Jun 2011 at 20:24</span></td>
+       </tr>
+       <tr>
+        <td>110</td>
+        <td><span>I agree, this is <b>not</b> a memory "leak", because you can just remove references to the hashset and wait for the GC to kick in, and presto! the memory goes back.</span> <span> - </span> <span class="display-name">user541686</span> <span> </span> <span class="date">2 Jul 2011 at 04:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>296</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>bestsss</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Jun 2011 at 19:45</span>
+     </div>
+    </div>
+    <div>
+     <p>Below there will be a non-obvious case where Java leaks, besides the standard case of forgotten listeners, static references, bogus/modifiable keys in hashmaps, or just threads stuck without any chance to end their life-cycle.</p>
+     <ul>
+      <li><code>File.deleteOnExit()</code> - always leaks the string, 
+       <del>if the string is a substring, the leak is even worse (the underlying char[] is also leaked)</del> - <em>in Java&nbsp;7 substring also copies the <code>char[]</code>, so the later doesn't apply</em>; @Daniel, no needs for votes, though.</li>
+     </ul>
+     <p>I'll concentrate on threads to show the danger of unmanaged threads mostly, don't wish to even touch swing.</p>
+     <ul>
+      <li>
+       <p><code>Runtime.addShutdownHook</code> and not remove... and then even with removeShutdownHook due to a bug in ThreadGroup class regarding unstarted threads it may not get collected, effectively leak the ThreadGroup. JGroup has the leak in GossipRouter.</p></li>
+      <li>
+       <p>Creating, but not starting, a <code>Thread</code> goes into the same category as above.</p></li>
+      <li>
+       <p>Creating a thread inherits the <code>ContextClassLoader</code> and <code>AccessControlContext</code>, plus the <code>ThreadGroup</code> and any <code>InheritedThreadLocal</code>, all those references are potential leaks, along with the entire classes loaded by the classloader and all static references, and ja-ja. The effect is especially visible with the entire j.u.c.Executor framework that features a super simple <code>ThreadFactory</code> interface, yet most developers have no clue of the lurking danger. Also a lot of libraries do start threads upon request (way too many industry popular libraries).</p></li>
+      <li>
+       <p><code>ThreadLocal</code> caches; those are evil in many cases. I am sure everyone has seen quite a bit of simple caches based on ThreadLocal, well the bad news: if the thread keeps going more than expected the life the context ClassLoader, it is a pure nice little leak. Do not use ThreadLocal caches unless really needed.</p></li>
+      <li>
+       <p>Calling <code>ThreadGroup.destroy()</code> when the ThreadGroup has no threads itself, but it still keeps child ThreadGroups. A bad leak that will prevent the ThreadGroup to remove from its parent, but all the children become un-enumerateable.</p></li>
+      <li>
+       <p>Using WeakHashMap and the value (in)directly references the key. This is a hard one to find without a heap dump. That applies to all extended <code>Weak/SoftReference</code> that might keep a hard reference back to the guarded object.</p></li>
+      <li>
+       <p>Using <code>java.net.URL</code> with the HTTP(S) protocol and loading the resource from(!). This one is special, the <code>KeepAliveCache</code> creates a new thread in the system ThreadGroup which leaks the current thread's context classloader. The thread is created upon the first request when no alive thread exists, so either you may get lucky or just leak. <em>The leak is already fixed in Java&nbsp;7 and the code that creates thread properly removes the context classloader.</em> There are few more cases (
+        <del>like ImageFetcher</del>, <em>also fixed</em>) of creating similar threads.</p></li>
+      <li>
+       <p>Using <code>InflaterInputStream</code> passing <code>new java.util.zip.Inflater()</code> in the constructor (<code>PNGImageDecoder</code> for instance) and not calling <code>end()</code> of the inflater. Well, if you pass in the constructor with just <code>new</code>, no chance... And yes, calling <code>close()</code> on the stream does not close the inflater if it's manually passed as constructor parameter. This is not a true leak since it'd be released by the finalizer... when it deems it necessary. Till that moment it eats native memory so badly it can cause Linux oom_killer to kill the process with impunity. The main issue is that finalization in Java is very unreliable and G1 made it worse till 7.0.2. Moral of the story: release native resources as soon as you can; the finalizer is just too poor.</p></li>
+      <li>
+       <p>The same case with <code>java.util.zip.Deflater</code>. This one is far worse since Deflater is memory hungry in Java, i.e. always uses 15&nbsp;bits (max) and 8&nbsp;memory levels (9 is max) allocating several hundreds KB of native memory. Fortunately, <code>Deflater</code> is not widely used and to my knowledge JDK contains no misuses. Always call <code>end()</code> if you manually create a <code>Deflater</code> or <code>Inflater</code>. The best part of the last two: <em>you can't find them via normal profiling tools available.</em></p></li>
+     </ul>
+     <p><em>(I can add some more time wasters I have encountered upon request.)</em></p>
+     <p>Good luck and stay safe; leaks are evil!</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>27</td>
+        <td><span><code>Creating but not starting a Thread...</code> Yikes, I was badly bitten by this one some centuries ago! (Java 1.3)</span> <span> - </span> <span class="display-name">leonbloy</span> <span> </span> <span class="date">9 Jul 2011 at 01:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@leonbloy, before it was even worse as the thread was added straight to the threadgroup, not starting meant very hard leak. Not it just increases the <code>unstarted</code> count but that prevents the thread group from destroying (lesser evil but still a leak)</span> <span> - </span> <span class="display-name">bestsss</span> <span> </span> <span class="date">9 Jul 2011 at 06:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you! <b>"Calling <code>ThreadGroup.destroy()</code> when the ThreadGroup has no threads itself..."</b> is an incredibly subtle bug; I've been chasing this for hours, led astray because enumerating the thread in my control GUI showed nothing, but the thread group and, presumably, at least one child group would not go away.</span> <span> - </span> <span class="display-name">Lawrence Dol</span> <span> </span> <span class="date">8 Nov 2017 at 02:47</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@bestsss : I'm curious, why would you want to remove a shutdown hook, given that it runs at, well, JVM shutdown?</span> <span> - </span> <span class="display-name">Lawrence Dol</span> <span> </span> <span class="date">9 Nov 2017 at 21:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@user253751 : This is in the context of memory leaks. In that context failing to remove a shutdown hook after it's used is not a leak because the JVM is shutting down. Granted, though, if you only temporarily need to do something on shutdown, then not removing it and continually adding new handlers would leak.</span> <span> - </span> <span class="display-name">Lawrence Dol</span> <span> </span> <span class="date">11 Sep 2020 at 16:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>"if the thread keeps going more than expected the life the context ClassLoader, it is a pure nice little leak" Can this be reworded? I don't understand.</span> <span> - </span> <span class="display-name">Aleksandr Dubinsky</span> <span> </span> <span class="date">17 Jan 2022 at 15:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>247</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nicolas Bousquet</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jul 2011 at 07:54</span>
+     </div>
+    </div>
+    <div>
+     <p>Most examples here are "too complex". They are edge cases. With these examples, the programmer made a mistake (like don't redefining equals/hashcode), or has been bitten by a corner case of the JVM/JAVA (load of class with static...). I think that's not the type of example an interviewer want or even the most common case.</p>
+     <p>But there are really simpler cases for memory leaks. The garbage collector only frees what is no longer referenced. We as Java developers don't care about memory. We allocate it when needed and let it be freed automatically. Fine.</p>
+     <p>But any long-lived application tend to have shared state. It can be anything, statics, singletons... Often non-trivial applications tend to make complex objects graphs. Just forgetting to set a reference to null or more often forgetting to remove one object from a collection is enough to make a memory leak.</p>
+     <p>Of course all sort of listeners (like UI listeners), caches, or any long-lived shared state tend to produce memory leak if not properly handled. What shall be understood is that this is not a Java corner case, or a problem with the garbage collector. It is a design problem. We design that we add a listener to a long-lived object, but we don't remove the listener when no longer needed. We cache objects, but we have no strategy to remove them from the cache.</p>
+     <p>We maybe have a complex graph that store the previous state that is needed by a computation. But the previous state is itself linked to the state before and so on.</p>
+     <p>Like we have to close SQL connections or files. We need to set proper references to null and remove elements from the collection. We shall have proper caching strategies (maximum memory size, number of elements, or timers). All objects that allow a listener to be notified must provide both a addListener and removeListener method. And when these notifiers are no longer used, they must clear their listener list.</p>
+     <p>A memory leak is indeed truly possible and is perfectly predictable. No need for special language features or corner cases. Memory leaks are either an indicator that something is maybe missing or even of design problems.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>46</td>
+        <td><span>I find it funny that on other answers people are looking for those edge cases and tricks and seem to be completely missing the point. They could just show code that keep useless references to objects that will never use again, and never remove those references; one may say those cases are not "true" memory leaks because there are still references to those objects around, but if the program never use those references again and also never drop them, it is completely equivalent to (and as bad as) a "true memory leak".</span> <span> - </span> <span class="display-name">ehabkost</span> <span> </span> <span class="date">22 Jul 2011 at 06:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>177</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>PlayTank</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jul 2011 at 20:06</span>
+     </div>
+    </div>
+    <div>
+     <p>The answer depends entirely on what the interviewer thought they were asking.</p>
+     <p>Is it possible in practice to make Java leak? Of course it is, and there are plenty of examples in the other answers.</p>
+     <p>But there are multiple meta-questions that may have been being asked?</p>
+     <ul>
+      <li>Is a theoretically "perfect" Java implementation vulnerable to leaks?</li>
+      <li>Does the candidate understand the difference between theory and reality?</li>
+      <li>Does the candidate understand how garbage collection works?</li>
+      <li>Or how garbage collection is supposed to work in an ideal case?</li>
+      <li>Do they know they can call other languages through native interfaces?</li>
+      <li>Do they know to leak memory in those other languages?</li>
+      <li>Does the candidate even know what memory management is, and what is going on behind the scene in Java?</li>
+     </ul>
+     <p>I'm reading your meta-question as "What's an answer I could have used in this interview situation". And hence, I'm going to focus on interview skills instead of Java. I believe you're more likely to repeat the situation of not knowing the answer to a question in an interview than you are to be in a place of needing to know how to make Java leak. So, hopefully, this will help.</p>
+     <p>One of the most important skills you can develop for interviewing is learning to actively listen to the questions and working with the interviewer to extract their intent. Not only does this let you answer their question the way they want, but also shows that you have some vital communication skills. And when it comes down to a choice between many equally talented developers, I'll hire the one who listens, thinks, and understands before they respond every time.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>28</td>
+        <td><span>Whenever I have asked that question, I am looking for a pretty simple answer - keep growing a queue, no finally close db etc, not odd classloader/thread details, implies they understand what the gc can and cannot do for you. Depends on the job you are interviewing for I guess.</span> <span> - </span> <span class="display-name">DaveC</span> <span> </span> <span class="date">3 Jul 2011 at 17:59</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>149</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Vineet Reynolds</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2011 at 16:21</span>
+     </div>
+    </div>
+    <div>
+     <p>The following is a pretty pointless example if you do not understand <a href="http://en.wikipedia.org/wiki/Java_Database_Connectivity" rel="nofollow noreferrer">JDBC</a>. Or at least how JDBC expects a developer to close <code>Connection,</code> <code>Statement</code>, and <code>ResultSet</code> instances before discarding them or losing references to them, instead of relying on implementing the <code>finalize</code> method.</p>
+     <pre><code>void doWork() {
+    try {
+        Connection conn = ConnectionFactory.getConnection();
+        PreparedStatement stmt = conn.preparedStatement("some query");
+        // executes a valid query
+        ResultSet rs = stmt.executeQuery();
+        while(rs.hasNext()) {
+            // ... process the result set
+        }
+    } catch(SQLException sqlEx) {
+        log(sqlEx);
+    }
+}
+</code></pre>
+     <p>The problem with the above is that the <code>Connection</code> object is not closed, and hence the physical <code>Connection</code> will remain open until the garbage collector comes around and sees that it is unreachable. GC will invoke the <code>finalize</code> method, but there are JDBC drivers that do not implement the <code>finalize,</code> at least not in the same way that <code>Connection.close</code> is implemented. The resulting behavior is that while the JVM will reclaim memory due to unreachable objects being collected, resources (including memory) associated with the <code>Connection</code> object might not be reclaimed.</p>
+     <p>As such, Connection's final method does not clean up everything. One might find that the physical <code>Connection</code> to the database server will last several garbage collection cycles until the database server eventually figures out that the <code>Connection</code> is not alive (if it does) and should be closed.</p>
+     <p>Even if the JDBC driver implemented <code>finalize</code>, the compiler can throw exceptions during finalization. The resulting behavior is that any memory associated with the now "dormant" object will not be reclaimed by the compiler, as <code>finalize</code> is guaranteed to be invoked only once.</p>
+     <p>The above scenario of encountering exceptions during object finalization is related to another scenario that could lead to a memory leak - object resurrection. Object resurrection is often done intentionally by creating a strong reference to the object from being finalized, from another object. When object resurrection is misused it will lead to a memory leak in combination with other sources of memory leaks.</p>
+     <p>There are plenty more examples that you can conjure up - like</p>
+     <ul>
+      <li>Managing a <code>List</code> instance where you are only adding to the list and not deleting from it (although you should be getting rid of elements you no longer need), or</li>
+      <li>Opening <code>Sockets</code> or <code>Files,</code> but not closing them when they are no longer needed (similar to the above example involving the <code>Connection</code> class).</li>
+      <li>Not unloading Singletons when bringing down a Java EE application. The Classloader that loaded the singleton class will retain a reference to the class, and hence the singleton instance will never be collected by the JVM. When a new instance of the application is deployed, a new class loader is usually created, and the former class loader will continue to exist due to the singleton.</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>119</td>
+        <td><span>You will reach maximum open connection limit before you hit memory limits usually. Don't ask me why I know...</span> <span> - </span> <span class="display-name">Hardwareguy</span> <span> </span> <span class="date">21 Jul 2011 at 16:23</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>129</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>meriton</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2011 at 21:28</span>
+     </div>
+    </div>
+    <div>
+     <p>Probably one of the simplest examples of a potential memory leak, and how to avoid it, is the implementation of ArrayList.remove(int):</p>
+     <pre><code>public E remove(int index) {
+    RangeCheck(index);
+
+    modCount++;
+    E oldValue = (E) elementData[index];
+
+    int numMoved = size - index - 1;
+    if (numMoved &gt; 0)
+        System.arraycopy(elementData, index + 1, elementData, index,
+                numMoved);
+    elementData[--size] = null; // (!) Let gc do its work
+
+    return oldValue;
+}
+</code></pre>
+     <p>If you were implementing it yourself, would you have thought to clear the array element that is no longer used (<code>elementData[--size] = null</code>)? That reference might keep a huge object alive ...</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>And where is the memory leak here?</span> <span> - </span> <span class="display-name">rds</span> <span> </span> <span class="date">22 Jul 2011 at 16:26</span></td>
+       </tr>
+       <tr>
+        <td>34</td>
+        <td><span>@maniek: I did not mean to imply that this code exhibits a memory leak. I quoted to it to show that sometimes non-obvious code is required to avoid accidental object retention.</span> <span> - </span> <span class="display-name">meriton</span> <span> </span> <span class="date">23 Jul 2011 at 13:26</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>76</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Bill the Lizard</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2011 at 16:18</span>
+     </div>
+    </div>
+    <div>
+     <p>Any time you keep references around to objects that you no longer need you have a memory leak. See <a href="http://www.ibm.com/developerworks/library/j-leaks/" rel="noreferrer">Handling memory leaks in Java programs</a> for examples of how memory leaks manifest themselves in Java and what you can do about it.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>@31eee384 let us <a href="http://chat.stackoverflow.com/rooms/1738/discussion-between-ehabkost-and-31eee384">continue this discussion in chat</a></span> <span> - </span> <span class="display-name">ehabkost</span> <span> </span> <span class="date">22 Jul 2011 at 15:45</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>59</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>stemm</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Jul 2011 at 12:55</span>
+     </div>
+    </div>
+    <div>
+     <p>You are able to make memory leak with <strong>sun.misc.Unsafe</strong> class. In fact this service class is used in different standard classes (for example in <strong>java.nio</strong> classes). <strong>You can't create instances of this class directly</strong>, but you may <strong>use reflection to get an instance</strong>.</p>
+     <p>Code doesn't compile in the <a href="https://en.wikipedia.org/wiki/Eclipse_%28software%29" rel="nofollow noreferrer">Eclipse</a> IDE - compile it using command <code>javac</code> (during compilation you'll get warnings)</p>
+     <pre><code>import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import sun.misc.Unsafe;
+
+public class TestUnsafe {
+
+    public static void main(String[] args) throws Exception{
+        Class unsafeClass = Class.forName("sun.misc.Unsafe");
+        Field f = unsafeClass.getDeclaredField("theUnsafe");
+        f.setAccessible(true);
+        Unsafe unsafe = (Unsafe) f.get(null);
+        System.out.print("4..3..2..1...");
+        try
+        {
+            for(;;)
+                unsafe.allocateMemory(1024*1024);
+        } catch(Error e) {
+            System.out.println("Boom :)");
+            e.printStackTrace();
+        }
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>48</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>yankee</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jul 2011 at 10:23</span>
+     </div>
+    </div>
+    <div>
+     <p>I can copy my answer from here: <a href="https://stackoverflow.com/questions/4948529/easiest-way-to-cause-memory-leak-in-java/4948763">Easiest way to cause memory leak in Java</a></p>
+     <p>"A memory leak, in computer science (or leakage, in this context), occurs when a computer program consumes memory but is unable to release it back to the operating system." (Wikipedia)</p>
+     <p>The easy answer is: You can't. Java does automatic memory management and will free resources that are not needed for you. You can't stop this from happening. It will <em>always</em> be able to release the resources. In programs with manual memory management, this is different. You can get some memory in C using malloc(). To free the memory, you need the pointer that malloc returned and call free() on it. But if you don't have the pointer any more (overwritten, or lifetime exceeded), then you are unfortunately incapable of freeing this memory and thus you have a memory leak.</p>
+     <p>All the other answers so far are in my definition not really memory leaks. They all aim at filling the memory with pointless stuff real fast. But at any time you could still dereference the objects you created and thus freeing the memory --&gt; <em>no leak</em>. <a href="https://stackoverflow.com/questions/4948529/easiest-way-to-cause-memory-leak-in-java/4948560#4948560">acconrad's answer</a> comes pretty close though as I have to admit since his solution is effectively to just "crash" the garbage collector by forcing it in an endless loop).</p>
+     <p>The long answer is: You can get a memory leak by writing a library for Java using the JNI, which can have manual memory management and thus have memory leaks. If you call this library, your Java process will leak memory. Or, you can have bugs in the JVM, so that the JVM looses memory. There are probably bugs in the JVM, there may even be some known ones since garbage collection is not that trivial, but then it's still a bug. By design this is not possible. You may be asking for some Java code that is effected by such a bug. Sorry I don't know one and it might well not be a bug any more in the next Java version anyway.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>17</td>
+        <td><span>That's an extremely limited (and not very useful) definition of memory leaks. The only definition that makes sense for practical purposes is "a memory leak is any condition in which the program continues to hold memory allocated after the data it holds it is no longer needed."</span> <span> - </span> <span class="display-name">Mason Wheeler</span> <span> </span> <span class="date">23 Jan 2014 at 19:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The definition of the term on Wikipedia has changed. It is now this: <i>"In computer science, a memory leak is a type of resource leak that occurs when a computer program incorrectly manages memory allocations in a way that memory which is no longer needed is not released."</i> This is the definition used by almost all posters, but not this one.</span> <span> - </span> <span class="display-name">Lii</span> <span> </span> <span class="date">21 Nov 2022 at 07:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>44</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jon Chambers</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jul 2011 at 17:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Here's a simple/sinister one via <a href="http://wiki.eclipse.org/Performance_Bloopers#String.substring.28.29" rel="noreferrer">http://wiki.eclipse.org/Performance_Bloopers#String.substring.28.29</a>.</p>
+     <pre><code>public class StringLeaker
+{
+    private final String muchSmallerString;
+
+    public StringLeaker()
+    {
+        // Imagine the whole Declaration of Independence here
+        String veryLongString = "We hold these truths to be self-evident...";
+
+        // The substring here maintains a reference to the internal char[]
+        // representation of the original string.
+        this.muchSmallerString = veryLongString.substring(0, 1);
+    }
+}
+</code></pre>
+     <p>Because the substring refers to the internal representation of the original, much longer string, the original stays in memory. Thus, as long as you have a StringLeaker in play, you have the whole original string in memory, too, even though you might think you're just holding on to a single-character string.</p>
+     <p>The way to avoid storing an unwanted reference to the original string is to do something like this:</p>
+     <pre><code>...
+this.muchSmallerString = new String(veryLongString.substring(0, 1));
+...
+</code></pre>
+     <p>For added badness, you might also <code>.intern()</code> the substring:</p>
+     <pre><code>...
+this.muchSmallerString = veryLongString.substring(0, 1).intern();
+...
+</code></pre>
+     <p>Doing so will keep both the original long string and the derived substring in memory even after the StringLeaker instance has been discarded.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>21</td>
+        <td><span>The method substring() creates a new String in java7 (it is a new behavior)</span> <span> - </span> <span class="display-name">anstarovoyt</span> <span> </span> <span class="date">22 Mar 2013 at 12:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>41</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>pillingworth</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jun 2011 at 13:47</span>
+     </div>
+    </div>
+    <div>
+     <p>A common example of this in GUI code is when creating a widget/component and adding a listener to some static/application scoped object and then not removing the listener when the widget is destroyed. Not only do you get a memory leak, but also a performance hit as when whatever you are listening to fires events, all your old listeners are called too.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>41</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Harald Wellmann</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jul 2011 at 22:41</span>
+     </div>
+    </div>
+    <div>
+     <p>Take any web application running in any servlet container (<a href="https://en.wikipedia.org/wiki/Apache_Tomcat" rel="noreferrer">Tomcat</a>, <a href="https://en.wikipedia.org/wiki/Jetty_%28web_server%29" rel="noreferrer">Jetty</a>, <a href="https://en.wikipedia.org/wiki/GlassFish" rel="noreferrer">GlassFish</a>, whatever...). Redeploy the application 10 or 20 times in a row (it may be enough to simply touch the <a href="https://en.wikipedia.org/wiki/WAR_%28Sun_file_format%29" rel="noreferrer">WAR</a> in the server's autodeploy directory.</p>
+     <p>Unless anybody has actually tested this, chances are high that you'll get an OutOfMemoryError after a couple of redeployments, because the application did not take care to clean up after itself. You may even find a bug in your server with this test.</p>
+     <p>The problem is, the lifetime of the container is longer than the lifetime of your application. You have to make sure that all references the container might have to objects or classes of your application can be garbage collected.</p>
+     <p>If there is just one reference surviving the undeployment of your web application, the corresponding classloader and by consequence all classes of your web application cannot be garbage collected.</p>
+     <p>Threads started by your application, ThreadLocal variables, logging appenders are some of the usual suspects to cause classloader leaks.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>This is not because of a memory leak, but because the class loader does not unload the previous set of classes. Therefor it is not recommended to redeploy an application server without restarting the server (not the physical machine, but the app server). I have seen the same issue with WebSphere.</span> <span> - </span> <span class="display-name">Sven</span> <span> </span> <span class="date">22 May 2018 at 05:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Sven: This is what a memory leak is. The class loader not unloading the previous set of classes leads to a memory leak in this case.</span> <span> - </span> <span class="display-name">Lii</span> <span> </span> <span class="date">21 Nov 2022 at 07:35</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>38</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rogach</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2011 at 16:14</span>
+     </div>
+    </div>
+    <div>
+     <p>Maybe by using external native code through JNI?</p>
+     <p>With pure Java, it is almost impossible.</p>
+     <p>But that is about a "standard" type of memory leak, when you cannot access the memory anymore, but it is still owned by the application. You can instead keep references to unused objects, or open streams without closing them afterwards.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>27</td>
+        <td><span>That depends on the definition of "memory leak". If "memory that's held on to, but no longer needed", then it's easy to do in Java. If it's "memory that's allocated but not accessible by the code at all", then it gets slightly harder.</span> <span> - </span> <span class="display-name">Joachim Sauer</span> <span> </span> <span class="date">24 Jun 2011 at 16:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>36</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ron</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Jun 2011 at 08:39</span>
+     </div>
+    </div>
+    <div>
+     <p>I have had a nice "memory leak" in relation to PermGen and XML parsing once. The XML parser we used (I can't remember which one it was) did a String.intern() on tag names, to make comparison faster. One of our customers had the great idea to store data values not in XML attributes or text, but as tagnames, so we had a document like:</p>
+     <pre><code>&lt;data&gt;
+   &lt;1&gt;bla&lt;/1&gt;
+   &lt;2&gt;foo&lt;/&gt;
+   ...
+&lt;/data&gt;
+</code></pre>
+     <p>In fact, they did not use numbers but longer textual IDs (around 20 characters), which were unique and came in at a rate of 10-15 million a day. That makes 200&nbsp;MB of rubbish a day, which is never needed again, and never GCed (since it is in PermGen). We had permgen set to 512&nbsp;MB, so it took around two days for the out-of-memory exception (OOME) to arrive...</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>Just to nitpick your example code: I think numbers (or strings starting with numbers) are not allowed as element names in XML.</span> <span> - </span> <span class="display-name">Paŭlo Ebermann</span> <span> </span> <span class="date">3 Jul 2011 at 00:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Note that this is no longer true for JDK 7+, where String interning happens on the heap. See this article for a detailed writeup: <a href="http://java-performance.info/string-intern-in-java-6-7-8/" rel="nofollow noreferrer">java-performance.info/string-intern-in-java-6-7-8</a></span> <span> - </span> <span class="display-name">jmiserez</span> <span> </span> <span class="date">18 Apr 2017 at 19:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>So, i think using StringBuffer in place of String would resolve this problem? wont it?</span> <span> - </span> <span class="display-name">anubhs</span> <span> </span> <span class="date">2 Jun 2020 at 17:03</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>29</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>deltamind106</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Oct 2017 at 19:09</span>
+     </div>
+    </div>
+    <div>
+     <p>The interviewer was probably looking for a circular reference like the code below (which incidentally only leak memory in very old JVMs that used reference counting, which isn't the case anymore). But it's a pretty vague question, so it's a prime opportunity to show off your understanding of JVM memory management.</p>
+     <pre><code>class A {
+    B bRef;
+}
+
+class B {
+    A aRef;
+}
+
+public class Main {
+    public static void main(String args[]) {
+        A myA = new A();
+        B myB = new B();
+        myA.bRef = myB;
+        myB.aRef = myA;
+        myA=null;
+        myB=null;
+        /* at this point, there is no access to the myA and myB objects, */
+        /* even though both objects still have active references. */
+    } /* main */
+}
+</code></pre>
+     <p>Then you can explain that with reference counting, the above code would leak memory. But most modern JVMs don't use reference counting any longer. Most use a sweep garbage collector, which will in fact collect this memory.</p>
+     <p>Next, you might explain creating an Object that has an underlying native resource, like this:</p>
+     <pre><code>public class Main {
+    public static void main(String args[]) {
+        Socket s = new Socket(InetAddress.getByName("google.com"),80);
+        s=null;
+        /* at this point, because you didn't close the socket properly, */
+        /* you have a leak of a native descriptor, which uses memory. */
+    }
+}
+</code></pre>
+     <p>Then you can explain this is technically a memory leak, but really the leak is caused by native code in the JVM allocating underlying native resources, which weren't freed by your Java code.</p>
+     <p>At the end of the day, with a modern JVM, you need to write some Java code that allocates a native resource outside the normal scope of the JVM's awareness.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>No JVM ever used reference counting. You may be confusing things with an early implementation of Java<b>script</b> by Microsoft.</span> <span> - </span> <span class="display-name">Erwin Bolwidt</span> <span> </span> <span class="date">24 Feb 2022 at 03:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>27</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>bvdb</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Jul 2014 at 19:24</span>
+     </div>
+    </div>
+    <div>
+     <p>What's a memory leak:</p>
+     <ul>
+      <li>It's caused by a <strong>bug</strong> or <strong>bad design.</strong></li>
+      <li>It's a waste of memory.</li>
+      <li><strong>It gets worse over time.</strong></li>
+      <li><strong>The garbage collector cannot clean it.</strong></li>
+     </ul>
+     <p><em>Typical example:</em></p>
+     <p>A cache of objects is a good starting point to mess things up.</p>
+     <pre><code>private static final Map&lt;String, Info&gt; myCache = new HashMap&lt;&gt;();
+
+public void getInfo(String key)
+{
+    // uses cache
+    Info info = myCache.get(key);
+    if (info != null) return info;
+
+    // if it's not in cache, then fetch it from the database
+    info = Database.fetch(key);
+    if (info == null) return null;
+
+    // and store it in the cache
+    myCache.put(key, info);
+    return info;
+}
+</code></pre>
+     <p>Your cache grows and grows. And pretty soon the entire database gets sucked into memory. A better design uses an LRUMap (Only keeps recently used objects in cache).</p>
+     <p>Sure, you can make things a lot more complicated:</p>
+     <ul>
+      <li>using <strong>ThreadLocal</strong> constructions.</li>
+      <li>adding more <strong>complex reference trees</strong>.</li>
+      <li>or leaks caused by <strong>3rd party libraries</strong>.</li>
+     </ul>
+     <p><em>What often happens:</em></p>
+     <p>If this Info object has references to other objects, which again have references to other objects. In a way you could also consider this to be some kind of memory leak, (caused by bad design).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>On a slightly unrelated note: There's a popular saying: There are only 2 things difficult in programming: naming things and cache invalidation.</span> <span> - </span> <span class="display-name">bvdb</span> <span> </span> <span class="date">3 May 2021 at 15:02</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Suroot</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jul 2011 at 01:23</span>
+     </div>
+    </div>
+    <div>
+     <p>I thought it was interesting that no one used the internal class examples. If you have an internal class; it inherently maintains a reference to the containing class. Of course it is not technically a memory leak because Java WILL eventually clean it up; but this can cause classes to hang around longer than anticipated.</p>
+     <pre><code>public class Example1 {
+  public Example2 getNewExample2() {
+    return this.new Example2();
+  }
+  public class Example2 {
+    public Example2() {}
+  }
+}
+</code></pre>
+     <p>Now if you call Example1 and get an Example2 discarding Example1, you will inherently still have a link to an Example1 object.</p>
+     <pre><code>public class Referencer {
+  public static Example2 GetAnExample2() {
+    Example1 ex = new Example1();
+    return ex.getNewExample2();
+  }
+
+  public static void main(String[] args) {
+    Example2 ex = Referencer.GetAnExample2();
+    // As long as ex is reachable; Example1 will always remain in memory.
+  }
+}
+</code></pre>
+     <p>I've also heard a rumor that if you have a variable that exists for longer than a specific amount of time; Java assumes that it will always exist and will actually never try to clean it up if cannot be reached in code anymore. But that is completely unverified.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>inner classes are rarely an issue. They are a straightforward case and very easy to detect. The rumor is just a rumor too.</span> <span> - </span> <span class="display-name">bestsss</span> <span> </span> <span class="date">9 Jul 2011 at 06:54</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>The "rumor" sounds like someone half-read about how generational GC works. Long-lived-but-now-unreachable objects can indeed stick around and take up space for a while, because the JVM promoted them out of the younger generations so it could stop checking them every pass. They will evade the piddly "clean up my 5000 temp strings" passes, by design. But they're not immortal. They're still eligible for collection, and if the VM is strapped for RAM, it will eventually run a full GC sweep and repossess that memory.</span> <span> - </span> <span class="display-name">cHao</span> <span> </span> <span class="date">16 Aug 2013 at 20:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Puneet</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jul 2011 at 19:39</span>
+     </div>
+    </div>
+    <div>
+     <p>I recently encountered a memory leak situation caused in a way by log4j.</p>
+     <p>Log4j has this mechanism called <a href="http://logging.apache.org/log4j/1.2/apidocs/org/apache/log4j/NDC.html">Nested Diagnostic Context(NDC)</a> which is an instrument to distinguish interleaved log output from different sources. The granularity at which NDC works is threads, so it distinguishes log outputs from different threads separately.</p>
+     <p>In order to store thread specific tags, log4j's NDC class uses a Hashtable which is keyed by the Thread object itself (as opposed to say the thread id), and thus till the NDC tag stays in memory all the objects that hang off of the thread object also stay in memory. In our web application we use NDC to tag logoutputs with a request id to distinguish logs from a single request separately. The container that associates the NDC tag with a thread, also removes it while returning the response from a request. The problem occurred when during the course of processing a request, a child thread was spawned, something like the following code:</p>
+     <pre><code>pubclic class RequestProcessor {
+    private static final Logger logger = Logger.getLogger(RequestProcessor.class);
+    public void doSomething()  {
+        ....
+        final List&lt;String&gt; hugeList = new ArrayList&lt;String&gt;(10000);
+        new Thread() {
+           public void run() {
+               logger.info("Child thread spawned")
+               for(String s:hugeList) {
+                   ....
+               }
+           }
+        }.start();
+    }
+}    
+</code></pre>
+     <p>So an NDC context was associated with inline thread that was spawned. The thread object that was the key for this NDC context, is the inline thread which has the hugeList object hanging off of it. Hence even after the thread finished doing what it was doing, the reference to the hugeList was kept alive by the NDC context Hastable, thus causing a memory leak.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>That sucks. You should check this logging library that allocates ZERO memory while logging to a file: <a href="http://mentalog.soliveirajr.com" rel="nofollow noreferrer">mentalog.soliveirajr.com</a></span> <span> - </span> <span class="display-name">TraderJoeChicago</span> <span> </span> <span class="date">20 Sep 2011 at 23:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>+1 Do you know offhand whether there is a similar issue with the MDC in slf4j/logback (successor products by the same author)? I'm about to do a deep dive on the source but wanted to check first. Either way, thanks for posting this.</span> <span> - </span> <span class="display-name">sparc_spread</span> <span> </span> <span class="date">2 Jul 2014 at 21:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span> <span class="arrow"> <a href="#answer_22">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>duffymo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2011 at 16:17</span>
+     </div>
+    </div>
+    <div>
+     <p>Create a static Map and keep adding hard references to it. Those will never be garbage collected.</p>
+     <pre><code>public class Leaker {
+    private static final Map&lt;String, Object&gt; CACHE = new HashMap&lt;String, Object&gt;();
+
+    // Keep adding until failure.
+    public static void addToCache(String key, Object value) { Leaker.CACHE.put(key, value); }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>93</td>
+        <td><span>How is that a leak? It's doing exactly what you're asking it to do. If that's a leak, creating and storing objects anywhere is a leak.</span> <span> - </span> <span class="display-name">Falmarri</span> <span> </span> <span class="date">21 Jul 2011 at 19:10</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>I agree with @Falmarri. I don't see a leak there, you are just creating objects. You could certainly 'reclaim' the memory that you just allocated with another method called 'removeFromCache'. A leak is when you can't reclaim the memory.</span> <span> - </span> <span class="display-name">Kyle</span> <span> </span> <span class="date">17 Jul 2012 at 19:08</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>My point is that somebody who keeps creating objects, perhaps putting them into a cache, could end up with an OOM error if they aren't careful.</span> <span> - </span> <span class="display-name">duffymo</span> <span> </span> <span class="date">17 Jul 2012 at 20:07</span></td>
+       </tr>
+       <tr>
+        <td>8</td>
+        <td><span>@duffymo: But that's not really what the question was asking. It has nothing to do with simply using up all your memory.</span> <span> - </span> <span class="display-name">Falmarri</span> <span> </span> <span class="date">18 Jul 2012 at 22:10</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Absolutely invalid. You are just collecting a bunch of objects in a Map collection. Their references will be kept because the Map holds them.</span> <span> - </span> <span class="display-name">gyorgyabraham</span> <span> </span> <span class="date">29 Nov 2013 at 10:36</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>This is the classic memory leak in Java. It is not a leak in the sense of the JVM has lost track of the memory, but it is a leak in the sense that the JVM will never garbage collect it. If you monitor the heap of an application that uses this construct it will have a generally increasing trend and will eventually terminate with OutOfMemoryError. That is the definition of a memory leak.</span> <span> - </span> <span class="display-name">sceaj</span> <span> </span> <span class="date">28 Nov 2017 at 22:59</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>The comments dissing this answer are pretty funny, given that the accepted answer with over 2000 votes is saying the exact same thing, albeit in a highly obfuscated way. ThreadLocals aren't magic -- they are just entries in a Map, pointed to by a member variable in Thread.</span> <span> - </span> <span class="display-name">Ernest Friedman-Hill</span> <span> </span> <span class="date">3 Jan 2019 at 14:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This is what causes 99% of the real life memory leaks. Someone who does not know what is the difference between a Map and a Cache.</span> <span> - </span> <span class="display-name">kocka</span> <span> </span> <span class="date">27 Aug 2021 at 08:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_22"><span>Answer 22</span> <span class="arrow"> <a href="#answer_21">↑</a> </span> <span class="arrow"> <a href="#answer_23">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>20</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Paul Morie</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jul 2011 at 20:52</span>
+     </div>
+    </div>
+    <div>
+     <p>Everyone always forgets the native code route. Here's a simple formula for a leak:</p>
+     <ol>
+      <li>Declare a native method.</li>
+      <li>In the native method, call <code>malloc</code>. Don't call <code>free</code>.</li>
+      <li>Call the native method.</li>
+     </ol>
+     <p>Remember, memory allocations in native code come from the JVM heap.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_23"><span>Answer 23</span> <span class="arrow"> <a href="#answer_22">↑</a> </span> <span class="arrow"> <a href="#answer_24">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>17</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sethobrien</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jul 2011 at 08:05</span>
+     </div>
+    </div>
+    <div>
+     <p>You can create a moving memory leak by creating a new instance of a class in that class's finalize method. Bonus points if the finalizer creates multiple instances. Here's a simple program that leaks the entire heap in sometime between a few seconds and a few minutes depending on your heap size:</p>
+     <pre><code>class Leakee {
+    public void check() {
+        if (depth &gt; 2) {
+            Leaker.done();
+        }
+    }
+    private int depth;
+    public Leakee(int d) {
+        depth = d;
+    }
+    protected void finalize() {
+        new Leakee(depth + 1).check();
+        new Leakee(depth + 1).check();
+    }
+}
+
+public class Leaker {
+    private static boolean makeMore = true;
+    public static void done() {
+        makeMore = false;
+    }
+    public static void main(String[] args) throws InterruptedException {
+        // make a bunch of them until the garbage collector gets active
+        while (makeMore) {
+            new Leakee(0).check();
+        }
+        // sit back and watch the finalizers chew through memory
+        while (true) {
+            Thread.sleep(1000);
+            System.out.println("memory=" +
+                    Runtime.getRuntime().freeMemory() + " / " +
+                    Runtime.getRuntime().totalMemory());
+        }
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_24"><span>Answer 24</span> <span class="arrow"> <a href="#answer_23">↑</a> </span> <span class="arrow"> <a href="#answer_25">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ben</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jul 2011 at 17:36</span>
+     </div>
+    </div>
+    <div>
+     <p>I don't think anyone has said this yet: you can resurrect an object by overriding the finalize() method such that finalize() stores a reference of this somewhere. The garbage collector will only be called once on the object so after that the object will never destroyed.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>10</td>
+        <td><span>This is untrue. <code>finalize()</code> will not be called but the object will be collected once there won't be more references. Garbage collector is not 'called' either.</span> <span> - </span> <span class="display-name">bestsss</span> <span> </span> <span class="date">5 Jul 2011 at 19:38</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This answer is misleading, the <code>finalize()</code> method can only be called once by the JVM, but this does not mean that it cannot be re-garbage collected if the object is resurrected and then dereferenced again. If there is resource closing code in the <code>finalize()</code> method then this code will not get run again, this may cause a memory leak.</span> <span> - </span> <span class="display-name">Tom</span> <span> </span> <span class="date">19 Dec 2012 at 11:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_25"><span>Answer 25</span> <span class="arrow"> <a href="#answer_24">↑</a> </span> <span class="arrow"> <a href="#answer_26">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Graham</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jul 2011 at 17:55</span>
+     </div>
+    </div>
+    <div>
+     <p>As a lot of people have suggested, <em>resource leaks</em> are fairly easy to cause - like the <a href="https://en.wikipedia.org/wiki/Java_Database_Connectivity" rel="nofollow noreferrer">JDBC</a> examples. Actual <em>memory</em> leaks are a bit harder - especially if you aren't relying on broken bits of the JVM to do it for you...</p>
+     <p>The ideas of creating objects that have a very large footprint and then not being able to access them aren't real memory leaks either. If nothing can access it then it will be garbage collected, and if something can access it then it's not a leak...</p>
+     <p>One way that <em>used</em> to work though - and I don't know if it still does - is to have a three-deep circular chain. As in Object A has a reference to Object B, Object B has a reference to Object C and Object C has a reference to Object A. The GC was clever enough to know that a two deep chain - as in A &lt;--&gt; B - can safely be collected if A and B aren't accessible by anything else, but couldn't handle the three-way chain...</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>7</td>
+        <td><span>Hasn't been the case for some time now. Modern GCs know how to handle circular references.</span> <span> - </span> <span class="display-name">assylias</span> <span> </span> <span class="date">20 Jun 2013 at 23:01</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_26"><span>Answer 26</span> <span class="arrow"> <a href="#answer_25">↑</a> </span> <span class="arrow"> <a href="#answer_27">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jay</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Sep 2012 at 20:07</span>
+     </div>
+    </div>
+    <div>
+     <p>I came across a more subtle kind of resource leak recently. We open resources via class loader's getResourceAsStream and it happened that the input stream handles were not closed.</p>
+     <p>Uhm, you might say, what an idiot.</p>
+     <p>Well, what makes this interesting is: this way, you can leak heap memory of the underlying process, rather than from JVM's heap.</p>
+     <p>All you need is a jar file with a file inside which will be referenced from Java code. The bigger the jar file, the quicker memory gets allocated.</p>
+     <p>You can easily create such a jar with the following class:</p>
+     <pre><code>import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+public class BigJarCreator {
+    public static void main(String[] args) throws IOException {
+        ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(new File("big.jar")));
+        zos.putNextEntry(new ZipEntry("resource.txt"));
+        zos.write("not too much in here".getBytes());
+        zos.closeEntry();
+        zos.putNextEntry(new ZipEntry("largeFile.out"));
+        for (int i=0 ; i&lt;10000000 ; i++) {
+            zos.write((int) (Math.round(Math.random()*100)+20));
+        }
+        zos.closeEntry();
+        zos.close();
+    }
+}
+</code></pre>
+     <p>Just paste into a file named BigJarCreator.java, compile and run it from command line:</p>
+     <pre><code>javac BigJarCreator.java
+java -cp . BigJarCreator
+</code></pre>
+     <p>Et voilà: you find a jar archive in your current working directory with two files inside.</p>
+     <p>Let's create a second class:</p>
+     <pre><code>public class MemLeak {
+    public static void main(String[] args) throws InterruptedException {
+        int ITERATIONS=100000;
+        for (int i=0 ; i&lt;ITERATIONS ; i++) {
+            MemLeak.class.getClassLoader().getResourceAsStream("resource.txt");
+        }
+        System.out.println("finished creation of streams, now waiting to be killed");
+
+        Thread.sleep(Long.MAX_VALUE);
+    }
+
+}
+</code></pre>
+     <p>This class basically does nothing, but create unreferenced InputStream objects. Those objects will be garbage collected immediately and thus, do not contribute to heap size. It is important for our example to load an existing resource from a jar file, and size does matter here!</p>
+     <p>If you're doubtful, try to compile and start the class above, but make sure to chose a decent heap size (2 MB):</p>
+     <pre><code>javac MemLeak.java
+java -Xmx2m -classpath .:big.jar MemLeak
+</code></pre>
+     <p>You will not encounter an OOM error here, as no references are kept, the application will keep running no matter how large you chose ITERATIONS in the above example. The memory consumption of your process (visible in top (RES/RSS) or process explorer) grows unless the application gets to the wait command. In the setup above, it will allocate around 150 MB in memory.</p>
+     <p>If you want the application to play safe, close the input stream right where it's created:</p>
+     <pre><code>MemLeak.class.getClassLoader().getResourceAsStream("resource.txt").close();
+</code></pre>
+     <p>and your process will not exceed 35 MB, independent of the iteration count.</p>
+     <p>Quite simple and surprising.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_27"><span>Answer 27</span> <span class="arrow"> <a href="#answer_26">↑</a> </span> <span class="arrow"> <a href="#answer_28">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>payloc91</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Apr 2018 at 12:21</span>
+     </div>
+    </div>
+    <div>
+     <p>Another way to create potentially huge memory leaks is to hold references to <code>Map.Entry&lt;K,V&gt;</code> of a <code>TreeMap</code>.</p>
+     <p>It is hard to asses why this applies only to <code>TreeMap</code>s, but by looking at the implementation the reason might be that: a <code>TreeMap.Entry</code> stores references to its siblings, therefore if a <code>TreeMap</code> is ready to be collected, but some other class holds a reference to any of its <code>Map.Entry</code>, then the <strong>entire</strong> Map will be retained into memory.</p>
+     <hr>
+     <p><strong>Real-life scenario:</strong></p>
+     <p>Imagine having a db query that returns a big <code>TreeMap</code> data structure. People usually use <code>TreeMap</code>s as the element insertion order is retained.</p>
+     <pre><code>public static Map&lt;String, Integer&gt; pseudoQueryDatabase();
+</code></pre>
+     <p>If the query was called lots of times and, for each query (so, for each <code>Map</code> returned) you save an <code>Entry</code> somewhere, the memory would constantly keep growing.</p>
+     <p>Consider the following wrapper class:</p>
+     <pre><code>class EntryHolder {
+    Map.Entry&lt;String, Integer&gt; entry;
+
+    EntryHolder(Map.Entry&lt;String, Integer&gt; entry) {
+        this.entry = entry;
+    }
+}
+</code></pre>
+     <p>Application:</p>
+     <pre><code>public class LeakTest {
+
+    private final List&lt;EntryHolder&gt; holdersCache = new ArrayList&lt;&gt;();
+    private static final int MAP_SIZE = 100_000;
+
+    public void run() {
+        // create 500 entries each holding a reference to an Entry of a TreeMap
+        IntStream.range(0, 500).forEach(value -&gt; {
+            // create map
+            final Map&lt;String, Integer&gt; map = pseudoQueryDatabase();
+
+            final int index = new Random().nextInt(MAP_SIZE);
+
+            // get random entry from map
+            for (Map.Entry&lt;String, Integer&gt; entry : map.entrySet()) {
+                if (entry.getValue().equals(index)) {
+                    holdersCache.add(new EntryHolder(entry));
+                    break;
+                }
+            }
+            // to observe behavior in visualvm
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+
+    }
+
+    public static Map&lt;String, Integer&gt; pseudoQueryDatabase() {
+        final Map&lt;String, Integer&gt; map = new TreeMap&lt;&gt;();
+        IntStream.range(0, MAP_SIZE).forEach(i -&gt; map.put(String.valueOf(i), i));
+        return map;
+    }
+
+    public static void main(String[] args) throws Exception {
+        new LeakTest().run();
+    }
+}
+</code></pre>
+     <p>After each <code>pseudoQueryDatabase()</code> call, the <code>map</code> instances should be ready for collection, but it won't happen, as at least one <code>Entry</code> is stored somewhere else.</p>
+     <p>Depending on your <code>jvm</code> settings, the application may crash in the early stage due to a <code>OutOfMemoryError</code>.</p>
+     <p>You can see from this <code>visualvm</code> graph how the memory keeps growing.</p>
+     <p><a href="https://i.stack.imgur.com/Byiwn.png" rel="noreferrer"><img src="https://i.stack.imgur.com/Byiwn.png" alt="Memory dump - TreeMap"></a></p>
+     <p>The same does not happen with a hashed data-structure (<code>HashMap</code>).</p>
+     <p>This is the graph when using a <code>HashMap</code>.</p>
+     <p><a href="https://i.stack.imgur.com/Yr3eC.png" rel="noreferrer"><img src="https://i.stack.imgur.com/Yr3eC.png" alt="Memory dump - HashMap"></a></p>
+     <p><strong>The solution?</strong> Just directly save the key / value (as you probably already do) rather than saving the <code>Map.Entry</code>.</p>
+     <hr>
+     <p>I have written a more extensive benchmark <a href="https://stackoverflow.com/a/49430255/8524301">here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_28"><span>Answer 28</span> <span class="arrow"> <a href="#answer_27">↑</a> </span> <span class="arrow"> <a href="#answer_29">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tashkhisi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Aug 2020 at 18:04</span>
+     </div>
+    </div>
+    <div>
+     <p>There are many good examples of memory leaks in Java, and I will mention two of them in this answer.</p>
+     <p><strong>Example 1:</strong></p>
+     <p>Here is a good example of a memory leak from the book <em>Effective Java, Third Edition</em> (item 7: Eliminate obsolete object references):</p>
+     <pre><code>// Can you spot the "memory leak"?
+public class Stack {
+    private static final int DEFAULT_INITIAL_CAPACITY = 16;
+    private Object[] elements;
+    private int size = 0;
+
+    public Stack() {
+        elements = new Object[DEFAULT_INITIAL_CAPACITY];
+    }
+
+    public void push(Object e) {
+        ensureCapacity();
+        elements[size++] = e;
+    }
+
+    public Object pop() {
+        if (size == 0) throw new EmptyStackException();
+        return elements[--size];
+    }
+
+    /*** Ensure space for at least one more element, roughly* doubling the capacity each time the array needs to grow.*/
+    private void ensureCapacity() {
+        if (elements.length == size) elements = Arrays.copyOf(elements, 2 * size + 1);
+    }
+}
+</code></pre>
+     <p>This is the paragraph of the book that describes why this implementation will cause a memory leak:</p>
+     <blockquote>
+      <p>If a stack grows and then shrinks, the objects that were popped off the stack will not be garbage collected, even if the program using the stack has no more references to them. This is because the stack maintains obsolete references to these objects. An obsolete reference is simply a reference that will never be dereferenced again. In this case, any references outside of the “active portion” of the element array are obsolete. The active portion consists of the elements whose index is less than size</p>
+     </blockquote>
+     <p>Here is the solution of the book to tackle this memory leak:</p>
+     <blockquote>
+      <p>The fix for this sort of problem is simple: null out references once they become obsolete. In the case of our Stack class, the reference to an item becomes obsolete as soon as it’s popped off the stack. The corrected version of the pop method looks like this:</p>
+     </blockquote>
+     <pre><code>public Object pop() {
+    if (size == 0) throw new EmptyStackException();
+    Object result = elements[--size];
+    elements[size] = null; // Eliminate obsolete reference
+    return result;
+}
+</code></pre>
+     <p>But how can we prevent a memory leak from happening? This is a good caveat from the book:</p>
+     <blockquote>
+      <p>Generally speaking, whenever a class manages its own memory, the programmer should be alert for memory leaks. Whenever an element is freed, any object references contained in the element should be nulled out.</p>
+     </blockquote>
+     <p><strong>Example 2:</strong></p>
+     <p>The <a href="https://en.wikipedia.org/wiki/Observer_pattern" rel="nofollow noreferrer">observer pattern</a> also can cause a memory leak. You can read about this pattern in the following link: <a href="https://en.wikipedia.org/wiki/Observer_pattern" rel="nofollow noreferrer">Observer pattern</a>.</p>
+     <p>This is one implementation of the Observer pattern:</p>
+     <pre><code>class EventSource {
+    public interface Observer {
+        void update(String event);
+    }
+
+    private final List&lt;Observer&gt; observers = new ArrayList&lt;&gt;();
+
+    private void notifyObservers(String event) {
+        observers.forEach(observer -&gt; observer.update(event)); //alternative lambda expression: observers.forEach(Observer::update);
+    }
+
+    public void addObserver(Observer observer) {
+        observers.add(observer);
+    }
+
+    public void scanSystemIn() {
+        Scanner scanner = new Scanner(System.in);
+        while (scanner.hasNextLine()) {
+            String line = scanner.nextLine();
+            notifyObservers(line);
+        }
+    }
+}
+</code></pre>
+     <p>In this implementation, <code>EventSource</code>, which is Observable in the Observer design pattern, can hold links to <code>Observer</code> objects, but this link is never removed from the <code>observers</code> field in <code>EventSource</code>. So they will never be collected by the garbage collector. One solution to tackle this problem is providing another method to the client for removing the aforementioned observers from the <code>observers</code> field when they don't need those observers anymore:</p>
+     <pre><code>public void removeObserver(Observer observer) {
+    observers.remove(observer);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_29"><span>Answer 29</span> <span class="arrow"> <a href="#answer_28">↑</a> </span> <span class="arrow"> <a href="#answer_30">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>13</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Boann</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Aug 2013 at 05:10</span>
+     </div>
+    </div>
+    <div>
+     <p>Threads are not collected until they terminate. They serve as <a href="https://stackoverflow.com/questions/6366211/what-are-the-roots">roots</a> of garbage collection. They are one of the few objects that won't be reclaimed simply by forgetting about them or clearing references to them.</p>
+     <p>Consider: the basic pattern to terminate a worker thread is to set some condition variable seen by the thread. The thread can check the variable periodically and use that as a signal to terminate. If the variable is not declared <code>volatile</code>, then the change to the variable might not be seen by the thread, so it won't know to terminate. Or imagine if some threads want to update a shared object, but deadlock while trying to lock on it.</p>
+     <p>If you only have a handful of threads these bugs will probably be obvious because your program will stop working properly. If you have a thread pool that creates more threads as needed, then the obsolete/stuck threads might not be noticed, and will accumulate indefinitely, causing a memory leak. Threads are likely to use other data in your application, so will also prevent anything they directly reference from ever being collected.</p>
+     <p>As a toy example:</p>
+     <pre><code>static void leakMe(final Object object) {
+    new Thread() {
+        public void run() {
+            Object o = object;
+            for (;;) {
+                try {
+                    sleep(Long.MAX_VALUE);
+                } catch (InterruptedException e) {}
+            }
+        }
+    }.start();
+}
+</code></pre>
+     <p>Call <code>System.gc()</code> all you like, but the object passed to <code>leakMe</code> will never die.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>@Spidey Nothing is "stuck". The calling method returns promptly, and the passed object will never be reclaimed. That's precisely a leak.</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">26 Sep 2013 at 23:39</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>You'll have a thread "running" (or sleeping, whatever) for the lifetime of your program. That doesn't count as a leak to me. As well as a pool doesn't count as a leak, even if you don't use it entirely.</span> <span> - </span> <span class="display-name">Spidey</span> <span> </span> <span class="date">27 Sep 2013 at 01:24</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Spidey "You'll have a [thing] for the lifetime of your program. That doesn't count as a leak to me." Do you hear yourself?</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">27 Sep 2013 at 01:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes I do. The process still references the thread, and the thread still references the <code>o</code> object. You may have misunderstood what a memory leak is.</span> <span> - </span> <span class="display-name">Spidey</span> <span> </span> <span class="date">27 Sep 2013 at 15:51</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@Spidey If you would count memory that the process knows about as not being leaked, then all the answers here are wrong, since the process always tracks which pages in its virtual address space are mapped. When the process terminates, the OS cleans up all the leaks by putting the pages back on the free page stack. To take that to the next extreme, one could beat to death any argued leak by pointing out that none of the physical bits in the RAM chips or in the swap space on disk have been physically misplaced or destroyed, so you can switch the computer off and on again to clean up any leak.</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">27 Sep 2013 at 18:00</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>The practical definition of a leak is that it's memory which has been lost track of such that we don't know and thus can't perform the procedure necessary to reclaim only it; we would have to tear down and rebuild the entire memory space. A rogue thread like this could arise naturally through a deadlock or dodgy threadpool implementation. Objects referenced by such threads, even indirectly, are now prevented from ever being collected, so we have memory which will not be naturally reclaimed or reusable during the lifetime of the program. I'd call that a problem; specifically it's a memory leak.</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">27 Sep 2013 at 18:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Spidey What is your answer? What do you consider a leak?</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">1 Oct 2013 at 18:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Since Java has a garbage collector, I don't think it can even leak.</span> <span> - </span> <span class="display-name">Spidey</span> <span> </span> <span class="date">2 Oct 2013 at 14:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Spidey Then try it for yourself and you'll see that it does leak. The garbage collector isn't (and cannot be) infallible because it can't tell the difference between live references and obsolete ones, which is why explicit nulling of obsolete references is necessary when the object or scope holding the obsolete reference is still in use.</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">2 Oct 2013 at 14:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>There is no difference between "live references and obsolete ones" in the context of the question. They are still referenced somewhere. In a C program, a leak isn't referenced anywhere, even the OS can't touch it. It can release all memory pages used by a given process, but it can't reference each and every memory block allocated.</span> <span> - </span> <span class="display-name">Spidey</span> <span> </span> <span class="date">2 Oct 2013 at 18:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Spidey It's the most important difference. At a lower level (program -&gt; JVM -&gt; OS -&gt; RAM chips -&gt; Universe) any memory leak from the higher level becomes unreal. The practical definition for a memory leak is that during execution, your memory space (at whatever level you define it) is accumulating things which are not wanted, reducing available space for things which are wanted. "In a C program, a leak isn't referenced anywhere" -- also wrong -- leaked memory could still be referenced. What matters is whether the memory can be re-used, which in C does not depend on whether it's referenced.</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">2 Oct 2013 at 19:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>obviously not much people think you are right. See this: <a href="http://www.ibm.com/developerworks/rational/library/05/0816_GuptaPalanki/" rel="nofollow noreferrer">ibm.com/developerworks/rational/library/05/0816_GuptaPalanki</a> Memory leaks in Java are not real leaks, they are bad design choices or bugs in code.</span> <span> - </span> <span class="display-name">Spidey</span> <span> </span> <span class="date">2 Oct 2013 at 23:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Spidey "not much people think you are right".. Uh, about which? Which people? Where? Check the previous page of answers for the many older, popular answers that I'm defending here and which you are calling wrong. "Memory leaks in Java are not real leaks" Nowhere does the article say that. It gives examples of memory leaks and shows how they are a real loss of usable memory due to objects not being reclaimed. Those objects accumulate over time and become a real problem. That's what a memory leak is. "they are bad design choices or bugs in code" ... which result in <b>memory leaks</b>, yes.</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">3 Oct 2013 at 16:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I mean all the people who read your answer and our discussion, and still didn't care to up or down your post. But that's not a real argument anyway. See slowlyLeakingVector in Listing 2. I could accept that as a memory leak, but that's different from what you are doing. As I see, your answer suggests that any unused allocated object implies in a leak. I don't agree with that.</span> <span> - </span> <span class="display-name">Spidey</span> <span> </span> <span class="date">3 Oct 2013 at 17:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This is totally valid code, it's what it means to use threads. They are designed to keep their references. Also it's not only threads that do this, also GUI frames keep everything referenced by them even though there is no thread. There are a few other "tops" to the GC tree as well. If you have a thread that runs forever then, by design, it will keep everything it references forever, otherwise nothing will work. If this is not what you intended however, then you DO have a programming bug!</span> <span> - </span> <span class="display-name">Bill K</span> <span> </span> <span class="date">3 Oct 2013 at 22:02</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Spidey "I could accept that as a memory leak" Thank you. Earlier, you'd said something couldn't be a leak if it's still referenced and that you couldn't have a leak in Java because it has a garbage collector. &gt;_&lt; "Your answer suggests that any unused allocated object implies a leak". Well, the example is a scenario of an object that the garbage collector can't/won't collect. If it emerges in a program and happens repeatedly it becomes a leak. I'll try to improve my answer with that info.</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">4 Oct 2013 at 04:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Can't you just allocate a bunch of memory on background threads and intentionally deadlock them by using a very poorly structured system of nested thread locks? It fits the profile of running for the life of the program and not being accessible by the application or recoverable by the GC.</span> <span> - </span> <span class="display-name">Evan Plaice</span> <span> </span> <span class="date">24 Feb 2014 at 10:08</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_30"><span>Answer 30</span> <span class="arrow"> <a href="#answer_29">↑</a> </span> <span class="arrow"> <a href="#answer_31">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Wesley Tarle</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jul 2011 at 15:06</span>
+     </div>
+    </div>
+    <div>
+     <p>The interviewer might have been looking for a circular reference solution:</p>
+     <pre><code>    public static void main(String[] args) {
+        while (true) {
+            Element first = new Element();
+            first.next = new Element();
+            first.next.next = first;
+        }
+    }
+</code></pre>
+     <p>This is a classic problem with reference counting garbage collectors. You would then politely explain that JVMs use a much more sophisticated algorithm that doesn't have this limitation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>13</td>
+        <td><span><i>This is a classic problem with reference counting garbage collectors.</i> Even 15 years ago Java didn't use ref counting. Ref. counting is also slower than GC.</span> <span> - </span> <span class="display-name">bestsss</span> <span> </span> <span class="date">5 Jul 2011 at 19:36</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>Not a memory leak. Just an infinite loop.</span> <span> - </span> <span class="display-name">Esben Skov Pedersen</span> <span> </span> <span class="date">21 Jul 2011 at 15:15</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Esben At each iteration, the previous <code>first</code> is not useful and should be garbage collected. In <i>reference counting</i> garbage collectors, the object wouldn't be freeed because there is an active reference on it (by itself). The infinite loop is here to desmonstrate the leak: when you run the program, the memory will raise indefinitely.</span> <span> - </span> <span class="display-name">rds</span> <span> </span> <span class="date">22 Jul 2011 at 16:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@rds @ Wesley Tarle suppose the loop was <i>not</i> infinite. Would there still be a memory leak?</span> <span> - </span> <span class="display-name">nz_21</span> <span> </span> <span class="date">6 Nov 2018 at 15:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_31"><span>Answer 31</span> <span class="arrow"> <a href="#answer_30">↑</a> </span> <span class="arrow"> <a href="#answer_32">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Martín Schonaker</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jul 2011 at 06:49</span>
+     </div>
+    </div>
+    <div>
+     <p>I think that a valid example could be using ThreadLocal variables in an environment where threads are pooled.</p>
+     <p>For instance, using ThreadLocal variables in Servlets to communicate with other web components, having the threads being created by the container and maintaining the idle ones in a pool. ThreadLocal variables, if not correctly cleaned up, will live there until, possibly, the same web component overwrites their values.</p>
+     <p>Of course, once identified, the problem can be solved easily.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_32"><span>Answer 32</span> <span class="arrow"> <a href="#answer_31">↑</a> </span> <span class="arrow"> <a href="#answer_33">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ben Xu</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Jul 2011 at 07:46</span>
+     </div>
+    </div>
+    <div>
+     <p>There are many different situations memory will leak. One I encountered, which expose a map that should not be exposed and used in other place.</p>
+     <pre><code>public class ServiceFactory {
+
+    private Map&lt;String, Service&gt; services;
+
+    private static ServiceFactory singleton;
+
+    private ServiceFactory() {
+        services = new HashMap&lt;String, Service&gt;();
+    }
+
+    public static synchronized ServiceFactory getDefault() {
+
+        if (singleton == null) {
+            singleton = new ServiceFactory();
+        }
+        return singleton;
+    }
+
+    public void addService(String name, Service serv) {
+        services.put(name, serv);
+    }
+
+    public void removeService(String name) {
+        services.remove(name);
+    }
+
+    public Service getService(String name, Service serv) {
+        return services.get(name);
+    }
+
+    // The problematic API, which exposes the map.
+    // and user can do quite a lot of thing from this API.
+    // for example, create service reference and forget to dispose or set it null
+    // in all this is a dangerous API, and should not expose
+    public Map&lt;String, Service&gt; getAllServices() {
+        return services;
+    }
+
+}
+
+// Resource class is a heavy class
+class Service {
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_33"><span>Answer 33</span> <span class="arrow"> <a href="#answer_32">↑</a> </span> <span class="arrow"> <a href="#answer_34">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pavel Molchanov</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jun 2018 at 20:47</span>
+     </div>
+    </div>
+    <div>
+     <p>I want to give advice on how to monitor an application for the memory leaks with the tools that are available in the JVM. It doesn't show how to generate the memory leak, but explains how to detect it with the minimum tools available.</p>
+     <p>You need to monitor Java memory consumption first.</p>
+     <p>The simplest way to do this is to use the <em>jstat</em> utility that comes with JVM:</p>
+     <pre><code>jstat -gcutil &lt;process_id&gt; &lt;timeout&gt;
+</code></pre>
+     <p>It will report memory consumption for each generation (<em>young</em>, <em>eldery</em> and <em>old</em>) and garbage collection times (<em>young</em> and <em>full</em>).</p>
+     <p>As soon as you spot that a <em>full garbage collection</em> is executed too often and takes too much time, you can assume that application is leaking memory.</p>
+     <p>Then you need to create a memory dump using the <em>jmap</em> utility:</p>
+     <pre><code>jmap -dump:live,format=b,file=heap.bin &lt;process_id&gt;
+</code></pre>
+     <p>Then you need to analyse the heap.bin file with a <em>memory analyser</em>, <em>Eclipse Memory Analyzer</em> (MAT) for example.</p>
+     <p>MAT will analyze the memory and provide you suspect information about memory leaks.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_34"><span>Answer 34</span> <span class="arrow"> <a href="#answer_33">↑</a> </span> <span class="arrow"> <a href="#answer_35">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Scott</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jul 2011 at 17:41</span>
+     </div>
+    </div>
+    <div>
+     <p>An example I recently fixed is creating new GC and Image objects, but forgetting to call dispose() method.</p>
+     <p>GC javadoc snippet:</p>
+     <blockquote>
+      <p>Application code must explicitly invoke the GC.dispose() method to release the operating system resources managed by each instance when those instances are no longer required. This is particularly important on Windows95 and Windows98 where the operating system has a limited number of device contexts available.</p>
+     </blockquote>
+     <p>Image javadoc snippet:</p>
+     <blockquote>
+      <p>Application code must explicitly invoke the Image.dispose() method to release the operating system resources managed by each instance when those instances are no longer required.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_35"><span>Answer 35</span> <span class="arrow"> <a href="#answer_34">↑</a> </span> <span class="arrow"> <a href="#answer_36">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Audrius Meškauskas</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jan 2014 at 12:56</span>
+     </div>
+    </div>
+    <div>
+     <p>A thread that does not terminate (say sleeps indefinitely in its run method). It will not be garbage collected even if we lose a reference to it. You can add fields to make the thread object is a big as you want.</p>
+     <p>The currently top answer lists more tricks around this, but these seem redundant.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_36"><span>Answer 36</span> <span class="arrow"> <a href="#answer_35">↑</a> </span> <span class="arrow"> <a href="#answer_37">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Artur Ventura</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jul 2011 at 23:07</span>
+     </div>
+    </div>
+    <div>
+     <p>Theoretically you can't. The Java memory model prevents it. However, because Java has to be implemented, there are some caveats you can use. It depends on what you can use:</p>
+     <ul>
+      <li>
+       <p>If you can use native, you can allocate memory that you do not relinquish later.</p></li>
+      <li>
+       <p>If that is not available, there is a dirty little secret about Java that not much people know. You can ask for a direct access array that is not managed by GC, and therefore can be easily used to make a memory leak. This is provided by DirectByteBuffer (<a href="http://download.oracle.com/javase/1.5.0/docs/api/java/nio/ByteBuffer.html#allocateDirect(int)" rel="nofollow noreferrer">http://download.oracle.com/javase/1.5.0/docs/api/java/nio/ByteBuffer.html#allocateDirect(int)</a>).</p></li>
+      <li>
+       <p>If you can't use any of those, you still can make a memory leak by tricking the GC. The JVM is implemented using a <em>generational</em> garbage collection. What this means is that the heap is divided into areas: young, adults and elders. An object when its created starts at the young area. As it is used more and more, it progresses into adults up to elders. An object that reaches the eldery area most likely will not be garbage collected. You cannot be sure that an object is leaked and if you ask for a stop and clean GC it may clean it, but for a long period of time it will be leaked. More information is at (<a href="http://java.sun.com/docs/hotspot/gc1.4.2/faq.html" rel="nofollow noreferrer">http://java.sun.com/docs/hotspot/gc1.4.2/faq.html</a>)</p></li>
+      <li>
+       <p>Also, class objects are not required to be GC'ed. There might be a way to do it.</p></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>The native memory allocated by a DirectByteBuffer is freed in a finalizer when the DirectByteBuffer is garbage collected. It certainly doesn't leak.</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">31 Aug 2013 at 05:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_37"><span>Answer 37</span> <span class="arrow"> <a href="#answer_36">↑</a> </span> <span class="arrow"> <a href="#answer_38">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>arnt</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jul 2011 at 10:24</span>
+     </div>
+    </div>
+    <div>
+     <p>Most of the memory leaks I've seen in Java concern processes getting out of sync.</p>
+     <p>Process A talks to B via <a href="https://en.wikipedia.org/wiki/Transmission_Control_Protocol" rel="nofollow noreferrer">TCP</a>, and tells process B to create something. B issues the resource an ID, say 432423, which A stores in an object and uses while talking to B. At some point the object in A is reclaimed by garbage collection (maybe due to a bug), but A never tells B that (maybe another bug).</p>
+     <p>Now A doesn't have the ID of the object it's created in B's RAM any more, and B doesn't know that A has no more reference to the object. In effect, the object is leaked.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_38"><span>Answer 38</span> <span class="arrow"> <a href="#answer_37">↑</a> </span> <span class="arrow"> <a href="#answer_39">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Peter</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jul 2011 at 14:38</span>
+     </div>
+    </div>
+    <div>
+     <p>A few suggestions:</p>
+     <ul>
+      <li>use commons-logging in a servlet container (a bit provocative perhaps)</li>
+      <li>start a thread in a servlet container and don't return from its run method</li>
+      <li>load animated GIF images in a servlet container (this will start an animation thread)</li>
+     </ul>
+     <p>The above effects could be 'improved' by redeploying the application ;)</p>
+     <p>I recently stumbled upon this:</p>
+     <ul>
+      <li>Calling "new java.util.zip.Inflater();" without calling "Inflater.end()" ever</li>
+     </ul>
+     <p>Read <a href="http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5072161" rel="nofollow noreferrer">http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5072161</a> and linked issues for an in-depth-discussion.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>To add to the discussion about what a memory leak is in my opinion the idea of "intentional" is important. Of course a field (static or not) pointing to a huge data structure is not yet a memory leak. But if the datastructure pointed to is of no use for your logic, just lingering around, polluting your heap, perhaps ever growing until GC gives up with an OOME, then i call it a "memory leak". The memory leaked is just no longer available to me. Just like in former times where i called malloc without ever returning this to os - purify to the rescue.</span> <span> - </span> <span class="display-name">Peter</span> <span> </span> <span class="date">22 Jul 2011 at 15:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The inflater is a good one, while not true leak (if will be finalized) it eats up native memory very well and it's hard to diagnose. You deserve a vote (but I do not vote myself). I added some more info in my answer (didn't spot yours earlier)</span> <span> - </span> <span class="display-name">bestsss</span> <span> </span> <span class="date">27 Dec 2011 at 01:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Finlizers were a bad idea, and there is no guarantee that they will ever be called. Google for Cliff Click and his comments about this...</span> <span> - </span> <span class="display-name">Peter</span> <span> </span> <span class="date">2 Feb 2012 at 11:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>All JVMs (minus JDK7 before 7.0.2) invoke finalizer(s) more or less in good fashion. Finalizer are absolutely necessary for Direct buffers to work (even more mapped files, esp. on Windows). They are just unreliable (baring that I know what Cliff Click says about)</span> <span> - </span> <span class="display-name">bestsss</span> <span> </span> <span class="date">2 Feb 2012 at 15:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_39"><span>Answer 39</span> <span class="arrow"> <a href="#answer_38">↑</a> </span> <span class="arrow"> <a href="#answer_40">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>abishkar bhattarai</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Dec 2012 at 07:18</span>
+     </div>
+    </div>
+    <div>
+     <p>If the maximum heap size is X. Y1....Yn no of instances</p>
+     <p>So, total memory = number of instances X bytes per instance. If X1......Xn is bytes per instances, then total memory(M)=Y1 * X1+.....+Yn *Xn. So, if M&gt;X, it exceeds the heap space.</p>
+     <p>The following can be the problems in code</p>
+     <ol>
+      <li>Use of more instances variable then local one.</li>
+      <li>Creating instances every time instead of pooling object.</li>
+      <li>Not creating the object on demand.</li>
+      <li>Making the object reference null after the completion of operation. Again, recreating when it is demanded in program.</li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_40"><span>Answer 40</span> <span class="arrow"> <a href="#answer_39">↑</a> </span> <span class="arrow"> <a href="#answer_41">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Basanth Roy</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Aug 2013 at 12:10</span>
+     </div>
+    </div>
+    <div>
+     <p>Throw an unhandled exception from the finalize method.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_41"><span>Answer 41</span> <span class="arrow"> <a href="#answer_40">↑</a> </span> <span class="arrow"> <a href="#answer_42">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alexandre Santos</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Jun 2014 at 21:54</span>
+     </div>
+    </div>
+    <div>
+     <p>There are many answers on how to create a memory leak in Java, but please note the point asked during the interview.</p>
+     <p>"how to create a memory leak with Java?" is an open-ended question, whose purpose is to evaluate the degree of experience a developer has.</p>
+     <p>If I ask you "Do you have experience troubleshooting memory leaks in Java?", your answer would be a simple "Yes". I would have then to follow up with "Could you give me examples where you hat to troubleshoot memory leaks?", to which you would give me one or two examples.</p>
+     <p>However, when the interviewer asks "how to create a memory leak with Java?" the expected answer should follow alongs these lines:</p>
+     <ul>
+      <li>I've encountered a memory leak ... (say when) [that shows me experience]</li>
+      <li>The code that was causing it was... (explain code) [you fixed it yourself]</li>
+      <li>The fix I applied was based on ... (explain fix) [this gives me a chance to ask specifics about the fix]</li>
+      <li>The test I did was ... [gives me the chance of asking other testing methodologies]</li>
+      <li>I documented it this way ... [extra points. Good if you documented it]</li>
+      <li>So, it is reasonable to think that, if we follow this in reverse order, which is, get the code I fixed, and remove my fix, that we would have a memory leak.</li>
+     </ul>
+     <p>When the developer fails to follow this line of thought I try to guide him/her asking "Could you give me an example of how could Java leak memory?", followed by "Did you ever have to fix any memory leak in Java?"</p>
+     <p>Note that I am <strong>not</strong> asking for an example on how to leak memory in Java. That would be silly. Who would be interested in a developer who can effectively write code that leaks memory?</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Regarding the last sentence, the best way to win over the evil is knowing it well. If you want to write a secure web application, you should make yourself familiar with the most common exploit techniques and vulnerabilities, like SQL injections or buffer overflows. Similarly, if you want to write leak-free code, you should at least be able to describe the most common ways of leaking memory, like lost pointers in C/C++. Definitely less straightforward in Java, though.</span> <span> - </span> <span class="display-name">Stefano Sanfilippo</span> <span> </span> <span class="date">21 Jun 2015 at 16:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_42"><span>Answer 42</span> <span class="arrow"> <a href="#answer_41">↑</a> </span> <span class="arrow"> <a href="#answer_43">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Viraj</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Jun 2014 at 11:53</span>
+     </div>
+    </div>
+    <div>
+     <p>The <em>String.substring</em> method in Java 1.6 create a memory leak. This blog post explains it:</p>
+     <p><em><a href="http://javarevisited.blogspot.com/2011/10/how-substring-in-java-works.html" rel="nofollow noreferrer">How SubString method works in Java - Memory Leak Fixed in JDK 1.7</a></em></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_43"><span>Answer 43</span> <span class="arrow"> <a href="#answer_42">↑</a> </span> <span class="arrow"> <a href="#answer_44">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user1529891</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Apr 2017 at 16:11</span>
+     </div>
+    </div>
+    <div>
+     <p>A memory leak in Java is not your typical C/C++ memory leak.</p>
+     <p>To understand how the JVM works, read the <a href="https://docs.oracle.com/cd/E13150_01/jrockit_jvm/jrockit/geninfo/diagnos/garbage_collect.html" rel="nofollow noreferrer">Understanding Memory Management</a>.</p>
+     <p>Basically, the important part is:</p>
+     <blockquote>
+      <p>The Mark and Sweep Model</p>
+      <p>The JRockit JVM uses the mark and sweep garbage collection model for performing garbage collections of the whole heap. A mark and sweep garbage collection consists of two phases, the mark phase and the sweep phase.</p>
+      <p>During the mark phase <strong>all objects that are reachable from Java threads, native handles and other root sources are marked as alive</strong>, as well as the objects that are reachable from these objects and so forth. <strong>This process identifies and marks all objects that are still used, and the rest can be considered garbage.</strong></p>
+      <p>During the sweep phase the heap is traversed to find the gaps between the live objects. These gaps are recorded in a free list and are made available for new object allocation.</p>
+      <p>The JRockit JVM uses two improved versions of the mark and sweep model. One is mostly concurrent mark and sweep and the other is parallel mark and sweep. You can also mix the two strategies, running for example mostly concurrent mark and parallel sweep.</p>
+     </blockquote>
+     <p>So, to create a memory leak in Java; the easiest way to do that is to create a database connection, do some work, and simply not <code>Close()</code> it; then generate a new database connection while staying in scope. This isn't hard to do in a loop for example. If you have a worker that pulls from a queue and pushes to a database you can easily create a memory leak by forgetting to <code>Close()</code> connections or opening them when not necessary, and so forth.</p>
+     <p>Eventually, you'll consume the heap that has been allocated to the JVM by forgetting to <code>Close()</code> the connection. This will result in the JVM garbage collecting like crazy; eventually resulting in <code>java.lang.OutOfMemoryError: Java heap space</code> errors. It should be noted that the error may not mean there is a memory leak; it could just mean you don't have enough memory; databases like <a href="https://en.wikipedia.org/wiki/Apache_Cassandra" rel="nofollow noreferrer">Cassandra</a> and <a href="https://en.wikipedia.org/wiki/Elasticsearch" rel="nofollow noreferrer">Elasticsearch</a> for example can throw that error because they don't have enough heap space.</p>
+     <p>It's worth noting that this is true for all GC languages. Below, are some examples I've seen working as an SRE:</p>
+     <ul>
+      <li><a href="https://en.wikipedia.org/wiki/Node.js" rel="nofollow noreferrer">Node.js</a> using <a href="https://en.wikipedia.org/wiki/Redis_%28data_store%29" rel="nofollow noreferrer">Redis</a> as a queue; the development team created new connections every 12 hours and forgot to close the old ones. Eventually node was OOMd because it consumed all the memory.</li>
+      <li><a href="https://en.wikipedia.org/wiki/Go_%28programming_language%29" rel="nofollow noreferrer">Go</a> (I'm guilty of this one); parsing large JSON files with <code>json.Unmarshal</code> and then passing the results by reference and keeping them open. Eventually, this resulted in the entire heap being consumed by accidental references I kept open to decode JSON.</li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_44"><span>Answer 44</span> <span class="arrow"> <a href="#answer_43">↑</a> </span> <span class="arrow"> <a href="#answer_45">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Gravity</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Jul 2011 at 00:29</span>
+     </div>
+    </div>
+    <div>
+     <p>One possibility is to create a wrapper for an ArrayList that only provides one method: one that adds things to the ArrayList. Make the ArrayList itself private. Now, construct one of these wrapper objects in global scope (as a static object in a class) and qualify it with the <strong>final</strong> keyword (e.g. <code>public static final ArrayListWrapper wrapperClass = new ArrayListWrapper()</code>). So now the reference cannot be altered. That is, <code>wrapperClass = null</code> won't work and can't be used to free the memory. But there's also no way to do anything with <code>wrapperClass</code> other than add objects to it. Therefore, any objects you do add to <code>wrapperClass</code> are impossible to recycle.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_45"><span>Answer 45</span> <span class="arrow"> <a href="#answer_44">↑</a> </span> <span class="arrow"> <a href="#answer_46">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Chase</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 May 2012 at 22:50</span>
+     </div>
+    </div>
+    <div>
+     <p>In Java a "memory leak" is primarily just you using too much memory which is different than in C where you are no longer using the memory but forget to return (free) it. When an interviewer asks about Java memory leaks they are asking about JVM memory usage just appearing to keep going up and they determined that restarting the JVM on a regular basis is the best fix (unless the interviewer is <em>extremely</em> technically savvy).</p>
+     <p>So answer this question as if they asked what makes JVM memory usage grow over time. Good answers would be storing too much data in a HttpSessions with overly long timeout or a poorly implemented in-memory cache (singleton) that never flushes old entries. Another potential answer is having lots of JSPs or dynamically generated classes. Classes are loaded into an area of memory called PermGen that is usually small and most JVMs don't implement class unloading.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_46"><span>Answer 46</span> <span class="arrow"> <a href="#answer_45">↑</a> </span> <span class="arrow"> <a href="#answer_47">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>jorgeu</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Sep 2012 at 20:45</span>
+     </div>
+    </div>
+    <div>
+     <p><a href="https://en.wikipedia.org/wiki/Swing_%28Java%29" rel="nofollow noreferrer">Swing</a> has it very easy with dialogs. Create a JDialog, show it, the user closes it, and leak!</p>
+     <p>You have to call <code>dispose()</code> or configure <code>setDefaultCloseOperation(DISPOSE_ON_CLOSE)</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_47"><span>Answer 47</span> <span class="arrow"> <a href="#answer_46">↑</a> </span> <span class="arrow"> <a href="#answer_48">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user1050755</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Mar 2013 at 02:15</span>
+     </div>
+    </div>
+    <div>
+     <p>If you don't use a compacting garbage collector, you can have some sort of a memory leak due to heap fragmentation.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_48"><span>Answer 48</span> <span class="arrow"> <a href="#answer_47">↑</a> </span> <span class="arrow"> <a href="#answer_49">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tarik</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Jul 2013 at 06:45</span>
+     </div>
+    </div>
+    <div>
+     <p>Lapsed Listerners is a good example of memory leaks: Object is added as a Listener. All references to the object are nulled when the object is not needed anymore. However, forgetting to remove the object from the Listener list keeps the object alive and even responding to events, thereby wasting both memory and CPU. See <a href="http://www.drdobbs.com/jvm/java-qa/184404011" rel="nofollow">http://www.drdobbs.com/jvm/java-qa/184404011</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_49"><span>Answer 49</span> <span class="arrow"> <a href="#answer_48">↑</a> </span> <span class="arrow"> <a href="#answer_50">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>JaskeyLam</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Aug 2014 at 03:20</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Carelessly using a non-static inner class inside a class which has its own life cycle.</strong></p>
+     <p>In Java, <strong>non-static inner and anonymous classes</strong> hold an <strong>implicit reference</strong> to their outer class. Static inner classes, on the other hand, <strong>do not</strong>.</p>
+     <p>Here is a common example to have memory leak in Android, which is not obvious though:</p>
+     <pre><code>public class SampleActivity extends Activity {
+
+  private final Handler mLeakyHandler = new Handler() { // Non-static inner class, holds the reference to the SampleActivity outer class
+    @Override
+    public void handleMessage(Message msg) {
+      // ...
+    }
+  }
+
+  @Override
+  protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+
+    // Post a message and delay its execution for a long time.
+    mLeakyHandler.postDelayed(new Runnable() {//here, the anonymous inner class holds the reference to the SampleActivity class too
+      @Override
+      public void run() {
+     //....
+      }
+    }, SOME_TOME_TIME);
+
+    // Go back to the previous Activity.
+    finish();
+  }}
+</code></pre>
+     <p>This will prevent the activity context from being garbage collected.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Would making <code>mLeakyHandler</code> static prevent it from leaking memory? And are there any (other) ways to prevent <code>mLeakyHandler</code> from leaking the activity? Also, how would you go about solving the same problem for the anonymous <code>Runnable</code> inner class?</span> <span> - </span> <span class="display-name">ban-geoengineering</span> <span> </span> <span class="date">24 Jun 2015 at 13:08</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ban-geoengineering Yes, make it static and if you need to involve the outter activity, make the handler to hold a WeakReference to the activity, please check <a href="http://www.androiddesignpatterns.com/2013/01/inner-class-handler-memory-leak.html" rel="nofollow noreferrer">androiddesignpatterns.com/2013/01/…</a></span> <span> - </span> <span class="display-name">JaskeyLam</span> <span> </span> <span class="date">25 Jun 2015 at 02:20</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_50"><span>Answer 50</span> <span class="arrow"> <a href="#answer_49">↑</a> </span> <span class="arrow"> <a href="#answer_51">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hearen</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Mar 2019 at 07:25</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>a memory leak is a type of resource leak that occurs when a computer program incorrectly manages memory allocations in such a way that memory which is <strong>no longer needed is not released</strong> =&gt; <a href="https://en.wikipedia.org/wiki/Memory_leak" rel="nofollow noreferrer">Wikipedia definition</a></p>
+     </blockquote>
+     <p><sub> It's kind of relatively context-based topic, you can just create one based on your taste as long as the unused references will never be used by clients, but still stay alive.</sub></p>
+     <p>The first example should be a custom stack without <em>nulling</em> the obsolete references in <a href="https://www.codeproject.com/Articles/30593/Effective-Java#pre30076" rel="nofollow noreferrer">Effective Java, item 6</a>.</p>
+     <p>Of course there are many more as long as you want, but if we just take look at the Java built-in classes, it could be some as</p>
+     <p><a href="https://docs.oracle.com/javase/8/docs/api/java/util/List.html#subList-int-int-" rel="nofollow noreferrer"><code>subList()</code></a></p>
+     <p>Let's check some <em>super silly</em> code to produce the leak.</p>
+     <pre><code>public class MemoryLeak {
+    private static final int HUGE_SIZE = 10_000;
+
+    public static void main(String... args) {
+        letsLeakNow();
+    }
+
+    private static void letsLeakNow() {
+        Map&lt;Integer, Object&gt; leakMap = new HashMap&lt;&gt;();
+        for (int i = 0; i &lt; HUGE_SIZE; ++i) {
+            leakMap.put(i * 2, getListWithRandomNumber());
+        }
+    }
+
+
+
+    private static List&lt;Integer&gt; getListWithRandomNumber() {
+        List&lt;Integer&gt; originalHugeIntList = new ArrayList&lt;&gt;();
+        for (int i = 0; i &lt; HUGE_SIZE; ++i) {
+            originalHugeIntList.add(new Random().nextInt());
+        }
+        return originalHugeIntList.subList(0, 1);
+    }
+}
+</code></pre>
+     <p>Actually there is another trick we can cause memory leak using <a href="https://docs.oracle.com/javase/8/docs/api/java/util/HashMap.html" rel="nofollow noreferrer">HashMap</a> by taking advantage of its looking process. There are actually two types:</p>
+     <ul>
+      <li><code>hashCode()</code> is always the same but <code>equals()</code> are different;</li>
+      <li>use <em>random</em> <code>hashCode()</code> and <code>equals()</code> always true;</li>
+     </ul>
+     <p>Why?</p>
+     <p><a href="https://stackoverflow.com/a/6493946/2361308"><strong><code>hashCode()</code> -&gt; bucket =&gt; <code>equals()</code> to locate the pair</strong></a></p>
+     <hr>
+     <p>I was about to mention <a href="https://docs.oracle.com/javase/8/docs/api/java/lang/String.html#substring-int-int-" rel="nofollow noreferrer"><code>substring()</code></a> first and then <code>subList()</code> but it seems this issue is already fixed as its source presents in JDK 8.</p>
+     <pre><code>public String substring(int beginIndex, int endIndex) {
+    if (beginIndex &lt; 0) {
+        throw new StringIndexOutOfBoundsException(beginIndex);
+    }
+    if (endIndex &gt; value.length) {
+        throw new StringIndexOutOfBoundsException(endIndex);
+    }
+    int subLen = endIndex - beginIndex;
+    if (subLen &lt; 0) {
+        throw new StringIndexOutOfBoundsException(subLen);
+    }
+    return ((beginIndex == 0) &amp;&amp; (endIndex == value.length)) ? this
+            : new String(value, beginIndex, subLen);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_51"><span>Answer 51</span> <span class="arrow"> <a href="#answer_50">↑</a> </span> <span class="arrow"> <a href="#answer_52">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sapphire_Brick</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 May 2020 at 01:22</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>
+import sun.misc.Unsafe;
+import java.lang.reflect.Field;
+
+public class Main {
+    public static void main(String args[]) {
+        try {
+            Field f = Unsafe.class.getDeclaredField("theUnsafe");
+            f.setAccessible(true);
+            ((Unsafe) f.get(null)).allocateMemory(2000000000);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>An explanation would be in order. E.g., what is the gist/idea? How is it different from previous answers?</span> <span> - </span> <span class="display-name">Peter Mortensen</span> <span> </span> <span class="date">13 May 2021 at 00:01</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_52"><span>Answer 52</span> <span class="arrow"> <a href="#answer_51">↑</a> </span> <span class="arrow"> <a href="#answer_53">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Boann</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Dec 2022 at 09:25</span>
+     </div>
+    </div>
+    <div>
+     <p>I experienced a very real memory leak with <a href="https://docs.oracle.com/javase/8/docs/api/javax/swing/JPopupMenu.html" rel="nofollow noreferrer"><code>javax.swing.JPopupMenu</code></a>.</p>
+     <p>I have a GUI application which displays multiple tabbed documents. After closing a document, it lingered in memory if a right-click context menu had been used on any component on the tab. The menus were shared among tabs, and it turns out that after you call <a href="https://docs.oracle.com/javase/8/docs/api/javax/swing/JPopupMenu.html#show-java.awt.Component-int-int-" rel="nofollow noreferrer"><code>popupMenu.show(Component invoker, int x, int y)</code></a>, the component quietly persists as the menu's "invoker" until it is next changed, or cleared by <code>setInvoker(null)</code>. Indirectly, the invoker reference was persisting the entire document and everything associated with it.</p>
+     <p>It's worth noting that a menu can only hold one reference to an old component this way, so this memory leak cannot grow without bound.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_53"><span>Answer 53</span> <span class="arrow"> <a href="#answer_52">↑</a> </span> <span class="arrow"> <a href="#answer_54">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Praveen Kumar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Feb 2018 at 10:43</span>
+     </div>
+    </div>
+    <div>
+     <p>A real-time example of a memory leak before JDK 1.7:</p>
+     <p>Suppose you read a file of 1000 lines of text and keep them in String objects:</p>
+     <pre><code>String fileText = 1000 characters from file
+fileText = fileText.subString(900, fileText.length());
+</code></pre>
+     <p>In the above code, I initially read 1000 characters and then did substring to get only the 100 last characters. Now <code>fileText</code> should only refer to 100 characters and all other characters should get garbage collected as I lost the reference, but before JDK 1.7 the substring function indirectly referred to the original string of the last 100 characters and prevents the whole string from garbage collection and the whole 1000 characters will be there in memory until you lose reference of the substring.</p>
+     <p>You can create a memory leak example like the above.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I don,t think so. A new String is created and returned. Here is a code snippet from open-jdk 6 for subString function return ((beginIndex == 0) &amp;&amp; (endIndex == count)) ? this : new String(offset + beginIndex, endIndex - beginIndex, value);</span> <span> - </span> <span class="display-name">Karan Khanna</span> <span> </span> <span class="date">19 Apr 2018 at 09:12</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>correct new string object is getting created but if you see it is passing value which is char array of original string and newly created string keeps the reference of complete char array. you can just compare the implementation from java 6 to 8, java 7 and 8 uses Arrays.copyOfRange(value, offset, offset+count) to return actual substring</span> <span> - </span> <span class="display-name">Praveen Kumar</span> <span> </span> <span class="date">19 Apr 2018 at 09:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Got it. Thanks.</span> <span> - </span> <span class="display-name">Karan Khanna</span> <span> </span> <span class="date">19 Apr 2018 at 09:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What do you mean by "real-time"?</span> <span> - </span> <span class="display-name">Peter Mortensen</span> <span> </span> <span class="date">12 May 2021 at 22:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_54"><span>Answer 54</span> <span class="arrow"> <a href="#answer_53">↑</a> </span> <span class="arrow"> <a href="#answer_55">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Amir Fo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Sep 2019 at 15:24</span>
+     </div>
+    </div>
+    <div>
+     <p>One of the Java memory leakings examples is <a href="https://bugs.mysql.com/bug.php?id=5022" rel="nofollow noreferrer">MySQLs memory leaking bug</a> resulting when ResultSets close method is forgotten to be called. For example:</p>
+     <pre><code>while(true) {
+    ResultSet rs = database.select(query);
+    ...
+    // going to next step of loop and leaving resultset without calling rs.close();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_55"><span>Answer 55</span> <span class="arrow"> <a href="#answer_54">↑</a> </span> <span class="arrow"> <a href="#answer_56">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jessie Lesbian</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 May 2020 at 09:27</span>
+     </div>
+    </div>
+    <div>
+     <p>Create a JNI function containing just a while-true loop and call it with a large object from another thread. The GC doesn't like JNI very much and is going to keep the object in memory forever.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_56"><span>Answer 56</span> <span class="arrow"> <a href="#answer_55">↑</a> </span> <span class="arrow"> <a href="#answer_57">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>degr</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Dec 2021 at 13:49</span>
+     </div>
+    </div>
+    <div>
+     <p>It's pretty easy:</p>
+     <pre><code>Object[] o = new Object[]{};
+while(true) {
+    o = new Object[]{o};
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Not a memory leak. The entire stack of objects is still collectible.</span> <span> - </span> <span class="display-name">Boann</span> <span> </span> <span class="date">24 Dec 2022 at 09:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_57"><span>Answer 57</span> <span class="arrow"> <a href="#answer_56">↑</a> </span> <span class="arrow"> <a href="#answer_58">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>TheWaterWave222</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Apr 2022 at 00:37</span>
+     </div>
+    </div>
+    <div>
+     <p>You can try making many buffered readers try to open the same file at once with a <code>while</code> loop with a condition that is never false. And the cherry on top is these are never closed.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_58"><span>Answer 58</span> <span class="arrow"> <a href="#answer_57">↑</a> </span> <span class="arrow"> <a href="#answer_59">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Hoang TO</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Jul 2021 at 06:44</span>
+     </div>
+    </div>
+    <div>
+     <p>A little improvement to previous answers (to generate memory leak faster) is to use instances of DOM Document loaded from big XML files.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_59"><span>Answer 59</span> <span class="arrow"> <a href="#answer_58">↑</a> </span> <span class="arrow"> <a href="#answer_60">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>stones333</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jan 2013 at 05:22</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a very simple Java program that will run out of space</p>
+     <pre><code>public class OutOfMemory {
+
+    public static void main(String[] arg) {
+
+        List&lt;Long&gt; mem = new LinkedList&lt;Long&gt;();
+        while (true) {
+            mem.add(new Long(Long.MAX_VALUE));
+        }
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>37</td>
+        <td><span>-1 this runs out of memory for sure, because the requirement is to have an infinite amount of memory. I don't call this a memory leak. It is just a stupid program.</span> <span> - </span> <span class="display-name">rds</span> <span> </span> <span class="date">17 Jan 2013 at 10:59</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>also -1, not a mem leak, thats just allocating too much</span> <span> - </span> <span class="display-name">kritzikratzi</span> <span> </span> <span class="date">1 Apr 2013 at 20:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_60"><span>Answer 60</span> <span class="arrow"> <a href="#answer_59">↑</a> </span> <span class="arrow"> <a href="#answer_61">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>TV Trailers</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Mar 2015 at 14:38</span>
+     </div>
+    </div>
+    <div>
+     <p>There's no such thing as a memory leak in Java. Memory leak is a phrase borrowed from C et al. Java deals with memory allocation internally with the help of the GC. There's <em>memory wastefulness</em> (ie. leaving stranded objects), but not <em>memory leak</em>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_61"><span>Answer 61</span> <span class="arrow"> <a href="#answer_60">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>akhambir</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Nov 2017 at 14:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Just like this!</p>
+     <pre><code>public static void main(String[] args) {
+    List&lt;Object&gt; objects = new ArrayList&lt;&gt;();
+    while(true) {
+        objects.add(new Object());
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>12</td>
+        <td><span>This is not an example of memory leak. You are just trying to consume the whole memory here with your list. Memory leak is when obsolete references cannot be garbage collected.</span> <span> - </span> <span class="display-name">Karan Khanna</span> <span> </span> <span class="date">19 Apr 2018 at 08:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

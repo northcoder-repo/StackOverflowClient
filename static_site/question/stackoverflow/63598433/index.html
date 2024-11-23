@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to dynamically change data-order on a DataTable including hidden rows</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to dynamically change data-order on a DataTable including hidden rows</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Wojtek Wencel</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>26 Aug 2020 at 13:12</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63598433/how-to-dynamically-change-data-order-on-a-datatable-including-hidden-rows">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to change the <code>data-order</code> of a <code>DataTable</code> for a specific column when a button is clicked. I tried two solutions, but neither of them work. The first one was to iterate through each <code>&lt;td&gt;</code> and change the <code>data-order</code> attribute to the value of the content of a HTML tag with class defined by the clicked button (this is stored in <code>className</code>).</p>
+    <p>Here is the code:</p>
+    <pre><code>let envTable = $('#env_table').DataTable();
+$("td.env").each(function () {
+    this.setAttribute('data-order', $(this).find(className).text().trim());
+});
+</code></pre>
+    <p>At the end of the function I do this:</p>
+    <pre><code>envTable.rows().invalidate().draw();
+</code></pre>
+    <p>This doesn't work, because it iterates only through the visible (not paginated) rows, so not everything is included.</p>
+    <p>The other solution I tried was to change the variables, which are used by jQuery. I'm iterating through each row and selecting a cell (<code>value[2]</code> is the second cell in the row). I search for the value I want (as in the first solution).</p>
+    <pre><code>let envTable = $('#env_table').DataTable();
+const data = envTable.rows().data();
+data.each(function (value, index) {
+    const newDataOrder = $(value[2]['display']).filter(className).html().trim();
+    value[2]['@data-order'] =  newDataOrder;
+});
+</code></pre>
+    <p>After this code is executed the <code>data-order</code> attribute in each <code>&lt;td&gt;</code> doesn't change, but it does change in the structure that jQuery uses. After this, the table can be sorted correctly. If it is sorted (e.g. ascending order), it stays with the <code>data-order</code> (in the jQuery data, not in HTML) values that were set before the sorting (and even if they are changed later, they don't affect the sorting).</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">html</span><span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Do you use Ajax for paging or do you already have all the data at the client-side?</span> <span> - </span> <span class="display-name">Daniel</span> <span> </span> <span class="date">26 Aug 2020 at 13:23</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Daniel I have everything on the client-side.</span> <span> - </span> <span class="display-name">Wojtek Wencel</span> <span> </span> <span class="date">26 Aug 2020 at 13:25</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>did you take a look at <a href="https://datatables.net/plug-ins/sorting/" rel="nofollow noreferrer">datatables.net/plug-ins/sorting</a>?</span> <span> - </span> <span class="display-name">Daniel</span> <span> </span> <span class="date">26 Aug 2020 at 13:58</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Aug 2020 at 18:30</span>
+     </div>
+    </div>
+    <div>
+     <p>The problem:</p>
+     <blockquote>
+      <p><em>it iterates only through the visible (not paginated) rows</em></p>
+     </blockquote>
+     <p>One solution is as follows:</p>
+     <p>You can iterate over every row in the DataTable (regardless of whether it is in the current displayed records or not) - and you can access the corresponding HTML nodes.</p>
+     <p>From there, you can manipulate the <code>data-order</code> attribute as needed.</p>
+     <pre><code>envTable.rows().data().each( function ( rowData, index ) {
+  var dataNode = envTable.cells(index, 0).nodes().to$()[0];
+  console.log(dataNode); // just for testing
+  console.log(dataNode.textContent); // just for testing
+  $(dataNode).attr( "data-order", dataNode.textContent );
+} );
+envTable.rows().invalidate().draw();
+</code></pre>
+     <p>Here is a small self-contained demo with some test data to show the process:</p>
+     <pre><code>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.min.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.min.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="env_table" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office&lt;/th&gt;
+                &lt;th&gt;Age&lt;/th&gt;
+                &lt;th&gt;Start date&lt;/th&gt;
+                &lt;th&gt;Salary&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Nixon, Tiger"&gt;Tiger Nixon&lt;/td&gt;
+                &lt;td&gt;System Architect&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;2011/04/25&lt;/td&gt;
+                &lt;td&gt;$320,800&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Winters, Garrett"&gt;Garrett Winters&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;63&lt;/td&gt;
+                &lt;td&gt;2011/07/25&lt;/td&gt;
+                &lt;td&gt;$170,750&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Cox, Ashton"&gt;Ashton Cox&lt;/td&gt;
+                &lt;td&gt;Junior Technical Author&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;66&lt;/td&gt;
+                &lt;td&gt;2009/01/12&lt;/td&gt;
+                &lt;td&gt;$86,000&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Kelly, Cedric"&gt;Cedric Kelly&lt;/td&gt;
+                &lt;td&gt;Senior Javascript Developer&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;22&lt;/td&gt;
+                &lt;td&gt;2012/03/29&lt;/td&gt;
+                &lt;td&gt;$433,060&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Satou, Airi"&gt;Airi Satou&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;33&lt;/td&gt;
+                &lt;td&gt;2008/11/28&lt;/td&gt;
+                &lt;td&gt;$162,700&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Williamson, Brielle"&gt;Brielle Williamson&lt;/td&gt;
+                &lt;td&gt;Integration Specialist&lt;/td&gt;
+                &lt;td&gt;New York&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;2012/12/02&lt;/td&gt;
+                &lt;td&gt;$372,000&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Chandler, Herrod"&gt;Herrod Chandler&lt;/td&gt;
+                &lt;td&gt;Sales Assistant&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;59&lt;/td&gt;
+                &lt;td&gt;2012/08/06&lt;/td&gt;
+                &lt;td&gt;$137,500&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Davidson, Rhona"&gt;Rhona Davidson&lt;/td&gt;
+                &lt;td&gt;Integration Specialist&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;55&lt;/td&gt;
+                &lt;td&gt;2010/10/14&lt;/td&gt;
+                &lt;td&gt;$327,900&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Hurst, Colleen"&gt;Colleen Hurst&lt;/td&gt;
+                &lt;td&gt;Javascript Developer&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;39&lt;/td&gt;
+                &lt;td&gt;2009/09/15&lt;/td&gt;
+                &lt;td&gt;$205,500&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Frost, Sonya"&gt;Sonya Frost&lt;/td&gt;
+                &lt;td&gt;Software Engineer&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;23&lt;/td&gt;
+                &lt;td&gt;2008/12/13&lt;/td&gt;
+                &lt;td&gt;$103,600&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Gaines, Jena"&gt;Jena Gaines&lt;/td&gt;
+                &lt;td&gt;Office Manager&lt;/td&gt;
+                &lt;td&gt;London&lt;/td&gt;
+                &lt;td&gt;30&lt;/td&gt;
+                &lt;td&gt;2008/12/19&lt;/td&gt;
+                &lt;td&gt;$90,560&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td data-order="Flynn, Quinn"&gt;Quinn Flynn&lt;/td&gt;
+                &lt;td&gt;Support Lead&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;22&lt;/td&gt;
+                &lt;td&gt;2013/03/03&lt;/td&gt;
+                &lt;td&gt;$342,000&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+    
+    &lt;br&gt;
+
+ &lt;button onclick="reOrder();"&gt;Click me&lt;/button&gt; 
+
+&lt;/div&gt;
+
+&lt;script type="text/javascript"&gt;
+
+  var envTable;
+
+  function reOrder() {
+    envTable.rows().data().each( function ( rowData, index ) {
+      var dataNode = envTable.cells(index, 0).nodes().to$()[0];
+      $(dataNode).attr( "data-order", dataNode.textContent );
+    } );
+    envTable.rows().invalidate().draw();
+  }
+
+  $(document).ready(function() {
+
+    envTable = $('#env_table').DataTable();
+
+} );
+
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+     <p>Each value in the Name column contains a <code>data-order</code> attribute. For example:</p>
+     <pre><code>&lt;td data-order="Nixon, Tiger"&gt;Tiger Nixon&lt;/td&gt;
+</code></pre>
+     <p>In my test data I use this to sort the names by last name, instead of first name:</p>
+     <p><a href="https://i.stack.imgur.com/IkSDZ.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/IkSDZ.png" alt="enter image description here"></a></p>
+     <p>There is a button which runs the <code>reOrder()</code> function. This is where the row iteration takes place, and where the DOM nodes are accessed - and then changed.</p>
+     <p>In my case, I change each <code>data-order</code> attribute so that it matches the display name:</p>
+     <pre><code>&lt;td data-order="Tiger Nixon"&gt;Tiger Nixon&lt;/td&gt;
+</code></pre>
+     <p>After the re-draw, the data is displayed ordered by first name.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

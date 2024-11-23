@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Can't set empty string as a value to attribute in thymeleaf</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Can't set empty string as a value to attribute in thymeleaf</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>f.trajkovski</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Apr 2020 at 13:50</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61460426/cant-set-empty-string-as-a-value-to-attribute-in-thymeleaf">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am passing a java object into thymeleaf. But the object contains another object and here is where I get the issue. In my java code I have the following:</p>
+    <pre><code>context.setVariable("person",getPerson());
+</code></pre>
+    <p>The Person class has an enum in it from which I can do the following:</p>
+    <pre><code>person.getEnum().getDescription();
+</code></pre>
+    <p>This is my thymeleaf xml:</p>
+    <pre><code>&lt;MyTag th:attr="Description=${person.getEnum()!=null} ? ${#objects.nullSafe(person.getEnum().getDescription(),'')} : '',Id=${person.getEnum()()!=null} ? ${#objects.nullSafe(person.getEnum()().getId(),'')} : ''"/&gt;
+</code></pre>
+    <p>The end result that I want to get is:</p>
+    <pre><code>&lt; MyTag Desciption="" Id=""/&gt;
+</code></pre>
+    <p>But all I am getting is:</p>
+    <pre><code>&lt; MyTag/&gt;
+</code></pre>
+    <p>the attributes are totally ignored. But setting an empty space like the following:</p>
+    <pre><code> &lt;MyTag th:attr="Description=${person.getEnum()!=null} ? ${#objects.nullSafe(person.getEnum().getDescription(),' ')} : '',Id=${person.getEnum()()!=null} ? ${#objects.nullSafe(person.getEnum()().getId(),'')} : ' '"/&gt;
+</code></pre>
+    <p>will produce the following:</p>
+    <pre><code>&lt; MyTag Desciption=" " Id=" "/&gt;
+</code></pre>
+    <p>How can I acheive the first mentioned result without that empty space?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Apr 2020 at 16:27</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>UPDATE</strong>:</p>
+     <p>The Thymeleaf <code>if</code> approach will not work for the OP's situation. So the only other approach I can suggest is to use JavaScript (in this case, jQuery):</p>
+     <p>Assume <code>MyTag</code> can be given a class in addition to the other content it needs:</p>
+     <pre><code>&lt;MyTag class="myClass"...&gt;&lt;/MyTag&gt;
+</code></pre>
+     <p>Then use basic Thymeleaf - not trying to take nulls into account.</p>
+     <p>Then use jQuery to "fill in the attribute gaps, for those cases where there is not already a value for the relevant attribute - for example:</p>
+     <pre><code>&lt;script&gt;
+    $(document).ready(function () {
+      $( ".myClass" ).each(function() {
+        if ( ! $( this ).attr("Description") ) {
+          $( this ).attr("Desciption", "");
+        }
+      });  
+    });
+&lt;/script&gt;
+</code></pre>
+     <p>This way, the DOM will include the attribute as follows:</p>
+     <pre><code>&lt;MyTag class="myClass" Description="" ...&gt;&lt;/MyTag&gt;
+</code></pre>
+     <p>This can be extended to cover other attributes as needed.</p>
+     <p><strong>Original Approach - Cannot be Used by OP</strong>:</p>
+     <p>The only way I know how to do this using Thymeleaf:</p>
+     <p>Use an <code>if</code> to fall back to regular HTML, if it's an "all or nothing" situation (i.e. if all of the attributes you want to use are null, or they are all not null).</p>
+     <p>This is the situation in the question - so maybe that's all you need.</p>
+     <p>Example:</p>
+     <p>Starting with a simple <code>Name</code> bean containing 3 fields: first, middle, and last, we have this data:</p>
+     <pre><code>Map&lt;String, Object&gt; model = new HashMap();
+List&lt;Name&gt; names = new ArrayList();
+names.add(new Name("John", "Jack", "Smith"));
+names.add(new Name("Fred", null, "Jones"));
+model.put("names", names);
+ctx.render("names.html", model);
+</code></pre>
+     <p>Using the following Thymeleaf...</p>
+     <pre><code>&lt;th:block th:each="name : ${names}"&gt;
+    &lt;th:block th:if="${name.middle} == null"&gt;
+        &lt;div middle="" 
+             th:text="${name.first} + ' ' + ${name.last}"&gt;
+        &lt;/div&gt;
+    &lt;/th:block&gt;
+    &lt;th:block th:if="${name.middle} != null"&gt;
+        &lt;div th:attr="middle=${name.middle}" 
+             th:text="${name.first} + ' ' + ${name.last}"&gt;
+        &lt;/div&gt;
+    &lt;/th:block&gt;
+&lt;/th:block&gt;
+</code></pre>
+     <p>... we get this resulting HTML:</p>
+     <pre><code>&lt;div middle="Jack"&gt;John Smith&lt;/div&gt;   
+&lt;div middle=""&gt;Fred Jones&lt;/div&gt;    
+</code></pre>
+     <p>Of course this is not especially flexible, as mentioned above. jQuery's <code>.attr()</code> method, for example, returns <code>undefined</code> for missing attributes.</p>
+     <p>Side Note:</p>
+     <p>You can replace this:</p>
+     <pre><code>th:attr="middle=${name.middle}"
+</code></pre>
+     <p>with this:</p>
+     <pre><code>th:middle="${name.middle}"
+</code></pre>
+     <p>It will give you the same end result.</p>
+     <p>Final Point:</p>
+     <p>Again, not directly related to your question, but... I would be wary about having an "id" attribute without a value. Use a unique value, or don't use the "id" attribute.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>But this is not some id database variable or some other unique value, it's some stupid string that other microservice it's using it. And this approach won't help me in my scenario. But tnx for the effort.</span> <span> - </span> <span class="display-name">f.trajkovski</span> <span> </span> <span class="date">27 Apr 2020 at 17:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Understood - in case it might help, I suggest a jQuery approach - see updates at top of answer. Otherwise, I am out of options for this question.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">27 Apr 2020 at 19:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Unfortunately I don't have an option to use this approach. I just left it for now to be with that empty space: Desciption=" ".</span> <span> - </span> <span class="display-name">f.trajkovski</span> <span> </span> <span class="date">28 Apr 2020 at 22:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

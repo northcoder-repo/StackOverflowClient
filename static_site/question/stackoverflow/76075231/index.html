@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>"ExceptionInInitializerError" when querying Oracle DB from jar built with Ant, but it works fine in IDE</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>"ExceptionInInitializerError" when querying Oracle DB from jar built with Ant, but it works fine in IDE</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>TooManyCooks</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Apr 2023 at 16:50</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76075231/exceptionininitializererror-when-querying-oracle-db-from-jar-built-with-ant-b">source</a>
+    </div>
+   </div>
+   <div>
+    <p>When I run my Java code in my IDE, it runs successfully. When I build a jar file and run it from the commandline, I receive a "java.lang.ExceptionInInitializerError" on the line which performs the actual query. I suspect there's a problem with my Apache Ant build script, but I'm not certain.</p>
+    <p>Here is my extremely simplified code (yes, I know I'm not fully closing out the DB connection on failure, but this is something small I created just to get the simplest version of code I could that still exhibits the error):</p>
+    <pre><code>package com.company.TestApp.TestProj;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
+
+public class Main {
+    public Main() {
+        super();
+    }
+
+    public static void main(String[] args) {
+        Main main = new Main();
+        main.run();
+    }
+    
+    public void run() {
+        System.out.println("Starting");
+
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+            Connection db = DriverManager.getConnection(connectionString, schema, password);
+            if (db.isValid(10)) {
+                System.out.println("Connected");
+            }
+            else {
+                System.out.println("Not connected");
+                throw new Exception("Not connected");
+            }
+            
+            String sql = "SELECT * FROM dual";
+            
+            Statement statement = db.createStatement();
+            ResultSet rs = statement.executeQuery(sql);
+            
+            while (rs.next()) {
+                System.out.println("Record");
+            }
+            
+            rs.close();
+            statement.close();
+            
+            
+            db.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+</code></pre>
+    <p>My extremely simplified Apache Ant build script is:</p>
+    <pre><code>&lt;project name="test" basedir="." default="main"&gt;
+
+    &lt;property name="src.dir"     value="src"/&gt;
+
+    &lt;property name="build.dir"   value="build"/&gt;
+    &lt;property name="classes.dir" value="${build.dir}/classes"/&gt;
+    &lt;property name="jar.dir"     value="${build.dir}/jar"/&gt;
+
+    &lt;property name="main-class"  value="com.company.TestApp.TestProj.Main"/&gt;
+
+    &lt;property name="lib.dir"     value="../lib"/&gt;
+
+    &lt;path id="classpath"&gt;
+        &lt;fileset dir="${lib.dir}" includes="**/*.jar"/&gt;
+    &lt;/path&gt;
+
+    &lt;target name="clean"&gt;
+        &lt;delete dir="${build.dir}"/&gt;
+    &lt;/target&gt;
+
+    &lt;target name="compile"&gt;
+        &lt;mkdir dir="${classes.dir}"/&gt;
+        &lt;javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="classpath"/&gt;
+    &lt;/target&gt;
+
+    &lt;target name="jar" depends="compile"&gt;
+        &lt;mkdir dir="${jar.dir}"/&gt;
+        &lt;jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}"&gt;
+            &lt;fileset dir="${jar.dir}"&gt;
+                &lt;include name="**/*.class"/&gt;
+            &lt;/fileset&gt;
+            &lt;zipfileset src="${lib.dir}/ojdbc7.jar"&gt;
+                &lt;include name="**/*.class"/&gt;
+            &lt;/zipfileset&gt;
+            &lt;manifest&gt;
+                &lt;attribute name="Main-Class" value="${main-class}"/&gt;
+            &lt;/manifest&gt;
+        &lt;/jar&gt;
+    &lt;/target&gt;
+
+    &lt;target name="run" depends="jar"&gt;
+        &lt;java fork="true" classname="${main-class}"&gt;
+            &lt;classpath&gt;
+                &lt;path refid="classpath"/&gt;
+                &lt;path location="${jar.dir}/${ant.project.name}.jar"/&gt;
+            &lt;/classpath&gt;
+        &lt;/java&gt;
+    &lt;/target&gt;
+
+    &lt;target name="clean-build" depends="clean,jar"/&gt;
+
+    &lt;target name="main" depends="clean,run"/&gt;
+
+&lt;/project&gt;
+</code></pre>
+    <p>My IDE is JDeveloper 12.1.3.0.0. My JAVA_HOME and path are set to JDK1.8.0_291. My Oracle DB is 19.13.0.0.0</p>
+    <p>When I run the program from my IDE, I get the expected results of:</p>
+    <pre><code>Starting
+Connected
+Record
+
+</code></pre>
+    <p>When I run the jar from the commandline with "java -jar test.jar" the output is:</p>
+    <pre><code>Starting
+Connected
+Exception in thread "main" java.lang.ExceptionInInitializerError
+        at oracle.jdbc.driver.OracleStatement.configureRowData(OracleStatement.java:760)
+        at oracle.jdbc.driver.OracleStatement.&lt;init&gt;(OracleStatement.java:696)
+        at oracle.jdbc.driver.T4CStatement.&lt;init&gt;(T4CStatement.java:1152)
+        at oracle.jdbc.driver.T4CDriverExtension.allocateStatement(T4CDriverExtension.java:46)
+        at oracle.jdbc.driver.PhysicalConnection.createStatement(PhysicalConnection.java:3914)
+        at oracle.jdbc.driver.PhysicalConnection.createStatement(PhysicalConnection.java:3874)
+        at com.company.TestApp.TestProj.Main.run(Main.java:34)
+        at com.company.TestApp.TestProj.Main.main(Main.java:15)
+Caused by: java.lang.NullPointerException
+        at oracle.jdbc.driver.DynamicByteArray$1.run(DynamicByteArray.java:540)
+        at java.security.AccessController.doPrivileged(Native Method)
+        at oracle.jdbc.driver.DynamicByteArray.&lt;clinit&gt;(DynamicByteArray.java:535)
+        ... 8 more
+</code></pre>
+    <p>I am running Java JDK1.8.0_291, but I've tried it on other machines with different versions of Java and receive the same error. I'm using the ojdbc7.jar that came with JDeveloper.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">oracle</span><span class="tag">jdbc</span><span class="tag">ant</span><span class="tag">ojdbc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>TooManyCooks</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Apr 2023 at 17:53</span>
+     </div>
+    </div>
+    <div>
+     <p>A co-worker was able to get it working by manually specifying the classpath:</p>
+     <pre><code>java -cp ..\..\..\lib\ojdbc7.jar;test.jar com.company.TestApp.TestProj.Main
+</code></pre>
+     <p>I don't understand why this is needed, but I suspect I'm not properly including the ojdbc jar file in my ant script. If anyone can explain to me the way to fix this, it would be greatly appreciated!</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Suggestion: If you are going to place the JDBC JAR on the classpath, like you do here, then I think you should use a "thin" version of your own JAR (the one containing <i>only</i> your application code). Otherwise, you will have all of the Oracle class files included twice on the class path: Once in the Oracle JAR file and again in your "fat" JAR file.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Apr 2023 at 19:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Apr 2023 at 19:13</span>
+     </div>
+    </div>
+    <div>
+     <p>To get your fat JAR to run using <code>java -jar test.jar</code>, you need to make a small change to your Ant script.</p>
+     <p>Change this:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;zipfileset src="${lib.dir}/ojdbc8-19.3.0.0.jar"&gt;
+    &lt;include name="**/*.class"/&gt;
+&lt;/zipfileset&gt;
+</code></pre>
+     <p>to this:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;zipfileset src="${lib.dir}/ojdbc8-19.3.0.0.jar"&gt;
+    &lt;include name="**/*.*"/&gt;
+&lt;/zipfileset&gt;
+</code></pre>
+     <p>The reason: There are more than just <code>.class</code> files in the Oracle JDBC JAR.</p>
+     <p>There are also (for example) properties files such as</p>
+     <pre><code>defaultConnectionProperties.properties
+</code></pre>
+     <p>...and other files.</p>
+     <p>I don't know which <em>specific</em> missing file was the root cause of your exception. I just performed a build to include everything.</p>
+     <hr>
+     <p><strong>Digression:</strong></p>
+     <p>You may already know the following - but for future visitors to this question...</p>
+     <p>It's worth noting also that the JDBC file contains a file called <code>java.sql.Driver</code> in <code>META-INF/services</code> - and that file contains the name of the Oracle driver class:</p>
+     <pre><code>oracle.jdbc.OracleDriver
+</code></pre>
+     <p>Normally, this is used to automatically load the Oracle JDBC driver - so you don't need the following line of code:</p>
+     <pre><code>Class.forName("oracle.jdbc.OracleDriver");
+</code></pre>
+     <p>However that works by scanning the library JAR files - and since you no longer have the Oracle JAR file inside your application "fat" jar, you still <em>do</em> need the above line of code.</p>
+     <p>This is one of those relatively rare cases where that line is still needed, these days, to avoid a <code>No suitable driver found</code> exception.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you! Not only did you help me to fix my issue, you explained to me why I was encountering to it, and why the fix works!</span> <span> - </span> <span class="display-name">TooManyCooks</span> <span> </span> <span class="date">27 Apr 2023 at 17:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

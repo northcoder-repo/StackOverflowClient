@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>rebuild docker image from specific step</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>rebuild docker image from specific step</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>84</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>sag</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>2 Feb 2016 at 12:58</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/35154219/rebuild-docker-image-from-specific-step">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have the below Dockerfile.</p>
+    <pre class="lang-dockerfile prettyprint-override"><code>FROM ubuntu:14.04
+MAINTAINER Samuel Alexander &lt;samuel@alexander.com&gt;
+
+RUN apt-get -y install software-properties-common
+RUN apt-get -y update
+
+# Install Java.
+RUN echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections
+RUN add-apt-repository -y ppa:webupd8team/java
+RUN apt-get -y update
+RUN apt-get install -y oracle-java8-installer
+RUN rm -rf /var/lib/apt/lists/*
+RUN rm -rf /var/cache/oracle-jdk8-installer
+
+# Define working directory.
+WORKDIR /work
+
+# Define commonly used JAVA_HOME variable
+ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
+
+# JAVA PATH
+ENV PATH /usr/lib/jvm/java-8-oracle/bin:$PATH
+
+# Install maven
+RUN apt-get -y update
+RUN apt-get -y install maven
+
+# Install Open SSH and git
+RUN apt-get -y install openssh-server
+RUN apt-get -y install git
+
+# clone Spark
+RUN git clone https://github.com/apache/spark.git
+WORKDIR /work/spark
+RUN mvn -DskipTests clean package
+
+# clone and build zeppelin fork
+RUN git clone https://github.com/apache/incubator-zeppelin.git
+WORKDIR /work/incubator-zeppelin
+RUN mvn clean package -Pspark-1.6 -Phadoop-2.6 -DskipTests
+
+# Install Supervisord
+RUN apt-get -y install supervisor
+RUN mkdir -p var/log/supervisor
+
+# Configure Supervisord
+COPY conf/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# bash
+RUN sed -i s#/home/git:/bin/false#/home/git:/bin/bash# /etc/passwd
+
+EXPOSE 8080 8082
+CMD ["/usr/bin/supervisord"]
+</code></pre>
+    <p>While building image it failed in step 23 i.e.</p>
+    <pre class="lang-dockerfile prettyprint-override"><code>RUN mvn clean package -Pspark-1.6 -Phadoop-2.6 -DskipTests
+</code></pre>
+    <p>Now when I rebuild it starts to build from step 23 as docker is using cache.</p>
+    <p>But if I want to rebuild the image from step 21 i.e.</p>
+    <pre class="lang-dockerfile prettyprint-override"><code>RUN git clone https://github.com/apache/incubator-zeppelin.git
+</code></pre>
+    <p>How can I do that? Is deleting the cached image is the only option? Is there any additional parameter to do that?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">docker</span><span class="tag">dockerfile</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>3</td>
+       <td><span>You can create a Dockerfile that goes up to step 21, tag this image with a name such as step21, and create another Dockerfile that starts with <code>FROM step21</code></span> <span> - </span> <span class="display-name">user2915097</span> <span> </span> <span class="date">2 Feb 2016 at 13:01</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>this is the same idea as <a href="https://stackoverflow.com/questions/35134713/disable-cache-for-specific-run-commands/35135412#35135412" title="disable cache for specific run commands">stackoverflow.com/questions/35134713/…</a></span> <span> - </span> <span class="display-name">user2915097</span> <span> </span> <span class="date">2 Feb 2016 at 13:02</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>There is a huge discussion in Github Docker about this specific behaviour (feature request: Selectively disable caching for specific RUN commands in Dockerfile|<a href="https://github.com/moby/moby/issues/1996" rel="nofollow noreferrer">github.com/moby/moby/issues/1996</a>)</span> <span> - </span> <span class="display-name">Andre Leon Rangel</span> <span> </span> <span class="date">12 Jun 2020 at 02:51</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>83</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BMitch</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Jun 2016 at 20:32</span>
+     </div>
+    </div>
+    <div>
+     <p>You can rebuild the entire thing without using the cache by doing a</p>
+     <pre class="lang-bash prettyprint-override"><code>docker build --no-cache -t user/image-name
+</code></pre>
+     <p>To force a rerun starting at a specific line, you can pass an arg that is otherwise unused. Docker passes ARG values as environment variables to your RUN command, so changing an ARG is a change to the command which breaks the cache. It's not even necessary to define it yourself on the RUN line.</p>
+     <pre class="lang-dockerfile prettyprint-override"><code>FROM ubuntu:14.04
+MAINTAINER Samuel Alexander &lt;samuel@alexander.com&gt;
+
+RUN apt-get -y install software-properties-common
+RUN apt-get -y update
+
+# Install Java.
+RUN echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections
+RUN add-apt-repository -y ppa:webupd8team/java
+RUN apt-get -y update
+RUN apt-get install -y oracle-java8-installer
+RUN rm -rf /var/lib/apt/lists/*
+RUN rm -rf /var/cache/oracle-jdk8-installer
+
+# Define working directory.
+WORKDIR /work
+
+# Define commonly used JAVA_HOME variable
+ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
+
+# JAVA PATH
+ENV PATH /usr/lib/jvm/java-8-oracle/bin:$PATH
+
+# Install maven
+RUN apt-get -y update
+RUN apt-get -y install maven
+
+# Install Open SSH and git
+RUN apt-get -y install openssh-server
+RUN apt-get -y install git
+
+# clone Spark
+RUN git clone https://github.com/apache/spark.git
+WORKDIR /work/spark
+RUN mvn -DskipTests clean package
+
+# clone and build zeppelin fork, changing INCUBATOR_VER will break the cache here
+ARG INCUBATOR_VER=unknown
+RUN git clone https://github.com/apache/incubator-zeppelin.git
+WORKDIR /work/incubator-zeppelin
+RUN mvn clean package -Pspark-1.6 -Phadoop-2.6 -DskipTests
+
+# Install Supervisord
+RUN apt-get -y install supervisor
+RUN mkdir -p var/log/supervisor
+
+# Configure Supervisord
+COPY conf/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# bash
+RUN sed -i s#/home/git:/bin/false#/home/git:/bin/bash# /etc/passwd
+
+EXPOSE 8080 8082
+CMD ["/usr/bin/supervisord"]
+</code></pre>
+     <p>And then just run it with a unique arg:</p>
+     <pre class="lang-bash prettyprint-override"><code>docker build --build-arg INCUBATOR_VER=20160613.2 -t user/image-name .
+</code></pre>
+     <p>To change the argument with every build, you can pass a timestamp as the arg:</p>
+     <pre><code>docker build --build-arg INCUBATOR_VER=$(date +%Y%m%d-%H%M%S) -t user/image-name .
+</code></pre>
+     <p>or:</p>
+     <pre><code>docker build --build-arg INCUBATOR_VER=$(date +%s) -t user/image-name .
+</code></pre>
+     <hr>
+     <p>As an aside, I'd recommend the following changes to keep your layers smaller, the more you can merge the cleanup and delete steps on a single <code>RUN</code> command after the download and install, the smaller your final image will be. Otherwise your layers will include all the intermediate steps between the download and cleanup:</p>
+     <pre class="lang-dockerfile prettyprint-override"><code>FROM ubuntu:14.04
+MAINTAINER Samuel Alexander &lt;samuel@alexander.com&gt;
+
+RUN DEBIAN_FRONTEND=noninteractive \
+    apt-get -y install software-properties-common &amp;&amp; \
+    apt-get -y update
+
+# Install Java.
+RUN echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections &amp;&amp; \
+    add-apt-repository -y ppa:webupd8team/java &amp;&amp; \
+    apt-get -y update &amp;&amp; \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y oracle-java8-installer &amp;&amp; \
+    apt-get clean &amp;&amp; \
+    rm -rf /var/lib/apt/lists/* &amp;&amp; \
+    rm -rf /var/cache/oracle-jdk8-installer &amp;&amp; \
+
+# Define working directory.
+WORKDIR /work
+
+# Define commonly used JAVA_HOME variable
+ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
+
+# JAVA PATH
+ENV PATH /usr/lib/jvm/java-8-oracle/bin:$PATH
+
+# Install maven
+RUN apt-get -y update &amp;&amp; \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get -y install 
+      maven \
+      openssh-server \
+      git \
+      supervisor &amp;&amp; \
+    apt-get clean &amp;&amp; \
+    rm -rf /var/lib/apt/lists/*
+
+# clone Spark
+RUN git clone https://github.com/apache/spark.git
+WORKDIR /work/spark
+RUN mvn -DskipTests clean package
+
+# clone and build zeppelin fork
+ARG INCUBATOR_VER=unknown
+RUN git clone https://github.com/apache/incubator-zeppelin.git
+WORKDIR /work/incubator-zeppelin
+RUN mvn clean package -Pspark-1.6 -Phadoop-2.6 -DskipTests
+
+# Configure Supervisord
+RUN mkdir -p var/log/supervisor
+COPY conf/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# bash
+RUN sed -i s#/home/git:/bin/false#/home/git:/bin/bash# /etc/passwd
+
+EXPOSE 8080 8082
+CMD ["/usr/bin/supervisord"]
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I was kind of using something similar to your approach to build from specific step. Thanks for the side note. That is really helpful</span> <span> - </span> <span class="display-name">sag</span> <span> </span> <span class="date">14 Jun 2016 at 05:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hm, for me it won't rebuild if the argument changes. Has this behaviour changed meanwhile?</span> <span> - </span> <span class="display-name">Konstantin</span> <span> </span> <span class="date">22 Apr 2021 at 11:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Konstantin I'd suggest opening a new question with the exact steps you are taking, Dockerfile, and include the two different build args.</span> <span> - </span> <span class="display-name">BMitch</span> <span> </span> <span class="date">22 Apr 2021 at 12:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The build-arg could be the version of a git repository. If the repository has changed, start from cloning the source again.</span> <span> - </span> <span class="display-name">Leif Neland</span> <span> </span> <span class="date">26 Oct 2021 at 01:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BMitch Could I use this to optionally rebuild from that layer, i.e. if the supplied <code>ARG</code> changes rebuild, otherwise not?</span> <span> - </span> <span class="display-name">jtlz2</span> <span> </span> <span class="date">8 Jun 2023 at 08:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Also, weirdly, I had to put ARG one line higher than required.</span> <span> - </span> <span class="display-name">jtlz2</span> <span> </span> <span class="date">8 Jun 2023 at 08:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@jtlz2 it sounds like you answered your question. If the above doesn't work in your scenario, post a new question with a <a href="https://stackoverflow.com/help/minimal-reproducible-example">minimal reproducible example</a>.</span> <span> - </span> <span class="display-name">BMitch</span> <span> </span> <span class="date">8 Jun 2023 at 11:37</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>53</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user6461348</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Jun 2016 at 19:37</span>
+     </div>
+    </div>
+    <div>
+     <p>One workaround:</p>
+     <ol>
+      <li>Locate the step you want to execute from.</li>
+      <li>Before that step put a simple dummy operation like "RUN pwd"</li>
+     </ol>
+     <p>Then just build your Dockerfile. It will take everything up to that step from the cache and then execute the lines after the dummy command.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is really helpful. Where is it documented (or in other words, why is it happening?)</span> <span> - </span> <span class="display-name">Dror</span> <span> </span> <span class="date">1 Aug 2017 at 05:59</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>I realized it is not what I needed. It helps only upon the very first build after the change... But it doesn't help when running further builds...</span> <span> - </span> <span class="display-name">Dror</span> <span> </span> <span class="date">1 Aug 2017 at 07:28</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This doesn't work for me. Docker version 18.03.1-ce, build 9ee9f40</span> <span> - </span> <span class="display-name">Randy</span> <span> </span> <span class="date">25 May 2018 at 18:16</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Dror it happens as Docker can see that, that line has changed and executes from thereon. That's why it only works the first time.</span> <span> - </span> <span class="display-name">Nicolai Anton Lynnerup</span> <span> </span> <span class="date">15 May 2019 at 08:39</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>this is only good for the "quick and dirty" stage of writing a Dockerfile as it is manual and only works once, eventually @toms130 answer with an ever-changing dummy arg is much better</span> <span> - </span> <span class="display-name">cryanbhu</span> <span> </span> <span class="date">13 Jan 2021 at 02:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>That doesn't help when Docker/Podman starts building at a much more recent step <i>(for whatever reason)</i>, and you want to force it not do it.</span> <span> - </span> <span class="display-name">Hi-Angel</span> <span> </span> <span class="date">31 Mar 2021 at 14:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>toms130</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Oct 2017 at 14:35</span>
+     </div>
+    </div>
+    <div>
+     <p>To complete Dmitry's answer, you can use uniq arg like <code>date +%s</code> to keep always same commandline</p>
+     <pre class="lang-bash prettyprint-override"><code>docker build --build-arg DUMMY=`date +%s` -t me/myapp:1.0.0
+</code></pre>
+     <p><code>Dockerfile</code>:</p>
+     <pre class="lang-dockerfile prettyprint-override"><code>...
+ARG DUMMY=unknown
+RUN DUMMY=${DUMMY} git clone xxx
+...
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Bernard</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Apr 2018 at 11:48</span>
+     </div>
+    </div>
+    <div>
+     <p>A simpler technique.</p>
+     <p>Dockerfile:<br>
+      Add this line where you want the caching to start being skipped.</p>
+     <p><code>COPY marker /dev/null</code></p>
+     <p>Then build using</p>
+     <p><code>date &gt; marker &amp;&amp; docker build .</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>so you say, whenever the contents of .e.g "marker" ist changed, the <code>COPY marker /dev/null</code> is re-done?</span> <span> - </span> <span class="display-name">Luke</span> <span> </span> <span class="date">7 Oct 2018 at 21:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>"marker" is always changed since it contains the current timestamp, so COPY marker /dev/null is always being executed as well as all instructions that follow it in the Dockerfile.</span> <span> - </span> <span class="display-name">Bernard</span> <span> </span> <span class="date">8 Oct 2018 at 01:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Luke Yes; changing the contents of the file <code>marker</code> will force a rebuild. After that it will not rebuild again until you again change the contents of <code>marker</code> (or some other line in the Dockerfile is considered changed). ¶ Note that you do not need to (and should not) run that <code>date &gt; marker</code> command every time; you just run it when you want to force a rebuild instead of using the cached image.</span> <span> - </span> <span class="display-name">cjs</span> <span> </span> <span class="date">17 Sep 2022 at 04:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Geoff Gustafson</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Dec 2019 at 00:35</span>
+     </div>
+    </div>
+    <div>
+     <p>Another option is to delete the cached intermediate image you want to rebuild.</p>
+     <p>Find the hash of the intermediate image you wish to rebuild in your build output:</p>
+     <pre><code>Step 27/42 : RUN lolarun.sh
+ ---&gt; Using cache
+ ---&gt; 328dfe03e436
+</code></pre>
+     <p>Then delete that image:</p>
+     <pre><code>$ docker image rmi 328dfe03e436
+</code></pre>
+     <p>Or if it gives you an error and you're okay with forcing it:</p>
+     <pre><code>$ docker image rmi -f 328dfe03e436
+</code></pre>
+     <p>Finally, rerun your build command, and it will need to restart from that point because it's not in the cache.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>It appears that this is not allowed by later versions of docker. "Error response from daemon: conflict: unable to delete 328dfe03e436 (cannot be forced) - image has dependent child images"</span> <span> - </span> <span class="display-name">Charlie Haley</span> <span> </span> <span class="date">26 Feb 2020 at 17:20</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@CharlieHaley In this case, you can consider deleting the child image -- which is simply the next intermediate image built after this step.</span> <span> - </span> <span class="display-name">Alex Fortin</span> <span> </span> <span class="date">24 Aug 2020 at 00:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dmitry</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Mar 2017 at 17:37</span>
+     </div>
+    </div>
+    <div>
+     <p>If place <code>ARG INCUBATOR_VER=unknown</code> at top, then cache will not be used in case of change of <code>INCUBATOR_VER</code> from command line (just tested the build). For me worked:</p>
+     <pre class="lang-dockerfile prettyprint-override"><code># The rebuild starts from here
+ARG INCUBATOR_VER=unknown
+RUN INCUBATOR_VER=${INCUBATOR_VER} git clone https://github.com/apache/incubator-zeppelin.git
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>reddot</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Feb 2023 at 20:10</span>
+     </div>
+    </div>
+    <div>
+     <p>Use <code>--cache-from=...</code> option and specify hash of the last layer to reuse without rebuild. All subsequent layers will be re-built.</p>
+     <p>Say I have following cached docker build:</p>
+     <pre><code>$ docker build -t pinger:latest .
+Sending build context to Docker daemon  6.924MB
+Step 1/5 : FROM ubuntu:latest
+ ---&gt; 58db3edaf2be
+Step 2/5 : RUN echo "$(date)"
+ ---&gt; Using cache
+ ---&gt; b62b5deffedf
+Step 3/5 : RUN apt-get update -y &amp;&amp; apt-get install -y iputils-ping
+ ---&gt; Using cache
+ ---&gt; 02ba4da7d7a6
+Step 4/5 : ENTRYPOINT ["ping"]
+ ---&gt; Using cache
+ ---&gt; dfd4c593d7be
+Step 5/5 : CMD ["127.0.0.1"]
+ ---&gt; Using cache
+ ---&gt; 716cc6cbcf0e
+Successfully built 716cc6cbcf0e
+Successfully tagged pinger:latest
+</code></pre>
+     <p>Now if I want to force apt-get stanza to re-run:</p>
+     <pre><code>$ docker build --cache-from=b62b5deffedf -t pinger:latest .
+Sending build context to Docker daemon  6.924MB
+Step 1/5 : FROM ubuntu:latest
+ ---&gt; 58db3edaf2be
+Step 2/5 : RUN echo "$(date)"
+ ---&gt; Using cache
+ ---&gt; b62b5deffedf
+Step 3/5 : RUN apt-get update -y &amp;&amp; apt-get install -y iputils-ping
+ ---&gt; Running in 0d96737075a6
+...
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>chrizzler</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jun 2020 at 08:04</span>
+     </div>
+    </div>
+    <div>
+     <p>As there is no official way to do this, the most simple way is to temporarily change the specific RUN command to include something harmless like echo:</p>
+     <pre><code>RUN echo &amp;&amp; apt-get -qq update &amp;&amp; \
+    apt-get install nano
+</code></pre>
+     <p>After building remove it.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>this is simple but not a clean way. Other answers are better imo</span> <span> - </span> <span class="display-name">cryanbhu</span> <span> </span> <span class="date">13 Jan 2021 at 02:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

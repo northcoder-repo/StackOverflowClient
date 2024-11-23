@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to remove unwanted characters (brackets, quotes, and commas) from a JSON string?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to remove unwanted characters (brackets, quotes, and commas) from a JSON string?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jeff Abrahams</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Jun 2021 at 16:52</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67875739/how-to-remove-unwanted-characters-brackets-quotes-and-commas-from-a-json-str">source</a>
+    </div>
+   </div>
+   <div>
+    <p><a href="https://docs.google.com/spreadsheets/d/1fEQYZtB1_V2N9ZNZsyzOKAG4tnCma0GOLir_1zvZcfk/edit#gid=2100307022" rel="nofollow noreferrer">See here for a working example of my Google Sheet</a></p>
+    <p><a href="https://script.google.com/home/projects/1NAbdJ-lQVCYNCoc7Qu1tbh9ujBnbbEZo3lWnpCuIwuBxwov2DkB0tD1U/edit" rel="nofollow noreferrer">See here to access my Google App Script for the Google Sheet</a></p>
+    <hr>
+    <p>I have been working on a project that will be able to take the typed name of a place on Google Maps and then use the Places API and Place Details to pull in the associated information.</p>
+    <p>One bit of info I pull in is the open business hours, called the <code>place.weekday_text</code> which comes in looking like this:</p>
+    <pre><code>"[
+
+ "Monday: 2:00 – 10:00 PM",
+
+ "Tuesday: 2:00 – 10:00 PM",
+
+ "Wednesday: 2:00 – 10:00 PM",
+
+ "Thursday: 2:00 – 10:00 PM",
+
+ "Friday: 12:00 – 11:00 PM",
+
+ "Saturday: 12:00 – 11:00 PM",
+
+ "Sunday: 12:00 – 9:00 PM"
+
+]"
+</code></pre>
+    <p>I have tried using replace at the end of the stringify:</p>
+    <pre><code>JSON.stringify(place.opening_hours.weekday_text, "", 1).replace("[", "").replace("\"", "").replace("\",", "").replace("]", "")
+</code></pre>
+    <p>But that only takes care of Monday at most.</p>
+    <p>Is there a way to remove the extra brackets, commas, and quotation marks so that it returns in a nice and neat version looking like this?</p>
+    <pre><code>Saturday    12PM–12AM
+Sunday  12–8PM
+Monday  Closed
+Tuesday Closed
+Wednesday   3–11PM
+Thursday    3–11PM
+Friday  3PM–12AM
+</code></pre>
+    <p>Here is the relevant portion of my code:</p>
+    <pre><code>//Gets the Place ID
+function COMBINED(text) {
+  var API_KEY = 'AIzxxxxxxxxxxxxxxxxxxxxxxxxx';
+  var baseUrl = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json';
+  var queryUrl = baseUrl + '?input=' + text + '&amp;inputtype=textquery&amp;key=' + API_KEY + "&amp;locationbias=point:" + LOC_BASIS_LAT_LON;
+  var response = UrlFetchApp.fetch(queryUrl);
+  var json = response.getContentText();
+  var placeId = JSON.parse(json);
+  var ID = placeId.candidates[0].place_id;
+
+  var fields = 'name,formatted_address,formatted_phone_number,website,url,types,opening_hours';
+  var baseUrl2 = 'https://maps.googleapis.com/maps/api/place/details/json?placeid=';
+  var queryUrl2 = baseUrl2 + ID + '&amp;fields=' + fields + '&amp;key='+ API_KEY + "&amp;locationbias=point:" + LOC_BASIS_LAT_LON;
+
+  if (ID == '') {
+    return 'Give me a Google Places URL...';
+  }
+
+  var response2 = UrlFetchApp.fetch(queryUrl2);
+  var json2 = response2.getContentText();
+  var place = JSON.parse(json2).result;
+
+
+  return [[ place.name,
+            place.formatted_address,
+            place.formatted_phone_number,
+            place.website,
+            place.url,
+            //JSON.stringify(place.opening_hours.weekday_text, "", 1).replace("[", "").replace("\"", "").replace("\",", "").replace("]", ""),
+          ]];
+}
+</code></pre>
+    <p>Here is what you would see if we entered "Big Alice Brewing" on Google Sheets and went to the resulting webpage which is</p>
+    <blockquote>
+     <p><a href="https://maps.googleapis.com/maps/api/place/details/json?placeid=ChIJh9-J99hYwokRxc9AgwkG1Io&amp;fields=name,formatted_address,formatted_phone_number,website,url,types,opening_hours&amp;key=AIzaSyD1FOrIRLbO9mV4zbh6df0os6ZCeaGKlrE&amp;locationbias=point:40.754734421655655,%20-73.98840133506883" rel="nofollow noreferrer">https://maps.googleapis.com/maps/api/place/details/json?placeid=ChIJh9-J99hYwokRxc9AgwkG1Io&amp;fields=name,formatted_address,formatted_phone_number,website,url,types,opening_hours&amp;key=AIzaSyD1FOrIRLbO9mV4zbh6df0os6ZCeaGKlrE&amp;locationbias=point:40.754734421655655,%20-73.98840133506883</a></p>
+    </blockquote>
+    <p>:</p>
+    <pre><code>{
+   "html_attributions" : [],
+   "result" : {
+      "formatted_address" : "8-08 43rd Rd, Long Island City, NY 11101, USA",
+      "formatted_phone_number" : "(347) 688-2337",
+      "name" : "Big aLICe Brewing",
+      "opening_hours" : {
+         "open_now" : false,
+         "periods" : [
+            {
+               "close" : {
+                  "day" : 0,
+                  "time" : "2000"
+               },
+               "open" : {
+                  "day" : 0,
+                  "time" : "1200"
+               }
+            },
+            {
+               "close" : {
+                  "day" : 1,
+                  "time" : "2100"
+               },
+               "open" : {
+                  "day" : 1,
+                  "time" : "1600"
+               }
+            },
+            {
+               "close" : {
+                  "day" : 2,
+                  "time" : "2100"
+               },
+               "open" : {
+                  "day" : 2,
+                  "time" : "1600"
+               }
+            },
+            {
+               "close" : {
+                  "day" : 3,
+                  "time" : "2100"
+               },
+               "open" : {
+                  "day" : 3,
+                  "time" : "1600"
+               }
+            },
+            {
+               "close" : {
+                  "day" : 4,
+                  "time" : "2100"
+               },
+               "open" : {
+                  "day" : 4,
+                  "time" : "1600"
+               }
+            },
+            {
+               "close" : {
+                  "day" : 5,
+                  "time" : "2200"
+               },
+               "open" : {
+                  "day" : 5,
+                  "time" : "1200"
+               }
+            },
+            {
+               "close" : {
+                  "day" : 6,
+                  "time" : "2200"
+               },
+               "open" : {
+                  "day" : 6,
+                  "time" : "1200"
+               }
+            }
+         ],
+         "weekday_text" : [
+            "Monday: 4:00 – 9:00 PM",
+            "Tuesday: 4:00 – 9:00 PM",
+            "Wednesday: 4:00 – 9:00 PM",
+            "Thursday: 4:00 – 9:00 PM",
+            "Friday: 12:00 – 10:00 PM",
+            "Saturday: 12:00 – 10:00 PM",
+            "Sunday: 12:00 – 8:00 PM"
+         ]
+      },
+      "types" : [ "food", "point_of_interest", "establishment" ],
+      "url" : "https://maps.google.com/?cid=10003627310223249349",
+      "website" : "http://bigalicebrewing.com/"
+   },
+   "status" : "OK"
+}
+</code></pre>
+    <hr>
+    <p>Updated code that still needs help:</p>
+    <pre><code>  var response2 = UrlFetchApp.fetch(queryUrl2);
+  var json2 = response2.getContentText();
+  var place = JSON.parse(json2).result;
+
+  var placeName = place.name;
+  var placeAddress = place.formatted_address;
+  var placePhoneNumber = place.formatted_phone_number;
+  var placeWebsite = place.website;
+  var placeURL = place.url;
+
+  var weekdayTextList = place.opening_hours.weekday_text;
+  weekdayTextList.forEach((weekdayText) =&gt; {
+  console.log( weekdayText );
+} );
+
+
+
+  return [[ placeName,
+            placeAddress,
+            placePhoneNumber,
+            placeWebsite,
+            placeURL
+          ]];
+</code></pre>
+    <hr>
+    <p><strong>Final Update: Here's the working code after the last bit of help.</strong></p>
+    <pre><code>function writeToSpreadsheet() {
+  var results = COMBINED2('');
+  var sheet = SpreadsheetApp.getActiveSheet();
+  sheet.getRange(1, 1, 1, 6).setValues(results);
+}
+
+
+function COMBINED2(text) {
+  var API_KEY = 'AIzcxxxxxxxxxxxxxxxxxxxxxxxxx';
+  var baseUrl = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json';
+  var queryUrl = baseUrl + '?input=' + text + '&amp;inputtype=textquery&amp;key=' + API_KEY + "&amp;locationbias=point:" + LOC_BASIS_LAT_LON;
+  var response = UrlFetchApp.fetch(queryUrl);
+  var json = response.getContentText();
+  var placeId = JSON.parse(json);
+  var ID = placeId.candidates[0].place_id;
+
+  var fields = 'name,formatted_address,formatted_phone_number,website,url,types,opening_hours';
+  var baseUrl2 = 'https://maps.googleapis.com/maps/api/place/details/json?placeid=';
+  var queryUrl2 = baseUrl2 + ID + '&amp;fields=' + fields + '&amp;key='+ API_KEY + "&amp;locationbias=point:" + LOC_BASIS_LAT_LON;
+
+  if (ID == '') {
+    return 'Give me a Google Places URL...';
+  }
+
+  var response2 = UrlFetchApp.fetch(queryUrl2);
+  var json2 = response2.getContentText();
+  var place = JSON.parse(json2).result;
+
+  var placeName = place.name;
+  var placeAddress = place.formatted_address;
+  var placePhoneNumber = place.formatted_phone_number;
+  var placeWebsite = place.website;
+  var placeURL = place.url;
+
+  var weekdays = '';
+  place.opening_hours.weekday_text.forEach((weekdayText) =&gt; {
+    weekdays += ( weekdayText + '\r\n' );
+  } );
+
+  var data = [ [
+    place.name,
+    place.formatted_address,
+    place.formatted_phone_number,
+    place.website,
+    place.url,
+    weekdays.trim()
+  ] ];
+
+  return data;
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">json</span><span class="tag">google-apps-script</span><span class="tag">google-sheets</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jun 2021 at 17:05</span>
+     </div>
+    </div>
+    <div>
+     <p>You already have your JSON data in a string, so you need to parse it into a JavaScript object (an array in your case):</p>
+     <pre><code>JSON.parse(jsonString)
+</code></pre>
+     <p>This will give you a data structure that you can iterate over, to extract each item in a clean way.</p>
+     <p>Here is a demo:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>var jsonString = '[ "Monday: 2:00 – 10:00 PM", "Tuesday: 2:00 – 10:00 PM", "Wednesday: 2:00 – 10:00 PM", "Thursday: 2:00 – 10:00 PM", "Friday: 12:00 – 11:00 PM", "Saturday: 12:00 – 11:00 PM", "Sunday: 12:00 – 9:00 PM" ]';
+
+var businessHours = JSON.parse(jsonString);
+
+businessHours.forEach((bizDay) =&gt; {
+  console.log( bizDay );
+} );</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>In my case, I just log each separate entry to the console - but you can write each one to your sheet, of course.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>I looked at the following code fragment mentioned in the comments:</p>
+     <pre class="lang-js prettyprint-override"><code>var response2 = UrlFetchApp.fetch(queryUrl2);
+var json2 = response2.getContentText();
+var place = JSON.parse(json2).result;
+
+
+return [[ place.name,
+          place.formatted_address,
+          place.formatted_phone_number,
+          place.website,
+          place.url,
+          JSON.stringify(place.opening_hours.weekday_text, "", 1).replace("[", "").replace("\"", "").replace("\",", "").replace("]", ""),
+        ]];
+}
+</code></pre>
+     <p>You can modify/simplify the above code to be as follows:</p>
+     <pre class="lang-js prettyprint-override"><code>var response2 = UrlFetchApp.fetch(queryUrl2);
+return response2.getContentText();
+</code></pre>
+     <p>This means that our script's starting point will now be a different string from the one I originally started with. The string will contain the entire response, without any changes made to it.</p>
+     <p>This string is returned to a variable called <code>json2</code>. I then do the following:</p>
+     <pre class="lang-js prettyprint-override"><code>var json2 = ... ; // this is the string response from the above `fetch`.
+
+var place = JSON.parse(json2).result; // parse the string to an object.
+
+// Now we can access the various fields we need - for example:
+var placeName = place.name;
+
+// for the list of hours:
+var weekdayTextList = place.opening_hours.weekday_text;
+weekdayTextList.forEach((weekdayText) =&gt; {
+  console.log( weekdayText );
+} );
+</code></pre>
+     <p>The above <code>forEach</code> loop prints each day of the week to the console. You can write each <code>weekdayText</code> value to your sheet, instead, of course.</p>
+     <p>This is the same basic logic as before - it's just that I have removed some unnecessary parsing between strings and objects which was happening in the original approach.</p>
+     <hr>
+     <p><strong>Update 2</strong></p>
+     <p>Here is a different way to show the approach, in case this is easier/clearer than the above.</p>
+     <pre class="lang-js prettyprint-override"><code>function writeToSpreadsheet() {
+  var results = COMBINED('');
+  var sheet = SpreadsheetApp.getActiveSheet();
+  sheet.getRange(1, 1, 1, 6).setValues(results);
+}
+
+function COMBINED(text) {
+  //var API_KEY = 'AIzxxxxxxxxxxxxxxxxxxxxxxxxx';
+  //
+  // ...all your code is still needed here, for you - but not for me in this demo.
+  //
+  //var json2 = response2.getContentText();
+
+  var json2 = '{ "html_attributions" : [], "result" : { "formatted_address" : "8-08 43rd Rd, Long Island City, NY 11101, USA", "formatted_phone_number" : "(347) 688-2337", "name" : "Big aLICe Brewing", "opening_hours" : { "open_now" : false, "periods" : [ { "close" : { "day" : 0, "time" : "2000" }, "open" : { "day" : 0, "time" : "1200" } }, { "close" : { "day" : 1, "time" : "2100" }, "open" : { "day" : 1, "time" : "1600" } }, { "close" : { "day" : 2, "time" : "2100" }, "open" : { "day" : 2, "time" : "1600" } }, { "close" : { "day" : 3, "time" : "2100" }, "open" : { "day" : 3, "time" : "1600" } }, { "close" : { "day" : 4, "time" : "2100" }, "open" : { "day" : 4, "time" : "1600" } }, { "close" : { "day" : 5, "time" : "2200" }, "open" : { "day" : 5, "time" : "1200" } }, { "close" : { "day" : 6, "time" : "2200" }, "open" : { "day" : 6, "time" : "1200" } } ], "weekday_text" : [ "Monday: 4:00 – 9:00 PM", "Tuesday: 4:00 – 9:00 PM", "Wednesday: 4:00 – 9:00 PM", "Thursday: 4:00 – 9:00 PM", "Friday: 12:00 – 10:00 PM", "Saturday: 12:00 – 10:00 PM", "Sunday: 12:00 – 8:00 PM" ] }, "types" : [ "food", "point_of_interest", "establishment" ], "url" : "https://maps.google.com/?cid=10003627310223249349", "website" : "http://bigalicebrewing.com/" }, "status" : "OK" }';
+
+  var place = JSON.parse(json2).result;
+
+  var weekdays = '';
+  place.opening_hours.weekday_text.forEach((weekdayText) =&gt; {
+    weekdays += ( weekdayText + '\r\n' );
+  } );
+
+  var data = [ [
+    place.name,
+    place.formatted_address,
+    place.formatted_phone_number,
+    place.website,
+    place.url,
+    weekdays.trim()
+  ] ];
+
+  return data;
+
+}
+</code></pre>
+     <p>This builds a string from your <code>weekday_text</code> using that <code>forEach</code> loop from before. But this time I have shown how to combine that with the rest of the data I think you need.</p>
+     <p>The big difference between my code and yours is that your code fetches its data from a URL - but my code just hard-codes that data into the code, since the issue we are trying to fix has nothing to do with fetching data.</p>
+     <p>The result of running this code is an entry in the spreadsheet as follows:</p>
+     <p><a href="https://i.stack.imgur.com/PaYt2.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/PaYt2.png" alt="enter image description here"></a></p>
+     <p>This is based on the code in your question - and this time I have ignored the code from Ghostbin, since I think that may have made things more complicated/confusing.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Currently my code fetches the URL of a place and parses the text. Do I need to create a new variable which will parse this specific element? <a href="https://ghostbin.co/paste/64cmd" rel="nofollow noreferrer">ghostbin.co/paste/64cmd</a></span> <span> - </span> <span class="display-name">Jeff Abrahams</span> <span> </span> <span class="date">7 Jun 2021 at 19:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Interesting - It would probably be easier to keep the exact content of <code>response2.getContentText();</code> and return that, instead of returning what you are currently returning. But we would need to see what that text looks like. Can you edit your question to show this data as text? I can update my answer, accordingly.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Jun 2021 at 19:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Bottom line is: there should be no need to do that extra parsing with those <code>replace()</code> functions. But it depends on exactly what the raw response looks like.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Jun 2021 at 19:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Updated main post with the code. But you should be able to see/edit my code from the link at the top for my Google App Script. This is the function called "COMBINED" <a href="https://script.google.com/home/projects/1NAbdJ-lQVCYNCoc7Qu1tbh9ujBnbbEZo3lWnpCuIwuBxwov2DkB0tD1U/edit" rel="nofollow noreferrer">script.google.com/home/projects/…</a></span> <span> - </span> <span class="display-name">Jeff Abrahams</span> <span> </span> <span class="date">7 Jun 2021 at 19:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sorry, it's not the code that I am looking for, it's the JSON text string, which I cannot see in the question itself. It may be accessible from the links, but I would prefer to avoid those.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Jun 2021 at 19:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>(I think you should also <a href="https://cloud.google.com/docs/authentication/api-keys" rel="nofollow noreferrer">avoid showing API keys</a>, in general, in your questions.)</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">7 Jun 2021 at 20:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>API Key removed. Good tip. Sorry that I misunderstood what you were asking for. Here is an example for Big Alice Brewing in NYC. You can see the Weekday Text hours at the bottom of the page. See the updated post for the content on this page. <a href="https://maps.googleapis.com/maps/api/place/details/json?placeid=ChIJh9-J99hYwokRxc9AgwkG1Io&amp;fields=name,formatted_address,formatted_phone_number,website,url,types,opening_hours&amp;key=AIzaSyD1FOrIRLbO9mV4zbh6df0os6ZCeaGKlrE&amp;locationbias=point:40.754734421655655,%20-73.98840133506883" rel="nofollow noreferrer">maps.googleapis.com/maps/api/place/details/…</a></span> <span> - </span> <span class="display-name">Jeff Abrahams</span> <span> </span> <span class="date">8 Jun 2021 at 12:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you - that is exactly what I was looking for. I have updated my answer to (hopefully!) simplify things a bit. It's basically the same approach, though.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">8 Jun 2021 at 13:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Not sure if I followed what alterations you suggested, but the adjustment around the weekday_text seemed to break things. I still get name, formatted phone number, address just fine, but now I no longer get the hours to show in the Sheet. I updated my post with the code as it is now.</span> <span> - </span> <span class="display-name">Jeff Abrahams</span> <span> </span> <span class="date">8 Jun 2021 at 19:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have added an alternative way to show what I mean - let me know if this makes more sense. It is the same approach, but a different way to show how it can be used.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">8 Jun 2021 at 20:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Very nice. That appears to work. I have added my full, working code to the end of my original post. Thanks so much for sticking with me!</span> <span> - </span> <span class="display-name">Jeff Abrahams</span> <span> </span> <span class="date">10 Jun 2021 at 15:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>And thank you for sticking with my over-elaborate initial "explanations".</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">10 Jun 2021 at 15:56</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

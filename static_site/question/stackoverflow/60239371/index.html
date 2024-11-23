@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Transport.send not working on javax.mail library</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Transport.send not working on javax.mail library</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>3Bady</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Feb 2020 at 13:50</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60239371/transport-send-not-working-on-javax-mail-library">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have to classes the main class plus JavaMailUtl class This is my JavaMailUtl class:</p>
+    <pre><code>import javax.mail.Authenticator;
+import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.mail.Message;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
+
+
+public class JavaMailUtl {
+    public static void sendMail(String recepient) throws Exception{
+        System.out.println("Preparing Email");
+        Properties properties = new Properties();
+
+        properties.put("mail.smtp.auth", "true");
+        properties.put("mail.smtp.starttls.enable", "true");
+        properties.put("mail.smtp.host", "smtp.gmail.com");
+        properties.put("mail.smtp.port", "587");
+
+        String myAccountEmail = "someEmail@gmail.com";
+        String password = "xxxxxxxx";
+
+        Session session = Session.getInstance(properties, new Authenticator() {
+            @Override
+            protected javax.mail.PasswordAuthentication getPasswordAuthentication() {
+                return new javax.mail.PasswordAuthentication(myAccountEmail, password);
+            }
+
+});
+        Message message = prepareMessage(session, myAccountEmail, recepient);
+        Transport.send(message);
+        System.out.println("Message sent!");
+    }
+
+    private static Message prepareMessage(Session session, String myAccountEmail, String recepient){
+        try {
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(myAccountEmail));
+            message.setRecipient(Message.RecipientType.TO, new InternetAddress(recepient));
+            message.setSubject("Gmail API");
+            message.setText("This Message sent from Java APP");
+        } catch (Exception ex) {
+            Logger.getLogger(JavaMailUtl.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
+    }
+}
+
+</code></pre>
+    <p>and this is my main class:</p>
+    <pre><code>public class JavaEmailMessaging {
+
+    /**
+     * @param args the command line arguments
+     */
+    public static void main(String[] args) throws Exception {
+        JavaMailUtl.sendMail("someOtherEmail@gmail.com");
+    }
+
+}
+</code></pre>
+    <p>When I try to run the project I get the following error:</p>
+    <pre><code>Preparing Email
+Exception in thread "main" java.lang.NullPointerException
+    at javax.mail.Transport.send(Transport.java:123)
+    at mailing.email.messaging.JavaMailUtl.sendMail(JavaMailUtl.java:43)
+    at mailing.email.messaging.JavaEmailMessaging.main(JavaEmailMessaging.java:18)
+</code></pre>
+    <p>Doubled check the code lots of times and found no problem for me every object I have is pointing to the right place.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jakarta-mail</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Google security blocks any NON-Google attempt to access gmail. How to enable: see this:<a href="https://devanswers.co/allow-less-secure-apps-access-gmail-account/" rel="nofollow noreferrer">devanswers.co/allow-less-secure-apps-access-gmail-accou‌​nt</a></span> <span> - </span> <span class="display-name">user2670200</span> <span> </span> <span class="date">15 Feb 2020 at 14:26</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Feb 2020 at 14:24</span>
+     </div>
+    </div>
+    <div>
+     <p>Your <code>prepareMessage</code> method returns null. Define message before the <code>try</code> - and then return it.</p>
+     <p>Something like this:</p>
+     <pre><code>    private static Message prepareMessage(Session session, String myAccountEmail, String recepient) {
+        Message message = null;
+        try {
+            message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(myAccountEmail));
+            message.setRecipient(Message.RecipientType.TO, new InternetAddress(recepient));
+            message.setSubject("Gmail API");
+            message.setText("This Message sent from Java APP");
+        } catch (Exception ex) {
+            Logger.getLogger(JavaMailUtl.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return message;
+    }
+</code></pre>
+     <p>Hope that helps.</p>
+     <p><strong>EDIT</strong>: Also, it's worth noting that <a href="https://dzone.com/articles/better-npe-messages-in-jdk-14" rel="nofollow noreferrer">an enhancement in Java 14</a> should make this situation less painful. You'll get more info on what exactly was null.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for your reply, your code unfortunately didn't work for me and thank you for making my life easier ..</span> <span> - </span> <span class="display-name">3Bady</span> <span> </span> <span class="date">15 Feb 2020 at 18:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Can you elaborate? Do you still get the exact same null pointer exception, or something new/different?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Feb 2020 at 19:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>Exception in thread "main" javax.mail.MessagingException: Could not convert socket to TLS;</code> <code>at mailing.email.messaging.JavaMailUtl.sendMail(JavaMailUtl.jav‌​a:40)</code> line 40 where <code>Transport.send(message);</code> is</span> <span> - </span> <span class="display-name">3Bady</span> <span> </span> <span class="date">15 Feb 2020 at 20:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>OK - so that's a different problem from the one in your original question. You have fixed the <code>null pointer exception</code> problem. Your code looks good to me. However, the TLS error suggests some other configuration issue in your environment or on your machine - I do not get that error when I run your code. For example, take a look at <a href="https://stackoverflow.com/questions/16115453/javamail-could-not-convert-socket-to-tls-gmail/20773077">this question</a> (specifically for things like antivirus software causing a problem). But be careful - some of the recommended solutions are dangerous.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Feb 2020 at 20:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>And also, remember to follow the advice from @Voodoo above.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Feb 2020 at 20:46</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

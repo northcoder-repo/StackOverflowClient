@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Problem with Proximity search Lucene. Field "content" was indexed without position data</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Problem with Proximity search Lucene. Field "content" was indexed without position data</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>ReallyNicePerson</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Aug 2022 at 10:47</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73319361/problem-with-proximity-search-lucene-field-content-was-indexed-without-positi">source</a>
+    </div>
+   </div>
+   <div>
+    <p>so as in the title when I'm trying to search for a query i get an error</p>
+    <blockquote>
+     <p>Exception in thread "main" java.lang.IllegalStateException: field "content" was indexed without position data; cannot run PhraseQuery (phrase=content:"to be not"~1) at org.apache.lucene.search.PhraseQuery$1.getPhraseMatcher(PhraseQuery.java:497) at org.apache.lucene.search.PhraseWeight.scorer(PhraseWeight.java:64) at org.apache.lucene.search.Weight.bulkScorer(Weight.java:166) at org.apache.lucene.search.IndexSearcher.search(IndexSearcher.java:731) at org.apache.lucene.search.IndexSearcher.search(IndexSearcher.java:655) at org.apache.lucene.search.IndexSearcher.search(IndexSearcher.java:649) at org.apache.lucene.search.IndexSearcher.searchAfter(IndexSearcher.java:487) at org.apache.lucene.search.IndexSearcher.search(IndexSearcher.java:501) at ProximitySearch.main(ProximitySearch.java:81)</p>
+    </blockquote>
+    <p>Here is my code:</p>
+    <pre class="lang-java prettyprint-override"><code>    public static void main(String[] args) throws IOException, ParseException {
+
+        Analyzer analyzer = new StandardAnalyzer();
+
+        List&lt;KeyValuePairs&gt; listOfDocs = new LinkedList&lt;&gt;();
+
+        KeyValuePairs file1 = new KeyValuePairs("file1", "to be or not to be that is the question");
+        KeyValuePairs file2 = new KeyValuePairs("file2", "make a long story short");
+        KeyValuePairs file3 = new KeyValuePairs("file3", "see eye to eye");
+
+        listOfDocs.add(file1);
+        listOfDocs.add(file2);
+        listOfDocs.add(file3);
+
+        Path indexPath = Files.createTempDirectory("tempIndex");
+        Directory directory = FSDirectory.open(indexPath);
+        IndexWriterConfig config = new IndexWriterConfig(analyzer);
+        IndexWriter iwriter = new IndexWriter(directory, config);
+        for (KeyValuePairs listOfDoc : listOfDocs) {
+            Document doc = new Document();
+            String text = listOfDoc.getKey();
+            System.out.println(text);
+            String title = listOfDoc.getValue();
+            doc.add(new StringField("content", text, Field.Store.YES));
+            doc.add(new Field("title", title, TextField.TYPE_STORED));
+            iwriter.addDocument(doc);
+        }
+        iwriter.close();
+
+        // Now search the index:
+        DirectoryReader ireader = DirectoryReader.open(directory);
+        IndexSearcher isearcher = new IndexSearcher(ireader);
+
+        // Parse a simple query that searches for "something that u want to search":
+        QueryParser parser = new QueryParser("content", analyzer);
+        Query query = parser.parse("\"to be not\"~1");
+
+        ScoreDoc[] hits = isearcher.search(query, 10).scoreDocs;
+        System.out.println(Arrays.toString(Arrays.stream(hits).toArray()));
+        System.out.println("Search terms found in :: " + hits.length + " files");
+
+        ireader.close();
+        directory.close();
+        IOUtils.rm(indexPath);
+    }
+</code></pre>
+    <p>I dont know what am i doing wrong.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">search</span><span class="tag">lucene</span><span class="tag">query-parser</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Aug 2022 at 15:12</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Short Answer</strong></p>
+     <p>You cannot run proximity queries for data stored in a <code>StringField</code>. You have to use a <code>TextField</code>.</p>
+     <p>You did not show us the definition for <code>KeyValuePairs</code>, so I have made some assumptions below about that.</p>
+     <p>(Small point: I would also suggest that you do not need to use <code>LinkedList</code> - you probably only need <code>ArrayList</code>.)</p>
+     <hr>
+     <p><strong>Longer Answer for More Background</strong></p>
+     <p>Your problem is related to the field types you are using.</p>
+     <p>You have a document containing 2 fields:</p>
+     <ul>
+      <li><code>content</code> - which uses a <code>StringField</code></li>
+      <li><code>title</code> - which uses a <code>TextField</code>.</li>
+     </ul>
+     <p>An example of data in the <code>content</code> field is <code>to be or not to be that is the question</code>.</p>
+     <p>You are attempting to run a proximity query against the <code>content</code> field.</p>
+     <p>Remember from <a href="https://stackoverflow.com/q/73290954/12567365">this question</a> that <code>StringField</code> data "<em>is indexed but not tokenized: the entire String value is indexed as a single token.</em>"</p>
+     <p>A single token, means the token's position is always effectively the <em>only</em> position - and therefore position data is not captured in the index (it is basically meaningless).</p>
+     <p>That is why your query throws that error. That query requires the data to be split up into separate tokens - and each token's position needs to be captured in the index.</p>
+     <p><strong>Therefore you need to use a <code>TextField</code> for that type of data.</strong></p>
+     <p>When you use a <code>TextField</code> for <code>to be or not to be that is the question</code>, then the <code>StandardAnalyzer</code> causes the following data to be captured in the index:</p>
+     <pre><code>field content
+  term be
+    doc 0
+      freq 2
+      pos 1
+      pos 5
+  term is
+    doc 0
+      freq 1
+      pos 7
+  term not
+    doc 0
+      freq 1
+      pos 3
+  term or
+    doc 0
+      freq 1
+      pos 2
+  term question
+    doc 0
+      freq 1
+      pos 9
+  term that
+    doc 0
+      freq 1
+      pos 6
+  term the
+    doc 0
+      freq 1
+      pos 8
+  term to
+    doc 0
+      freq 2
+      pos 0
+      pos 4
+</code></pre>
+     <p>You can see that the index now contains the required position data. The proximity query requires this position data to evaluate whether the words in your query are sufficiently close enough to each other, to match your query.</p>
+     <p>And just for completeness, here is what you get in the index if you use <code>StringField</code> instead of <code>TextField</code>:</p>
+     <pre><code>doc 0
+  field 0
+    name content
+    type string
+    value to be or not to be that is the question
+</code></pre>
+     <p>As you can see - only one token - and no position data.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank You a lot that solved my problem. I have a question tho. How can i change the query to support prefix search? For example with a string "long story short" it would be matched with "long story sho". Should i still check positions? I tried with textfield but it didn't work. My query was "\"long story sho*\"~0"</span> <span> - </span> <span class="display-name">ReallyNicePerson</span> <span> </span> <span class="date">16 Aug 2022 at 10:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>And also how should I modify the query used in the exercise to match files by input strings within a given edit distance and the same order of words (i.e. word permutations are not allowed)?</span> <span> - </span> <span class="display-name">ReallyNicePerson</span> <span> </span> <span class="date">16 Aug 2022 at 10:09</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Your first comment: If you have a document containing <code>long short story</code> and you want to find a match using <code>"long story short"</code> then that requires <code>~2</code> because it takes 2 moves to transform your query word order into the document word order. Step 1: move <code>short</code> from pos n to pos n-1 (<code>short</code> is now in the same position as <code>story</code>); and then step 2: move <code>story</code> from pos n-1 to pos n (where <code>short</code> used to be). You have swapped the positions of <code>short</code> and <code>story</code> in two moves. I don't think you can combine wildcard searches and proximity searches - so you cannot do <code>"long story sho*"~2</code>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Aug 2022 at 13:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Your second comment: I did not quite understand. Maybe you should ask a new question where you can explain with more details. Maybe I already answered that with my "word moves" explanation.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Aug 2022 at 13:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>But i dont think I want to mix proximity search with wildcard. My document is containing "long story short" not "long short story". So I am searching for "long story sho*". So I guess if I am searching without changing positions of words I dont have to check for that with ~. So if I'm right I should just do a wildcard search and store my text in a document as a string file. Am I correct?</span> <span> - </span> <span class="display-name">ReallyNicePerson</span> <span> </span> <span class="date">16 Aug 2022 at 14:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Could You also take a look at my question about token filter? I would really appreciate that.</span> <span> - </span> <span class="display-name">ReallyNicePerson</span> <span> </span> <span class="date">16 Aug 2022 at 14:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am not sure what you mean by "<i>store my text in a document as a string file</i>". You store text in a document as text. That has nothing to do with Lucene. Are you referring to how Lucene <i>indexes</i> that data? By using a <code>TextField</code> vs. a <code>StringField</code>? Either way, the original document is just the original document. It's just a file containing some text.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Aug 2022 at 14:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>For searching, if you don't put your search term inside double-quotes, then you can use wildcards - and Lucene searches for each separate token (using the Standard Analyzer). And you know that searching for <i>separate tokens</i> requires an index which <i>stores</i> those separate tokens: therefore you need to use a <code>TextField</code> for that, during indexing.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Aug 2022 at 14:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am sorry, but I did not really understand your <a href="https://stackoverflow.com/q/73371758/12567365">token filter question</a>. What outputs are you expecting for different inputs? Can you show some examples? Also what have you tried? Can you show some code? Are you actually trying to do <a href="https://stackoverflow.com/q/59723144/12567365">something like this</a>?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Aug 2022 at 15:22</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

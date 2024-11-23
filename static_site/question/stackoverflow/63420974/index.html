@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Gson write to nested objects</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Gson write to nested objects</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Computerize</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Aug 2020 at 23:05</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63420974/gson-write-to-nested-objects">source</a>
+    </div>
+   </div>
+   <div>
+    <p>In Gson how do I write to subfields/nested objects. This is my current code:</p>
+    <pre><code>    Path usersPath = Paths.get("src/users.json");
+    Gson usersGson = new GsonBuilder().setPrettyPrinting().create();
+
+
+    try (BufferedReader usersReader = Files.newBufferedReader(usersPath);
+        BufferedWriter usersWriter = Files.newBufferedWriter(usersPath, StandardOpenOption.WRITE)) {
+        JsonObject usersObject = usersGson.fromJson(usersReader, JsonObject.class);
+        
+        usersObject.addProperty("example", 123);
+        usersGson.toJson(usersObject, usersWriter);
+
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+</code></pre>
+    <p>How would I make the users.json look like this:</p>
+    <pre><code>{
+  "example1": {
+    "example2": {
+      "example3": 4
+    }
+  }
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">gson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Aug 2020 at 01:34</span>
+     </div>
+    </div>
+    <div>
+     <p>Handling the JSON as a string (therfore skipping the file reading and writing, just for this demo), I will show two basic approaches:</p>
+     <p><strong>1) Use Java maps</strong></p>
+     <pre><code>import java.util.Map;
+import java.util.HashMap;
+
+...
+
+Map&lt;String, Integer&gt; ex3 = new HashMap();
+ex3.put("example3", 4);
+Map&lt;String, Map&lt;String, Integer&gt;&gt; ex2 = new HashMap();
+ex2.put("example2", ex3);
+Map&lt;String, Map&lt;String, Map&lt;String, Integer&gt;&gt;&gt; ex1 = new HashMap();
+ex1.put("example1", ex2);
+        
+String json = new Gson().toJson(ex1);
+System.out.println(json);
+</code></pre>
+     <p>In this case we manually build nested maps. The output is:</p>
+     <pre><code>{"example1":{"example2":{"example3":4}}}
+</code></pre>
+     <p><strong>2) Use a POJO (or POJOs)</strong></p>
+     <p>In this case I will use one class containing 2 nested classes - but they could be 3 separate classes if you prefer.</p>
+     <p>The POJO is:</p>
+     <pre><code>import com.google.gson.annotations.SerializedName;
+
+public class NestingPojo {
+
+    @SerializedName("example1")
+    private Example1 example1;
+
+    public static class Example1 {
+
+        @SerializedName("example2")
+        private Example2 example2;
+
+        public static class Example2 {
+
+            @SerializedName("example3")
+            private Integer example3;
+
+            public Integer getExample3() {
+                return example3;
+            }
+
+            public void setExample3(Integer example3) {
+                this.example3 = example3;
+            }
+
+        }
+
+        public Example2 getExample2() {
+            return example2;
+        }
+
+        public void setExample2(Example2 example2) {
+            this.example2 = example2;
+        }
+
+    }
+
+    public Example1 getExample1() {
+        return example1;
+    }
+
+    public void setExample1(Example1 example1) {
+        this.example1 = example1;
+    }
+
+}
+</code></pre>
+     <p>Strictly speaking, the annotations are not needed in this case, because the field names used by the POJO match the required JSON names.</p>
+     <p>We can generate the JSON as follows:</p>
+     <pre><code>NestingPojo nestingPojo = new NestingPojo();
+NestingPojo.Example1 example1 = new NestingPojo.Example1();
+nestingPojo.setExample1(example1);
+NestingPojo.Example1.Example2 example2 = new NestingPojo.Example1.Example2();
+example2.setExample3(4);
+example1.setExample2(example2);
+                
+String s = new Gson().toJson(nestingPojo);
+System.out.println(s);
+</code></pre>
+     <p>This generates the same JSON output as the first example.</p>
+     <p><em>In both cases, the common thread is building Java objects which correspond to the hierarchical structure of the expected JSON output.</em></p>
+     <p>The first approach can become unwieldy fairly quickly, for more complex examples. The second approach has more flexibility, in my opinion, as you are working with tailored classes.</p>
+     <p>Neither approach uses <code>JsonObject</code>. It's just a preference on my part to use Java objects for this type of task.</p>
+     <p><strong>Update</strong></p>
+     <p>In case <code>JsonObject</code> is required or preferred, here is an example:</p>
+     <pre><code>JsonObject json3 = new JsonObject();
+json3.addProperty("example3", 4);
+JsonObject json2 = new JsonObject();
+json2.add("example2", json3);
+JsonObject json1 = new JsonObject();
+json1.add("example1", json2);
+System.out.println(new Gson().toJson(json1));
+</code></pre>
+     <p>This builds the nested elements starting from the innermost object.</p>
+     <p><strong>Update 2</strong></p>
+     <p>Writing the data to a file can be done as follows - in this example, I am using the <code>ex1</code> object from above (the nested maps):</p>
+     <pre><code>Gson gson = new GsonBuilder().setPrettyPrinting().create();
+try ( FileWriter fw = new FileWriter("c:/tmp/ex1.json")) {
+    gson.toJson(ex1, fw);
+} catch (IOException ex) {
+    // handle the exception here
+}
+</code></pre>
+     <p>In this case, I used <code>GsonBuilder</code> so I can specify the "pretty printing" option (which you don't need, but is helpful).</p>
+     <p>This creates a file containing the following formatted JSON:</p>
+     <pre><code>{
+  "example1": {
+    "example2": {
+      "example3": 4
+    }
+  }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Using the first method how would I save it to a file?</span> <span> - </span> <span class="display-name">Computerize</span> <span> </span> <span class="date">15 Aug 2020 at 14:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Example added to the end of the answer.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Aug 2020 at 14:38</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

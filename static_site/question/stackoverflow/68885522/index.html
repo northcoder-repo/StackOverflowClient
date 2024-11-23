@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Column order doesn't change in DataTables plugin</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Column order doesn't change in DataTables plugin</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>clovelm</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>22 Aug 2021 at 22:07</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68885522/column-order-doesnt-change-in-datatables-plugin">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I wanted to reverse column on export data from DataTables. I look for method to do it and finally ended up with this way:</p>
+    <pre><code>$(document).ready(function(){
+            var arrayCol = new Array();
+            var table = $('#example').DataTable({
+                dom: 'Bfrtip',
+                initComplete:function (  ) {
+                    var len = this.api().columns().count();
+                    var array =  Array.from(Array(len).keys())
+                    arrayCol = array.reverse();
+                  },
+            buttons: [
+                {
+                    extend: 'excelHtml5',
+                     exportOptions: {
+                            columns: ':visible:not(.not-export-col)',
+                             orthogonal: 'export'
+                             
+                        }
+                },
+               {
+                   extend: 'pdfHtml5',
+                   orientation: 'landscape',
+                   pageSize: 'A4',
+                    exportOptions: {
+                
+                    columns: arrayCol, // this doesn't work
+                     //columns:[5,4,3,2,1,0], //this work
+                        orthogonal: 'export'
+                    
+                   }
+                    
+                    
+               }
+    ]
+                });
+        });
+</code></pre>
+    <p>The <code>var arrayCol</code> when debugging has values but when exporting to PDF the PDF doesn't have any columns.</p>
+    <p>Maybe it doesn't assign to columns or something like that.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Aug 2021 at 23:52</span>
+     </div>
+    </div>
+    <div>
+     <p>I think the simplest way is to reverse each individual row array, as you are exporting the data. You can use <code>exportOptions.rows</code> to do this.</p>
+     <p>You also need to reverse the headers, which can be done using <code>exportOptions.format.heeader</code>. In this case, you only get access to one header field at a time, so there is a bit more work needed to build a reversed array of header values and then access each index location in that array:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).ready(function() {
+
+  var table = $('#example').DataTable( {
+    dom: 'Bfrtip',
+    buttons: [
+      { 
+        extend: 'pdf',
+        text: 'To PDF',
+        exportOptions: {
+          rows: function ( idx, data, node ) {
+            return data.reverse();
+          },
+          format: {
+            header: function ( data, idx, node ) {
+              var headers = $('#example').DataTable().table().header();
+              var reversedHeaders = headers.innerText.split('\t').reverse();
+              return reversedHeaders[idx];
+            }
+          }
+        }
+      }
+    ]
+  } );
+
+} );
+</code></pre>
+     <p>References:</p>
+     <ul>
+      <li><a href="https://datatables.net/reference/api/buttons.exportData()" rel="nofollow noreferrer">export options</a></li>
+      <li><a href="https://datatables.net/reference/type/row-selector#Function" rel="nofollow noreferrer">row selectors - function</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>there is a problem in export excel because operation columns i try to remove it using columns: ':visible:not(.not-export-col)', but it's not work well</span> <span> - </span> <span class="display-name">clovelm</span> <span> </span> <span class="date">23 Aug 2021 at 15:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sorry - I am not sure what that means. Can you clarify? Or maybe create a new question where you can explain the problem in more detail, with an example?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">23 Aug 2021 at 15:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>i will make new question</span> <span> - </span> <span class="display-name">clovelm</span> <span> </span> <span class="date">23 Aug 2021 at 16:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>i add question here: <a href="https://stackoverflow.com/questions/68896587/datatable-remove-column-on-export-to-pdf-and-excel" title="datatable remove column on export to pdf and excel">stackoverflow.com/questions/68896587/…</a></span> <span> - </span> <span class="display-name">clovelm</span> <span> </span> <span class="date">23 Aug 2021 at 17:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

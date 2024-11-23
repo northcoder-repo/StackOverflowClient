@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jQuery datatable doesn't read property 'row'; how can I select a row while rendering a checkbox?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jQuery datatable doesn't read property 'row'; how can I select a row while rendering a checkbox?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>alzalzalz</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 May 2023 at 15:03</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/76333764/jquery-datatable-doesnt-read-property-row-how-can-i-select-a-row-while-rende">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Select row on datatable when rendering does not work. When rendering checkbox is checked but datatable throws error that it can 'Cannot read properties of undefined (reading 'row')'.</p>
+    <p>Is it even possible?</p>
+    <p>Code</p>
+    <pre><code>function renderTable(data) {
+    if ($.fn.dataTable.isDataTable('#My_Datatable_Id')) {
+        $('#My_Datatable_Id').DataTable().destroy();
+    }
+
+    $('#My_Datatable_Id tfoot th').each(function () {
+        $(this).html('');
+    });
+
+    var tableMyPrivileges = $('#My_Datatable_Id').DataTable({
+        data: data,
+        responsive: true,
+        pageLength: 10,
+        order: [],
+        columns: [
+            { data: "name" },
+            {
+                data: "is_active", render: function (data, type, full, meta) {
+                    if (data == true) {
+                        activeGroups.push(data);
+                        return '&lt;center&gt;&lt;input type="checkbox" checked&gt;&lt;/center&gt;'
+                    } else {
+                        return '&lt;center&gt;&lt;input type="checkbox"&gt;&lt;/center&gt;';
+                    }
+                }
+            },
+        ],
+        columnDefs: [{
+            targets: 2,
+            orderable: false,
+        },
+        {
+            targets: [0, 1],
+            orderable: false
+        }
+        ],
+        select: {
+            style: 'multi',
+            selector: 'td:last-child input[type="checkbox"]'
+        },
+        rowGroup: {
+            dataSrc: 'group'
+        },
+        rowCallback: function (row, data, dataIndex) {
+            var checkbox = $(row).find('input[type="checkbox"]');
+            if (checkbox.is(':checked')) {
+                //$(row).select();
+                //$(row).toggleClass('selected');      //SELECTS ROW BUT IS NOT PASSED TO DATATABLE
+                tableMyPrivileges.row(row).select();   //THROWS ERROR
+            }
+        },
+    //rest of funtion
+</code></pre>
+    <p>tried rowcallback and created row, rendering in different places... none work</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">html</span><span class="tag">jquery</span><span class="tag">datatable</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Can you setup a JSFiddle?</span> <span> - </span> <span class="display-name">iamdlm</span> <span> </span> <span class="date">25 May 2023 at 15:46</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 May 2023 at 15:58</span>
+     </div>
+    </div>
+    <div>
+     <p>To handle the initial display of your table, you can use a modified version of your <code>rowCallback</code> code to select a row based on the state of its checkbox:</p>
+     <pre class="lang-js prettyprint-override"><code>rowCallback: function (row, data, dataIndex) {
+  var checkbox = $(row).find('input[type="checkbox"]');
+  var api = $( '#My_Datatable_Id' ).DataTable();
+  if (checkbox.is(':checked')) {
+      api.row( row ).select();
+  } else {
+      api.row( row ).deselect();
+  }
+}
+</code></pre>
+     <p>You can access the <a href="https://datatables.net/manual/api" rel="nofollow noreferrer">DataTables API</a> inside the row callback using:</p>
+     <pre><code>var api = $( '#My_Datatable_Id' ).DataTable();
+</code></pre>
+     <p>You can then use this <code>api</code> object to select - and also deselect - the relevant rows.</p>
+     <p>This uses the fact that you can pass a row node to the <a href="https://datatables.net/reference/api/row()" rel="nofollow noreferrer"><code>row()</code></a> API call. See <a href="https://datatables.net/reference/type/row-selector" rel="nofollow noreferrer">row-selector</a> for a list of all the ways you can call <code>row()</code>.</p>
+     <hr>
+     <p>Here is a demo:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>var data = [{
+    "is_active": true,
+    "name": "Tiger Nixon",
+    "position": "System Architect",
+    "salary": "$320,800",
+    "start_date": "2011/04/25",
+    "office": "Edinburgh",
+    "extn": "5421"
+  },
+  {
+    "is_active": false,
+    "name": "Donna Snider",
+    "position": "Customer Support",
+    "salary": "$112,000",
+    "start_date": "2011/01/25",
+    "office": "New York",
+    "extn": "4226"
+  },
+  {
+    "is_active": true,
+    "name": "Cedric Kelly",
+    "position": "Senior Javascript Developer",
+    "salary": "$433,060",
+    "start_date": "2012/03/29",
+    "office": "Edinburgh",
+    "extn": "6224"
+  },
+  {
+    "is_active": false,
+    "name": "Airi Satou",
+    "position": "Accountant",
+    "salary": "$162,700",
+    "start_date": "2008/11/28",
+    "office": "Tokyo",
+    "extn": "5407"
+  },
+  {
+    "is_active": false,
+    "name": "Brielle Williamson",
+    "position": "Integration Specialist",
+    "salary": "$372,000",
+    "start_date": "2012/12/02",
+    "office": "New York",
+    "extn": "4804"
+  }
+];
+
+$(document).ready(function() {
+
+  var tableMyPrivileges = $('#My_Datatable_Id').DataTable({
+    data: data,
+    responsive: true,
+    pageLength: 10,
+    order: [],
+    columns: [{
+        data: "is_active",
+        render: function(data, type, full, meta) {
+          if (data == true) {
+            return '&lt;center&gt;&lt;input type="checkbox" checked&gt;&lt;/center&gt;'
+          } else {
+            return '&lt;center&gt;&lt;input type="checkbox"&gt;&lt;/center&gt;';
+          }
+        }
+      },
+      {
+        data: "name"
+      },
+      {
+        data: "position"
+      },
+    ],
+    columnDefs: [{
+        targets: 2,
+        orderable: true,
+      },
+      {
+        targets: [0, 1],
+        orderable: false
+      }
+    ],
+    select: {
+      style: 'multi',
+      selector: 'td:last-child input[type="checkbox"]'
+    },
+    rowCallback: function(row, data, dataIndex) {
+      var checkbox = $(row).find('input[type="checkbox"]');
+      var api = $('#My_Datatable_Id').DataTable();
+      if (checkbox.is(':checked')) {
+        api.row(row).select();
+      } else {
+        api.row(row).deselect();
+      }
+    }
+  });
+
+});</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/select/1.6.2/css/select.dataTables.min.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/select/1.6.2/js/dataTables.select.min.js"&gt;&lt;/script&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+  &lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="My_Datatable_Id" class="display dataTable cell-border" style="width:100%"&gt;
+      &lt;thead&gt;
+        &lt;tr&gt;
+          &lt;th&gt;Selected&lt;/th&gt;
+          &lt;th&gt;Name&lt;/th&gt;
+          &lt;th&gt;Position&lt;/th&gt;
+        &lt;/tr&gt;
+      &lt;/thead&gt;
+    &lt;/table&gt;
+
+  &lt;/div&gt;
+
+&lt;/body&gt;
+
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>The above demo does not use any <code>rowGroup</code> functionality, since that is not relevant to your question.</p>
+     <p>I also enabled sorting to show that the selected rows remain selected when you perform sorting.</p>
+     <hr>
+     <p><strong>To Do</strong></p>
+     <p>This demo does not contain any logic to select (or deselect) a row when the user clicks on a checkbox - but you can create a JavaScript event handler for your checkboxes and apply a similar approach to the one I use here.</p>
+     <p>There are also many questions already on Stack Overflow covering how to select a DataTable row when its checkbox is checked/unchecked.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

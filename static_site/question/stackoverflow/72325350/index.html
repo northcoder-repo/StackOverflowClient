@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How do I access triple nested values in JSON using Java?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How do I access triple nested values in JSON using Java?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Ashley Xu</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 May 2022 at 22:37</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/72325350/how-do-i-access-triple-nested-values-in-json-using-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to access the "text" values in the below JSON and create an ArrayList with those values. How would I approach that? I am trying to use com.fasterxml.jackson.</p>
+    <pre><code>{
+    "searchApiFormatVersion": "1.0",
+    "searchName": "SalaryAccessRole",
+    "description": "",
+    "totalRowCount": "2",
+    "returnedRowCount": "2",
+    "startingReturnedRowNumber": "1",
+    "basetype": "Person",
+    "columnCount": "1",
+    "columnHeaders": [
+        {
+            "text": "EMPLID",
+            "dataType": "string"
+        }
+    ],
+    "resultSet": {
+        "rows": [
+            {
+                "values": [
+                    {
+                        "text": "2270127",
+                        "dataType": "string",
+                        "columnHeader": "EMPLID"
+                    }
+                ]
+            },
+            {
+                "values": [
+                    {
+                        "text": "1050518",
+                        "dataType": "string",
+                        "columnHeader": "EMPLID"
+                    }
+                ]
+            }
+        ]
+    }
+}
+</code></pre>
+    <p>I've used this to success for the searchName but am trying to get the text under resultSet-&gt;rows-&gt;values-&gt;text.</p>
+    <pre><code>JsonNode salaryExcludePersonNode = new ObjectMapper().readTree(sourceJson);
+String person = salaryExcludePersonNode.get("searchName").textValue();//this works
+String person2 = salaryExcludePersonNode.get("resultSet")
+                .get("rows")
+                .get("values")
+                .get("text")
+                .textValue());//this says that com.fasterxml.jackson.databind.JsonNode.get(String)  is null
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">jackson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>"rows" is an array, so you probably want <code>.get("resultSet").get("rows").get(0).get...</code>. Same for "values".</span> <span> - </span> <span class="display-name">SiKing</span> <span> </span> <span class="date">20 May 2022 at 22:42</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>String person2 = salaryExcludePersonNode.get("resultSet") .get("rows") .get("values") Here, get("rows") returns an array, need <code>get("rows").get(0).get("values")....</code></span> <span> - </span> <span class="display-name">SeanH</span> <span> </span> <span class="date">20 May 2022 at 22:53</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 May 2022 at 01:13</span>
+     </div>
+    </div>
+    <div>
+     <p>I know you tagged this question as a Jackson question, but I think JSONPath may be a good fit here.</p>
+     <p>The JSONPath library is available as a Maven dependency:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependency&gt;
+    &lt;groupId&gt;com.jayway.jsonpath&lt;/groupId&gt;
+    &lt;artifactId&gt;json-path&lt;/artifactId&gt;
+    &lt;version&gt;2.7.0&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p>For the JSON in your question, all of the "text" values can be selected using a single JSONPath selector:</p>
+     <pre><code>$.resultSet.rows..text
+</code></pre>
+     <p><code>$</code> - start at the root of the JSON.</p>
+     <p><code>.resultSet.rows</code> - navigate to the <code>rows</code> array.</p>
+     <p><code>..text</code> - recursively find all <code>text</code> entries.</p>
+     <p>The results are automatically added to a Java <code>List</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>String jsonAsString = "{...}";
+List&lt;String&gt; textList = JsonPath.read(jsonAsString, "$.resultSet.rows..text");
+</code></pre>
+     <p>You can also read from a <code>java.io.File</code> directly:</p>
+     <pre class="lang-java prettyprint-override"><code>File jsonFile = "/your/path/to/file.json";
+List&lt;String&gt; textList = JsonPath.read(jsonFile, "$.resultSet.rows..text");
+</code></pre>
+     <p>The list will be populated with 2 entries:</p>
+     <pre><code>2270127
+1050518
+</code></pre>
+     <hr>
+     <p>References:</p>
+     <p><a href="https://github.com/json-path/JsonPath#readme" rel="nofollow noreferrer">JSONPath syntax overview</a></p>
+     <p><a href="https://javadoc.io/static/com.jayway.jsonpath/json-path/2.7.0/index.html?com/jayway/jsonpath/JsonPath.html" rel="nofollow noreferrer">JavaDocs</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

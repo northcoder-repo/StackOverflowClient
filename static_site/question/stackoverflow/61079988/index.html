@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java generic multiple bounds error:cannot be inherited with different type arguments</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java generic multiple bounds error:cannot be inherited with different type arguments</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>卓明钊</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>7 Apr 2020 at 12:25</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61079988/java-generic-multiple-bounds-errorcannot-be-inherited-with-different-type-argum">source</a>
+    </div>
+   </div>
+   <div>
+    <p><strong>When I wrote the code, I thought about using generic multiple bounds to achieve a problem,but when I finished writing, it kept reporting errors：cannot be inherited with different type arguments</strong></p>
+    <p>I have the following classes:</p>
+    <pre><code>public class Animal implements Comparable&lt;Animal&gt; {}
+public class Dog extends Animal   {}
+</code></pre>
+    <p>I also defined a static method：</p>
+    <pre><code>public static &lt;T extends Animal &amp; Comparable&lt;? extends T&gt;&gt; T getMin(List&lt;T&gt; value) { return null;}
+</code></pre>
+    <p>My idea is to define a generic type, this generic type must be a subclass of Animal, and this generic type must implement the Comparable interface, and the actual parameters of the interface are Annimal and its subclass class.</p>
+    <p>Later I made another attempt,defined another static method:</p>
+    <pre><code>public static &lt;T extends Animal &amp; Comparable&lt;? super T&gt;&gt; T getMin(List&lt;T&gt; value) { return null;}
+</code></pre>
+    <p>My idea is to define a generic type, this generic type must be a subclass of Animal, and this generic type must implement the Comparable interface, and the actual parameters of the interface are Annimal and its parent class.</p>
+    <p>It is frustrating that both methods report errors：<strong>java.lang.Comparable' cannot be inherited with different type arguments: 'Animal' and 'capture</strong></p>
+    <p>Finally, I found that the Animal and dog classes need to be modified as follows,just like number and its subclasses:</p>
+    <pre><code>public class Animal  {}
+public class Dog extends Animal implements Comparable&lt;Dog&gt;  {}
+</code></pre>
+    <p>But I do n’t understand why it needs to be modified like this, and why the error was reported at the beginning.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sweeper</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Apr 2020 at 12:44</span>
+     </div>
+    </div>
+    <div>
+     <p>Java's generics are only known by the Java compiler, but not the JVM. This is known as <a href="https://docs.oracle.com/javase/tutorial/java/generics/genTypes.html" rel="nofollow noreferrer">type erasure</a>. <code>Comparable&lt;Animal&gt;</code> and <code>Comparable&lt;Dog&gt;</code> are the same type, as far as the JVM is concerned. The JVM just thinks of both of them as <code>Comparable</code>.</p>
+     <p>This is invalid:</p>
+     <pre><code>&lt;T extends Animal &amp; Comparable&lt;? extends T&gt;&gt;
+</code></pre>
+     <p>Because you are saying that <code>T</code> should implement two interfaces at the same time: <code>Comparable&lt;Animal&gt;</code> (since <code>Animal</code> implements <code>Comparable&lt;Animal&gt;</code>) and <code>Comparable&lt;U&gt;</code> where <code>U</code> is a subclass of <code>T</code>. <code>T</code> can't implement these two interfaces at the same time, because although they look different to the compiler, the runtime thinks they are the same <code>Comparable</code>.</p>
+     <p>This is the same reason why you can't have <code>Animal</code> implement <code>Comparable&lt;Animal&gt;</code> <em>and</em> <code>Dog</code> implement <code>Comparable&lt;Dog&gt;</code>. <code>Dog</code> would be implementing two interfaces that look the same to the runtime!</p>
+     <p>You could say:</p>
+     <pre><code>&lt;T extends Animal &amp; Comparable&lt;Animal&gt;&gt;
+</code></pre>
+     <p>but that's kind of redundant...</p>
+     <p>By making only <code>Dog</code> implement <code>Comparable&lt;Dog&gt;</code>, <code>T extends Animal</code> no longer implies <code>T implements Comparable&lt;Animal&gt;</code>, so you are no longer saying that <code>T</code> should implement 2 different interfaces.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span></span> <span> - </span> <span class="display-name">卓明钊</span> <span> </span> <span class="date">8 Apr 2020 at 03:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span></span> <span> - </span> <span class="display-name">Sweeper</span> <span> </span> <span class="date">8 Apr 2020 at 07:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

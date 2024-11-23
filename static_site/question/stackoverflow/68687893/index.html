@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Datatable refresh after change field and no ajax</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Datatable refresh after change field and no ajax</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Eloa</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>6 Aug 2021 at 22:03</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68687893/datatable-refresh-after-change-field-and-no-ajax">source</a>
+    </div>
+   </div>
+   <div>
+    <p>What I'm trying to do is sort a datatable column which has a checkbox. The question is: it is not working because I'm changing the column value. As it is not ajax generated and I cant use reload() method, how redraw it?</p>
+    <p><a href="https://jsfiddle.net/35znhucL/1/" rel="nofollow noreferrer">jsFiddle code</a></p>
+    <pre><code>&lt;table id="tableEditable"&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Column 1&lt;/td&gt;
+      &lt;td&gt;Column 2&lt;/td&gt;
+      &lt;td&gt;Column 3&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Info 1&lt;/td&gt;
+      &lt;td&gt;Info 2&lt;/td&gt;
+      &lt;td&gt;&lt;span id="spanChk1"&gt;0&lt;/span&gt;&lt;input type="checkbox" id="chk1" onclick="changeValue('spanChk1', this.checked)"&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Info 3&lt;/td&gt;
+      &lt;td&gt;Info 4&lt;/td&gt;
+      &lt;td&gt;&lt;span id="spanChk2"&gt;0&lt;/span&gt;&lt;input type="checkbox" id="chk2" onclick="changeValue('spanChk2', this.checked)"&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;script&gt;
+$(document).ready(function () {
+  $('#tableEditable').DataTable({
+    "columnDefs": [
+      {
+        "targets": 2,
+        "orderDataType": "dom-checkbox"
+      }
+    ],
+    "paging": false,
+    "order": [[1, "asc"]]
+  });
+});
+
+function changeValue(spanId, checked)
+{
+    if (!checked)
+    $("#" + spanId).text('0');
+  else
+    $("#" + spanId).text('1');
+}
+&lt;/script&gt;
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatable</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Aug 2021 at 16:51</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use the following approach to sort a column containing checkboxes.</p>
+     <p>The behavior will be as follows:</p>
+     <ol>
+      <li>
+       <p>When the checkbox column is not sorted, clicking on a checkbox will simply check and uncheck it.</p></li>
+      <li>
+       <p>When the checkbox column is sorted, all checked rows will be sorted to the top of the table (when "ascending" is applied), or to the bottom (for "descending").</p></li>
+      <li>
+       <p>When a checkbox is clicked while that column has sorting applied, that row will immediately move, if necessary, to ensure the sort order is preserved.</p></li>
+     </ol>
+     <p>Here is the code:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>$(document).ready(function() {
+
+  $.fn.dataTable.ext.type.order['check-sort-pre'] = function ( data ) {
+    return data.includes('checked=""') ? 0 : 1;
+  };
+
+  var table = $('#tableEditable').DataTable( {
+    columnDefs: [ {
+      type: "check-sort",
+      targets: 2
+    } ]
+  } );
+
+  $( "#tableEditable" ).on( "click", "input:checkbox", function() {
+    var cell = table.cell( $(this).parent() );
+    var checkHtml = cell.data();
+    if (checkHtml.includes('checked=""')) {
+        checkHtml = checkHtml.replace('checked=""', '');
+    } else {
+      index = checkHtml.length -1;
+      checkHtml = checkHtml.slice(0, index) + ' checked=""' + checkHtml.slice(index);
+    }
+    cell.data(checkHtml);
+    table.draw( true );
+  });
+
+} );</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+&lt;table id="tableEditable"&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Column 1&lt;/td&gt;
+      &lt;td&gt;Column 2&lt;/td&gt;
+      &lt;td&gt;Column 3&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Info 1&lt;/td&gt;
+      &lt;td&gt;Info 2&lt;/td&gt;
+      &lt;td&gt;&lt;input type="checkbox" id="chk1"&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Info 3&lt;/td&gt;
+      &lt;td&gt;Info 4&lt;/td&gt;
+      &lt;td&gt;&lt;input type="checkbox" id="chk2"&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Info 5&lt;/td&gt;
+      &lt;td&gt;Info 6&lt;/td&gt;
+      &lt;td&gt;&lt;input type="checkbox" id="chk3"&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Info 7&lt;/td&gt;
+      &lt;td&gt;Info 8&lt;/td&gt;
+      &lt;td&gt;&lt;input type="checkbox" id="chk4" checked&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Info 9&lt;/td&gt;
+      &lt;td&gt;Info 10&lt;/td&gt;
+      &lt;td&gt;&lt;input type="checkbox" id="chk5"&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>There are two different techniques used here:</p>
+     <ol>
+      <li>
+       <p>A custom data type is defined (<code>type: "check-sort"</code>) and then that type is used by the <code>$.fn.dataTable.ext.type.order['check-sort-pre']</code> function. The function detects if the checkbox is checked or not. It returns <code>0</code> if the checkbox is checked, and <code>1</code> otherwise. Since <code>0</code> is lower than <code>1</code>, then checked rows are sorted before unchecked rows (assuming an ascending sort).</p></li>
+      <li>
+       <p>A delegated event handler is declared, to capture checkbox clicks. If the checkbox is already checked, then the HTML for the checkbox is adjusted to remove the <code>checked</code> attribute (otherwise the attribute is added). The updated HTML is then used to update the DataTable cell - cell.data(checkHtml) - and finally the table is re-drawn: <code>table.draw( true )</code>.</p></li>
+     </ol>
+     <p>The only word of caution here: It may be disconcerting for your users, when they see rows move (or maybe even apparently disappear, if they are sorted to a different page) when they are checked/unchecked, due to the applied sort order.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>thank ur attention but it didnt work. I tried this way and worked: <a href="https://jsfiddle.net/ex84vnf3/1/" rel="nofollow noreferrer">jsfiddle.net/ex84vnf3/1</a></span> <span> - </span> <span class="display-name">Eloa</span> <span> </span> <span class="date">9 Aug 2021 at 12:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Your approach only works if you force every row to be on one page by using <code>"paging": false</code>. My approach does not have that limitation.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">9 Aug 2021 at 14:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>but I tried ur suggestion and it didnt work :C</span> <span> - </span> <span class="display-name">Eloa</span> <span> </span> <span class="date">11 Aug 2021 at 14:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If you click on the blue "Run Code Snippet" button above, can you describe what isn't working? What behavior are you seeing, which is not what you expect?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">11 Aug 2021 at 15:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>sorry my delay. idk why ur example didnt work on jsfiddle but "run code snippet" yes. btw as I m not using paging, its solved. ty again</span> <span> - </span> <span class="display-name">Eloa</span> <span> </span> <span class="date">18 Aug 2021 at 22:57</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

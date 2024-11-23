@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Class.forName still seems necessary</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Class.forName still seems necessary</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>9</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user93353</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 Jun 2016 at 08:28</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/37876684/class-forname-still-seems-necessary">source</a>
+    </div>
+   </div>
+   <div>
+    <p>From the <a href="http://docs.oracle.com/javase/tutorial/jdbc/basics/connecting.html#drivermanager" rel="noreferrer">Java documentation</a></p>
+    <blockquote>
+     <p>In previous versions of JDBC, to obtain a connection, you first had to initialize your JDBC driver by calling the method Class.forName.</p>
+     <p>Any JDBC 4.0 drivers that are found in your class path are automatically loaded. (However, you must manually load any drivers prior to JDBC 4.0 with the method Class.forName.)</p>
+    </blockquote>
+    <p>I have a jersey Webservice which connects to SQL Server Express 2016. It has sqljdbc42.jar which is 4.2 driver, in the CLASSPATH</p>
+    <p>However, if I omit the <code>Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver")</code> call, my <code>DriverManager.getConnection</code> throws a <code>SQLException</code>(No suitable driver found for jdbc:sqlserver://localhost:1433; ....")</p>
+    <p>The <code>getConnection</code> starts succeeding once I add the <code>Class.forName</code> call.</p>
+    <p>I am on Java 8.</p>
+    <p>What am I missing?</p>
+    <p>UPDATE: I just tried a command line program and it works without the <code>forName</code>. However, from my Eclipse IDE where I am running my REST service as a Tomcat 8.0 Server on localhost, it doesn't work.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jdbc</span><span class="tag">jar</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span><i>"...sqljdbc42.jar which is 4.0 driver"</i> <a href="https://msdn.microsoft.com/en-us/library/ms378422(v=sql.110).aspx" rel="nofollow noreferrer">Proof here</a>, for any fellow skeptics. :-) Well, okay, it's not a 4.0 driver, it's a 4.2 driver, but...</span> <span> - </span> <span class="display-name">T.J. Crowder</span> <span> </span> <span class="date">17 Jun 2016 at 08:34</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@T.J.Crowder updated :-)</span> <span> - </span> <span class="display-name">user93353</span> <span> </span> <span class="date">17 Jun 2016 at 08:38</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>If so It seems that Microsoft doesn't like to follow standards</span> <span> - </span> <span class="display-name">Nicolas Filotto</span> <span> </span> <span class="date">17 Jun 2016 at 08:41</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>Check if you have a file META-INF/services/java.sql.Driver in sqljdbc42.jar, its content should be the FQN of the driver which is com.microsoft.sqlserver.jdbc.SQLServerDriver in this case</span> <span> - </span> <span class="display-name">Nicolas Filotto</span> <span> </span> <span class="date">17 Jun 2016 at 08:44</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@NicolasFilotto - there is a META-INF/services/java.sql.Driver in the jar file</span> <span> - </span> <span class="display-name">user93353</span> <span> </span> <span class="date">17 Jun 2016 at 08:46</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I can't replicate your problem. I downloaded that jar from Microsoft and coded up a really simple class that just does the <code>DriverManager.getConnection</code>. If the jar is in my path, it works without <code>Class.forName</code>. If the jar isn't in my path, it doesn't work (I did that to ensure that I'd get an error). So...observation error? You changed the path or something? If not, sounds like possible a Jersey problem rather than Microsoft.</span> <span> - </span> <span class="display-name">T.J. Crowder</span> <span> </span> <span class="date">17 Jun 2016 at 08:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>that's weird because the drivers are automatically initialized thanks to SPI. It seems that the class DriverManager is initialized too soon</span> <span> - </span> <span class="display-name">Nicolas Filotto</span> <span> </span> <span class="date">17 Jun 2016 at 08:50</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@T.J.Crowder - I just tried a command line program and it works without the <code>forName</code>. However, from my Eclipse IDE where I am running my REST service as a Tomcat 8.0 Server on localhost, it doesn't work. I'll update my question with this info</span> <span> - </span> <span class="display-name">user93353</span> <span> </span> <span class="date">17 Jun 2016 at 08:51</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@T.J.Crowder - yes.</span> <span> - </span> <span class="display-name">user93353</span> <span> </span> <span class="date">17 Jun 2016 at 08:53</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>where do you put your driver? in tomcat/lib?</span> <span> - </span> <span class="display-name">Nicolas Filotto</span> <span> </span> <span class="date">17 Jun 2016 at 08:53</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>you need to make sure that your driver is available in the context CL when the class DriverManager is initialized</span> <span> - </span> <span class="display-name">Nicolas Filotto</span> <span> </span> <span class="date">17 Jun 2016 at 08:55</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>You need to put your driver in tomcat</span> <span> - </span> <span class="display-name">ThiepLV</span> <span> </span> <span class="date">17 Jun 2016 at 08:55</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Try to put it in tomcat/lib if not done yet, it has to be available in the highest possible CL</span> <span> - </span> <span class="display-name">Nicolas Filotto</span> <span> </span> <span class="date">17 Jun 2016 at 08:57</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@NicolasFilotto I have it in my Eclipse Project WebApp libraries along with other libraries in my project - which I haven't copied into Tomcat either. I have not copied it into Tomcat\lib. However, if the problem is because Tomcat cannot find it - how does it find it once I add the forName call? I am not running tomcat independently. Eclipse is running it through Tomcat</span> <span> - </span> <span class="display-name">user93353</span> <span> </span> <span class="date">17 Jun 2016 at 09:13</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>It is a CL issues that is why, just try to put it in tomcat/lib and tell me if it works please</span> <span> - </span> <span class="display-name">Nicolas Filotto</span> <span> </span> <span class="date">17 Jun 2016 at 09:16</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nicolas Filotto</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jun 2016 at 09:22</span>
+     </div>
+    </div>
+    <div>
+     <p>The drivers are automatically initialized when the class <em>DriverManager</em> is itself initialized thanks to <em>SPI</em> (Service Provider Interface). Which means that internally it will try to find any file <code>META-INF/services/java.sql.Driver</code> available in the context class loader and for each file found, it will create an instance of the class that is defined in the file which in this case is actually the FQN of the <em>JDBC</em> driver, this is how <em>JDBC</em> drivers are automatically initialized starting from <em>JDBC 4.0</em>.</p>
+     <p>But this can only work, if your driver is available from the context class loader while initializing the class <em>DriverManager</em>. A good way to ensure that is to make your driver available from a <em>Class Loader</em> high enough in the hierarchy. In your case you should put your driver in <code>tomcat/lib</code>. Indeed, this way your driver will be available from the <em>Common CL</em> which should be high enough. More details about the CL hierarchy in Tomcat <a href="https://tomcat.apache.org/tomcat-8.0-doc/class-loader-howto.html" rel="nofollow noreferrer">here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

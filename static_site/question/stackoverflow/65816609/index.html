@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>TextArea line break causing ERROR: value too long for type character varying(1000)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>TextArea line break causing ERROR: value too long for type character varying(1000)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>jkfe</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Jan 2021 at 19:48</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65816609/textarea-line-break-causing-error-value-too-long-for-type-character-varying100">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have an html page with a textarea tag.</p>
+    <p>The textarea (and respective postgres db field) accepts 1000 characters.</p>
+    <p>If I create a text that is a single paragraph with 1000 characters (including spaces between words) and click save, it saves correctly to the db.</p>
+    <p>But if I replace one character by a line break, I get the following error when clicking save:</p>
+    <p><code>org.postgresql.util.PSQLException: ERROR: value too long for type character varying(1000)</code></p>
+    <p>The error happens before entering the controller method.</p>
+    <p>Why does that happen?</p>
+    <p>The problem is not with accepting line breaks.</p>
+    <p>That's because if the total number of characters is far less than limit (let's say 900 total), I can insert several line breaks and it will save just fine.</p>
+    <p>So can't understand why the error happens with accepting line breaks just when getting close to the characters limit.</p>
+    <p>Here is the code.</p>
+    <pre><code>&lt;textarea type="text" name="description" maxlength="1000" th:text="${descBind.description}" cols="55" rows="16"&gt;&lt;/textarea&gt;
+&lt;/br&gt; &lt;input type="submit" name="btnSave" value="Save" /&gt;
+</code></pre>
+    <p>Model</p>
+    <pre><code>@Entity
+public class Desc implements Serializable {
+
+    private static final long serialVersionUID = 1L;    
+
+    @Column(length = 1000)
+    private String description;
+    
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }   
+}
+</code></pre>
+    <p>Controller</p>
+    <pre><code>@RequestMapping(value = "descriptionpage", params = "btnSave", method = RequestMethod.POST)
+public ModelAndView save(@ModelAttribute Desc desc, RedirectAttributes attributes) {
+
+    //code to update the db
+
+    ModelAndView modelAndView = new ModelAndView("descriptionpage.html");
+    modelAndView.addObject("descBind", desc);
+        
+    return modelAndView;
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">html</span><span class="tag">spring</span><span class="tag">spring-mvc</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span><a href="https://en.wikipedia.org/wiki/Newline" rel="nofollow noreferrer">Line breaks are characters, too</a>. Every new line break increases the length of your text, by one or more characters.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Jan 2021 at 23:51</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Makes sense. The question is how to prevent the application to throw the error in that case? Seems the textarea maxlength attribute validation doesn't work correctly in a textarea when the user inserts line breaks.</span> <span> - </span> <span class="display-name">jkfe</span> <span> </span> <span class="date">21 Jan 2021 at 11:42</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I cannot replicate that problem. Using the textarea in your question, if I enter 999 characters of visible text, then I can enter 1 line break (anywhere) - and after that I cannot enter any more data - visible characters, whitespace, linebreaks, tabs, etc.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Jan 2021 at 14:17</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>right, you cannot enter more data. That works fine. But, when you click save, it will throw the error I mentioned and never enter into the controller method. Whereas if you don't add the line break it will enter the controller method and save normally to the db.</span> <span> - </span> <span class="display-name">jkfe</span> <span> </span> <span class="date">21 Jan 2021 at 14:23</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>OK - that is my mistake - I misunderstood the problem.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Jan 2021 at 14:31</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Sure, that's fine. You need to create the model and controller mentioned in the question (with the respective db) to replicate the problem.</span> <span> - </span> <span class="display-name">jkfe</span> <span> </span> <span class="date">21 Jan 2021 at 15:07</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Double-check whether your single-character LF (line feed) characters in your HTML textarea are being converted to 2-character CR-LF (carriage return + line feed) characters when they are received by your application. What does Java <code>System.lineSeparator()</code> return? Is it <code>\n</code> (Linux) or <code>\r\n</code> (Windows)?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Jan 2021 at 18:25</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Hi @andrewjames. I placed a breakpoint at the line <code>this.description = description;</code> of the model class. The description parameter received in that method comes exactly like in the textarea. That is, there's the line break blank space. So not sure how I can check if it's being converted to 2-character CR-LF like you mentioned. As for System.lineSeparator() that is returning \r\n in my windows dev machine. So that means the line breaks are counting as two characters? By the way, I'll deploy the app to a linux system. So seems behaviour will be different.</span> <span> - </span> <span class="display-name">jkfe</span> <span> </span> <span class="date">21 Jan 2021 at 18:45</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Yes <code>\r\n</code> means the Java string uses 2 characters per line break (Windows style). Test with 998 visible characters and one line break, then with 999 visible characters and one line break...?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Jan 2021 at 18:54</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>well, in that case the db field will need to have twice the size (2000) to be able to work with a 1000 characters textarea without the risk to break it. Waste of space it seems. Do you know if there's a way to make the line break to count just as one char or you see any other alternative solution?</span> <span> - </span> <span class="display-name">jkfe</span> <span> </span> <span class="date">21 Jan 2021 at 19:03</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>you are exactly right. I tested removing two characters and adding the line break and it worked. That's the issue. You can add it as an answer and I will accept it. Thanks a lot for your help.</span> <span> - </span> <span class="display-name">jkfe</span> <span> </span> <span class="date">21 Jan 2021 at 19:32</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jan 2021 at 20:55</span>
+     </div>
+    </div>
+    <div>
+     <p>When a user types data into an HTML <code>&lt;textarea&gt;</code>, the <kbd>Enter</kbd> key causes a line break to be added in the form of a single <code>U+000A LINE FEED</code> (LF) character (see <a href="https://www.w3.org/TR/html52/sec-forms.html#the-textarea-element" rel="nofollow noreferrer">reference</a>).</p>
+     <p>If you try to paste in a Windows-style CR-LF line break into a text area, it will be standardized as a single LF character.</p>
+     <p>However, when that same data is processed during form submission, the data in the <code>&lt;textarea&gt;</code> is "normalized" (same reference as above):</p>
+     <blockquote>
+      <p><em>It is normalized so that line breaks use U+000D CARRIAGE RETURN U+000A LINE FEED (CRLF) character pairs</em></p>
+     </blockquote>
+     <p>So, it is the browser which is typically performing this process of replacing a single LF with a CR-LF pair.</p>
+     <p>If this results in your Java string being too long for the database field in which it will be saved, you can convert every CR-LF pair in the string to LFs:</p>
+     <pre class="lang-java prettyprint-override"><code>String text = text.replace("\r\n", "\n");
+</code></pre>
+     <p>(Ignore my earlier comment: It's not the <code>System.lineSeparator()</code> setting which controls the behavior we see, it's the browser, as it follows the HTML specification for handling form data).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Great answer. Awesome solution. Answer accepted. Thanks again.</span> <span> - </span> <span class="display-name">jkfe</span> <span> </span> <span class="date">22 Jan 2021 at 01:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

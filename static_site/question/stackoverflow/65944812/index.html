@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Preventing the Construction of a "Raw Type" Reference</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Preventing the Construction of a "Raw Type" Reference</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>andrewJames</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>28 Jan 2021 at 20:34</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65944812/preventing-the-construction-of-a-raw-type-reference">source</a>
+    </div>
+   </div>
+   <div>
+    <p>The Jackson Core library contains the <code>TypeReference</code> abstract class.</p>
+    <p>This class implements <code>Comparable</code>. The <a href="http://fasterxml.github.io/jackson-core/javadoc/2.12/com/fasterxml/jackson/core/type/TypeReference.html" rel="nofollow noreferrer">JavaDoc</a> explains why:</p>
+    <p>It uses a...</p>
+    <blockquote>
+     <p>...bogus implementation of Comparable (any such generic interface would do, as long as it forces a method with generic type to be implemented), to ensure that a Type argument is indeed given.</p>
+    </blockquote>
+    <p>and:</p>
+    <blockquote>
+     <p><code>compareTo()</code>: The only reason we define this method (and require implementation of Comparable) is to prevent constructing a reference without type information.</p>
+    </blockquote>
+    <p>An example of using <code>TypeReference</code> <em>with</em> type information (<code>Map&lt;String, Object&gt;</code>):</p>
+    <pre class="lang-java prettyprint-override"><code>String json = "{ \"some_key\": 123 }";
+ObjectMapper objectMapper = new ObjectMapper();
+TypeReference&lt;Map&lt;String, Integer&gt;&gt; typeReference = new TypeReference&lt;&gt;(){};
+Map&lt;String, Integer&gt; map = objectMapper.readValue(json, typeReference);
+</code></pre>
+    <p>(The class is abstract, but it contains an implementation of <code>compareTo()</code> - so I don't need to provide one.)</p>
+    <p>The above technique does not stop me from constructing a reference <em>without</em> type information. The following compiles successfully (although the end result is not useful):</p>
+    <pre class="lang-java prettyprint-override"><code>// bad idea - just for illustration:
+TypeReference typeReference2 = new TypeReference() {};
+</code></pre>
+    <p><strong>What am I missing about the use of <code>Comparable</code> here? It does not prevent code compilation. I don't see how it could.</strong></p>
+    <p>Compiler warnings are a different matter - I'm wondering specifically about the "prevention" claim.</p>
+    <hr>
+    <p><strong>Background Notes</strong>:</p>
+    <p>If I try to use my raw type <code>typeReference2</code>, it will throw a <em>runtime</em> exception, because of the following <a href="https://github.com/FasterXML/jackson-core/blob/7f6c5060ca5ee4c754e528837d918d04763e517c/src/main/java/com/fasterxml/jackson/core/type/TypeReference.java#L34" rel="nofollow noreferrer">check in the constructor</a>:</p>
+    <pre class="lang-java prettyprint-override"><code>Type superClass = getClass().getGenericSuperclass();
+if (superClass instanceof Class&lt;?&gt;) { // sanity check, should never happen
+    throw new IllegalArgumentException("Internal error: TypeReference constructed without actual type information");
+}
+</code></pre>
+    <p>The Javadoc for the class refers to <a href="http://gafter.blogspot.com/2006/12/super-type-tokens.html" rel="nofollow noreferrer">an article</a> which discusses the above runtime technique. It seems that a comment in that article prompted the inclusion of <code>Comparable</code> in Jackson's <code>TypeReference</code> class:</p>
+    <blockquote>
+     <p>Rather than check for a type parameter in the constructor, you can make it a syntax error to leave out:</p>
+     <pre><code>public abstract TypeReference&lt;R&gt; implements Comparable&lt;TypeReference&lt;R&gt;&gt; {
+    // ...
+    public int compareTo(TypeReference&lt;R&gt; o) {
+        // Need a real implementation.
+        // Only saying "return 0" for illustration.
+        return 0;
+    }
+}
+</code></pre>
+     <p>Now this is legal:</p>
+     <p><code>new TypeReference&lt;Object&gt;() { };</code></p>
+     <p>But this is a syntax error for not implementing Comparable:</p>
+     <p><code>new TypeReference() { };</code></p>
+    </blockquote>
+    <p>I do not see this as a syntax error for <code>TypeReference</code>. It compiles OK, and <a href="https://github.com/FasterXML/jackson-core/blob/7f6c5060ca5ee4c754e528837d918d04763e517c/src/main/java/com/fasterxml/jackson/core/type/TypeReference.java#L55" rel="nofollow noreferrer">we've been given an implementation in the class already</a>.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">generics</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>The article you cite is from 2006. It's likely I think that changes in Java since then have rendered the article's syntax inoperative. It's possible that <code>Comparable</code> <i>is</i> being implemented by the newer type inference systems, for example. I'm not a expert though so I can't say exactly why this code compiles now. It's just obvious that it does.</span> <span> - </span> <span class="display-name">markspace</span> <span> </span> <span class="date">28 Jan 2021 at 21:17</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I notice that @rzwitserloot has filed a bug report about this. The <a href="https://github.com/FasterXML/jackson-core/issues/697" rel="nofollow noreferrer">bug report</a>. The related <a href="https://stackoverflow.com/questions/67269472/why-com-fasterxml-jackson-core-type-typereference-implements-comparable-interfac">SO question</a>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Apr 2021 at 21:39</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

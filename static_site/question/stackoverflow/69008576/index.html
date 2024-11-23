@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How term not present queries work in lucene?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How term not present queries work in lucene?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>kaykay</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>1 Sep 2021 at 06:08</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/69008576/how-term-not-present-queries-work-in-lucene">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have started reading about indexing in Lucene and sharding in Elastic search. One thing I have not been able to understand is how queries like these look up indexes.</p>
+    <pre><code>field-x contains term1 but not term2
+</code></pre>
+    <p>Does it look up <code>stored</code> field for it.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">elasticsearch</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Sep 2021 at 13:10</span>
+     </div>
+    </div>
+    <div>
+     <p>The data in a stored field could be relatively large (it could be the text of an entire book). How would you efficiently search that text for an "exclusion" term? By indexing it!</p>
+     <p>You've already done that, to support <code>field-x contains term1</code>. So, no, you would not use a stored field for this. Instead, you would just use the indexed data to find <code>term2</code> - and remove those results from the <code>term1</code> results.</p>
+     <p>(I'm not saying this is the <em>exact</em> algorithm Lucene uses, because there may be significant optimizations Lucene makes, behind the scenes. But it will not be using the contents of the stored field.)</p>
+     <p>Also, if your indexed data does <em>not</em> contain any stored fields, the query would still work. You can try that for yourself.</p>
+     <p>Stored fields are useful when presenting results. From the <a href="https://lucene.apache.org/core/8_9_0/core/org/apache/lucene/document/Field.html" rel="nofollow noreferrer"><code>Field</code></a> documentation:</p>
+     <blockquote>
+      <p>StoredField: Stored-only value for retrieving in summary results</p>
+     </blockquote>
+     <p>In reality you would probably never want to store a large amount of data (e.g. a complete book) in a stored field. You could store a summary of the data - and that would make it unsuitable for use by queries, anyway.</p>
+     <hr>
+     <p>Another consideration: You might as well ask "how does <code>field-x contains term1 and also term2</code> work? It works the same way as the first example - except you aren't removing the <code>term2</code> results from the <code>term1</code> results - instead, you are finding the intersection between the two sets of results (if both terms are mandatory) or you are finding the union of the two sets (if both terms are optional)... and so on.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks @andrewjames. That would mean, for executing every such query, all the nodes in the Elasticsearch will be involved. How does that scale ?</span> <span> - </span> <span class="display-name">kaykay</span> <span> </span> <span class="date">2 Sep 2021 at 05:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Well, as I mentioned, don't take my description too literally - Lucene (and Elasticsearch) can optimize queries in ways that I know nothing about. As for "<i>how does that scale?</i>" - people write books about that.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">2 Sep 2021 at 13:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

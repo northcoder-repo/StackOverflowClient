@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Apache TikaParser throws uncatchable exceptions</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Apache TikaParser throws uncatchable exceptions</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Stefan Glasenhardt</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Mar 2020 at 10:56</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60599097/apache-tikaparser-throws-uncatchable-exceptions">source</a>
+    </div>
+   </div>
+   <div>
+    <p>i'm currently trying to develop a tool which uses Apache TikaParser to extract the content from different files. In most cases everything works fine but there a some files where Tika throws the following exception:</p>
+    <pre><code>Mar 09, 2020 11:21:58 AM org.apache.poi.ss.format.CellFormat &lt;init&gt;
+WARNING: Invalid format: "_([$€-2]\ * "-"_);"
+java.lang.IllegalArgumentException: Unsupported [] format block '[' in '_([$€-2]\ * "-"_)' with c2: null
+        at org.apache.poi.ss.format.CellFormatPart.formatType(CellFormatPart.java:373)
+        at org.apache.poi.ss.format.CellFormatPart.getCellFormatType(CellFormatPart.java:287)
+        at org.apache.poi.ss.format.CellFormatPart.&lt;init&gt;(CellFormatPart.java:191)
+        at org.apache.poi.ss.format.CellFormat.&lt;init&gt;(CellFormat.java:193)
+        at org.apache.poi.ss.format.CellFormat.getInstance(CellFormat.java:167)
+        at org.apache.poi.ss.usermodel.DataFormatter.getFormat(DataFormatter.java:343)
+        at org.apache.poi.ss.usermodel.DataFormatter.formatRawCellContents(DataFormatter.java:901)
+        at org.apache.poi.ss.usermodel.DataFormatter.formatRawCellContents(DataFormatter.java:873)
+        at org.apache.poi.hssf.eventusermodel.FormatTrackingHSSFListener.formatNumberDateCell(FormatTrackingHSSFListener.java:143)
+        at org.apache.tika.parser.microsoft.ExcelExtractor$TikaHSSFListener$TikaFormatTrackingHSSFListener.formatNumberDateCell(ExcelExtractor.java:673)
+        at org.apache.tika.parser.microsoft.ExcelExtractor$TikaHSSFListener.internalProcessRecord(ExcelExtractor.java:447)
+        at org.apache.tika.parser.microsoft.ExcelExtractor$TikaHSSFListener.processRecord(ExcelExtractor.java:340)
+        at org.apache.poi.hssf.eventusermodel.FormatTrackingHSSFListener.processRecord(FormatTrackingHSSFListener.java:92)
+        at org.apache.tika.parser.microsoft.ExcelExtractor$TikaHSSFListener$TikaFormatTrackingHSSFListener.processRecord(ExcelExtractor.java:666)
+        at org.apache.poi.hssf.eventusermodel.HSSFRequest.processRecord(HSSFRequest.java:109)
+        at org.apache.poi.hssf.eventusermodel.HSSFEventFactory.genericProcessEvents(HSSFEventFactory.java:178)
+        at org.apache.poi.hssf.eventusermodel.HSSFEventFactory.processEvents(HSSFEventFactory.java:135)
+        at org.apache.tika.parser.microsoft.ExcelExtractor$TikaHSSFListener.processFile(ExcelExtractor.java:316)
+        at org.apache.tika.parser.microsoft.ExcelExtractor.parse(ExcelExtractor.java:169)
+        at org.apache.tika.parser.microsoft.OfficeParser.parse(OfficeParser.java:183)
+        at org.apache.tika.parser.microsoft.OfficeParser.parse(OfficeParser.java:131)
+        at org.apache.tika.parser.CompositeParser.parse(CompositeParser.java:280)
+        at org.apache.tika.parser.ParserDecorator.parse(ParserDecorator.java:188)
+        at org.apache.tika.parser.CompositeParser.parse(CompositeParser.java:280)
+        at org.apache.tika.parser.CompositeParser.parse(CompositeParser.java:280)
+        at org.apache.tika.parser.AutoDetectParser.parse(AutoDetectParser.java:143)
+        at attproc.processors.AttachmentProcessor.run(AttachmentProcessor.java:68)
+        at attproc.Main.lambda$main$0(Main.java:89)
+        at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1700)
+        at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+        at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+        at java.base/java.lang.Thread.run(Thread.java:834)
+</code></pre>
+    <p>I'm trying to catch this exception with the following code:</p>
+    <pre><code> try {
+                        byte[] content = Files.readAllBytes(path);
+                        try {
+                            Metadata metadata = new Metadata();
+                            BodyContentHandler handler = new BodyContentHandler(-1);
+                            ParseContext parseContext = new ParseContext();
+                            parseContext.set(PDFParserConfig.class, tikaConfig.pdfConfig);
+
+                            try {
+                                tikaConfig.autoDetectParser.parse(new ByteArrayInputStream(content), handler, metadata, parseContext);
+                                text = Optional.ofNullable(handler.toString()).orElse("");
+                            } catch (Exception ignored) {}
+
+                        } catch (Exception ignored) {
+                        }
+
+                    } catch (IOException ignored) {
+                    }
+</code></pre>
+    <p>"tikaConfig" is a singleton object:</p>
+    <pre><code>public class TikaConfiguration {
+    private final TikaConfig tikaConfig;
+    public final PDFParserConfig pdfConfig;
+    public final Parser autoDetectParser;
+
+    private static TikaConfiguration instance;
+
+    private TikaConfiguration() throws Exception {
+        ClassLoader classLoader = getClass().getClassLoader();
+        InputStream stream = classLoader.getResourceAsStream("tikaconfig.xml");
+        this.tikaConfig = new TikaConfig(stream);
+        this.pdfConfig = new PDFParserConfig();
+        pdfConfig.setExtractInlineImages(false);
+
+        tikaConfig.getDetector();
+        autoDetectParser = new AutoDetectParser(tikaConfig);
+    }
+
+    public static TikaConfiguration setConfiguration() {
+        if (TikaConfiguration.instance == null) {
+            try {
+                TikaConfiguration.instance = new TikaConfiguration();
+            } catch (Exception ignored) {}
+        }
+
+        return TikaConfiguration.instance;
+    }
+}
+</code></pre>
+    <p>What do i have to do to catch this exception?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">exception</span><span class="tag">apache-tika</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>A sanity-check: You have an error thrown when reading an Excel file (the "Apache POI" SS stack trace); and you have a parser that refers (at least, by name) to a PDF config object (<code>PDFParserConfig()</code>). Is that deliberate? I would have expected the process to already have separate handlers for Excel files vs. PDF files. I may be missing something basic, but that looks odd.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Mar 2020 at 22:55</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I'm setting the PDFConfig explicitly because i'm enabling OCR for each PDF-document separately. But even without this specific config Tika always throws an exception when i file is somehow broken or borked.</span> <span> - </span> <span class="display-name">Stefan Glasenhardt</span> <span> </span> <span class="date">20 Mar 2020 at 18:59</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Mar 2020 at 20:29</span>
+     </div>
+    </div>
+    <div>
+     <p>Take a look at <a href="https://issues.apache.org/jira/browse/TIKA-1947" rel="nofollow noreferrer">this</a> somewhat old thread. What you are seeing looks very similar. It suggests that the POI library, used by Tika for parsing Excel, is throwing a warning, not an error (and your log output reflects that also). The warning happens to include a stack trace in its logging (caught by POI I assume, then passed on to Tika).</p>
+     <p>The warning would therefore not be caught by your code (it's not a thrown exception).</p>
+     <p>As one commenter mentions in the JIRA:</p>
+     <blockquote>
+      <p>I'm not sure this is even a bug. This is the output of the POILogger, not, e.g. printStackTrace().</p>
+     </blockquote>
+     <p>Regardless of its status as a bug, a work-around is also proposed in the JIRA: When running the application, redirect the err stream to null (an example is provided).</p>
+     <p>I downloaded the spreadsheet attached to the JIRA and I was able to recreate their version of your message:</p>
+     <pre><code>WARNING: Invalid format: "_([$Ç-2]\ * #,##0.00_);"
+java.lang.IllegalArgumentException: Unsupported [] format block '[' in '_([$Ç-2]\ * #,##0.00_)' with c2: null
+    at org.apache.poi.ss.format.CellFormatPart.formatType(CellFormatPart.java:373)
+    at org.apache.poi.ss.format.CellFormatPart.getCellFormatType(CellFormatPart.java:287)
+    at org.apache.poi.ss.format.CellFormatPart.&lt;init&gt;(CellFormatPart.java:191)
+    at org.apache.poi.ss.format.CellFormat.&lt;init&gt;(CellFormat.java:193)
+...
+</code></pre>
+     <p>However, my program completed successfully. It went on to generate its output correctly.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>After some tries and errors, i've found a solution: I'm completely disabling logging by using the line "LogManager.getLogManager().reset();" in my main-method.</span> <span> - </span> <span class="display-name">Stefan Glasenhardt</span> <span> </span> <span class="date">2 Apr 2020 at 08:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

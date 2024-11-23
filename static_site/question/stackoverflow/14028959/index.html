@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why does jQuery or a DOM method such as getElementById not find the element?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why does jQuery or a DOM method such as getElementById not find the element?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>592</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Felix Kling</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>25 Dec 2012 at 08:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/14028959/why-does-jquery-or-a-dom-method-such-as-getelementbyid-not-find-the-element">source</a>
+    </div>
+   </div>
+   <div>
+    <p>What are the possible reasons for <code>document.getElementById</code>, <code>$("#id")</code> or any other DOM method / jQuery selector not finding the elements?</p>
+    <p>Example problems include:</p>
+    <ul>
+     <li>jQuery silently failing to bind an event handler</li>
+     <li>jQuery "getter" methods (<code>.val()</code>, <code>.html()</code>, <code>.text()</code>) returning <code>undefined</code></li>
+     <li>A standard DOM method returning <code>null</code> resulting in any of several errors:</li>
+    </ul>
+    <blockquote>
+     <p>Uncaught TypeError: Cannot set property '...' of null<br>
+       Uncaught TypeError: Cannot set properties of null (setting '...')<br>
+       Uncaught TypeError: Cannot read property '...' of null<br>
+       Uncaught TypeError: Cannot read properties of null (reading '...')</p>
+    </blockquote>
+    <p>The most common forms are:</p>
+    <blockquote>
+     <p>Uncaught TypeError: Cannot set property 'onclick' of null<br>
+       Uncaught TypeError: Cannot read property 'addEventListener' of null<br>
+       Uncaught TypeError: Cannot read property 'style' of null</p>
+    </blockquote>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">dom</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>42</td>
+       <td><span>Many questions are asked about why a certain DOM element is not found and the reason is often because the JavaScript code is placed before the DOM element. This is intended to be a canonical answer for these type of questions. It's community wiki, so <b>please feel free to improve it</b>.</span> <span> - </span> <span class="display-name">Felix Kling</span> <span> </span> <span class="date">25 Dec 2012 at 08:28</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>604</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>canon</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jan 2012 at 18:06</span>
+     </div>
+    </div>
+    <div>
+     <p>The element you were trying to find wasn’t in the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model" rel="noreferrer">DOM</a> when your script ran.</p>
+     <p>The position of your DOM-reliant script can have a profound effect on its behavior. Browsers parse HTML documents from top to bottom. Elements are added to the DOM and scripts are (generally) executed as they're encountered. <strong>This means that order matters.</strong> Typically, scripts can't find elements that appear later in the markup because those elements have yet to be added to the DOM.</p>
+     <p>Consider the following markup; script #1 fails to find the <code>&lt;div&gt;</code> while script #2 succeeds:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;script&gt;
+  console.log("script #1:", document.getElementById("test")); // null
+&lt;/script&gt;
+&lt;div id="test"&gt;test div&lt;/div&gt;
+&lt;script&gt;
+  console.log("script #2:", document.getElementById("test")); // &lt;div id="test" ...
+&lt;/script&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>So, what should you do? You've got a few options:</p>
+     <hr>
+     <h2>Option 1: Move your script</h2>
+     <p>Given what we've seen in the example above, an intuitive solution might be to simply move your script down the markup, past the elements you'd like to access. In fact, for a long time, placing scripts at the bottom of the page was considered a <a href="https://developer.yahoo.com/performance/rules.html#js_bottom" rel="noreferrer">best practice</a> for a variety of reasons. Organized in this fashion, the rest of the document would be parsed before executing your script:</p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;body&gt;
+  &lt;button id="test"&gt;click me&lt;/button&gt;
+  &lt;script&gt;
+    document.getElementById("test").addEventListener("click", function() {
+      console.log("clicked:", this);
+    });
+  &lt;/script&gt;
+&lt;/body&gt;&lt;!-- closing body tag --&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>While this makes sense, and is a solid option for legacy browsers, it's limited and there are more flexible, modern approaches available.</p>
+     <hr>
+     <h2>Option 2: The <code>defer</code> attribute</h2>
+     <p>While we did say that scripts are, <em>"(generally) executed as they're encountered,"</em> modern browsers allow you to specify a different behavior. If you're linking an external script, you can make use of the <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-defer" rel="noreferrer"><code>defer</code></a> attribute.</p>
+     <blockquote>
+      <p>[<code>defer</code>, a Boolean attribute,] is set to indicate to a browser that the script is meant to be executed after the document has been parsed, but before firing <a href="https://developer.mozilla.org/en-US/docs/web/api/window/domcontentloaded_event" rel="noreferrer"><code>DOMContentLoaded</code></a>.</p>
+     </blockquote>
+     <p>This means that you can place a script tagged with <code>defer</code> anywhere, even the <code>&lt;head&gt;</code>, and it should have access to the fully realized DOM.</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;script src="https://gh-canon.github.io/misc-demos/log-test-click.js" defer&gt;&lt;/script&gt;
+&lt;button id="test"&gt;click me&lt;/button&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>Just keep in mind...</p>
+     <ol>
+      <li><code>defer</code> can only be used for external scripts, i.e.: those having a <code>src</code> attribute.</li>
+      <li>be aware of <a href="https://caniuse.com/script-defer" rel="noreferrer">browser support</a>, i.e.: buggy implementation in IE &lt; 10</li>
+     </ol>
+     <hr>
+     <h2>Option 3: Modules</h2>
+     <p>Depending upon your requirements, you may be able to utilize <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules#applying_the_module_to_your_html" rel="noreferrer">JavaScript modules</a>. Among other important distinctions from standard scripts (<a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules#other_differences_between_modules_and_standard_scripts" rel="noreferrer">noted here</a>), modules are deferred automatically and are not limited to external sources.</p>
+     <p>Set your script's <code>type</code> to <code>module</code>, e.g.:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;script type="module"&gt;
+  document.getElementById("test").addEventListener("click", function(e) {
+    console.log("clicked: ", this);
+  });
+&lt;/script&gt;
+&lt;button id="test"&gt;click me&lt;/button&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <hr>
+     <h2>Option 4: Defer with event handling</h2>
+     <p>Add a listener to an event that fires after your document has been parsed.</p>
+     <h3>DOMContentLoaded event</h3>
+     <p><a href="https://developer.mozilla.org/en-US/docs/web/api/window/domcontentloaded_event" rel="noreferrer"><code>DOMContentLoaded</code></a> fires after the DOM has been completely constructed from the initial parse, without waiting for things like stylesheets or images to load.</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;script&gt;
+  document.addEventListener("DOMContentLoaded", function(e){
+    document.getElementById("test").addEventListener("click", function(e) {
+      console.log("clicked:", this);
+    });
+  });
+&lt;/script&gt;
+&lt;button id="test"&gt;click me&lt;/button&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <h3>Window: load event</h3>
+     <p>The <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/load_event" rel="noreferrer"><code>load</code></a> event fires after <code>DOMContentLoaded</code> and additional resources like stylesheets and images have been loaded. For that reason, it fires later than desired for our purposes. Still, if you're considering older browsers like IE8, the support is nearly universal. Granted, you may want a <a href="https://vanillajstoolkit.com/polyfills/addeventlistener/" rel="noreferrer">polyfill for <code>addEventListener()</code></a>.</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;script&gt;
+  window.addEventListener("load", function(e){
+    document.getElementById("test").addEventListener("click", function(e) {
+      console.log("clicked:", this);
+    });
+  });
+&lt;/script&gt;
+&lt;button id="test"&gt;click me&lt;/button&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <h3>jQuery's <code>ready()</code></h3>
+     <p><code>DOMContentLoaded</code> and <code>window:load</code> each have their caveats. jQuery's <a href="https://api.jquery.com/ready/" rel="noreferrer"><code>ready()</code></a> delivers a hybrid solution, using <code>DOMContentLoaded</code> when possible, failing over to <code>window:load</code> when necessary, and firing its callback immediately if the DOM is already complete.</p>
+     <p>You can pass your ready handler directly to jQuery as <code>$(<em>handler</em>)</code>, e.g.:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;script src="https://code.jquery.com/jquery-3.6.0.js" integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"&gt;&lt;/script&gt;
+&lt;script&gt;
+  $(function() {
+    $("#test").click(function() {
+      console.log("clicked:", this);
+    });
+  });
+&lt;/script&gt;
+&lt;button id="test"&gt;click me&lt;/button&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <hr>
+     <h2>Option 5: Event Delegation</h2>
+     <p>Delegate the event handling to an ancestor of the target element.</p>
+     <p>When an element raises an event (provided that it's a <a href="https://www.w3.org/TR/DOM-Level-2-Events/events.html#Events-flow-bubbling" rel="noreferrer">bubbling</a> event and nothing stops its propagation), each parent in that element's ancestry, all the way up to <code>window</code>, receives the event as well. That allows us to attach a handler to an existing element and sample events as they bubble up from its descendants... even from descendants added after the handler was attached. All we have to do is check the event to see whether it was raised by the desired element and, if so, run our code.</p>
+     <p>Typically, this pattern is reserved for elements that don't exist at load time or to avoid attaching a large number of duplicate handlers. For efficiency, select the nearest reliable ancestor of the target element rather than attaching it to the <code>document</code>.</p>
+     <h3>Native JavaScript</h3>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;div id="ancestor"&gt;&lt;!-- nearest ancestor available to our script --&gt;
+  &lt;script&gt;
+    document.getElementById("ancestor").addEventListener("click", function(e) {
+      if (e.target.id === "descendant") {
+        console.log("clicked:", e.target);
+      }
+    });
+  &lt;/script&gt;
+  &lt;button id="descendant"&gt;click me&lt;/button&gt;
+&lt;/div&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <h3>jQuery's <code>on()</code></h3>
+     <p>jQuery makes this functionality available through <a href="https://api.jquery.com/on/" rel="noreferrer"><code>on()</code></a>. Given an event name, a selector for the desired descendant, and an event handler, it will resolve your delegated event handling and manage your <code>this</code> context:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;script src="https://code.jquery.com/jquery-3.6.0.js" integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"&gt;&lt;/script&gt;
+&lt;div id="ancestor"&gt;&lt;!-- nearest ancestor available to our script --&gt;
+  &lt;script&gt;
+    $("#ancestor").on("click", "#descendant", function(e) {
+      console.log("clicked:", this);
+    });
+  &lt;/script&gt;
+  &lt;button id="descendant"&gt;click me&lt;/button&gt;
+&lt;/div&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>The <code>defer</code> attribute was the one that helped me a lot. And in addition, this is probably one of the most detailed answers I have ever seen here.</span> <span> - </span> <span class="display-name">lStoilov</span> <span> </span> <span class="date">8 Feb 2022 at 12:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>169</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Felix Kling</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Dec 2012 at 08:26</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Short and simple:</strong> Because the elements you are looking for do not exist in the document (yet).</p>
+     <hr>
+     <p><em>For the remainder of this answer I will use <a href="https://developer.mozilla.org/en-US/docs/Web/API/Document/getElementById" rel="noreferrer"><code>getElementById</code></a> for examples, but the same applies to <a href="https://developer.mozilla.org/en-US/docs/DOM/element.getElementsByTagName" rel="noreferrer"><code>getElementsByTagName</code></a>, <a href="https://developer.mozilla.org/en-US/docs/DOM/Document.querySelector" rel="noreferrer"><code>querySelector</code></a>, and any other DOM method that selects elements.</em></p>
+     <p><strong>Possible Reasons</strong></p>
+     <p>There are three reasons why an element might not exist:</p>
+     <ol>
+      <li>
+       <p>An element with the passed ID really does not exist in the document. You should double check that the ID you pass to <code>getElementById</code> really matches an ID of an existing element in the (generated) HTML and that you have not <em>misspelled</em> the ID (IDs are <em>case-sensitive</em>!).</p>
+       <p>If you're using <code>getElementById</code>, be sure you're <strong>only</strong> giving the ID of the element (e.g., <code>document.getElemntById("the-id")</code>). If you're using a method that accepts a CSS selector (like <code>querySelector</code>), be sure you're including the <code>#</code> before the ID to indicate you're looking for an ID (e.g., <code>document.querySelector("#the-id")</code>). You must <strong>not</strong> use the <code>#</code> with <code>getElementById</code>, and <strong>must</strong> use it with <code>querySelector</code> and similar. Also note that if the ID has characters in it that aren't valid in <a href="https://www.w3.org/TR/CSS21/syndata.html#value-def-identifier" rel="noreferrer">CSS identifiers</a> (such as a <code>.</code>; <code>id</code> attributes containing <code>.</code> characters are poor practice, but valid), you have to escape those when using <code>querySelector</code> (<code>document.querySelector("#the\\.id")</code>)) but not when using <code>getElementById</code> (<code>document.getElementById("the.id")</code>).</p></li>
+      <li>
+       <p>The element does not exist <em>at the moment</em> you call <code>getElementById</code>.</p></li>
+      <li>
+       <p>The element isn't in the document you're querying even though you can see it on the page, because it's in an <code>iframe</code> (which is its own document). Elements in <code>iframes</code> aren't searched when you search the document that contains them.</p></li>
+     </ol>
+     <p>If the problem is reason 3 (it's in an <code>iframe</code> or similar), you need to look through the document in the <code>iframe</code>, not the parent document, perhaps by getting the <code>iframe</code> element and using its <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLIFrameElement/contentDocument" rel="noreferrer"><code>contentDocument</code></a> property to access its document (same-origin only). The rest of this answer addresses the first two reasons.</p>
+     <p>The second reason&nbsp;— it's not there <em>yet</em>&nbsp;— is quite common. Browsers parse and process the HTML from top to bottom. That means that any call to a DOM element which occurs before that DOM element appears in the HTML, will fail.</p>
+     <p>Consider the following example:</p>
+     <pre><code>&lt;script&gt;
+    var element = document.getElementById('my_element');
+&lt;/script&gt;
+
+&lt;div id="my_element"&gt;&lt;/div&gt;
+</code></pre>
+     <p>The <code>div</code> appears <em>after</em> the <code>script</code>. At the moment the script is executed, the element does not exist <em>yet</em> and <code>getElementById</code> will return <code>null</code>.</p>
+     <p><strong>jQuery</strong></p>
+     <p>The same applies to all selectors with jQuery. jQuery won't find elements if you <em>misspelled</em> your selector or you are trying to select them <em>before they actually exist</em>.</p>
+     <p>An added twist is when jQuery is not found because you have loaded the script without protocol and are running from file system:</p>
+     <pre><code>&lt;script src="//somecdn.somewhere.com/jquery.min.js"&gt;&lt;/script&gt;
+</code></pre>
+     <p>this syntax is used to allow the script to load via HTTPS on a page with protocol https:// and to load the HTTP version on a page with protocol http://</p>
+     <p>It has the unfortunate side effect of attempting and failing to load <code>file://somecdn.somewhere.com...</code></p>
+     <hr>
+     <p><strong>Solutions</strong></p>
+     <p>Before you make a call to <code>getElementById</code> (or any DOM method for that matter), make sure the elements you want to access exist, i.e. the DOM is loaded.</p>
+     <p>This can be ensured by simply putting your JavaScript <em>after</em> the corresponding DOM element</p>
+     <pre><code>&lt;div id="my_element"&gt;&lt;/div&gt;
+
+&lt;script&gt;
+    var element = document.getElementById('my_element');
+&lt;/script&gt;
+</code></pre>
+     <p>in which case you can also put the code just before the closing body tag (<code>&lt;/body&gt;</code>) (all DOM elements will be available at the time the script is executed).</p>
+     <p>Other solutions include listening to the <a href="https://developer.mozilla.org/en-US/docs/DOM/window.onload" rel="noreferrer"><code>load</code> <em><sup>[MDN]</sup></em></a> or <a href="https://developer.mozilla.org/en-US/docs/Mozilla_event_reference/DOMContentLoaded_%28event%29" rel="noreferrer"><code>DOMContentLoaded</code> <em><sup>[MDN]</sup></em></a> events. In these cases it does not matter where in the document you place the JavaScript code, you just have to remember to put all DOM processing code in the event handlers.</p>
+     <p>Example:</p>
+     <pre><code>window.onload = function() {
+    // process DOM elements here
+};
+
+// or
+
+// does not work IE 8 and below
+document.addEventListener('DOMContentLoaded', function() {
+    // process DOM elements here
+});
+</code></pre>
+     <p>Please see the <a href="http://www.quirksmode.org/js/introevents.html" rel="noreferrer">articles at quirksmode.org</a> for more information regarding event handling and browser differences.</p>
+     <p><strong>jQuery</strong></p>
+     <p>First make sure that jQuery is loaded properly. <a href="http://www.netmagazine.com/tutorials/javascript-debugging-beginners" rel="noreferrer">Use the browser's developer tools</a> to find out whether the jQuery file was found and correct the URL if it wasn't (e.g. add the <code>http:</code> or <code>https:</code> scheme at the beginning, adjust the path, etc.)</p>
+     <p>Listening to the <code>load</code>/<code>DOMContentLoaded</code> events is exactly what jQuery is doing with <a href="http://api.jquery.com/ready/" rel="noreferrer"><code>.ready()</code> <em><sup>[docs]</sup></em></a>. All your jQuery code that affects DOM element should be inside that event handler.</p>
+     <p>In fact, the <a href="http://docs.jquery.com/Tutorials:Getting_Started_with_jQuery" rel="noreferrer">jQuery tutorial</a> explicitly states:</p>
+     <blockquote>
+      <p>As almost everything we do when using jQuery reads or manipulates the document object model (DOM), we need to make sure that we start adding events etc. as soon as the DOM is ready.</p>
+     </blockquote>
+     <blockquote>
+      <p>To do this, we register a ready event for the document.</p>
+      <pre><code>$(document).ready(function() {
+</code></pre>
+     </blockquote>
+     <pre><code>   // do stuff when DOM is ready
+});
+</code></pre>
+     <p>Alternatively you can also use the shorthand syntax:</p>
+     <pre><code>$(function() {
+    // do stuff when DOM is ready
+});
+</code></pre>
+     <p>Both are equivalent.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>19</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sumit Kumar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jan 2014 at 12:12</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Reasons why id based selectors don't work</strong></p>
+     <ol>
+      <li>The element/DOM with id specified doesn't exist yet.</li>
+      <li>The element exists, but it is not registered in DOM [in case of HTML nodes appended dynamically from Ajax responses].</li>
+      <li>More than one element with the same id is present which is causing a conflict.</li>
+     </ol>
+     <p><strong>Solutions</strong></p>
+     <ol>
+      <li>
+       <p>Try to access the element after its declaration or alternatively use stuff like <code>$(document).ready();</code></p></li>
+      <li>
+       <p>For elements coming from Ajax responses, use the <code>.bind()</code> method of jQuery. Older versions of jQuery had <code>.live()</code> for the same.</p></li>
+      <li>
+       <p>Use tools [for example, webdeveloper plugin for browsers] to find duplicate ids and remove them.</p></li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>George Mulligan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Jan 2016 at 23:34</span>
+     </div>
+    </div>
+    <div>
+     <p>If the element you are trying to access is inside an <code>iframe</code> and you try to access it outside the context of the <code>iframe</code> this will also cause it to fail.</p>
+     <p>If you want to get an element in an iframe you can find out how <a href="https://stackoverflow.com/a/1088569/1435985">here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nathan Bubna</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Dec 2013 at 17:29</span>
+     </div>
+    </div>
+    <div>
+     <p>As @FelixKling pointed out, the most likely scenario is that the nodes you are looking for do not exist (yet).</p>
+     <p>However, modern development practices can often manipulate document elements outside of the document tree either with DocumentFragments or simply detaching/reattaching current elements directly. Such techniques may be used as part of JavaScript templating or to avoid excessive repaint/reflow operations while the elements in question are being heavily altered.</p>
+     <p>Similarly, the new "Shadow DOM" functionality being rolled out across modern browsers allows elements to be part of the document, but not query-able by document.getElementById and all of its sibling methods (querySelector, etc.). This is done to encapsulate functionality and specifically hide it.</p>
+     <p>Again, though, it is most likely that the element you are looking for simply is not (yet) in the document, and you should do as Felix suggests. However, you should also be aware that that is increasingly not the only reason that an element might be unfindable (either temporarily or permanently).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>CertainPerformance</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 May 2019 at 09:29</span>
+     </div>
+    </div>
+    <div>
+     <p>If script execution order is not the issue, another possible cause of the problem is that the element is not being selected properly:</p>
+     <ul>
+      <li>
+       <p><code>getElementById</code> requires the passed string to be the ID <em>verbatim</em>, and nothing else. If you prefix the passed string with a <code>#</code>, and the ID does not start with a <code>#</code>, nothing will be selected:</p>
+       <pre><code>  &lt;div id="foo"&gt;&lt;/div&gt;
+</code></pre>
+       <pre><code>  // Error, selected element will be null:
+  document.getElementById('#foo')
+  // Fix:
+  document.getElementById('foo')
+</code></pre></li>
+      <li>
+       <p>Similarly, for <code>getElementsByClassName</code>, don't prefix the passed string with a <code>.</code>:</p>
+       <pre><code>  &lt;div class="bar"&gt;&lt;/div&gt;
+</code></pre>
+       <pre><code>  // Error, selected element will be undefined:
+  document.getElementsByClassName('.bar')[0]
+  // Fix:
+  document.getElementsByClassName('bar')[0]
+</code></pre></li>
+      <li>
+       <p>With querySelector, querySelectorAll, and jQuery, to match an element with a particular class name, put a <code>.</code> directly before the class. Similarly, to match an element with a particular ID, put a <code>#</code> directly before the ID:</p>
+       <pre><code>  &lt;div class="baz"&gt;&lt;/div&gt;
+</code></pre>
+       <pre><code>  // Error, selected element will be null:
+  document.querySelector('baz')
+  $('baz')
+  // Fix:
+  document.querySelector('.baz')
+  $('.baz')
+</code></pre>
+       <p>The rules here are, in most cases, identical to those for CSS selectors, and can be seen in detail <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors" rel="nofollow noreferrer">here</a>.</p></li>
+      <li>
+       <p>To match an element which has two or more attributes (like two class names, or a class name and a <code>data-</code> attribute), put the selectors for each attribute next to each other in the selector string, <em>without</em> a space separating them (because a space indicates the <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Descendant_combinator" rel="nofollow noreferrer">descendant selector</a>). For example, to select:</p>
+       <pre><code>  &lt;div class="foo bar"&gt;&lt;/div&gt;
+</code></pre>
+       <p>use the query string <code>.foo.bar</code>. To select</p>
+       <pre><code>  &lt;div class="foo" data-bar="someData"&gt;&lt;/div&gt;
+</code></pre>
+       <p>use the query string <code>.foo[data-bar="someData"]</code>. To select the <code>&lt;span&gt;</code> below:</p>
+       <pre><code>  &lt;div class="parent"&gt;
+    &lt;span data-username="bob"&gt;&lt;/span&gt;
+  &lt;/div&gt;
+</code></pre>
+       <p>use <code>div.parent &gt; span[data-username="bob"]</code>.</p></li>
+      <li>
+       <p>Capitalization and spelling <strong>does matter</strong> for all of the above. If the capitalization is different, or the spelling is different, the element will not be selected:</p>
+       <pre><code>  &lt;div class="result"&gt;&lt;/div&gt;
+</code></pre>
+       <pre><code>  // Error, selected element will be null:
+  document.querySelector('.results')
+  $('.Result')
+  // Fix:
+  document.querySelector('.result')
+  $('.result')
+</code></pre></li>
+      <li>
+       <p>You also need to make sure the methods have the proper capitalization and spelling. Use one of:</p>
+       <pre><code>$(selector)
+document.querySelector
+document.querySelectorAll
+document.getElementsByClassName
+document.getElementsByTagName
+document.getElementById
+</code></pre>
+       <p>Any other spelling or capitalization will not work. For example, <code>document.getElementByClassName</code> will throw an error.</p></li>
+      <li>
+       <p>Make sure you pass a string to these selector methods. If you pass something that isn't a string to <code>querySelector</code>, <code>getElementById</code>, etc, it almost certainly won't work.</p></li>
+      <li>
+       <p>If the HTML attributes on elements you want to select are surrounded by quotes, they must be plain straight quotes (either single or double); curly quotes like <code>‘</code> or <code>”</code> will not work if you're trying to select by ID, class, or attribute.</p></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

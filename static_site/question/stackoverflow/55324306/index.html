@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Searching for companies with elasticsearch</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Searching for companies with elasticsearch</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>4</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>mr.bjerre</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Mar 2019 at 13:30</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/55324306/searching-for-companies-with-elasticsearch">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Imagine I have two sources of data. One source is calling Mærsk for <em>A.P. Møller - Mærsk A</em> while the other is <em>A.P. Møller - Mærsk A/S</em>. Now I have a lot of companies and I want to streamline the naming of these.</p>
+    <p>Both sources are indexed in elasticsearch but I am too much of a newbie with this technology to come up with a proper search query. My initial though was to use <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-common-terms-query.html" rel="nofollow noreferrer"><code>common</code></a> which gives decent results, but I figure there are better ways.</p>
+    <p>Any suggestions?</p>
+    <h3>EDIT</h3>
+    <p>A little clarification. My two sources is just a data source that deliver company names. I've stored these names in its own index for each source - a document is just the name.</p>
+    <p>So I have two indices with company names (nothing else there). Now for each company name in index <code>A</code> I want find the corresponding company in index <code>B</code>. The challenge is that there are various ways to write a company name - it is not standardized. I want to create this link with as little manual labour as possible and minimal risk for errors as well.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">elasticsearch</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Hi, it'd be helpful to know a bit more about your use case. What do you mean by two sources of data? Two separate indices? And how does a document of each index look like? And also, what is the goal of your query? (e.g., you want to fetch all the documents from two different indices such that they have the term "Mærsk" in a particular field?)</span> <span> - </span> <span class="display-name">glenacota</span> <span> </span> <span class="date">24 Mar 2019 at 16:08</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@glenacota it is added now.</span> <span> - </span> <span class="display-name">mr.bjerre</span> <span> </span> <span class="date">24 Mar 2019 at 16:17</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>IMHO, you are already on the right path, i.e., a full-text query. Maybe you can provide an example in which your query doesn't work as well as you want. So that we might figure it out a better query or a better mapping for your field (e.g., using a different analyzer for your company names).</span> <span> - </span> <span class="display-name">glenacota</span> <span> </span> <span class="date">24 Mar 2019 at 16:33</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Jan 2020 at 17:26</span>
+     </div>
+    </div>
+    <div>
+     <p>The OP has probably moved on from this question, given it was asked a while ago. And, for example, <code>common</code> <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-common-terms-query.html" rel="noreferrer">has now been deprecated</a>. But in case it helps others, here are some guidelines:</p>
+     <h2>The Problem</h2>
+     <p>As I understand it from the question, the problem is exemplified by this: I have two company names in two different data sources. One is:</p>
+     <p>A.P. Møller - Mærsk A</p>
+     <p>The other is:</p>
+     <p>A.P. Møller - Mærsk A/S</p>
+     <p>Assuming these represent the same company, the problem is how to resolve these to a single canonical name (for example, "Mærsk" if that is an appropriate name in this case).</p>
+     <p>Furthermore, how can we perform this matching process across a large set of company names in as automated a way as possible?</p>
+     <p>One warning - it usually pays to make such tasks repeatable - even if you think it's going to be a one-time-only clean-up exercise, it often doesn't end up that way (IMHO).</p>
+     <h2>One Solution</h2>
+     <p>Getting to a fully-automated matching solution is typically not possible in cases like this - some manual intervention is usually needed. But you may be able to get close.</p>
+     <p>I will take some liberties - for example, I will ignore the "two different data sources" aspect. Instead, I will assume we have one overall list, the union of both sources (because maybe there are name variants <em>within</em> each list).</p>
+     <p>Here is what has broadly worked for me in a similar domain (film titles).</p>
+     <p><em>FULL DISCLOSURE: I did not use ElasticSearch, in my case. I used Lucene and some custom Java.</em> But in this context, there are many similarities. My references below are all to ElasticSearch v7.5 functionality.</p>
+     <h3>Tokenization</h3>
+     <p>The question indicates that data has already been indexed - but using what tokenization steps? Some suggestions (which may already have been implemented in the OP's case):</p>
+     <ul>
+      <li>
+       <p>Consider <strong>leaving in</strong> <a href="https://www.elastic.co/guide/en/elasticsearch/reference/7.5/analysis-stop-tokenfilter.html" rel="noreferrer">stop-words</a>. Not a hard-and-fast rule, but consider what would happen to the band <a href="https://en.wikipedia.org/wiki/The_The" rel="noreferrer">The The</a> if stop-words were removed. There would be nothing to index. In relatively short text such as names, stop-words may be too important to remove.</p></li>
+      <li>
+       <p>Consider <a href="https://www.elastic.co/guide/en/elasticsearch/reference/7.5/analysis-asciifolding-tokenfilter.html" rel="noreferrer">ascii folding</a>, etc. to normalize text (removal of diacritics, such as <code>é</code> to <code>e</code>; expansion of ligatures, such as <code>æ</code> to <code>ae</code>; and so on. This assumes you are using <a href="https://en.wikipedia.org/wiki/Latin_alphabet" rel="noreferrer">Latin-based</a> text. Less relevant for other scripts (Chinese, etc.).</p></li>
+      <li>
+       <p>Consider customizations specific to your problem domain. For example, there may be nomenclature variations such as "LTD", "Ltd", etc. representing the word "Limited" in company names. Or the use of ampersands (&amp;) in some examples, but "and" in others. "Smith &amp; Sons, Ltd" versus "Smith and Sons Limited".</p></li>
+      <li>
+       <p>other transformations such as <a href="https://www.elastic.co/guide/en/elasticsearch/reference/7.5/analysis-lowercase-tokenizer.html" rel="noreferrer">lowercase</a> and removal of punctuation are more straightforward.</p></li>
+     </ul>
+     <h3>Supporting Metadata</h3>
+     <p>The OP may not have access to any of this - but supporting metadata can be vital in determining if two name variants refer to the same entity. An example from the world of film titles: There are two movies in IMDb called "<a href="https://www.imdb.com/find?q=kicking%20and%20screaming" rel="noreferrer">Kicking and Screaming</a>" - and numerous TV episodes. They can be distinguished from each other by comparing related metadata such as:</p>
+     <ul>
+      <li>type of release (movie, TV episode, etc).</li>
+      <li>year of initial release (perhaps with a +/- tolerance threshold).</li>
+     </ul>
+     <p>I don't know what the equivalent might be for companies.</p>
+     <p>A fairly crude technique would be to append such data to each company name, thus increasing the number of tokens available in each indexable term.</p>
+     <p>Or, the metadata data can be used downstream to further verify whether two terms match or not.</p>
+     <h3>Matching &amp; Score Thresholds</h3>
+     <p>Let's assume we have simple word-boundary indexed terms (although there are plenty of other ways to go - <a href="https://www.elastic.co/guide/en/elasticsearch/reference/7.5/analysis-ngram-tokenizer.html" rel="noreferrer">ngrams</a>, <a href="https://www.elastic.co/guide/en/elasticsearch/reference/7.5/analysis-shingle-tokenfilter.html" rel="noreferrer">shingles</a>, etc.).</p>
+     <p>Now we perform a search on each company name (plus additional metadata, if we added it).</p>
+     <p>Let's assume we have defined a threshold score that must be reached for a search result to be considered a match. The score should be easily adjustable to tune matching behavior.</p>
+     <p>If we get only one match which exceeds this score, we can assume we have an automated match: the two names represent the same underlying company.</p>
+     <p>If we get zero matches which exceed this score, then we can assume the company name is unique in our data set.</p>
+     <p>If we get multiple matches, then that is the point at which manual intervention may be needed, to determine if the names are equivalent or not.</p>
+     <h3>Test Cases</h3>
+     <p>The aim is to minimize false positive matches, while also minimizing match misses.</p>
+     <p>How do you know?</p>
+     <p>The only good answer I have for this is to generate a set of test cases. And the best way to do that is to <strong>study the data</strong>, so you can find suitably cunning &amp; devious cases to test.</p>
+     <h3>Conclusion</h3>
+     <p>This all sounds like a lot of work. How much of it you actually do, or how little - how rigorous or how cursory - is up to you. Depends on your context, of course.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

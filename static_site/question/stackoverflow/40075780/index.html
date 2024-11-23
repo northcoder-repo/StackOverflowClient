@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java Best Practice for Date Manipulation/Storage for Geographically Diverse Users</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java Best Practice for Date Manipulation/Storage for Geographically Diverse Users</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>9</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Joe Almore</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Oct 2016 at 21:39</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/40075780/java-best-practice-for-date-manipulation-storage-for-geographically-diverse-user">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have read all of the other Q/A about Date Manipulation, but none of them seems to deliver a satisfactory answer to my concern.</p>
+    <p>I have a project with geographically diverse users which uses <code>Date</code> in some of its classes and data. The thing is that I am looking for an efficient way to manipulate the Dates for the different users in their respective timezone, most of the answers suggest using <a href="http://www.joda.org/joda-time/" rel="noreferrer">Joda</a> library for <code>Date</code> manipulation, which quite don't understand yet because I still have not found any operation you cannot do with traditional Java, so if someone can explain what can I do with <a href="http://www.joda.org/joda-time/" rel="noreferrer">Joda</a> that can't be done with traditional Java, then I may consider using it.</p>
+    <p>I finally came to the approach of using <code>System.currentTimeMillis()</code> to save my dates into the database (any database). This would avoid me to worry about what timezone is using the database to store the dates. If I want to query the database for an specific date or range of dates, I would perform the queries using the <code>long</code> value of the <code>Date</code> I want to query:</p>
+    <pre><code>SELECT * FROM table1 WHERE date1&gt;=1476653369000
+</code></pre>
+    <p>And when retrieving a <code>ResultSet</code> I would then format the <code>long</code> value retrieved from database to a readable <code>Date</code> using the timezone of the user requesting the data.</p>
+    <pre><code>Calendar cal = Calendar.getInstance();
+cal.setTimeInMillis(resultSet.getLong(1));
+cal.setTimeZone(TimeZone.getTimeZone("Asia/Calcutta"));
+Date myDate = cal.getTime();
+</code></pre>
+    <p>According to some opinions I have read, some people say emphatically that storing <code>System.currentTimeMillis()</code> is definitely not the best practice, nevertheless, for some reason they all miss to say <strong>WHY</strong> it is not recommendable. Am I missing something? Does this cause a performance issue for the conversions <code>Long-&gt;Date</code>/<code>Date-&gt;Long</code>? Is there any use case that cannot be accomplished when using <code>Long</code> instead <code>Date</code> in database? Can someone post a rationale explanation about this?</p>
+    <p>In the other hand, assuming that I keep using <code>Date</code> values to store dates in database, is there a way to avoid worrying about time-zones while handling database <code>Date</code>?</p>
+    <p>Thanks in advance.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">database</span><span class="tag">date</span><span class="tag">datetime</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>42</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Basil Bourque</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Oct 2016 at 01:11</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>I have read all of the other Q/A about Date Manipulation</p>
+     </blockquote>
+     <p>No, you certainly did <em>not</em> read them all.</p>
+     <ul>
+      <li>You would have learned that both the legacy date-time classes (such as <code>java.util.Date</code> &amp; <code>java.util.Calendar</code>) and the Joda-Time project are supplanted by the java.time classes (1,890 results for search on 'java.time').</li>
+      <li>You would have learned not to track date-time values as a count-from-epoch. Debugging and logging becomes very difficult with bugs going undiscovered as humans cannot decipher the meaning of a long integer as a date-time. And because many granularities of counting (whole seconds, milliseconds, microseconds, nanoseconds, whole days, and more) and at least a <a href="https://en.wikipedia.org/wiki/Epoch_(reference_date)#Notable_epoch_dates_in_computing" rel="noreferrer">couple dozen of epochs</a> are employed in various software projects create ambiguity about your data with assumptions leading to errors, misinterpretation, and confusion.</li>
+      <li>You would have learned to use date-time types in your database to track date-time values.</li>
+      <li>You would have learned to work and store date-time values in UTC. Adjust into a time zone only where required by logic or as expected by the user for presentation. “Think global, present local.”</li>
+      <li>You would have learned that while a valiant industry-first effort, the legacy date-time classes are poorly designed, confusing, and troublesome. See <a href="https://stackoverflow.com/q/1969442/642706">What's wrong with Java Date &amp; Time API?</a> for some discussion. Joda-Time was the first good date-time library in the industry, and inspired its replacement, the java.time classes built into Java 8 and later.</li>
+     </ul>
+     <p>I'll be somewhat brief as all of this has been covered <em>many</em> times already on Stack Overflow.</p>
+     <p>Work in UTC. In Java that means the <code>Instant</code> class is commonly used. The <a href="http://docs.oracle.com/javase/8/docs/api/java/time/Instant.html" rel="noreferrer"><code>Instant</code></a> class represents a moment on the timeline in <a href="https://en.wikipedia.org/wiki/Coordinated_Universal_Time" rel="noreferrer">UTC</a> with a resolution of <a href="https://en.wikipedia.org/wiki/Nanosecond" rel="noreferrer">nanoseconds</a> (up to nine (9) digits of a decimal fraction).</p>
+     <pre><code>Instant instant = Instant.now();
+</code></pre>
+     <p>Any serious database such as Postgres tracks date-time values in UTC. Your JDBC driver handles the detail of converting from database internally-stored data to a Java type. JDBC drivers that comply with <a href="https://stackoverflow.com/q/1081234/642706">JDBC 4.2</a> and later can directly handle java.time types via <code>PreparedStatement::setObject</code> &amp; <code>ResultSet::getObject</code> methods.</p>
+     <pre><code>myPreparedStatement.setObject( … , instant );
+</code></pre>
+     <p>For non-compliant drivers, fall back to using java.sql types such as <code>java.sql.Timestamp</code> to communicate with database, and convert to/from java.time types via new methods added to the old classes. The internal details of how the database handles date-time values may be quite different than how java.time does. For the most part the JDBC driver hides all the nitty-gritty details from you. But one critical issue is resolution, which you should study in your database. The java.time classes handle date-times with a resolution up to <a href="https://en.wikipedia.org/wiki/Nanosecond" rel="noreferrer">nanoseconds</a> but your database may not. For example, Postgres uses a resolution of <a href="https://en.wikipedia.org/wiki/Microsecond" rel="noreferrer">microseconds</a>. So going back-and-forth means data-loss. You want to use the truncation methods on the java.time classes to match your database.</p>
+     <pre><code>myPreparedStatement.setTimestamp( … , java.sql.Timestamp.from( instant ) );
+</code></pre>
+     <p>So, no time zone involved. So no “worrying about time-zones while handling database Date”.</p>
+     <p>When you want to see the same moment through the lens of a region’s <a href="https://en.wikipedia.org/wiki/Wall-clock_time" rel="noreferrer">wall-clock time</a>, apply a <code>ZoneId</code> to get a <a href="http://docs.oracle.com/javase/8/docs/api/java/time/ZonedDateTime.html" rel="noreferrer"><code>ZonedDateTime</code></a>.</p>
+     <pre><code>ZoneId z = ZoneId.of( "Asia/Kolkata" );
+ZonedDateTime zdt = instant.atZone( z );
+</code></pre>
+     <p>When taking a zoned date-time back to the database, extract an <code>Instant</code>.</p>
+     <pre><code>Instant instant = zdt.toInstant();
+</code></pre>
+     <p>Be aware that for any given moment, the date as well as the time-of-day varies around the globe by time zone. So if an exact moment matters, such as when a contract expires, beware of using a date-only value. Either use a date-time value for the exact moment, or store the intended time zone alongside the date-only so the exact moment can be calculated later.</p>
+     <pre><code>LocalDate ld = LocalDate.of( 2016, 1 , 1 );
+// Determine the first moment of 2016-01-01 as it happens in Kolkata.
+ZonedDateTime zdt = ld.atStartOfDay( ZoneId.of( "Asia/Kolkata" ) ); 
+Instant instant = zdt.toInstant();  // Adjust to UTC and store. 
+</code></pre>
+     <hr>
+     <h1>About java.time</h1>
+     <p>The <a href="http://docs.oracle.com/javase/8/docs/api/java/time/package-summary.html" rel="noreferrer">java.time</a> framework is built into Java 8 and later. These classes supplant the troublesome old <a href="https://en.wikipedia.org/wiki/Legacy_system" rel="noreferrer">legacy</a> date-time classes such as <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Date.html" rel="noreferrer"><code>java.util.Date</code></a>, <a href="https://docs.oracle.com/javase/8/docs/api/java/util/Calendar.html" rel="noreferrer"><code>.Calendar</code></a>, &amp; <a href="http://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html" rel="noreferrer"><code>java.text.SimpleDateFormat</code></a>.</p>
+     <p>The <a href="http://www.joda.org/joda-time/" rel="noreferrer">Joda-Time</a> project, now in <a href="https://en.wikipedia.org/wiki/Maintenance_mode" rel="noreferrer">maintenance mode</a>, advises migration to java.time.</p>
+     <p>To learn more, see the <a href="http://docs.oracle.com/javase/tutorial/datetime/TOC.html" rel="noreferrer">Oracle Tutorial</a>. And search Stack Overflow for many examples and explanations. Specification is <a href="https://jcp.org/en/jsr/detail?id=310" rel="noreferrer">JSR 310</a>.</p>
+     <p>Where to obtain the java.time classes?</p>
+     <ul>
+      <li><a href="https://en.wikipedia.org/wiki/Java_version_history#Java_SE_8" rel="noreferrer"><strong>Java SE 8</strong></a> and <a href="https://en.wikipedia.org/wiki/Java_version_history#Java_SE_9" rel="noreferrer"><strong>SE 9</strong></a> and later 
+       <ul>
+        <li>Built-in.</li>
+        <li>Part of the standard Java API with a bundled implementation.</li>
+        <li>Java 9 adds some minor features and fixes.</li>
+       </ul></li>
+      <li><a href="https://en.wikipedia.org/wiki/Java_version_history#Java_SE_6" rel="noreferrer"><strong>Java SE 6</strong></a> and <a href="https://en.wikipedia.org/wiki/Java_version_history#Java_SE_7" rel="noreferrer"><strong>SE 7</strong></a>
+       <ul>
+        <li>Much of the java.time functionality is back-ported to Java 6 &amp; 7 in <a href="http://www.threeten.org/threetenbp/" rel="noreferrer"><strong><em>ThreeTen-Backport</em></strong></a>.</li>
+       </ul></li>
+      <li><a href="https://en.wikipedia.org/wiki/Android_(operating_system)" rel="noreferrer"><strong>Android</strong></a>
+       <ul>
+        <li>The <a href="https://github.com/JakeWharton/ThreeTenABP" rel="noreferrer"><em>ThreeTenABP</em></a> project adapts <strong><em>ThreeTen-Backport</em></strong> (mentioned above) for Android specifically.</li>
+        <li>See <a href="https://stackoverflow.com/q/38922754/642706"><em>How to use…</em></a>.</li>
+       </ul></li>
+     </ul>
+     <p>The <a href="http://www.threeten.org/threeten-extra/" rel="noreferrer">ThreeTen-Extra</a> project extends java.time with additional classes. This project is a proving ground for possible future additions to java.time. You may find some useful classes here such as <a href="http://www.threeten.org/threeten-extra/apidocs/org/threeten/extra/Interval.html" rel="noreferrer"><code>Interval</code></a>, <a href="http://www.threeten.org/threeten-extra/apidocs/org/threeten/extra/YearWeek.html" rel="noreferrer"><code>YearWeek</code></a>, <a href="http://www.threeten.org/threeten-extra/apidocs/org/threeten/extra/YearQuarter.html" rel="noreferrer"><code>YearQuarter</code></a>, and <a href="http://www.threeten.org/threeten-extra/apidocs/index.html" rel="noreferrer">more</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user268396</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Oct 2016 at 22:15</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>what can I do with Joda that can't be done with traditional Java</p>
+     </blockquote>
+     <p>It's not really about what you can or cannot do with traditional Java in the general case. It's more about how the library API works to make you write better (more robust and correct) code easier than traditional Java does.</p>
+     <p>So much so that as of Java 8 the Joda API was more or less copied/adopted verbatim with just package names changed and incorporated into the Java 8 SE standard library.</p>
+     <p>Therefore if you are using Java 8 you should pick the new API, and if not you should consider that using Joda will at least buy you a smooth path towards upgrading/porting to Java 8 when you are able to.</p>
+     <p>A few examples:</p>
+     <ul>
+      <li>Consistent API for date and time types.</li>
+      <li>Date/time objects are immutable, manipulations return new instances of the type representing the altered value. (Like Java Strings). This makes it easier to reason about reuse of date/time objects.</li>
+      <li>By design avoids mixing DST &amp; timezone dependent values/operations with DST &amp; timezone agnostic ones. This makes it a lot easier to write code that works consistently and correctly and doesn't have corner cases dependent on timezone/locale/date/time-of-day.</li>
+      <li>Sane defaults for things like <code>toString()</code> so serialising/deserialising can be expected to work correctly with minimal effort.</li>
+      <li>Culture/locale dependent corner cases and things you weren't aware of yet (for example, did you know about the traditional Korean calendar?) which saves you a whole lot of hassle when converting your date times between locales/calendaring systems. Also: a wealth of formatting options.</li>
+      <li>The concept of <code>Instant</code>s to represent 'absolute' time stamps which is useful when working with geographically distributed systems (when the system default clocks/timezones &amp; DST rules may differ) or for interop because it uses UTC.</li>
+     </ul>
+     <p>EDIT to add:</p>
+     <blockquote>
+      <p>According to some opinions I have read, some people say emphatically that storing <code>System.currentTimeMillis()</code> is definitely not the best practice, nevertheless, for some reason they all miss to say WHY it is not recommendable. Am I missing something?</p>
+     </blockquote>
+     <p><code>System.currentTimeMillis()</code> has a few downsides. The big drawback is that the type of clock is ill defined. It could be a monotonic clock, it could be clock subject to DST and timezone or it could be a UTC time. It is also not necessarily an accurate clock, it is not actually guaranteed to be accurate down to the millisecond. Just whatever happens to be to hand for something that will work as a semblance of the current time <em>at</em> the current time, basically.</p>
+     <p>This means that if you want to use multiple servers to handle incoming requests, for instance, it gets tricky when you have to consider working with the output of <code>System.currentTimeMillis()</code> from server <code>A</code> in the context of your program running on a different server <code>B</code> the next day, say.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

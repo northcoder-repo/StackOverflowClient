@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Implement daterange filter with serverside processing in Yajra Laravel datatables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Implement daterange filter with serverside processing in Yajra Laravel datatables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Mahdi Jafari</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Jun 2021 at 06:44</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67981245/implement-daterange-filter-with-serverside-processing-in-yajra-laravel-datatable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have an invoices table, which uses the Yajra Laravel data table. <em>I want to filter data using '<strong>created_at</strong>' column,</em> which does exists in invoices table in the database but not in the table view.</p>
+    <p>Here is my datatable image:</p>
+    <p><a href="https://i.stack.imgur.com/Zb2DX.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/Zb2DX.png" alt="enter image description here"></a></p>
+    <p>And the code which take start and end dates:</p>
+    <pre><code>$(function() {
+    $('#invoices_daterange').daterangepicker({
+        opens: 'left'
+    }, function(start, end, label) {
+        console.log("A new date selection was made: " + start.format('YYYY-MM-DD') + ' to ' + end.format('YYYY-MM-DD'));
+    });
+});
+</code></pre>
+    <p>Here is <strong>my datatabe JS code</strong></p>
+    <pre><code>$(function () {
+    let invoicedatatable = $('#invoicesdatable-table').DataTable({
+        pageLength: 100,
+        processing: true,
+        serverSide: true,
+        ajax: '{{ route('invoices.datatable') }}',
+        columns: [
+            {data: 'invoice_number', name: 'invoice_number'},
+            {data: 'partner', name: 'partner.full_name'},
+            {data: 'start', name: 'start'},
+            {data: 'end', name: 'end'},
+            {data: 'due', name: 'due'},
+            {data: 'actual_invoice_amount', name: 'actual_invoice_amount'},
+            {data: 'action', name: 'action', sortable: false, searchable: false},
+        ],
+        lengthMenu: [
+            [10, 50, 100, 250, 3000, 5000],
+            [10, 50, 100, 250, 3000, 5000]
+        ],
+        buttons: [{
+            extend: 'colvis',
+            text: '&lt;i class="icon-three-bars"&gt;&lt;/i&gt;',
+            className: 'btn bg-blue btn-icon dropdown-toggle'
+        }]
+    });
+});
+</code></pre>
+    <p>I did search and read most of the topics about it, but couldn't find anything to implement this.</p>
+    <p><strong>What I want to do:</strong></p>
+    <p>is to filter data using the 'created_at' column which is not in the view, but exists in my invoices table in the database.</p>
+    <p><strong>How to do it?</strong></p>
+   </div>
+   <div class="tags">
+    <span class="tag">laravel</span><span class="tag">datatable</span><span class="tag">yajra-datatable</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Jun 2021 at 13:41</span>
+     </div>
+    </div>
+    <div>
+     <p>I am not familiar with your datepicker widget, so I cannot use that in my example. But I think you should be able to adapt the following to use your datepicker.</p>
+     <p>In my example, I have two separate date fields ("from" and "to") in a form, with a "submit" button:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;div&gt;
+    &lt;form id="filter-form"&gt;
+        From:&lt;input type="date" id="min-date" name="min-date"&gt;
+        To:&lt;input type="date" id="max-date" name="max-date"&gt;
+        &lt;input type="submit" value="Submit"&gt;
+    &lt;/form&gt;
+&lt;/div&gt;
+</code></pre>
+     <p>You don't need to use a form (I used a form here, because it is a simple demo).</p>
+     <p>In the page's script (the same place where the DataTable is defined), I add a "submit" function:</p>
+     <pre class="lang-js prettyprint-override"><code>var url = '{{ route('invoices.datatable') }}';
+
+$( "#filter-form" ).submit(function( event ) {
+  event.preventDefault();
+  invoicedatatable.ajax.url( url ).load();
+});
+</code></pre>
+     <p>I don't actually need to submit the form, so I disable the default submission using <code>event.preventDefault();</code>.</p>
+     <p>The line <code>invoicedatatable.ajax.url( url ).load();</code> is explained below.</p>
+     <p>In my DataTable I change the basic Ajax call from this:</p>
+     <pre class="lang-js prettyprint-override"><code>ajax: '{{ route('invoices.datatable') }}',
+</code></pre>
+     <p>to this:</p>
+     <pre class="lang-js prettyprint-override"><code>ajax: {
+  url: url,
+  type: "POST", // or 'GET' if you prefer
+  data: function (data) {
+    data.mindate = $('#min-date').val();
+    data.maxdate = $('#max-date').val();
+  }
+},
+</code></pre>
+     <p>This uses a DataTables function to manipulate the <code>data</code> option. This is the data which we will send to the server, as part of our server-side request.</p>
+     <p>I simply append two new variables to the existing data - <code>mindate</code> and <code>maxdate</code>. These contain the date range you need to use in the server, for filtering.</p>
+     <p>Note that the <code>data</code> variable passed into the function <em>already</em> contains some data, provided by DataTables for server-side processing. So, I am adding these two extra fields to that existing data.</p>
+     <p>The request sent from the browser to the server now looks like this. You can see <code>mindate</code> and <code>maxdate</code> at the bottom of the list:</p>
+     <pre><code>{
+    "draw": "2",
+    "columns[0][data]": "id",
+    "columns[0][name]": "",
+    "columns[0][searchable]": "true",
+    "columns[0][orderable]": "true",
+    "columns[0][search][value]": "",
+    "columns[0][search][regex]": "false",
+    "columns[1][data]": "name",
+    "columns[1][name]": "",
+    "columns[1][searchable]": "true",
+    "columns[1][orderable]": "true",
+    "columns[1][search][value]": "",
+    "columns[1][search][regex]": "false",
+    ... not all details shown
+    "order[0][column]": "0",
+    "order[0][dir]": "asc",
+    "start": "0",
+    "length": "10",
+    "search[value]": "",
+    "search[regex]": "false",
+    "mindate": "2021-06-08",    // &lt;--- mindate
+    "maxdate": "2021-06-16"     // &lt;--- maxdate
+}
+</code></pre>
+     <p>In the form submission event, there was this line:</p>
+     <pre><code>invoicedatatable.ajax.url( url ).load();
+</code></pre>
+     <p>This line causes the <code>ajax</code> call in the DataTable to be re-executed, and the table to be re-drawn. This is the trigger which causes the dates to be sent to the server, as part of a standard request. It's the same action as when a user clicks on a column to sort the data, or moves from one page to another page in the DataTable.</p>
+     <p>The server can process this request and extract the two date fields from the request, in the usual way. It can then use these values to filter the data, before building its response, to send back to the DataTable.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for your response, It is well explained. I did it based on your answer, but it doesn't filter datatable. There was an ajax error with POST method, so I changed it to GET. and now it gives no error and does nothing.</span> <span> - </span> <span class="display-name">Mahdi Jafari</span> <span> </span> <span class="date">16 Jun 2021 at 03:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How do I ensure that it filters data with 'created_at' column?</span> <span> - </span> <span class="display-name">Mahdi Jafari</span> <span> </span> <span class="date">16 Jun 2021 at 03:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am not familiar with Laravel - my knowledge is about DataTables. The answer is probably: it's up to you to write the filtering logic yourself in your Laravel framework. There is a very simple PHP demo (not Laravel) <a href="https://datatables.net/examples/server_side/simple.html" rel="nofollow noreferrer">here</a> and <a href="https://github.com/DataTables/DataTablesSrc/blob/master/examples/server_side/scripts/ssp.class.php" rel="nofollow noreferrer">here</a> - it includes data filtering. Maybe that will give you some ideas. Or, you can ask a new question.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">16 Jun 2021 at 12:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

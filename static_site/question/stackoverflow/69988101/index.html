@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene Porter Stemmer - get original unstemmed word</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene Porter Stemmer - get original unstemmed word</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>NickJ</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Nov 2021 at 11:13</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/69988101/lucene-porter-stemmer-get-original-unstemmed-word">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have worked out how to use Lucene's Porter Stemmer but would like to also retrieve the original, un-stemmed word. So, to this end, I added a CharTermAttribute to the TokenStream before creating the PorterStemFilter, as follows:</p>
+    <pre><code>Analyzer analyzer = new StandardAnalyzer();
+TokenStream original = analyzer.tokenStream("StandardTokenStream", new StringReader(inputText));
+TokenStream stemmed = new PorterStemFilter(original);
+CharTermAttribute originalWordAttribute = original.addAttribute(CharTermAttribute.class);
+CharTermAttribute stemmedWordAttribute = stemmed.addAttribute(CharTermAttribute.class);
+
+stemmed.reset();
+while (stemmed.incrementToken()) {
+    System.out.println(stemmedWordAttribute+" "+originalWordAttribute);
+}
+</code></pre>
+    <p>Unfortunately, both attributes return the stemmed word. Is there a way to get the original word as well?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">lucene</span><span class="tag">stemming</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Nov 2021 at 19:56</span>
+     </div>
+    </div>
+    <div>
+     <p>Lucene's <a href="https://lucene.apache.org/core/8_11_0/analyzers-common/org/apache/lucene/analysis/en/PorterStemFilter.html" rel="nofollow noreferrer">PorterStemFilter</a> can be combined with Lucene's <a href="https://lucene.apache.org/core/8_11_0/analyzers-common/org/apache/lucene/analysis/miscellaneous/KeywordRepeatFilter.html" rel="nofollow noreferrer">KeywordRepeatFilter</a>. The Porter Stemmer uses this to provide both the stemmed and unstemmed tokens.</p>
+     <p>Modifying your approach:</p>
+     <pre class="lang-java prettyprint-override"><code>Analyzer analyzer = new StandardAnalyzer();
+TokenStream original = analyzer.tokenStream("StandardTokenStream", new StringReader(inputText));
+TokenStream repeated = new KeywordRepeatFilter(original);
+TokenStream stemmed = new PorterStemFilter(repeated);
+CharTermAttribute stemmedWordAttribute = stemmed.addAttribute(CharTermAttribute.class);
+
+stemmed.reset();
+while (stemmed.incrementToken()) {
+    String originalWord = stemmedWordAttribute.toString();
+    stemmed.incrementToken();
+    String stemmedWord = stemmedWordAttribute.toString();
+    System.out.println(originalWord + " " + stemmedWord);
+}
+</code></pre>
+     <p>This is fairly crude, but shows the approach.</p>
+     <p>Example input:</p>
+     <pre><code>testing giraffe book passing
+</code></pre>
+     <p>Resulting output:</p>
+     <pre><code>testing test
+giraffe giraff
+book book
+passing pass
+</code></pre>
+     <p>For each pair of tokens, if the second matches the first (<code>book book</code>), then there was no stemming.</p>
+     <hr>
+     <p>Normally, you would use this with <code>RemoveDuplicatesTokenFilter</code> to remove the duplicate <code>book</code> term - but if you do that I think it becomes much harder to track the stemmed/unstemmed pairs - so for your specific scenario, I did not use that de-duplication filter.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>proper format and commands for Google Sheet - Json fed Datatables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>proper format and commands for Google Sheet - Json fed Datatables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>John Galassi</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Jul 2021 at 17:19</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68351512/proper-format-and-commands-for-google-sheet-json-fed-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Trying to feed a <a href="https://datatables.net/manual/index" rel="nofollow noreferrer">Datatables</a> table a set of json data straight from Google Sheet I got this kind of error in the first place:</p>
+    <pre><code>DataTables warning: table id=example - Requested unknown parameter 'name' for row 0, column 0. For more information about this error, please see http://datatables.net/tn/4
+</code></pre>
+    <p>Here is my json vs the one provided <a href="https://datatables.net/examples/ajax/objects.html" rel="nofollow noreferrer">in their example</a> which of course has a different format</p>
+    <pre class="lang-json prettyprint-override"><code>{
+  "range": "json!A1:Y1000",
+  "majorDimension": "ROWS",
+  "values": [
+    [
+      "name",
+      "position",
+      "salary",
+      "start_date",
+      "office",
+      "extn"
+    ],
+    [
+      "Unity Butler",
+      "prova",
+      "$85,675",
+      "2009/12/09",
+      "San Francisco",
+      "5384"
+    ]
+  ]
+}
+</code></pre>
+    <pre class="lang-json prettyprint-override"><code>{
+  "data": [
+    {
+      "id": "1",
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "salary": "$320,800",
+      "start_date": "2011/04/25",
+      "office": "Edinburgh",
+      "extn": "5421"
+    },
+    {
+      "id": "2",
+      "name": "Garrett Winters",
+      "position": "Accountant",
+      "salary": "$170,750",
+      "start_date": "2011/07/25",
+      "office": "Tokyo",
+      "extn": "8422"
+    },
+    {...}
+]
+}
+</code></pre>
+    <p>I understood different formats need different treatments and I was curious to know how. The answer provided by @andrewjames which I have accepted explains both the nature of the different formats and how to treat them.<br>
+      Basically all it took was <strong>removing the "columns" parameter</strong> from the <a href="https://datatables.net/reference/option/ajax" rel="nofollow noreferrer">ajax option</a>, as you can see from this <a href="https://jsfiddle.net/John_Galassi/3reyxad8/12/" rel="nofollow noreferrer">jsfiddle</a> where you can find the complete working code (along with libraries as well).</p>
+    <p><strong>UPDATE: supplementary task</strong></p>
+    <p>Now, suppose you want to arrange some extra information into a set of <a href="https://datatables.net/examples/api/row_details.html" rel="nofollow noreferrer">toggle hide-show child rows</a>.</p>
+    <p>As long as the data format respects the original one provided by the example I can easily do that: I can even grab data from a mysql db via a .php file and arrange it into json! <a href="https://jsfiddle.net/John_Galassi/g3z5dsnu/7/" rel="nofollow noreferrer">jsfiddle</a></p>
+    <pre class="lang-php prettyprint-override"><code> &lt;?php
+$con=mysqli_connect("","","","");
+// Check connection
+if (mysqli_connect_errno())
+  {
+  echo "Failed to connect to MySQL: " . mysqli_connect_error();
+  }
+
+$out = array();
+ 
+if ($result = mysqli_query($con, "SELECT * FROM your_table")) {
+  $out = $result-&gt;fetch_all(MYSQLI_ASSOC);
+}
+ 
+echo "{ \"data\": ", json_encode( $out ), "}";
+
+mysqli_close($con);
+?&gt; 
+</code></pre>
+    <p>Problems start when I try to pull data from my usual GSheet-fed json array: how can I conjugate child rows toggle capabilities and a GSheet typically formatted json file ?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">json</span><span class="tag">google-sheets</span><span class="tag">datatables</span><span class="tag">google-sheets-api</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Jul 2021 at 17:50</span>
+     </div>
+    </div>
+    <div>
+     <p>The JSON data you show from the DataTables example is an array of objects:</p>
+     <pre><code>[ {...}, {...}, ... ]
+</code></pre>
+     <p>The JSON data you have created is an array of arrays:</p>
+     <pre><code>[ [...], [...], ... ]
+</code></pre>
+     <p>DataTables can consume both structures as its data source - but it has to do so in different ways..</p>
+     <p>For the array of objects, each object represents a (potential) row of your DataTables data - and each value in the row consists of a name and a value - for example:</p>
+     <pre><code>"salary": "$320,800"
+</code></pre>
+     <p>And that is why the DataTable uses column definitions like this:</p>
+     <pre><code>{ "data": "salary" }
+</code></pre>
+     <p>That means: <em>for this cell's data, use the value which has a name of "salary"</em>.</p>
+     <p>But in your case there are no names - there are only values:</p>
+     <pre><code>"$85,675"
+</code></pre>
+     <p>So, you can't use <code>{ "data": "salary" }</code>, because that name ("salary") does not exist in your JSON.</p>
+     <p>Furthermore, your structure contains the column headings as well as the row data in its first array:</p>
+     <pre><code>[
+  "name",
+  "position",
+  "salary",
+  "start_date",
+  "office",
+  "extn"
+],
+</code></pre>
+     <p>To work around these differences you have 2 basic options:</p>
+     <ol>
+      <li>
+       <p>Re-arrange your JSON so it matches the "array of objects" structure.</p></li>
+      <li>
+       <p>Look at one of the relevant DataTables examples which is based on an array of arrays - for example <a href="https://datatables.net/examples/ajax/simple.html" rel="nofollow noreferrer">Ajax data source (arrays)</a>.</p></li>
+     </ol>
+     <p>Option (2) is easier - closer to your starting point.</p>
+     <p>But in either case, you still need to handle the column headings, since these are separate from the column body rows, and need to be defined separately.</p>
+     <p>Currently, your first row (which looks like column headings) would end up being displayed as the first row of data - not what you want.</p>
+     <p>One way to do this is to define your <code>&lt;html&gt;</code> table to contain the headings already (hard-coded):</p>
+     <pre><code>&lt;table id="example" class="display" style="width:100%"&gt;
+    &lt;thead&gt;
+        &lt;tr&gt;
+            &lt;th&gt;Name&lt;/th&gt;
+            &lt;th&gt;Position&lt;/th&gt;
+            &lt;th&gt;Office&lt;/th&gt;
+            &lt;th&gt;Extn.&lt;/th&gt;
+            &lt;th&gt;Start date&lt;/th&gt;
+            &lt;th&gt;Salary&lt;/th&gt;
+        &lt;/tr&gt;
+    &lt;/thead&gt;
+&lt;/table&gt;
+</code></pre>
+     <p>Alternatively, you can use this:</p>
+     <pre><code>&lt;table id="example" class="display" style="width:100%"&gt;
+&lt;/table&gt;
+</code></pre>
+     <p>And define your column headings in the Datatable definition, using the DataTables <code>title</code> keyword:</p>
+     <pre><code>&lt;script&gt;
+ 
+$(document).ready(function() {
+    $('#example').DataTable( {
+        columns: [
+            { title: "Name" },
+            { title: "Position" },
+            { title: "Office" },
+            { title: "Extn." },
+            { title: "Start date" },
+            { title: "Salary" }
+        ]
+    } );
+} );
+
+&lt;/script&gt;
+</code></pre>
+     <p>And when you do this, you need to <em>remove</em> the headings array from your JSON:</p>
+     <pre><code>{
+  "range": "json!A1:Y1000",
+  "majorDimension": "ROWS",
+  "values": [
+    [
+      "Unity Butler",
+      "prova",
+      "$85,675",
+      "2009/12/09",
+      "San Francisco",
+      "5384"
+    ],
+    [
+        // more array data here...
+    ], ...
+  ]
+}
+</code></pre>
+     <p>Now for the array of arrays, there is no need to specify <code>data</code> values for each column. Because each row is a plain array, DataTables <strong>automatically places the first value in the first cell of the row</strong>, the second value in the second cell, and so on...</p>
+     <p>Final note: In your example you used this:</p>
+     <pre><code>dataSrc: 'values' // values instead of data in this case
+</code></pre>
+     <p>This is good. It tells DataTables to look for your array of arrays in a top-level field called <code>values</code>.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>For the child rows example, you will have a much easier time if you stop using an array of arrays and start using an array of objects. That way you can use the object <em>names</em> to explicitly choose which <em>values</em> belong to the parent row and which belong to the child row.</p>
+     <p>So, if you have source data in a sheet, with headings:</p>
+     <div class="s-table-container">
+      <table class="s-table">
+       <thead>
+        <tr>
+         <th>heading_1</th>
+         <th>heading_2</th>
+         <th>heading_3</th>
+        </tr>
+       </thead>
+       <tbody>
+        <tr>
+         <td>value 1</td>
+         <td>value 2</td>
+         <td>value 3</td>
+        </tr>
+        <tr>
+         <td>value 4</td>
+         <td>value 5</td>
+         <td>value 6</td>
+        </tr>
+       </tbody>
+      </table>
+     </div>
+     <p>Then you need to convert that data from this structure:</p>
+     <pre class="lang-js prettyprint-override"><code>[ 
+  [ "value 1", "value 2", "value 3" ],
+  [ "value 4", "value 5", "value 6" ]
+]
+</code></pre>
+     <pre class="lang-js prettyprint-override"><code>{ "data": [ 
+  { "heading_1": "value 1", "heading_2": "value 2", "heading_3": "value 3" },
+  { "heading_1": "value 4", "heading_2": "value 5", "heading_3": "value 6" }
+] }
+</code></pre>
+     <p>JavaScript can do this. Maybe you can try that yourself? If you get stuck you can ask a specific question.</p>
+     <p>Once you have the array of objects, you can follow the <a href="https://datatables.net/examples/api/row_details.html" rel="nofollow noreferrer">example</a> much more easily. Now you can choose which field <em>names</em> to use in the parent row and which to use in the child row.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>thanks very much for your answer. I'm working on it and already found it really useful. Let me elaborate a better comment in more details, do some try, and I'll get back to you, may be even editing the original question to make it clearer. thanks for now</span> <span> - </span> <span class="display-name">John Galassi</span> <span> </span> <span class="date">12 Jul 2021 at 19:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I am not sure I understand what you mean by "<i>a GSheet typically formatted json file</i>" - but I have updated my answer, to try to give you some pointers (not a full answer). This is a new question, so really you should ask it in a new question.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">15 Jul 2021 at 12:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>thanks for your answer. What I meant was an array of array indeed. I mean: GSheet outputs an array of array by default, and there's no way to change that to the root I guess. So all you can do, as you suggest, is to work out the json with javascript so that it assumes a different structure, but this requires an intermediate file I guess. Anyways, I'll open a new question if needed: I thought updating this one would be more fair, probably I was wrong. No problem. thanks again</span> <span> - </span> <span class="display-name">John Galassi</span> <span> </span> <span class="date">15 Jul 2021 at 12:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

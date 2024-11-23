@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Dynamically calculate percentage in a datatable</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Dynamically calculate percentage in a datatable</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Tim</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Mar 2020 at 11:52</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60830517/dynamically-calculate-percentage-in-a-datatable">source</a>
+    </div>
+   </div>
+   <div>
+    <p>How can I dynamically calculate a percentage in a datatable when a search is applied ? The result should be like this :</p>
+    <pre><code>&lt;tr&gt;
+&lt;td&gt;10%&lt;/td&gt;&lt;td&gt;100&lt;/td&gt;
+&lt;td&gt;90%&lt;/td&gt;&lt;td&gt;900&lt;/td&gt;
+&lt;/tr&gt;
+</code></pre>
+    <p>The percentage should be based on the total of rows shown.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Mar 2020 at 15:57</span>
+     </div>
+    </div>
+    <div>
+     <p>The following example shows you a basic approach.</p>
+     <p>The end result looks like this - note you may get a small rounding error when summing the percentages:</p>
+     <p><a href="https://i.stack.imgur.com/wsqJ1.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/wsqJ1.png" alt="enter image description here"></a></p>
+     <p>The code is as follows:</p>
+     <p><strong><em>UPDATE</em></strong> - There was a problem with my original solution - it used jQuery to populate DataTable cells with the calculated percentages. That meant DataTables did not respond to sorting/filtering for the percentages column. It's better to use DataTables functions to populate the data cells.</p>
+     <pre><code>&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+&lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+  &lt;thead&gt;
+   &lt;tr&gt;&lt;th&gt;ID&lt;/th&gt;&lt;th&gt;Amount&lt;/th&gt;&lt;th&gt;Percent&lt;/th&gt;&lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;123.4&lt;/td&gt;&lt;td class="percent"&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;234.5&lt;/td&gt;&lt;td class="percent"&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;543.21&lt;/td&gt;&lt;td class="percent"&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;76&lt;/td&gt;&lt;td class="percent"&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;5&lt;/td&gt;&lt;td&gt;87&lt;/td&gt;&lt;td class="percent"&gt;&lt;/td&gt;&lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;script type="text/javascript"&gt;
+
+  $(document).ready(function() {
+
+    var table = $('#example').DataTable({
+
+      // wait for table and data to finish being initialized:
+      "initComplete": function( settings, json ) {
+        populatePercentages();
+      }
+
+    });
+
+    function populatePercentages() {
+      var total = 0.0;
+
+      // first calcuate the total:
+      $('#example').DataTable().rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+        // assumes amounts are not null, all numeric, and are in column 2:
+        total = total + Number(this.data()[1]); 
+      });
+
+      // then calculate the percentage for each row:
+      $('#example').DataTable().rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+        var amount = this.data()[1];
+        // calculate percent to 2 decimal places:
+        var percentage = Math.round((amount / total) * 10000) / 100;
+        var cells = $('#example').DataTable().cells(rowIdx, 2);       
+        cells.every( function () {
+          this.data(percentage);
+        });
+
+      });
+    }
+
+  });
+&lt;/script&gt;
+
+&lt;/body&gt;
+</code></pre>
+     <p>Points to note:</p>
+     <p>1) It uses a "percent" class for the cells where percentages will be shown. This makes selection easier.</p>
+     <p>2) You can do something similar as (1) for the amounts cells also. I did not, here.</p>
+     <p>3) The code loops through the table data twice: Once to calculate the grand total amount; and again to calculate the percentages.</p>
+     <p>4) You would need to adjust assumptions about column offsets to fit your table design.</p>
+     <p>5) There is more validation which should really be added, to handle missing or non-numeric data, to make the code less brittle.</p>
+     <p>Handling the case when a search is applied:</p>
+     <p><strong>Filtering:</strong></p>
+     <p>The above solution can be enhanced to re-calculate percentages when data is filtered.</p>
+     <p>1) There are two places where the <code>rows()</code> function is used. In both places change this to the following: <code>rows( { search: 'applied' } )</code>. This will ensure only visible rows are considered when percentages are calculated.</p>
+     <p>2) Add a new section of code to handle <code>keyup</code> events for the search (filter) box. In my case the selector for this input control is as shown below - but this will need to be edited for other datatables with different IDs (my example table's ID is <code>example</code>):</p>
+     <pre><code>&lt;script type="text/javascript"&gt;
+
+  $(document).ready(function() {
+
+    var table = $('#example').DataTable({
+      ...
+    });
+
+    function populatePercentages() {
+      ...
+    }
+
+    // catch filter events and re-calculate percentages accordingly:
+    $('div#example_filter.dataTables_filter &gt; label &gt; input').keyup(function (e) {
+      populatePercentages();
+    });
+
+  });
+&lt;/script&gt;
+</code></pre>
+     <p>With these changes, a filtered list will look like this:</p>
+     <p><a href="https://i.stack.imgur.com/TOuDT.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/TOuDT.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for the wonderful detailed and step by step answer. I was able to implement this successfully. Just a note for anyone else that might be stumbling on this, you need to implement the keyup event catcher within the populatePercentages function, else it wont be registered, I guess since the table will not have finished loading. Thank you again.</span> <span> - </span> <span class="display-name">Tim</span> <span> </span> <span class="date">25 Mar 2020 at 13:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Following up on this, of course you can not put the filter catch inside the populatePercentages function unless you handle recursion...</span> <span> - </span> <span class="display-name">Tim</span> <span> </span> <span class="date">26 Mar 2020 at 10:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@guillottim - I clarified the (unclear!) wording in my answer, to show where the event listener code should be placed.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">26 Mar 2020 at 12:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks, just for the heads up this didn't work for me (maybe I miswrote it or perhaps the datatables wasn't yet generated when the code was being executed), what I did is I wrapped it inside a function that I executed after init of the datatable.</span> <span> - </span> <span class="display-name">Tim</span> <span> </span> <span class="date">26 Mar 2020 at 14:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

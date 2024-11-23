@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Should passwords be automatically reset when the underlying method changes</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Should passwords be automatically reset when the underlying method changes</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>97</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Crazy Dino</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Mar 2016 at 14:03</span>
+    </div>
+    <div>
+     <a href="https://security.stackexchange.com/questions/118114/should-passwords-be-automatically-reset-when-the-underlying-method-changes">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm currently an engineer on a project in development phase. One 'module' on this project gives the ability for user authentication/authorization. However it's come to our concern that the password hashing algorithm may not be up to cop (aka not BCrypt). (The terrible thing is not quite sure what it is and where it came from!).</p>
+    <p>This obviously has to change and the patch is being scheduled. We have to naturally update all our test users because their passwords will be using the old hashing method, not much of a problem, all our demo users are automated on build so it's updating the script. But the next question is what if this is a production system with active and stale users, of all amounts. What would be best practice.</p>
+    <ol>
+     <li>Automatically force a password reset on every user? This will notify every user that their password has been changed and may cause question/confusion and may cause suspicion that there's been a security breach. More questions may be asked which may not necessarily be able to be answered by website stakeholders.</li>
+     <li>Update the DB to flag whether it's the new or old method, then once a user has been authenticated update their password in the DB using. Requires a bit of logic in the service and transition will be seemless to any existing user. The problem being if there was a breach then it may be evident that there are two methods going on here and if the less secure one is found to be that insecure it could obviously be broken.</li>
+     <li>Reset all passwords, using a BCrypted version of the existing hash. Flag it as the old style, so on successful authentication it just keeps a hash of the password rather than a hash of a hash.</li>
+    </ol>
+   </div>
+   <div class="tags">
+    <span class="tag">password-management</span><span class="tag">user-management</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>34</td>
+       <td><span>There's a vote for "primarily opinion-based", which I disagree with: there are solid, objective things to be said here.</span> <span> - </span> <span class="display-name">Mike Ounsworth</span> <span> </span> <span class="date">21 Mar 2016 at 14:36</span></td>
+      </tr>
+      <tr>
+       <td>4</td>
+       <td><span>Is the old algorithm reversible? Ignoring any ethical issues for a moment; if the old old algorithm is broken and understandable enough to allow you to recover the original passwords, then it would be possible to update user records to the new algorithm without the users logging in, and they'd be none the wiser. Just a thought!</span> <span> - </span> <span class="display-name">GreatSeaSpider</span> <span> </span> <span class="date">21 Mar 2016 at 14:37</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@GreatSeaSpider Even if they were using unsalted MD5, it would take months of computing time to crack everyone's password - possibly <i>many</i> months if you have users using random 32-char passwords. That's a lot of $$ in servers and electricity. Definitely cheaper to do something like 2. or 3.</span> <span> - </span> <span class="display-name">Mike Ounsworth</span> <span> </span> <span class="date">21 Mar 2016 at 14:43</span></td>
+      </tr>
+      <tr>
+       <td>7</td>
+       <td><span>On some closer inspection. It appears to be using PBKDF2 which appears to be perfectly acceptable (the developer in question is still buying cakes for the rest of the week because this was not obvious!). I still think the bulk of my question 'what to do when changing password storage hashes' is valid for future reference for other users.</span> <span> - </span> <span class="display-name">Crazy Dino</span> <span> </span> <span class="date">21 Mar 2016 at 14:48</span></td>
+      </tr>
+      <tr>
+       <td>5</td>
+       <td><span>Just thinking aloud: would it make sense to define a transition window? Define a time in the future (<i>end of support</i> date) after which every password stored with the old scheme would be reset, and enable a login logic in which, if the user logs in correctly, the password gets stored with the new hash (that way, you ensure that an authenticated user is using the system and only the users who don't login at all by the <i>end of support</i> date will have their passwords reset). And the <i>old style</i> flag could be gone by the <i>end of support</i> date.</span> <span> - </span> <span class="display-name">Sergio A. Figueroa</span> <span> </span> <span class="date">21 Mar 2016 at 14:52</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@MikeOunsworth I totally agree, in the past I've seen some hand rolled methods of protecting passwords that are trivial to reverse, I should have been clearer and said reversible and trivial (inexpensive) to do so.</span> <span> - </span> <span class="display-name">GreatSeaSpider</span> <span> </span> <span class="date">21 Mar 2016 at 15:00</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>For #3, I assume you meant to say "Rehash all passwords" instead of "Reset all passwords"....</span> <span> - </span> <span class="display-name">TTT</span> <span> </span> <span class="date">21 Mar 2016 at 15:22</span></td>
+      </tr>
+      <tr>
+       <td>9</td>
+       <td><span>Option 3 is the best - if implemented correctly. But as <a href="http://security.stackexchange.com/a/103403/47143">this older answer</a> shows, it is easy to introduce subtle but very serious vulnerabilities. Option 2 is easier to get right and not too bad.</span> <span> - </span> <span class="display-name">kasperd</span> <span> </span> <span class="date">21 Mar 2016 at 17:09</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Why do you want too use <code>bcrypt</code>? Nowadays you should use <code>argon2</code>, which won the Password Hashing Competition...</span> <span> - </span> <span class="display-name">wb9688</span> <span> </span> <span class="date">21 Mar 2016 at 19:33</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@wb9688 I wouldn't use argon2 yet, too new for my taste. I prefer either bcrypt or scrypt.</span> <span> - </span> <span class="display-name">CodesInChaos</span> <span> </span> <span class="date">22 Mar 2016 at 10:07</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>93</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mike Ounsworth</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Mar 2016 at 14:14</span>
+     </div>
+    </div>
+    <div>
+     <p>Your option 1. is a bad idea: in addition to the User-Experience / Public-Relations reasons you state, you're also giving attackers a window to intercept the password reset tokens and compromise every account on your server. It also doesn't solve your problem if you have even one user who's too lazy to log in / update their password.</p>
+     <p>At first glance, both 2. and 3. seem fine to me. Your #2 is no less secure than what you're doing now, but 2. would mean you have to continue supporting the current weak login forever (or do something like "After X months we're wiping your password and forcing you to do a recovery" which breaks the nice user-transparency you want, so let's ignore that).</p>
+     <p>Let's consider the case where you have users in the DB who will never log in again. With both 2. and 3. you have to continue to support the current hashing alg in your code-base forever just in case they do log in, but at least 3. has the advantage that they (or rather, you) are protected against offline brute-force attacks if your DB is ever stolen.</p>
+     <p>Since you'll have to keep the "old style flag" column around forever, do yourself a favour and make it an <code>int</code> not a <code>bool</code> so that if you ever have to update your password hashing alg again, you can record <em>which</em> old style they are on.</p>
+     <hr>
+     <p>UPDATE: A very similar question was asked <a href="https://security.stackexchange.com/q/119680/61443">here</a> and built on the discussion from this thread.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>36</td>
+        <td><span>+1 for your last paragraph. I piggy backed off of that in my answer.</span> <span> - </span> <span class="display-name">TTT</span> <span> </span> <span class="date">21 Mar 2016 at 15:14</span></td>
+       </tr>
+       <tr>
+        <td>23</td>
+        <td><span>Last paragraph is worth a bounty. Not that I can give one, so instead of virtual internet points, have my feelings.</span> <span> - </span> <span class="display-name">Mindwin Remember Monica</span> <span> </span> <span class="date">21 Mar 2016 at 19:04</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>"Let's consider the case where you have users in the DB who will never log in again." - though in many cases this would be covered by another recommended practise though: that account would be locked out anyway after a certain amount of time so you can drop support for the old algorithm after that time.</span> <span> - </span> <span class="display-name">David Spillett</span> <span> </span> <span class="date">22 Mar 2016 at 10:02</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>You don't have to keep the old algorithm indefinitely - if a user doesn't log in for 12 months, there's nothing with asking them to reset their password... there's a pretty good chance they already forgot it</span> <span> - </span> <span class="display-name">HorusKol</span> <span> </span> <span class="date">24 Mar 2016 at 12:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Mindwin: Of course you can give a bounty, feel free to.</span> <span> - </span> <span class="display-name">SilverlightFox</span> <span> </span> <span class="date">27 Mar 2016 at 11:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@SilverlightFox at the time of the posting, I could not, but I made a well-received question and got some virtual points. But I think I'll work up the ropes before I begin playing with such high-end tools. XD</span> <span> - </span> <span class="display-name">Mindwin Remember Monica</span> <span> </span> <span class="date">28 Mar 2016 at 12:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>TTT</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Mar 2016 at 15:10</span>
+     </div>
+    </div>
+    <div>
+     <p>If you can do option 3, I don't see why you would even consider the others. It is by far the best option. With this option, my gut feeling would be to consider using two different salts, one for the old algorithm and one for the new one with bcrypt. I'm envisioning a set up like this:</p>
+     <ol>
+      <li>Set up your new password system how you would if you were starting today.</li>
+      <li>Create a new separate table that has fields for username(or id), hashing algorithm (name or id), salt.</li>
+      <li>On login, check if the user has a record in the separate table, and if so, hash the password the old way, then hash the result the new way and compare with the bcrypt hash. If it matches, re-salt/hash the password the new way, and delete the record from the separate table.</li>
+     </ol>
+     <p>The downside is you'll have to keep the password in memory a few milliseconds longer (who cares) and you'll have the extra table lookup on every login, pretty much forever, until either the separate table is empty or until old accounts become stale enough that you are willing to require them to reset their password themselves.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>"using two salts"? There should be one for each record in the database; salt should not be shared by all records using the same hashing scheme.</span> <span> - </span> <span class="display-name">Ben Voigt</span> <span> </span> <span class="date">21 Mar 2016 at 18:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BenVoigt - Of course. I was referring to not using the same salt (per user) for the old hash and the new hash.</span> <span> - </span> <span class="display-name">TTT</span> <span> </span> <span class="date">21 Mar 2016 at 19:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@TTT: Isn't it irrelevant? You only have <i>one</i> hash at any point in time in the OP's scheme (old hash of password, new hash of old hash of password or new hash of password) so you don't need more than one salt anyway.</span> <span> - </span> <span class="display-name">Matthieu M.</span> <span> </span> <span class="date">21 Mar 2016 at 19:42</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@MatthieuM. - probably, yes. That's actually why I called it a "gut feeling". It's based on the theory that double hashing with different algorithms can decrease entropy. I think I was extrapolating on that and wondering if the old algorithm was somehow related to the new one, could sharing the salt somehow provide extra information? We are doing: F2(salt2, F1(salt1, pass)). For an unknown function 1, if salt1=salt2 is there anyway to get more information? Probably not, but I don't know how to prove it definitively, thus my "gut feeling".</span> <span> - </span> <span class="display-name">TTT</span> <span> </span> <span class="date">21 Mar 2016 at 19:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>AMADANON Inc.</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Mar 2016 at 01:01</span>
+     </div>
+    </div>
+    <div>
+     <p>Note that, if your OLD scheme is hashed with salt, you will not be able to use scheme #3, unless you store the salt SEPARATELY.</p>
+     <p>Normally the salt is stored together with the hash, and you use the salt as input to the hash function - if you do not use exactly the same salt, you will get a completely different output.</p>
+     <p>If you newhash(oldsalt+oldhash, newsalt), then, even having the correct password, you will not be able to recreate oldhash (since you do not have oldsalt), and you cannot generate the final hash. Same thing applies to anything that has parameters (e.g. bcrypt has a "cost" parameter - this needs to be set when encrypting, and is embedded in the output, for use when validating the password).</p>
+     <p><em>ALSO</em>: as was mentioned by others, if you are storing that the hash is "old" or "new" style, consider instead storing the "scheme" - where, e.g. 0 is the "old", and 1 is bcrypt (note I do not use "new" - it is "new" now, will not be "new" forever!). A common way to do this is to have a marker at the start of the hash (this may already be the case!). bcrypt uses one of the following standard prefixes: "$2a$", "$2b$", "$2x", or "$2y$". Depending on the possible outputs of your "old" algorithm, you may need to make up your own prefix to mark these, or you may be able to get away with 'anything that doesn't start with '$' is the old algorithm.</p>
+     <p>And finally, since you are obviously concerned (rightly so!) with the security of the old passwords, I would suggest forcing everyone to change their password, by emailing them instructions with a token (DO NOT! SEND A LINK! You do not want your users clicking on a link! Just tell them to log on to the usual place). Then, ask for the token AND their password. Otherwise, someone who has stolen a password in the past can change the password, and get a valid "new" password.</p>
+     <p>FINALLY: have an expiry date - if passwords are not changed by this date, then they should be invalidated. This date should be in the email, and not too far in the future (a week? depends on how long your customers take to respond). After that, they will have to go through "password reset" procedures.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Serge Ballesta</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Mar 2016 at 16:30</span>
+     </div>
+    </div>
+    <div>
+     <p>I do not know what is your password encoding scheme, but if it not too bad, it is likely that the structure of the password in old and new format are different.</p>
+     <p>I have already seen something like that in an old BSD system when the system changed from a traditionnal password encoding to a more secure one. The new one started with a character sequence that could not exist in old scheme, so each time a user with an old password logged in, its clear text password was validated using the old method and silently re-hashed and stored back in password database with the new method. After one month, no old password was present in database, without end user noticing anything.</p>
+     <p>That would be somewhere in between your second and third method.</p>
+     <p>I know that in a real production web system, things can now be much worse, because users can wait weeks or even months before connecting again. But (depending on the real activity) it can be mitigated by the fact that a user that has not connected for several months can have forgotten its password - or you can tell him that he did... That means that I would wait a bit longer here probably 3 or 6 months and after that time I would reset all old style password to a forbidden value forcing the user to reset his password on next connection... through the <em>forgotten password</em> screen.</p>
+     <p>The nice things here are:</p>
+     <ul>
+      <li>transparent for regular users</li>
+      <li>no database schema change - provided the password field can accept both styles</li>
+      <li>occasional users will simply be handled as if they had forgotten their password after months without using it</li>
+     </ul>
+     <p>The downside is that it forces you to simultaneously implement both authentication method + an automatic update of all style password.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Eric</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Mar 2016 at 23:07</span>
+     </div>
+    </div>
+    <div>
+     <p>You did not mention the language you are using. Php has its problems with various functions that should return false when it should return true in some cases, or other functions that sound like they do the job but lack the logic to actually handle the full possible valid possible inputs.</p>
+     <p>But this is the correct way to do what you are talking about in php even if you are not using php. The high level code can leave you with a starting point in coding it for your purposes.</p>
+     <p><a href="http://php.net/manual/en/function.password-needs-rehash.php" rel="nofollow">http://php.net/manual/en/function.password-needs-rehash.php</a></p>
+     <pre><code>$password = 'rasmuslerdorf';
+$hash = '$2y$10$YCFsG6elYca568hBi2pZ0.3LDL5wjgxct1N8w/oLR/jfHsiQwCqTS';
+
+// The cost parameter can change over time as hardware improves
+$options = array('cost' =&gt; 11);
+
+// Verify stored hash against plain-text password
+if (password_verify($password, $hash)) {
+    // Check if a newer hashing algorithm is available
+    // or the cost has changed
+    if (password_needs_rehash($hash, PASSWORD_DEFAULT, $options)) {
+        // If so, create a new hash, and replace the old one
+        $newHash = password_hash($password, PASSWORD_DEFAULT, $options);
+    }
+
+    // Log user in
+}
+</code></pre>
+     <p>What I would do would be your #2 with what has been mentioned with using an an int. From reading the documentation on the PASSWORD_DEFAULT it could change when better algorithms are found and they need to remove the current one for insecurity purposes as php is upgraded.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>I purposfully kept my question language agnostic as the implementation doesn't matter. I refuse to touch php but others may find this useful in the future?</span> <span> - </span> <span class="display-name">Crazy Dino</span> <span> </span> <span class="date">22 Mar 2016 at 15:08</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>micheal65536</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Mar 2016 at 16:01</span>
+     </div>
+    </div>
+    <div>
+     <p>Advise the users regarding the security flaws in the old authentication system and suggest that they change/reset their password in order to use the new authentication system. If after a pre-decided period of time (which the users may be advised of in the "small print" somewhere) some users still haven't changed/reset their password, deactivate their account and send them an email instructing them on how to activate it again. This way, your regular users will feel like they are being "asked" to change their password, not "told" to change their password, so are unlikely to react negatively to the request even if they do change their password (which hopefully they will, if your advisory email is persuasive enough) and you won't have to support the old authentication system forever for the few users who never got round to changing their password.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>3</td>
+        <td><span>I don't agree with this advice, mainly because of the downsides OP already pointed out with regards to option 1, and also those Mike O pointed out in his answer.</span> <span> - </span> <span class="display-name">TTT</span> <span> </span> <span class="date">21 Mar 2016 at 16:22</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>As a side note, I also disagree with your choice of phrase "security flaws". I wouldn't even call plain text passwords stored on the server a "security flaw". Though I would call it an extremely bad practice.</span> <span> - </span> <span class="display-name">TTT</span> <span> </span> <span class="date">21 Mar 2016 at 16:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ttt Although plain text wouldn't be an issue when updating the password mechanism, since you'd know what to hash for the encrypted one.</span> <span> - </span> <span class="display-name">Phil Lello</span> <span> </span> <span class="date">21 Mar 2016 at 21:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@TTT That's why I'm not using "option 1"; I'm using a compromise that works like option 1 in practice but doesn't have the same effect on users.</span> <span> - </span> <span class="display-name">micheal65536</span> <span> </span> <span class="date">21 Mar 2016 at 21:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@MichealJohnson - true, I guess you could call your suggestion "option 1.5", but it still has the downsides of option 1 - makes it seem like there was a security problem and/or breach, provides the window of token interception like Mike O described, and even introduces a new issue: it could attract attention of attackers and now they have something to try to hack- since if they gain access to the server they have the weaker password hashes to exploit. (That wouldn't be possible if you actually did option 1.)</span> <span> - </span> <span class="display-name">TTT</span> <span> </span> <span class="date">21 Mar 2016 at 21:35</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@TTT How are attackers going to know which accounts have weaker passwords? Also, from the point of view of an attacker on the frontend side of the server, the passwords are no less or more secure because they would still need to be bruteforced; it's if the attacker gets hold of the hashes that passwords may be compromised. For that to work, the attacker would need to have an account registered on the server, steal the hashes from the server, and then know which passwords use which hashes.</span> <span> - </span> <span class="display-name">micheal65536</span> <span> </span> <span class="date">22 Mar 2016 at 07:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@MichealJohnson - I agree with you. Remember that the point of changing the hash algorithm to begin with is just in case the server is compromised. Once on the server, there should be something indicating which hashing algorithm to use, so the code knows which one to try (and so the attacker can see it too). If you don't have an indicator, that means the code would have to try both algorithms, but then the hash of one would be a valid password for the other. See kasperd's comment to the question for details on that.</span> <span> - </span> <span class="display-name">TTT</span> <span> </span> <span class="date">22 Mar 2016 at 13:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

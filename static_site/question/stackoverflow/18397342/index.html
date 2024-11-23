@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Deserializing Generic Types with GSON</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Deserializing Generic Types with GSON</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>69</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>VizGhar</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Aug 2013 at 07:36</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/18397342/deserializing-generic-types-with-gson">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have some problems with implementation of Json Deserialization in my Android application (with Gson library)</p>
+    <p>I've made class like this</p>
+    <pre><code>public class MyJson&lt;T&gt;{
+    public List&lt;T&gt; posts;
+}
+</code></pre>
+    <p>And Deserialization call is:</p>
+    <pre><code>public class JsonDownloader&lt;T&gt; extends AsyncTask&lt;Void, Void, MyJson&lt;T&gt;&gt; {
+...
+protected MyJson&lt;T&gt; doInBackground(Void... params) {
+  ...
+    Reader reader = new InputStreamReader(content);
+    GsonBuilder gson = new GsonBuilder();
+    Type collectionType = new TypeToken&lt;MyJson&lt;T&gt;&gt;() {}.getType();
+    result = gson.create().fromJson(reader, collectionType);
+  ...
+  }
+}
+</code></pre>
+    <p>Problem is that result.posts list after call holds one Array of LinkedTreeMap Objects(with correct values so problem is Deserialization) instead of MyJson Objects. When I use MyObject instead of T everything is running fine and MyObject is correct.</p>
+    <p>So is there any way to implement deserialization call without creating custom deserializer?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">android</span><span class="tag">json</span><span class="tag">deserialization</span><span class="tag">gson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>What do you mean by <code>When I use MyJson instead of MyJson </code></span> <span> - </span> <span class="display-name">John B</span> <span> </span> <span class="date">23 Aug 2013 at 07:38</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Heh I meant MyJson instead of T sorry</span> <span> - </span> <span class="display-name">VizGhar</span> <span> </span> <span class="date">23 Aug 2013 at 09:04</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I'm curious to know why did you use a <code>GsonBuilder</code> to get a <code>Gson</code> instance, instead of doing <code>new Gson.fromJson</code> directly. What kind of benefit might be obtained from this builder?</span> <span> - </span> <span class="display-name">SebasSBM</span> <span> </span> <span class="date">7 Jun 2019 at 06:45</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@SebasSBM <code>GsonBuilder</code> has a <code>registerTypeAdapter</code> method is required for implementing custom deserializers for types.</span> <span> - </span> <span class="display-name">Peter Schorn</span> <span> </span> <span class="date">7 Oct 2020 at 09:05</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>55</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ravi K Thapliyal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Aug 2013 at 07:57</span>
+     </div>
+    </div>
+    <div>
+     <p>You have to specify the type of <code>T</code> at the time of deserialization. How would your <code>List</code> of <code>posts</code> get created if <code>Gson</code> didn't know what <code>Type</code> to instantiate? It can't stay <code>T</code> forever. So, you would provide the type <code>T</code> as a <code>Class</code> parameter.</p>
+     <p>Now assuming, the type of <code>posts</code> was <code>String</code> you would deserialize <code>MyJson&lt;String&gt;</code> as (I've also added a <code>String json</code> parameter for simplicity; you would read from your <code>reader</code> as before):</p>
+     <pre><code>doInBackground(String.class, "{posts: [\"article 1\", \"article 2\"]}");
+
+protected MyJson&lt;T&gt; doInBackground(Class&lt;T&gt; type, String json, Void... params) {
+
+    GsonBuilder gson = new GsonBuilder();
+    Type collectionType = new TypeToken&lt;MyJson&lt;T&gt;&gt;(){}.getType();
+
+    MyJson&lt;T&gt; myJson = gson.create().fromJson(json, collectionType);
+
+    System.out.println(myJson.getPosts()); // ["article 1", "article 2"]
+    return myJson;
+}
+</code></pre>
+     <p>Similarly, to deserialize a <code>MyJson</code> of <code>Boolean</code> objects</p>
+     <pre><code>doInBackground(Boolean.class, "{posts: [true, false]}");
+
+protected MyJson&lt;T&gt; doInBackground(Class&lt;T&gt; type, String json, Void... params) {
+
+    GsonBuilder gson = new GsonBuilder();
+    Type collectionType = new TypeToken&lt;MyJson&lt;T&gt;&gt;(){}.getType();
+
+    MyJson&lt;T&gt; myJson = gson.create().fromJson(json, collectionType);
+
+    System.out.println(myJson.getPosts()); // [true, false]
+    return myJson;
+}
+</code></pre>
+     <p>I've assumed <code>MyJson&lt;T&gt;</code> for my examples to be as</p>
+     <pre><code>public class MyJson&lt;T&gt; {
+
+    public List&lt;T&gt; posts;
+
+    public List&lt;T&gt; getPosts() {
+        return posts;
+    }
+}
+</code></pre>
+     <p>So, if you were looking for to deserialize a <code>List&lt;MyObject&gt;</code> you would invoke the method as</p>
+     <pre><code>// assuming no Void parameters were required
+MyJson&lt;MyObject&gt; myJson = doInBackground(MyObject.class);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>8</td>
+        <td><span>and where exactly is <code>Class&lt;T&gt; type</code> used in your code?</span> <span> - </span> <span class="display-name">hoefling</span> <span> </span> <span class="date">29 Dec 2015 at 16:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Mr.Yetti The parameter <code>type</code> isn't used directly but still specifies what type <code>&lt;T&gt;</code> is of everywhere else in the method code. So, when you pass the <code>type</code> as <code>MyObject.class</code>, the method works with a <code>TypeToken&lt;MyJson&lt;MyObject&gt;&gt;</code> and returns a <code>MyJson&lt;MyObject&gt;</code>.</span> <span> - </span> <span class="display-name">Ravi K Thapliyal</span> <span> </span> <span class="date">31 Dec 2015 at 17:03</span></td>
+       </tr>
+       <tr>
+        <td>8</td>
+        <td><span>No, it won't because of type erasure at runtime. Therefore, your function will always return <code>MyJson&lt;Object&gt;</code> no matter what type you pass as an argument.</span> <span> - </span> <span class="display-name">hoefling</span> <span> </span> <span class="date">3 Jan 2016 at 13:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Mr.Yetti Type erasure is a run time thing and has nothing to do with the <code>type</code> parameter which is present here to satisfy the generic return type of the method in a statement like <code>MyJson&lt;MyObject&gt; myJson = doInBackground(...)</code> <b>at compile-time</b>. Remove the <code>type</code> and see what compiler error is thrown to understand what I'm saying.</span> <span> - </span> <span class="display-name">Ravi K Thapliyal</span> <span> </span> <span class="date">18 Jan 2016 at 18:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What exact error do you get? The <code>doInBackground</code> function must be inside a generic-typed class, e.g. <code>class JsonDownloader&lt;T&gt;</code>, or your code won't compile anyway. Therefore, the <code>type</code> parameter doesn't matter. If the method is not inside a generic class, then the signature <code>&lt;T&gt; MyJson&lt;T&gt; doInBackground(String json, Void... params)</code> is sufficient to avoid explicit cast, but that still won't save you from runtime errors.</span> <span> - </span> <span class="display-name">hoefling</span> <span> </span> <span class="date">18 Jan 2016 at 18:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What I mean with runtime errors is: <code>MyJson&lt;Integer&gt; doInBg = doInBackground(Integer.class, "{posts:['text1','text2']}"); double toDouble = doInBg.getPosts().iterator().next().doubleValue(); System.out.println(toDouble);</code> Your <code>type</code> doesn't do anything and your code will fail.</span> <span> - </span> <span class="display-name">hoefling</span> <span> </span> <span class="date">18 Jan 2016 at 18:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>this answer is incorrect and gson will throw a ClassCastException exception. You need to specify the full type every time, you can't make it generic. e.g <code>Type type = new TypeToken&lt;LinkedList&lt;SomeClass&gt;&gt;(){}.getType();</code></span> <span> - </span> <span class="display-name">Yuval Roth</span> <span> </span> <span class="date">18 Apr 2023 at 09:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>24</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>John B</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Aug 2013 at 07:41</span>
+     </div>
+    </div>
+    <div>
+     <p>Have you tried?</p>
+     <pre><code>gson.create().fromJson(reader, MyJson.class);
+</code></pre>
+     <p><strong>EDIT</strong></p>
+     <p>After reading <a href="https://stackoverflow.com/questions/5554217/google-gson-deserialize-listclass-object-generic-type">this</a> post it seems that you use of <code>Type</code> is correct. I believe your issue is the use of <code>T</code>. You must remember that with Java there is type-erasure. This means that at runtime all instances of <code>T</code> are replaced with <code>Object</code>. Therefore at runtime what you are passing GSON is really <code>MyJson&lt;Object&gt;</code>. If you tried this with a concrete class in place of <code>&lt;T&gt;</code> I believe it would work.</p>
+     <p><a href="https://stackoverflow.com/questions/5554217/google-gson-deserialize-listclass-object-generic-type">Google Gson - deserialize list&lt;class&gt; object? (generic type)</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>OK my solution is to send Type as parameter when creating JsonDownloader class, then everything works fine. I didn't know about Type Erasure so thanks for pointing me on it.</span> <span> - </span> <span class="display-name">VizGhar</span> <span> </span> <span class="date">23 Aug 2013 at 09:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Davi Alves</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Nov 2016 at 21:46</span>
+     </div>
+    </div>
+    <div>
+     <p>So the above answer didn't work for me, after trial and error that's how my code ended:</p>
+     <pre><code>public class AbstractListResponse&lt;T&gt; {
+    private List&lt;T&gt; result;
+
+    public List&lt;T&gt; getResult() {
+        return this.result;
+    }
+}
+</code></pre>
+     <p>The important part here is the method signature, including the '&lt; T &gt;' on the left.</p>
+     <pre><code>protected &lt;T&gt; AbstractListResponse&lt;T&gt; parseAbstractResponse(String json, TypeToken type) {
+    return new GsonBuilder()
+            .create()
+            .fromJson(json, type.getType());
+}
+</code></pre>
+     <p>When calling Gson, the method receives the TypeToken of the generic object.</p>
+     <pre><code>TypeToken&lt;AbstractListResponse&lt;MyDTO&gt;&gt; typeToken = new TypeToken&lt;AbstractListResponse&lt;MyDTO&gt;&gt;() {};
+AbstractListResponse&lt;MyDTO&gt; responseBase = parseAbstractResponse(json, typeToken);
+</code></pre>
+     <p>And finally the TypeToken can use MyDTO, or even a simple object, just MyDTO.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Excellent example. Perfect solution for my problem.</span> <span> - </span> <span class="display-name">Tomas Bisciak</span> <span> </span> <span class="date">22 Jul 2018 at 16:38</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>tudor</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Dec 2018 at 20:00</span>
+     </div>
+    </div>
+    <div>
+     <p>For anyone struggling with Kotlin like I did, I've found this way to work</p>
+     <pre><code>val type = object : TypeToken&lt;MyJson&lt;MyObject&gt;&gt;() { }.type
+val response = gson.fromJson&lt;MyJson&lt;MyObject&gt;&gt;(reader, type)
+</code></pre>
+     <p>Note that calling a generic function requires the type arguments at the call site after the name of the function (seen <a href="https://kotlinlang.org/docs/reference/generics.html#generic-functions" rel="nofollow noreferrer">here</a>)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>amp</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Oct 2020 at 17:32</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are using gson 2.8.0 or higher, you can use the following method <code>TypeToken#getParametized((Type rawType, Type... typeArguments))</code></p>
+     <p>Example:</p>
+     <pre><code>protected MyJson&lt;T&gt; doInBackground(Class&lt;T&gt; type, String json, Void... params) {
+
+    GsonBuilder gson = new GsonBuilder();
+    Type collectionType = TypeToken.getParameterized(MyJson.class, type).getType();
+
+    MyJson&lt;T&gt; myJson = gson.create().fromJson(json, collectionType);
+
+    System.out.println(myJson.getPosts()); // [true, false]
+    return myJson;
+}
+</code></pre>
+     <p>I believe this would work in your case.</p>
+     <p>Credits to <a href="https://stackoverflow.com/a/44303941/1204249">this answer</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>M.Baraka</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Feb 2021 at 14:58</span>
+     </div>
+    </div>
+    <div>
+     <p>I used the above answer to figure out more generic way in Kotlin (but you can reuse in java with minor adjustment) I have <code>BaseDB&lt;T&gt;</code> which loads <code>Table&lt;T&gt;</code>, while Table has a <code>List&lt;T&gt;</code></p>
+     <pre><code>fun parse(jsonString: String): Table&lt;T&gt; {
+    //this gets the class for the type T
+    val classT: Class&lt;*&gt; = (javaClass
+        .genericSuperclass as ParameterizedType).actualTypeArguments[0] as Class&lt;*&gt;
+    val type = TypeToken.getParameterized(Table::class.java, classT).type
+    return GsonHelper.gson.fromJson&lt;Table&lt;T&gt;&gt;(jsonString, type)
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

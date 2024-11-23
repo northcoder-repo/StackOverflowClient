@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Eliminating Passwords from the JVM Heap</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Eliminating Passwords from the JVM Heap</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>4</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>andrewJames</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>31 Dec 2019 at 21:17</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/59548500/eliminating-passwords-from-the-jvm-heap">source</a>
+    </div>
+   </div>
+   <div>
+    <p>There are various questions and answers about how to manage passwords in Java code - for example, <a href="https://stackoverflow.com/questions/20342389">here</a> and <a href="https://stackoverflow.com/questions/31280729">here</a>.</p>
+    <p>Discussions tend to focus on the merits of using <code>char[]</code> over <code>String</code>.</p>
+    <p><em>But are there any ways to avoid passwords being stored in the JVM's heap, if it's a 3rd party library that is storing the password in a String?</em></p>
+    <p>For example, in the following three cases I think passwords will remain in the heap for the lifetime of the JVM:</p>
+    <h2>Hikari Connection Pool 3.4</h2>
+    <p><strong><em>EDIT</em></strong> - <em>example updated to be more relevant to my question:</em></p>
+    <pre><code>// some values read in from a properties file, or similar:
+String url = ...;
+String user = ...;
+String pw = ... ;
+...
+HikariDataSource ds = new HikariDataSource();
+ds.setJdbcUrl(url);
+ds.setUsername(user);
+ds.setPassword(pw);
+...
+</code></pre>
+    <p>In the above example, my <code>com.zaxxer.hikari.HikariDataSource</code> object contains the password in a <code>String</code>. I can't see a way to null the data source without losing the connection pool.</p>
+    <h2>Jetty 9.4 Database Adaptor</h2>
+    <p>For example, if I create a <code>JDBCSessionDataStoreFactory</code>, then the <code>org.eclipse.jetty.server.session.DatabaseAdaptor</code> holds on to the connection credentials, including the password in a <code>String</code>.</p>
+    <h2>JNDI Connection in Tomcat 9</h2>
+    <p>In this case the password can be found in <code>org.apache.tomcat.util.descriptor.web.ContextResource</code> and maybe also in <code>org.apache.tomcat.dbcp.dbcp2.BasicDataSource</code>, if I also choose to use that connection pool.</p>
+    <p>In other words, sensitive connection information can be found in various locations in my JVM's heap, regardless of how diligent I am about using char arrays in my code and overwriting/nulling sensitive data when it's no longer needed. I am not suggesting my efforts are wasted - <strong>I still want to protect what I can</strong> (for example a user's login credentials). But other credentials such as the database connection seem to be out of my control.</p>
+    <p>Are there any solutions or best practices for these cases?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jvm</span><span class="tag">passwords</span><span class="tag">heap-memory</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>In the case that you show, you still need the secret available--you may need to open more connections for capacity, if they time out, you have a server failover, etc.</span> <span> - </span> <span class="display-name">chrylis -cautiouslyoptimistic-</span> <span> </span> <span class="date">31 Dec 2019 at 23:09</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>When you have a line like <code>ds.setPassword("51mp50n");</code>, you don’t need to worry about what the <code>HikariDataSource</code> object does, you already have a string instance representing the string literal permanently linked to this code location. It will persist as long as the code (resp. its class loader) exists, in case of the application class loader, the entire lifetime of the JVM. Even if you managed to wipe out that string instance somehow, the character data of this password is stored in the class file and hence, loaded into the process’ memory, independently of the heap memory.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">6 Jan 2020 at 16:59</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Holger - yes - indeed - a String literal password in the source code! I have changed the Hikari example to be (hopefully) more relevant to my question.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">6 Jan 2020 at 21:24</span></td>
+      </tr>
+      <tr>
+       <td>3</td>
+       <td><span>Well, someone who can read your heap memory surely can read the property file as well (or the buffer memory used when reading the file). It all boils down to the need to protect the machine your code is running on, rather than spending lots of efforts in trying to make finding the data marginally harder.</span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">7 Jan 2020 at 08:14</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>mjuarez</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Jan 2020 at 22:49</span>
+     </div>
+    </div>
+    <div>
+     <p>Like @Holger said in the comments, anything that can read your heap memory and/or a heap dump in the filesystem, already has control of the server, so attempting to hide a password is useless at that point. Better to work on securing the actual server and services that live in it.</p>
+     <p>Thomas Porning gives a great answer in the link below, but this is the key paragraph (highlights mine):</p>
+     <blockquote>
+      <p>None of this applies to a server application, or to client code that handles secrets with an actual non-negligible value. <strong>If a malicious attacker is in position to scan the RAM for sensitive data, and that data is worth 1 or 2 minutes of explicit attention from the human attacker, then no amount of overwriting will save you.</strong> Thus, in many contexts where security matters, overwriting of passwords and keys is just wasted effort, that gives a feeling of security, but does not actually improves things (though it may be convenient to awe auditors).</p>
+     </blockquote>
+     <p><a href="https://security.stackexchange.com/a/75891/4667">https://security.stackexchange.com/a/75891/4667</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for the reference. As you, Holger, and several others have said in answers, elsewhere, on this broader topic, we need to prioritize what matters. There is little (or maybe even <i>negative</i>) value in adding one more lock to your front door, if the back door is hanging off its hinges.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">9 Jan 2020 at 16:05</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

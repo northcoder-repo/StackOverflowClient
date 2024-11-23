@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Difference between node.innerHTML and cell.data() in DataTables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Difference between node.innerHTML and cell.data() in DataTables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Marta Fernandez</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Nov 2022 at 14:17</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74520318/difference-between-node-innerhtml-and-cell-data-in-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <p><strong>Link to test case:</strong> <a href="http://live.datatables.net/yevonevo/1/edit?html,js,output" rel="nofollow noreferrer">http://live.datatables.net/yevonevo/1/edit?html,js,output</a><br><strong>Link to documentation tutorial:</strong> <a href="https://datatables.net/examples/api/counter_columns.html" rel="nofollow noreferrer">https://datatables.net/examples/api/counter_columns.html</a></p>
+    <p>Goal: Creating a index column that behaves as a "ranking" column, right after initialization, so it assigns fixed indexes to rows that will be preserved when re-ordering the table according to other columns.</p>
+    <p>I am playing around and I have come up with 2 different ways that behave slightly different:</p>
+    <ol>
+     <li>Setting data property of cell:</li>
+    </ol>
+    <pre><code>$('#example').on('init.dt', function() {
+  console.log('init');
+  let i = 1;
+  $('#example').DataTable().cells(null, 0, { search: 'applied', order: 'applied' }).every(function (cell) {
+    this.data(i++);
+    });
+});
+var table = $('#example').DataTable({
+    pageLength: 5,
+    order: [[1,'asc']]
+});
+</code></pre>
+    <ol start="2">
+     <li>Setting innerHTML of node:</li>
+    </ol>
+    <pre><code>$('#example').on('init.dt', function() {
+   $('#example').DataTable().column(0, {search:'applied', order:'applied'}).nodes().each( function (cell, i) {
+       cell.innerHTML = i+1;
+       });
+});
+var table = $('#example').DataTable({
+    pageLength: 5,
+    order: [[1,'asc']]
+  });
+</code></pre>
+    <p>Both create the indexes perfectly, but while I am able to manually re-order the table based on the first column ranking values using the first solution, I cannot use that column to re-order using the second option (with manually I mean after having created the table and clicking on sortin arrows).</p>
+    <p>Why does that happen?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">indexing</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Nov 2022 at 14:40</span>
+     </div>
+    </div>
+    <div>
+     <p>When you make a change directly to a node in the DOM (a change to the table HTML)...</p>
+     <pre><code>cell.innerHTML = i+1; 
+</code></pre>
+     <p>...then you are using a <a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/innerHTML" rel="nofollow noreferrer">web API</a>, not a DataTables function.</p>
+     <p>That change is not visible to DataTables (the underlying JavaScript data structure), unless you tell DataTables about that change. If DataTables re-draws the table it will use its internal data - and any DOM changes in the HTML table will be discarded.</p>
+     <p>The data you see when you look at the web page may not be the data which DataTables has stored.</p>
+     <p>Contrast that with a DataTables API function such as:</p>
+     <pre><code>cell().data( value ) 
+</code></pre>
+     <p>...which <a href="https://datatables.net/reference/api/cell().data()" rel="nofollow noreferrer">updates the underlying DataTable data</a>. Now, when a re-draw of the table happens (explicitly or implicitly), you get to see that data.</p>
+     <hr>
+     <p>DataTables assigns a zero-based internal row ID when it is initialized - based on the order in which rows were loaded from whatever source you are using. You can make that internal ID visible if you want:</p>
+     <pre><code>"render": function ( data, type, row, meta ) {
+  return meta.row + 1;
+}
+</code></pre>
+     <p>See <a href="https://datatables.net/reference/option/columns.render" rel="nofollow noreferrer">columns.render</a></p>
+     <p>An example:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>$(document).ready(function() {
+var table = $('#example').DataTable( {
+
+  "columnDefs": [ {
+    "targets": 0,
+    //"data": "",
+    "render": function ( data, type, row, meta ) {
+      return meta.row + 1;
+    }
+  } ]
+
+} );
+} );</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;th&gt;Index&lt;/th&gt;
+                &lt;th&gt;Name&lt;/th&gt;
+                &lt;th&gt;Position&lt;/th&gt;
+                &lt;th&gt;Office&lt;/th&gt;
+                &lt;th&gt;Age&lt;/th&gt;
+                &lt;th&gt;Start date&lt;/th&gt;
+                &lt;th&gt;Salary&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Tiger Nixon&lt;/td&gt;
+                &lt;td&gt;System Architect&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;2011/04/25&lt;/td&gt;
+                &lt;td&gt;$320,800&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Garrett Winters&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;63&lt;/td&gt;
+                &lt;td&gt;2011/07/25&lt;/td&gt;
+                &lt;td&gt;$170,750&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Ashton Cox&lt;/td&gt;
+                &lt;td&gt;Junior Technical Author&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;66&lt;/td&gt;
+                &lt;td&gt;2009/01/12&lt;/td&gt;
+                &lt;td&gt;$86,000&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Cedric Kelly&lt;/td&gt;
+                &lt;td&gt;Senior Javascript Developer&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;22&lt;/td&gt;
+                &lt;td&gt;2012/03/29&lt;/td&gt;
+                &lt;td&gt;$433,060&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Airi Satou&lt;/td&gt;
+                &lt;td&gt;Accountant&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;33&lt;/td&gt;
+                &lt;td&gt;2008/11/28&lt;/td&gt;
+                &lt;td&gt;$162,700&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Brielle Williamson&lt;/td&gt;
+                &lt;td&gt;Integration Specialist&lt;/td&gt;
+                &lt;td&gt;New York&lt;/td&gt;
+                &lt;td&gt;61&lt;/td&gt;
+                &lt;td&gt;2012/12/02&lt;/td&gt;
+                &lt;td&gt;$372,000&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Herrod Chandler&lt;/td&gt;
+                &lt;td&gt;Sales Assistant&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;59&lt;/td&gt;
+                &lt;td&gt;2012/08/06&lt;/td&gt;
+                &lt;td&gt;$137,500&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Rhona Davidson&lt;/td&gt;
+                &lt;td&gt;Integration Specialist&lt;/td&gt;
+                &lt;td&gt;Tokyo&lt;/td&gt;
+                &lt;td&gt;55&lt;/td&gt;
+                &lt;td&gt;2010/10/14&lt;/td&gt;
+                &lt;td&gt;$327,900&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Colleen Hurst&lt;/td&gt;
+                &lt;td&gt;Javascript Developer&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;39&lt;/td&gt;
+                &lt;td&gt;2009/09/15&lt;/td&gt;
+                &lt;td&gt;$205,500&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Sonya Frost&lt;/td&gt;
+                &lt;td&gt;Software Engineer&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;23&lt;/td&gt;
+                &lt;td&gt;2008/12/13&lt;/td&gt;
+                &lt;td&gt;$103,600&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Jena Gaines&lt;/td&gt;
+                &lt;td&gt;Office Manager&lt;/td&gt;
+                &lt;td&gt;London&lt;/td&gt;
+                &lt;td&gt;30&lt;/td&gt;
+                &lt;td&gt;2008/12/19&lt;/td&gt;
+                &lt;td&gt;$90,560&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Quinn Flynn&lt;/td&gt;
+                &lt;td&gt;Support Lead&lt;/td&gt;
+                &lt;td&gt;Edinburgh&lt;/td&gt;
+                &lt;td&gt;22&lt;/td&gt;
+                &lt;td&gt;2013/03/03&lt;/td&gt;
+                &lt;td&gt;$342,000&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;&lt;/td&gt;
+                &lt;td&gt;Charde Marshall&lt;/td&gt;
+                &lt;td&gt;Regional Director&lt;/td&gt;
+                &lt;td&gt;San Francisco&lt;/td&gt;
+                &lt;td&gt;36&lt;/td&gt;
+                &lt;td&gt;2008/10/16&lt;/td&gt;
+                &lt;td&gt;$470,600&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for the explanation, exactly what I was missing.</span> <span> - </span> <span class="display-name">Marta Fernandez</span> <span> </span> <span class="date">22 Nov 2022 at 07:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Just a last remark, I discarded the columns.render option because the internal index assigned corresponds to the order at data source. If you apply a specific priority order when defining your table the Index column will not reflect that order, that is why I need to catch the init event and then assign the index, to take into account that specific sorting.</span> <span> - </span> <span class="display-name">Marta Fernandez</span> <span> </span> <span class="date">22 Nov 2022 at 07:43</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

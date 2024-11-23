@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene how can I get position of found query?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene how can I get position of found query?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Eve</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>3 Jul 2021 at 18:40</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68239057/lucene-how-can-i-get-position-of-found-query">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a QueryParser, and I want to find the string "War Force" in my text:</p>
+    <pre><code>TextWord[0]: 2003
+TextWord[1]: 09
+TextWord[2]: 22T19
+TextWord[3]: 01
+TextWord[4]: 14Z
+TextWord[5]: Book0
+TextWord[6]: WEAPONRY
+TextWord[7]: NATO2
+TextWord[8]: Bar
+TextWord[9]: WEAPONRY
+TextWord[10]: State
+TextWord[11]: WEAPONRY
+TextWord[12]: 123
+TextWord[13]: War
+TextWord[14]: WORD1
+TextWord[15]: Force
+TextWord[16]: And
+TextWord[17]: Book4
+TextWord[18]: Book
+TextWord[19]: WEAPONRY
+TextWord[20]: Book6
+TextWord[21]: Terrorist.
+TextWord[22]: And
+TextWord[23]: WEAPONRY
+TextWord[24]: 18
+TextWord[25]: 31
+TextWord[26]: state
+TextWord[27]: AND
+</code></pre>
+    <p>I see that I found it, when use phrase slop = 1 (I mean this: "war" word1 "force").</p>
+    <p>I can find the position of "war" or "force":</p>
+    <pre><code>        DirectoryReader reader = DirectoryReader.open(this.memoryIndex);
+        IndexSearcher searcher = new IndexSearcher(reader);
+        
+        QueryParser queryParser = new QueryParser("tags", new StandardAnalyzer());
+        Query query = queryParser.parse("\"War Force\"~1");
+        TopDocs results = searcher.search(query, 1);
+
+        for (ScoreDoc scoreDoc : results.scoreDocs) {
+
+            Fields termVs = reader.getTermVectors(scoreDoc.doc);
+            Terms f = termVs.terms("tags");
+
+            String searchTerm = "War".toLowerCase();
+            BytesRef ref = new BytesRef(searchTerm);
+
+            TermsEnum te = f.iterator();
+            PostingsEnum docsAndPosEnum = null;
+            if (te.seekExact(ref)) {
+                
+                docsAndPosEnum = te.postings(docsAndPosEnum, PostingsEnum.ALL);
+                int nextDoc = docsAndPosEnum.nextDoc();
+                assert nextDoc != DocIdSetIterator.NO_MORE_DOCS;
+                final int fr = docsAndPosEnum.freq();
+                final int p = docsAndPosEnum.nextPosition();
+                final int o = docsAndPosEnum.startOffset();
+
+                System.out.println("Word: " + ref.utf8ToString());
+                System.out.println("Position: " + p + ", startOffset: " + o + " length: " + ref.length + " Freg: " + fr);
+                if (fr &gt; 1) {
+                    for (int iter = 1; iter &lt;= fr - 1; iter++) {
+                        System.out.println("Possition: " + docsAndPosEnum.nextPosition());
+                    }
+                }
+            }
+
+            System.out.println("Finish");
+        }
+</code></pre>
+    <p>But I can't find the position of my found query "War Force" or something like that. How can I get the position of the found query result?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jul 2021 at 16:50</span>
+     </div>
+    </div>
+    <div>
+     <p>There is probably more than one way to do this, but I suggest using the <a href="https://lucene.apache.org/core/8_9_0/highlighter/org/apache/lucene/search/vectorhighlight/FastVectorHighlighter.html" rel="nofollow noreferrer"><code>FastVectorHighlighter</code></a>, as it gives you access to position and offset data.</p>
+     <p><strong>Indexing Requirements</strong></p>
+     <p>To use this approach, you need to ensure your indexed data uses a field which stores term vector data, when the index is created:</p>
+     <pre class="lang-java prettyprint-override"><code>final String fieldName = "body";
+// a shorter version of the input data in the question, for testing:
+final String content = "State WEAPONRY 123 War WORD1 Force And Book4 Book WEAPONRY";
+
+FieldType fieldType = new FieldType();
+fieldType.setStored(true);
+fieldType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS);
+fieldType.setStoreTermVectors(true);
+fieldType.setStoreTermVectorPositions(true);
+fieldType.setStoreTermVectorOffsets(true);
+
+doc.add(new Field(fieldName, content, fieldType));
+writer.addDocument(doc);
+</code></pre>
+     <p>(This may significantly increase the size of your indexed data, if you are not already capturing term vectors.)</p>
+     <p><strong>Library Requirements</strong></p>
+     <p>The fast vector highlighter is part of the <a href="https://lucene.apache.org/core/8_9_0/highlighter/index.html" rel="nofollow noreferrer"><code>lucene-highlighter</code></a> library:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;dependency&gt;
+    &lt;groupId&gt;org.apache.lucene&lt;/groupId&gt;
+    &lt;artifactId&gt;lucene-highlighter&lt;/artifactId&gt;
+    &lt;version&gt;8.9.0&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+     <p><strong>Search Example</strong></p>
+     <p>Assume the following query:</p>
+     <pre class="lang-java prettyprint-override"><code>final String searchTerm = "\"War Force\"~1";
+</code></pre>
+     <p>We expect this to find <code>War WORD1 Force</code> from our test data.</p>
+     <p>The first part of the process performs a standard query execution, using the classic query parser:</p>
+     <pre class="lang-java prettyprint-override"><code>Directory dir = FSDirectory.open(Paths.get(indexPath));
+try ( DirectoryReader dirReader = DirectoryReader.open(dir)) {
+    IndexSearcher indexSearcher = new IndexSearcher(dirReader);
+    Analyzer analyzer = new StandardAnalyzer();
+    QueryParser parser = new QueryParser(fieldName, analyzer);
+    Query query = parser.parse(searchTerm);
+    TopDocs topDocs = indexSearcher.search(query, 100);
+    ScoreDoc[] hits = topDocs.scoreDocs;
+    for (ScoreDoc hit : hits) {
+        handleHit(hit, query, dirReader, indexSearcher);
+    }
+</code></pre>
+     <p>The <code>handleHit()</code> method (shown below) is where we use the <code>FastVectorHighlighter</code>.</p>
+     <p>If you only want to perform highlighting (and do not need position/offset data), you can use:</p>
+     <pre><code>FastVectorHighlighter fvh = new FastVectorHighlighter();
+fvh.getBestFragment(fieldQuery, dirReader, docId, fieldName, fragCharSize)
+</code></pre>
+     <p>But to access the extra data we need, you can do the following:</p>
+     <pre class="lang-java prettyprint-override"><code>FieldTermStack fieldTermStack = new FieldTermStack(dirReader, hit.doc, fieldName, fieldQuery);
+FieldPhraseList fieldPhraseList = new FieldPhraseList(fieldTermStack, fieldQuery);
+FragListBuilder fragListBuilder = new SimpleFragListBuilder();
+FragmentsBuilder fragmentsBuilder = new SimpleFragmentsBuilder();
+FastVectorHighlighter fvh = new FastVectorHighlighter(phraseHighlight, fieldMatch,
+        fragListBuilder, fragmentsBuilder);
+</code></pre>
+     <p>This builds a <code>FastVectorHighlighter</code> which contains a <code>FieldPhraseList</code>, which will be populated by the highlighter.</p>
+     <p>The <code>getBestFragment</code> method now becomes:</p>
+     <pre class="lang-java prettyprint-override"><code>// use whatever you want for these settings:
+int fragCharSize = 100;
+int maxNumFragments = 100;
+String[] preTags = new String[]{"--&gt;"};
+String[] postTags = new String[]{"&lt;--"};
+
+Encoder encoder = new DefaultEncoder();
+// the fragments string array contains the highlighted results:
+String[] fragments = fvh.getBestFragments(fieldQuery, dirReader, hit.doc,
+        fieldName, fragCharSize, maxNumFragments, fragListBuilder,
+        fragmentsBuilder, preTags, postTags, encoder);
+</code></pre>
+     <p>And finally we can use the <code>fieldPhraseList</code> to access the data we need:</p>
+     <pre class="lang-java prettyprint-override"><code>// the following gives you access to positions and offsets:
+fieldPhraseList.getPhraseList().forEach(weightedPhraseInfo -&gt; {
+    int phraseStartOffset = weightedPhraseInfo.getStartOffset(); // 19
+    int phraseEndOffset = weightedPhraseInfo.getEndOffset();     // 34
+    weightedPhraseInfo.getTermsInfos().forEach(termInfo -&gt; {
+        String term = termInfo.getText();                // "war"  "force"
+        int termPosition = termInfo.getPosition() + 1;    // 4      6
+        int termStartOffset = termInfo.getStartOffset(); // 19     29
+        int termEndOffset = termInfo.getEndOffset();     // 22     34
+    });
+});
+</code></pre>
+     <p>The <code>phraseStartOffset</code> and <code>phraseEndOffset</code> are character counts telling us where the whole phrase can be found in the source document:</p>
+     <pre><code>State WEAPONRY 123 War WORD1 Force And Book4 Book WEAPONRY
+</code></pre>
+     <p>So, in our case, this is the string from offsets 19 through 34 (offset 0 is the position on the left hand side of the first "S").</p>
+     <p>Then, for each specific term ("war", and "force") in the search query, we can access their offsets, and also their word positions (<code>termPosition</code>). Position 0 is the forst word, so I add 1 to this index to give "war" at position 4 and "force" at position 6 in the original document:</p>
+     <pre><code>1     2        3   4   5     6     7   8     9    10
+State WEAPONRY 123 War WORD1 Force And Book4 Book WEAPONRY
+</code></pre>
+     <p>Here is the complete code for reference:</p>
+     <pre class="lang-java prettyprint-override"><code>import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.file.Paths;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.highlight.DefaultEncoder;
+import org.apache.lucene.search.highlight.Encoder;
+import org.apache.lucene.search.vectorhighlight.FastVectorHighlighter;
+import org.apache.lucene.search.vectorhighlight.FieldPhraseList;
+import org.apache.lucene.search.vectorhighlight.FieldQuery;
+import org.apache.lucene.search.vectorhighlight.FieldTermStack;
+import org.apache.lucene.search.vectorhighlight.FragListBuilder;
+import org.apache.lucene.search.vectorhighlight.FragmentsBuilder;
+import org.apache.lucene.search.vectorhighlight.SimpleFragListBuilder;
+import org.apache.lucene.search.vectorhighlight.SimpleFragmentsBuilder;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
+
+public class VectorIndexHighlighterDemo {
+
+    final String indexPath = "./index";
+    final String fieldName = "body";
+    final String searchTerm = "\"War Force\"~1";
+
+    public void doDemo() throws IOException, ParseException {
+
+        Directory dir = FSDirectory.open(Paths.get(indexPath));
+        try ( DirectoryReader dirReader = DirectoryReader.open(dir)) {
+            IndexSearcher indexSearcher = new IndexSearcher(dirReader);
+            Analyzer analyzer = new StandardAnalyzer();
+            QueryParser parser = new QueryParser(fieldName, analyzer);
+            Query query = parser.parse(searchTerm);
+
+            System.out.println();
+            System.out.println("Search term: [" + searchTerm + "]");
+            System.out.println("Parsed query: [" + query.toString() + "]");
+
+            TopDocs topDocs = indexSearcher.search(query, 100);
+
+            ScoreDoc[] hits = topDocs.scoreDocs;
+            for (ScoreDoc hit : hits) {
+                handleHit(hit, query, dirReader, indexSearcher);
+            }
+        }
+    }
+
+    private void handleHit(ScoreDoc hit, Query query, DirectoryReader dirReader,
+            IndexSearcher indexSearcher) throws IOException {
+
+        boolean phraseHighlight = Boolean.TRUE;
+        boolean fieldMatch = Boolean.TRUE;
+        FieldQuery fieldQuery = new FieldQuery(query, dirReader, phraseHighlight, fieldMatch);
+
+        FieldTermStack fieldTermStack = new FieldTermStack(dirReader, hit.doc, fieldName, fieldQuery);
+        FieldPhraseList fieldPhraseList = new FieldPhraseList(fieldTermStack, fieldQuery);
+        FragListBuilder fragListBuilder = new SimpleFragListBuilder();
+        FragmentsBuilder fragmentsBuilder = new SimpleFragmentsBuilder();
+        FastVectorHighlighter fvh = new FastVectorHighlighter(phraseHighlight, fieldMatch,
+                fragListBuilder, fragmentsBuilder);
+
+        // use whatever you want for these settings:
+        int fragCharSize = 100;
+        int maxNumFragments = 100;
+        String[] preTags = new String[]{"--&gt;"};
+        String[] postTags = new String[]{"&lt;--"};
+        
+        Encoder encoder = new DefaultEncoder();
+        // the fragments string array contains the highlighted results:
+        String[] fragments = fvh.getBestFragments(fieldQuery, dirReader, hit.doc,
+                fieldName, fragCharSize, maxNumFragments, fragListBuilder,
+                fragmentsBuilder, preTags, postTags, encoder);
+
+        // the following gives you access to positions and offsets:
+        fieldPhraseList.getPhraseList().forEach(weightedPhraseInfo -&gt; {
+            int phraseStartOffset = weightedPhraseInfo.getStartOffset(); // 19
+            int phraseEndOffset = weightedPhraseInfo.getEndOffset();     // 34
+            weightedPhraseInfo.getTermsInfos().forEach(termInfo -&gt; {
+                String term = termInfo.getText();                // "war"  "force"
+                int termPosition = termInfo.getPosition() + 1;    // 4      6
+                int termStartOffset = termInfo.getStartOffset(); // 19     29
+                int termEndOffset = termInfo.getEndOffset();     // 22     34
+            });
+        });
+
+        // get the scores, also, if needed:
+        BigDecimal score = new BigDecimal(String.valueOf(hit.score))
+                .setScale(3, RoundingMode.HALF_EVEN);
+        Document hitDoc = indexSearcher.doc(hit.doc);
+    }
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How should I use servlets and Ajax?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How should I use servlets and Ajax?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>354</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Amir Rachum</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>6 Nov 2010 at 10:12</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/4112686/how-should-i-use-servlets-and-ajax">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Whenever I print something inside the servlet and call it by the webbrowser, it returns a new page containing that text. Is there a way to print the text in the current page using Ajax?</p>
+    <p><sub>I'm very new to web applications and servlets.</sub></p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">ajax</span><span class="tag">jsp</span><span class="tag">servlets</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>585</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BalusC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Nov 2010 at 13:24</span>
+     </div>
+    </div>
+    <div>
+     <p>Indeed, the keyword is "Ajax": <em>Asynchronous JavaScript and XML</em>. However, last years it's more than often <em>Asynchronous JavaScript and JSON</em>. Basically, you let JavaScript execute an asynchronous HTTP request and update the HTML DOM tree based on the response data.</p>
+     <p>Since it's pretty <a href="https://developer.mozilla.org/en-US/docs/AJAX/Getting_Started" rel="nofollow noreferrer">tedious work to make it to work</a> across all browsers (especially Internet Explorer versus others), there are plenty of JavaScript libraries out which simplifies this in single functions and covers as many as possible browser-specific bugs/quirks under the hoods, such as <a href="https://jquery.com" rel="nofollow noreferrer">jQuery</a>, <a href="http://www.prototypejs.org" rel="nofollow noreferrer">Prototype</a>, <a href="https://mootools.net/" rel="nofollow noreferrer">Mootools</a>. Since jQuery is most popular these days, I'll use it in the below examples.</p>
+     <h1>Kickoff example returning <code>String</code> as plain text</h1>
+     <p>Create a <code>/some.jsp</code> like below (note: the code snippets in this answer doesn't expect the JSP file being placed in a subfolder, if you do so, alter servlet URL accordingly from <code>"someservlet"</code> to <code>"${pageContext.request.contextPath}/someservlet"</code>; it's merely omitted from the code snippets for brevity):</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+    &lt;head&gt;
+        &lt;title&gt;SO question 4112686&lt;/title&gt;
+        &lt;script src="http://code.jquery.com/jquery-latest.min.js"&gt;&lt;/script&gt;
+        &lt;script&gt;
+            $(document).on("click", "#somebutton", function() { // When HTML DOM "click" event is invoked on element with ID "somebutton", execute the following function...
+                $.get("someservlet", function(responseText) {   // Execute Ajax GET request on URL of "someservlet" and execute the following function with Ajax response text...
+                    $("#somediv").text(responseText);           // Locate HTML DOM element with ID "somediv" and set its text content with the response text.
+                });
+            });
+        &lt;/script&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;button id="somebutton"&gt;press here&lt;/button&gt;
+        &lt;div id="somediv"&gt;&lt;/div&gt;
+    &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+     <p>Create a servlet with a <code>doGet()</code> method which look like this:</p>
+     <pre class="lang-java prettyprint-override"><code>@Override
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    String text = "some text";
+
+    response.setContentType("text/plain");  // Set content type of the response so that jQuery knows what it can expect.
+    response.setCharacterEncoding("UTF-8"); // You want world domination, huh?
+    response.getWriter().write(text);       // Write response body.
+}
+</code></pre>
+     <p>Map this servlet on an URL pattern of <code>/someservlet</code> or <code>/someservlet/*</code> as below (obviously, the URL pattern is free to your choice, but you'd need to alter the <code>someservlet</code> URL in JS code examples over all place accordingly):</p>
+     <pre class="lang-java prettyprint-override"><code>package com.example;
+
+@WebServlet("/someservlet/*")
+public class SomeServlet extends HttpServlet {
+    // ...
+}
+</code></pre>
+     <p>Or, when you're not on a <a href="https://en.wikipedia.org/wiki/Jakarta_Servlet" rel="nofollow noreferrer">Servlet</a> 3.0 compatible container yet (<a href="https://en.wikipedia.org/wiki/Apache_Tomcat" rel="nofollow noreferrer">Tomcat</a> 7, <a href="https://en.wikipedia.org/wiki/GlassFish" rel="nofollow noreferrer">GlassFish</a> 3, <a href="https://en.wikipedia.org/wiki/JBoss" rel="nofollow noreferrer">JBoss</a> AS 6, etc. or newer), then map it in <code>web.xml</code> the old fashioned way (see also <a href="https://stackoverflow.com/tags/servlets/info">our Servlets wiki page</a>):</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;servlet&gt;
+    &lt;servlet-name&gt;someservlet&lt;/servlet-name&gt;
+    &lt;servlet-class&gt;com.example.SomeServlet&lt;/servlet-class&gt;
+&lt;/servlet&gt;
+&lt;servlet-mapping&gt;
+    &lt;servlet-name&gt;someservlet&lt;/servlet-name&gt;
+    &lt;url-pattern&gt;/someservlet/*&lt;/url-pattern&gt;
+&lt;/servlet-mapping&gt;
+</code></pre>
+     <p>Now open the http://localhost:8080/context/test.jsp in the browser and press the button. You'll see that the content of the div get updated with the servlet response.</p>
+     <h1>Returning <code>List&lt;String&gt;</code> as JSON</h1>
+     <p>With <a href="https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Objects/JSON" rel="nofollow noreferrer">JSON</a> instead of plaintext as response format you can even get some steps further. It allows for more dynamics. First, you'd like to have a tool to convert between Java objects and JSON strings. There are plenty of them as well (see the bottom of <a href="https://json.org/" rel="nofollow noreferrer">this page</a> for an overview). My personal favourite is <a href="https://github.com/google/gson" rel="nofollow noreferrer">Google Gson</a>. Download and put its JAR file in <code>/WEB-INF/lib</code> folder of your web application.</p>
+     <p>Here's an example which displays <code>List&lt;String&gt;</code> as <code>&lt;ul&gt;&lt;li&gt;</code>. The servlet:</p>
+     <pre class="lang-java prettyprint-override"><code>@Override
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    List&lt;String&gt; list = new ArrayList&lt;&gt;();
+    list.add("item1");
+    list.add("item2");
+    list.add("item3");
+    String json = new Gson().toJson(list);
+
+    response.setContentType("application/json");
+    response.setCharacterEncoding("UTF-8");
+    response.getWriter().write(json);
+}
+</code></pre>
+     <p>The JavaScript code:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).on("click", "#somebutton", function() {  // When HTML DOM "click" event is invoked on element with ID "somebutton", execute the following function...
+    $.get("someservlet", function(responseJson) {    // Execute Ajax GET request on URL of "someservlet" and execute the following function with Ajax response JSON...
+        var $ul = $("&lt;ul&gt;").appendTo($("#somediv")); // Create HTML &lt;ul&gt; element and append it to HTML DOM element with ID "somediv".
+        $.each(responseJson, function(index, item) { // Iterate over the JSON array.
+            $("&lt;li&gt;").text(item).appendTo($ul);      // Create HTML &lt;li&gt; element, set its text content with currently iterated item and append it to the &lt;ul&gt;.
+        });
+    });
+});
+</code></pre>
+     <p>Do note that jQuery automatically parses the response as JSON and gives you directly a JSON object (<code>responseJson</code>) as function argument when you set the response content type to <code>application/json</code>. If you forget to set it or rely on a default of <code>text/plain</code> or <code>text/html</code>, then the <code>responseJson</code> argument wouldn't give you a JSON object, but a plain vanilla string and you'd need to manually fiddle around with <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse" rel="nofollow noreferrer"><code>JSON.parse()</code></a> afterwards, which is thus totally unnecessary if you set the content type right in first place.</p>
+     <h1>Returning <code>Map&lt;String, String&gt;</code> as JSON</h1>
+     <p>Here's another example which displays <code>Map&lt;String, String&gt;</code> as <code>&lt;option&gt;</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>@Override
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    Map&lt;String, String&gt; options = new LinkedHashMap&lt;&gt;();
+    options.put("value1", "label1");
+    options.put("value2", "label2");
+    options.put("value3", "label3");
+    String json = new Gson().toJson(options);
+
+    response.setContentType("application/json");
+    response.setCharacterEncoding("UTF-8");
+    response.getWriter().write(json);
+}
+</code></pre>
+     <p>And the JSP:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).on("click", "#somebutton", function() {               // When HTML DOM "click" event is invoked on element with ID "somebutton", execute the following function...
+    $.get("someservlet", function(responseJson) {                 // Execute Ajax GET request on URL of "someservlet" and execute the following function with Ajax response JSON...
+        var $select = $("#someselect");                           // Locate HTML DOM element with ID "someselect".
+        $select.find("option").remove();                          // Find all child elements with tag name "option" and remove them (just to prevent duplicate options when button is pressed again).
+        $.each(responseJson, function(key, value) {               // Iterate over the JSON object.
+            $("&lt;option&gt;").val(key).text(value).appendTo($select); // Create HTML &lt;option&gt; element, set its value with currently iterated key and its text content with currently iterated item and finally append it to the &lt;select&gt;.
+        });
+    });
+});
+</code></pre>
+     <p>with</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;select id="someselect"&gt;&lt;/select&gt;
+</code></pre>
+     <h1>Returning <code>List&lt;Entity&gt;</code> as JSON</h1>
+     <p>Here's an example which displays <code>List&lt;Product&gt;</code> in a <code>&lt;table&gt;</code> where the <code>Product</code> class has the properties <code>Long id</code>, <code>String name</code> and <code>BigDecimal price</code>. The servlet:</p>
+     <pre class="lang-java prettyprint-override"><code>@Override
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    List&lt;Product&gt; products = someProductService.list();
+    String json = new Gson().toJson(products);
+
+    response.setContentType("application/json");
+    response.setCharacterEncoding("UTF-8");
+    response.getWriter().write(json);
+}
+</code></pre>
+     <p>The JS code:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).on("click", "#somebutton", function() {        // When HTML DOM "click" event is invoked on element with ID "somebutton", execute the following function...
+    $.get("someservlet", function(responseJson) {          // Execute Ajax GET request on URL of "someservlet" and execute the following function with Ajax response JSON...
+        var $table = $("&lt;table&gt;").appendTo($("#somediv")); // Create HTML &lt;table&gt; element and append it to HTML DOM element with ID "somediv".
+        $.each(responseJson, function(index, product) {    // Iterate over the JSON array.
+            $("&lt;tr&gt;").appendTo($table)                     // Create HTML &lt;tr&gt; element, set its text content with currently iterated item and append it to the &lt;table&gt;.
+                .append($("&lt;td&gt;").text(product.id))        // Create HTML &lt;td&gt; element, set its text content with id of currently iterated product and append it to the &lt;tr&gt;.
+                .append($("&lt;td&gt;").text(product.name))      // Create HTML &lt;td&gt; element, set its text content with name of currently iterated product and append it to the &lt;tr&gt;.
+                .append($("&lt;td&gt;").text(product.price));    // Create HTML &lt;td&gt; element, set its text content with price of currently iterated product and append it to the &lt;tr&gt;.
+        });
+    });
+});
+</code></pre>
+     <h1>Returning <code>List&lt;Entity&gt;</code> as XML</h1>
+     <p>Here's an example which does effectively the same as previous example, but then with XML instead of JSON. When using JSP as XML output generator you'll see that it's less tedious to code the table and all. JSTL is this way much more helpful as you can actually use it to iterate over the results and perform server side data formatting. The servlet:</p>
+     <pre class="lang-java prettyprint-override"><code>@Override
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    List&lt;Product&gt; products = someProductService.list();
+
+    request.setAttribute("products", products);
+    request.getRequestDispatcher("/WEB-INF/xml/products.jsp").forward(request, response);
+}
+</code></pre>
+     <p>The JSP code (note: if you put the <code>&lt;table&gt;</code> in a <code>&lt;jsp:include&gt;</code>, it may be reusable elsewhere in a non-Ajax response):</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;%@page contentType="application/xml" pageEncoding="UTF-8"%&gt;
+&lt;%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %&gt;
+&lt;%@taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %&gt;
+&lt;data&gt;
+    &lt;table&gt;
+        &lt;c:forEach items="${products}" var="product"&gt;
+            &lt;tr&gt;
+                &lt;td&gt;${product.id}&lt;/td&gt;
+                &lt;td&gt;&lt;c:out value="${product.name}" /&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;fmt:formatNumber value="${product.price}" type="currency" currencyCode="USD" /&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/c:forEach&gt;
+    &lt;/table&gt;
+&lt;/data&gt;
+</code></pre>
+     <p>The JavaScript code:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).on("click", "#somebutton", function() {             // When HTML DOM "click" event is invoked on element with ID "somebutton", execute the following function...
+    $.get("someservlet", function(responseXml) {                // Execute Ajax GET request on URL of "someservlet" and execute the following function with Ajax response XML...
+        $("#somediv").html($(responseXml).find("data").html()); // Parse XML, find &lt;data&gt; element and append its HTML to HTML DOM element with ID "somediv".
+    });
+});
+</code></pre>
+     <p>You'll by now probably realize why XML is so much more powerful than JSON for the particular purpose of updating a HTML document using Ajax. JSON is funny, but after all generally only useful for so-called "public web services". MVC frameworks like <a href="https://stackoverflow.com/tags/jsf/info">JSF</a> use XML under the covers for their ajax magic.</p>
+     <h1>Ajaxifying an existing form</h1>
+     <p>You can use jQuery <a href="https://api.jquery.com/serialize/" rel="nofollow noreferrer"><code>$.serialize()</code></a> to easily ajaxify existing POST forms without fiddling around with collecting and passing the individual form input parameters. Assuming an existing form which works perfectly fine without JavaScript/jQuery (and thus degrades gracefully when the end user has JavaScript disabled):</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;form id="someform" action="someservlet" method="post"&gt;
+    &lt;input type="text" name="foo" /&gt;
+    &lt;input type="text" name="bar" /&gt;
+    &lt;input type="text" name="baz" /&gt;
+    &lt;input type="submit" name="submit" value="Submit" /&gt;
+&lt;/form&gt;
+</code></pre>
+     <p>You can progressively enhance it with Ajax as below:</p>
+     <pre class="lang-js prettyprint-override"><code>$(document).on("submit", "#someform", function(event) {
+    var $form = $(this);
+
+    $.post($form.attr("action"), $form.serialize(), function(response) {
+        // ...
+    });
+
+    event.preventDefault(); // Important! Prevents submitting the form.
+});
+</code></pre>
+     <p>You can in the servlet distinguish between normal requests and Ajax requests as below:</p>
+     <pre class="lang-java prettyprint-override"><code>@Override
+protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    String foo = request.getParameter("foo");
+    String bar = request.getParameter("bar");
+    String baz = request.getParameter("baz");
+
+    boolean ajax = "XMLHttpRequest".equals(request.getHeader("X-Requested-With"));
+
+    // ...
+
+    if (ajax) {
+        // Handle Ajax (JSON or XML) response.
+    } else {
+        // Handle regular (JSP) response.
+    }
+}
+</code></pre>
+     <p>The <a href="https://malsup.com/jquery/form/" rel="nofollow noreferrer">jQuery Form plugin</a> does less or more the same as above jQuery example, but it has additional transparent support for <code>multipart/form-data</code> forms as required by file uploads.</p>
+     <h1>Manually sending request parameters to servlet</h1>
+     <p>If you don't have a form at all, but just wanted to interact with the servlet "in the background" whereby you'd like to POST some data, then you can use jQuery <a href="https://api.jquery.com/jquery.param/" rel="nofollow noreferrer"><code>$.param()</code></a> to easily convert a JSON object to an URL-encoded query string.</p>
+     <pre class="lang-js prettyprint-override"><code>var params = {
+    foo: "fooValue",
+    bar: "barValue",
+    baz: "bazValue"
+};
+
+$.post("someservlet", $.param(params), function(response) {
+    // ...
+});
+</code></pre>
+     <p>The same <code>doPost()</code> method as shown here above can be reused. Do note that above syntax also works with <code>$.get()</code> in jQuery and <code>doGet()</code> in servlet.</p>
+     <h1>Manually sending JSON object to servlet</h1>
+     <p>If you however intend to send the JSON object as a whole instead of as individual request parameters for some reason, then you'd need to serialize it to a string using <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify" rel="nofollow noreferrer"><code>JSON.stringify()</code></a> (not part of jQuery) and instruct jQuery to set request content type to <code>application/json</code> instead of (default) <code>application/x-www-form-urlencoded</code>. This can't be done via <code>$.post()</code> convenience function, but needs to be done via <code>$.ajax()</code> as below.</p>
+     <pre class="lang-js prettyprint-override"><code>var data = {
+    foo: "fooValue",
+    bar: "barValue",
+    baz: "bazValue"
+};
+
+$.ajax({
+    type: "POST",
+    url: "someservlet",
+    contentType: "application/json", // NOT dataType!
+    data: JSON.stringify(data),
+    success: function(response) {
+        // ...
+    }
+});
+</code></pre>
+     <p>Do note that a lot of starters mix <code>contentType</code> with <code>dataType</code>. The <code>contentType</code> represents the type of the <strong>request</strong> body. The <code>dataType</code> represents the (expected) type of the <strong>response</strong> body, which is usually unnecessary as jQuery already autodetects it based on response's <code>Content-Type</code> header.</p>
+     <p>Then, in order to process the JSON object in the servlet which isn't being sent as individual request parameters but as a whole JSON string the above way, you only need to manually parse the request body using a JSON tool instead of using <code>getParameter()</code> the usual way. Namely, servlets don't support <code>application/json</code> formatted requests, but only <code>application/x-www-form-urlencoded</code> or <code>multipart/form-data</code> formatted requests. Gson also supports parsing a JSON string into a JSON object.</p>
+     <pre class="lang-java prettyprint-override"><code>JsonObject data = new Gson().fromJson(request.getReader(), JsonObject.class);
+String foo = data.get("foo").getAsString();
+String bar = data.get("bar").getAsString();
+String baz = data.get("baz").getAsString();
+// ...
+</code></pre>
+     <p>Do note that this all is more clumsy than just using <code>$.param()</code>. Normally, you want to use <code>JSON.stringify()</code> only if the target service is e.g. a JAX-RS (RESTful) service which is for some reason only capable of consuming JSON strings and not regular request parameters.</p>
+     <h1>Sending a redirect from servlet</h1>
+     <p>Important to realize and understand is that any <code>sendRedirect()</code> and <code>forward()</code> call by the servlet on an ajax request would only forward or redirect <em>the Ajax request itself</em> and not the main document/window where the Ajax request originated. JavaScript/jQuery would in such case only retrieve the redirected/forwarded response as <code>responseText</code> variable in the callback function. If it represents a whole HTML page and not an Ajax-specific XML or JSON response, then all you could do is to replace the current document with it.</p>
+     <pre><code>document.open();
+document.write(responseText);
+document.close();
+</code></pre>
+     <p>Note that this doesn't change the URL as end user sees in browser's address bar. So there are issues with bookmarkability. Therefore, it's much better to just return an "instruction" for JavaScript/jQuery to perform a redirect instead of returning the whole content of the redirected page. E.g., by returning a boolean, or a URL.</p>
+     <pre><code>String redirectURL = "http://example.com";
+
+Map&lt;String, String&gt; data = new HashMap&lt;&gt;();
+data.put("redirect", redirectURL);
+String json = new Gson().toJson(data);
+
+response.setContentType("application/json");
+response.setCharacterEncoding("UTF-8");
+response.getWriter().write(json);
+</code></pre>
+     <pre><code>function(responseJson) {
+    if (responseJson.redirect) {
+        window.location = responseJson.redirect;
+        return;
+    }
+
+    // ...
+}
+</code></pre>
+     <h3>See also:</h3>
+     <ul>
+      <li><em><a href="https://stackoverflow.com/questions/2132242/need-to-call-servlet-from-javascript-along-with-parameters">Call Servlet and invoke Java code from JavaScript along with parameters</a></em></li>
+      <li><em><a href="https://stackoverflow.com/questions/3832792/access-java-servlet-jsp-jstl-el-variables-in-javascript">Access Java / Servlet / JSP / JSTL / EL variables in JavaScript</a></em></li>
+      <li><em><a href="https://stackoverflow.com/questions/2600582/how-to-switch-easily-between-ajax-based-website-and-basic-html-website/">How can I switch easily between an Ajax-based website and a basic HTML website?</a></em></li>
+      <li><em><a href="https://stackoverflow.com/questions/6914152/how-to-upload-files-to-server-using-jsp-servlet-and-ajax">How can I upload files to a server using JSP/Servlet and Ajax?</a></em></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>need to parse the json on the last example.</span> <span> - </span> <span class="display-name">shinzou</span> <span> </span> <span class="date">12 Oct 2016 at 13:35</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@kuhaku: nope. If you read post from top to bottom, you'll learn why.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">12 Oct 2016 at 13:38</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This answer has been my lifeline for the last month or so lol. Learning a bunch from it. I LOVE the XML example. Thanks for putting this together! One noob question though if you have time. Is there a reason for putting the xml folder in WEB-INF ?</span> <span> - </span> <span class="display-name">Jonathan Laliberte</span> <span> </span> <span class="date">21 Jun 2017 at 01:37</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@JonathanLaliberte: So users cannot download them.</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">21 Jun 2017 at 06:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BalusC, your XML example is great, thank you. But I am getting "Unable to get property 'replace' of undefined or null reference" for <code>$("#somediv").html($(responseXml).find("data").html())</code> this line. It also says "Wrong number of arguments or invalid property assignment". I can also see that my XML is populated with data when I debug it. Any ideas ?</span> <span> - </span> <span class="display-name">629</span> <span> </span> <span class="date">17 Apr 2018 at 08:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@629: perhaps you don't have a <code>&lt;div id="somediv"&gt;</code>?</span> <span> - </span> <span class="display-name">BalusC</span> <span> </span> <span class="date">17 Apr 2018 at 09:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@BalusC, It worked when I open the page on Edge. Any ideas on how to make it work for IE11 as well?</span> <span> - </span> <span class="display-name">629</span> <span> </span> <span class="date">17 Apr 2018 at 11:02</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Stephen C</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Nov 2010 at 10:58</span>
+     </div>
+    </div>
+    <div>
+     <p>The right way to update the page currently displayed in the user's browser (without reloading it) is to have some code executing in the browser update the page's DOM.</p>
+     <p>That code is typically JavaScript that is embedded in or linked from the HTML page, hence the Ajax suggestion. (In fact, if we assume that the updated text comes from the server via an HTTP request, this is classic Ajax.)</p>
+     <p>It is also possible to implement this kind of thing using some browser plugin or add-on, though it may be tricky for a plugin to reach into the browser's data structures to update the DOM. (Native code plugins normally write to some graphics frame that is embedded in the page.)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>13</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mitul Maheshwari</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Feb 2014 at 11:06</span>
+     </div>
+    </div>
+    <div>
+     <p>I will show you a whole example of a servlet and how do an Ajax call.</p>
+     <p>Here, we are going to create the simple example to create the login form using a servlet.</p>
+     <h3>File <em>index.html</em></h3>
+     <pre class="lang-html prettyprint-override"><code>&lt;form&gt;
+   Name:&lt;input type="text" name="username"/&gt;&lt;br/&gt;&lt;br/&gt;
+   Password:&lt;input type="password" name="userpass"/&gt;&lt;br/&gt;&lt;br/&gt;
+   &lt;input type="button" value="login"/&gt;
+&lt;/form&gt;
+</code></pre>
+     <h3>An Ajax sample</h3>
+     <pre class="lang-javascript prettyprint-override"><code>$.ajax
+({
+    type: "POST",
+    data: 'LoginServlet=' + name + '&amp;name=' + type + '&amp;pass=' + password,
+    url: url,
+    success:function(content)
+    {
+        $('#center').html(content);
+    }
+});
+</code></pre>
+     <p><strong>LoginServlet servlet code:</strong></p>
+     <pre><code>package abc.servlet;
+
+import java.io.File;
+
+public class AuthenticationServlet extends HttpServlet {
+
+    private static final long serialVersionUID = 1L;
+
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException
+    {
+        doPost(request, response);
+    }
+
+    protected void doPost(HttpServletRequest request,
+                          HttpServletResponse response)
+                          throws ServletException, IOException {
+
+        try{
+            HttpSession session = request.getSession();
+            String username = request.getParameter("name");
+            String password = request.getParameter("pass");
+
+            /// Your Code
+            out.println("sucess / failer")
+        }
+        catch (Exception ex) {
+            // System.err.println("Initial SessionFactory creation failed.");
+            ex.printStackTrace();
+            System.exit(0);
+        }
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I am unable to get any content in the ajax success function</span> <span> - </span> <span class="display-name">Fakipo</span> <span> </span> <span class="date">8 Sep 2022 at 22:08</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>SUBZ</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Mar 2014 at 05:06</span>
+     </div>
+    </div>
+    <div>
+     <pre class="lang-javascript prettyprint-override"><code>$.ajax({
+    type: "POST",
+    url: "URL to hit on servelet",
+    data: JSON.stringify(json),
+    dataType: "json",
+    success: function(response){
+        // We have the response
+        if(response.status == "SUCCESS"){
+            $('#info').html("Info  has been added to the list successfully.&lt;br&gt;" +
+            "The details are as follws: &lt;br&gt; Name: ");
+        }
+        else{
+            $('#info').html("Sorry, there is some thing wrong with the data provided.");
+        }
+    },
+    error: function(e){
+        alert('Error: ' + e);
+    }
+});
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>An explanation would be in order. E.g., what is the idea/gist? Please respond by <a href="https://stackoverflow.com/posts/22523917/edit">editing (changing) your answer</a>, not here in comments (<b><i>without</i></b> "Edit:", "Update:", or similar - the answer should appear as if it was written today).</span> <span> - </span> <span class="display-name">Peter Mortensen</span> <span> </span> <span class="date">20 Oct 2021 at 14:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user3468976</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Apr 2014 at 23:13</span>
+     </div>
+    </div>
+    <div>
+     <p>Ajax (also AJAX), an acronym for Asynchronous JavaScript and XML, is a group of interrelated web development techniques used on the client-side to create asynchronous web applications. With Ajax, web applications can send data to, and retrieve data from, a server asynchronously.</p>
+     <p>Below is the example code:</p>
+     <p>A JSP page JavaScript function to submit data to a servlet with two variables, firstName and lastName:</p>
+     <pre><code>function onChangeSubmitCallWebServiceAJAX()
+{
+    createXmlHttpRequest();
+    var firstName = document.getElementById("firstName").value;
+    var lastName = document.getElementById("lastName").value;
+    xmlHttp.open("GET", "/AJAXServletCallSample/AjaxServlet?firstName="
+    + firstName + "&amp;lastName=" + lastName, true)
+    xmlHttp.onreadystatechange = handleStateChange;
+    xmlHttp.send(null);
+}
+</code></pre>
+     <p>Servlet to read data send back to JSP in XML format (you could use text as well. You just need to change the response content to text and render data on JavaScript function.)</p>
+     <pre><code>/**
+ * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
+ */
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+
+    String firstName = request.getParameter("firstName");
+    String lastName = request.getParameter("lastName");
+
+    response.setContentType("text/xml");
+    response.setHeader("Cache-Control", "no-cache");
+    response.getWriter().write("&lt;details&gt;");
+    response.getWriter().write("&lt;firstName&gt;" + firstName + "&lt;/firstName&gt;");
+    response.getWriter().write("&lt;lastName&gt;" + lastName + "&lt;/lastName&gt;");
+    response.getWriter().write("&lt;/details&gt;");
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Peter Knego</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Nov 2010 at 10:30</span>
+     </div>
+    </div>
+    <div>
+     <p>Normally you can’t update a page from a servlet. The client (browser) has to request an update. Either the client loads a whole new page or it requests an update to a part of an existing page. This technique is called Ajax.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Thakhani Tharage</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Jul 2014 at 12:47</span>
+     </div>
+    </div>
+    <div>
+     <p>Using <a href="https://en.wikipedia.org/wiki/Bootstrap_%28front-end_framework%29" rel="nofollow noreferrer">Bootstrap</a> multi select:</p>
+     <p><strong>Ajax</strong></p>
+     <pre><code>function() { $.ajax({
+    type: "get",
+    url: "OperatorController",
+    data: "input=" + $('#province').val(),
+    success: function(msg) {
+    var arrayOfObjects = eval(msg);
+    $("#operators").multiselect('dataprovider',
+    arrayOfObjects);
+    // $('#output').append(obj);
+    },
+    dataType: 'text'
+    });}
+}
+</code></pre>
+     <p><strong>In Servlet</strong></p>
+     <pre><code>request.getParameter("input")
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

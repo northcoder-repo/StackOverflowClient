@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene Hibernate Search</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene Hibernate Search</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user13412844</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>5 May 2021 at 23:45</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67410121/lucene-hibernate-search">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Im trying to implement a lucene search. I built the Repo as the following public class CustomizedContentItemRepositoryImpl implements CustomizedContentItemRepository {</p>
+    <pre><code>@PersistenceContext
+private EntityManager entityManager;
+
+@Override
+public List&lt;ContentItem&gt; librarySearch(String searchText) {
+
+    SearchResult&lt;ContentItem&gt; result = Search.session(entityManager).search(ContentItem.class)
+            .where(f -&gt; f.match()
+                    .fields("description", "title", "creator.firstName", "creator.lastName")
+                    .matching(searchText))
+            .fetchAll();
+    List&lt;ContentItem&gt; contentItems = result.hits();
+    return contentItems;
+}
+</code></pre>
+    <p>and also the service Impl as the flowing:</p>
+    <pre><code>public List&lt;ContentItem&gt; searchContentItems(String searchText) {
+    return contentItemRepository.librarySearch(searchText);
+}
+</code></pre>
+    <p>when i test it im getting always a null value</p>
+    <p>here is a test code @Test void searchContentItems() throws InterruptedException { ContentItem video1 = createContentItem(ContentType.VIDEO); contentItemRepository.save(video1);</p>
+    <pre><code>    ContentItem video2 = createContentItem(ContentType.VIDEO, 1000);
+    video2.getSubjects().clear();
+    contentItemRepository.save(video2);
+
+    ContentItem audio = createContentItem(ContentType.AUDIO);
+    contentItemRepository.save(audio);
+    assertEquals(3, contentItemRepository.findAll().size());
+
+        Search.session(entityManager)
+                .massIndexer(ContentItem.class)
+                .startAndWait();
+
+    Collection&lt;ContentItem&gt; videos = contentItemService.searchContentItems("type");
+    assertEquals(2, videos.size());
+    Iterator&lt;ContentItem&gt; iterator = videos.iterator();
+    assertEquals(video2.getId(), iterator.next().getId());
+    assertEquals(video1.getId(), iterator.next().getId());
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span><span class="tag">hibernate-search</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>yrodiere</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 May 2021 at 06:41</span>
+     </div>
+    </div>
+    <div>
+     <p>Are you getting a <code>null</code> value, or just an empty list? Most likely you are getting an empty list.</p>
+     <p>The results you're observing are due to the fact <a href="https://docs.jboss.org/hibernate/stable/search/reference/en-US/html_single/#mapper-orm-indexing-automatic-concepts" rel="nofollow noreferrer">indexing happens when you commit a transaction</a>. From what I can see, your test is not using a transaction, so you're never indexing anything.</p>
+     <p>Note the mass indexing is not useful either: since your ORM session wasn't even flushed to the database, the mass indexer (which uses its own session) will only see an empty database.</p>
+     <p>Try to encapsulate the various operations in transaction templates, as explained <a href="https://discourse.hibernate.org/t/old-version-of-the-entity-retrieved-although-index-was-updated/5268/2?u=yrodiere" rel="nofollow noreferrer">here</a>:</p>
+     <pre class="lang-java prettyprint-override"><code>
+@Autowired
+TransactionTemplate transactionTemplate;
+
+@Test
+void searchContentItems() throws InterruptedException {
+    transactionTemplate.execute(ignored -&gt; {
+        ContentItem video1 = createContentItem(ContentType.VIDEO);
+        contentItemRepository.save(video1);
+
+        ContentItem video2 = createContentItem(ContentType.VIDEO, 1000);
+        video2.getSubjects().clear();
+        contentItemRepository.save(video2);
+
+        ContentItem audio = createContentItem(ContentType.AUDIO);
+        contentItemRepository.save(audio);
+        return null;
+    });
+
+    transactionTemplate.execute(ignored -&gt; {
+        assertEquals(3, contentItemRepository.findAll().size());
+
+        Collection&lt;ContentItem&gt; videos = contentItemService.searchContentItems("type");
+        assertEquals(2, videos.size());
+        Iterator&lt;ContentItem&gt; iterator = videos.iterator();
+        assertEquals(video2.getId(), iterator.next().getId());
+        assertEquals(video1.getId(), iterator.next().getId());
+        return null;
+    });
+}
+</code></pre>
+     <p>In order for this test to pass, you will also need to configure Hibernate Search to wait for indexing to finish before proceeding to the next transaction. You can do that by setting the <a href="https://docs.jboss.org/hibernate/stable/search/reference/en-US/html_single/#mapper-orm-indexing-automatic-synchronization" rel="nofollow noreferrer">automatic indexing synchronization strategy</a> to <code>sync</code>.</p>
+     <p>In <code>src/test/resources/application.properties</code>:</p>
+     <pre><code>hibernate.search.automatic_indexing.synchronization.strategy = sync
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

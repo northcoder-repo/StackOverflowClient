@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Include classname as a wrapper object in json</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Include classname as a wrapper object in json</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Klatten</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Jan 2021 at 14:19</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65720740/include-classname-as-a-wrapper-object-in-json">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am currently building a JSON in java that will be used as a requestbody when calling a POST-endpoint. The class I need to build into a JSON looks like this:</p>
+    <pre><code>public class EmployeeImport {
+    @SerializedName("Header")
+    private final Header header;
+    @SerializedName("Employees")
+    private final List&lt;Employee&gt; employees;
+
+    public EmployeeImport(final Header header,
+                          final List&lt;Employee&gt; employees) {
+        this.header = header;
+        this.employees = employees;
+    }
+</code></pre>
+    <p>I use GSON to produce a JSON from this class:</p>
+    <pre><code>private String generateJSONForImport(final Employee employee, final Header header) {
+        final EmployeeImport employeeImport = new EmployeeImport(header, Arrays.asList(employee));
+
+        final Gson gson = new Gson();
+        final String json = gson.toJson(employeeImport);
+        System.out.println(json);
+    }
+</code></pre>
+    <p>When printing the JSON, it looks like this:</p>
+    <pre><code>{
+  "Header": {
+    "Date": "2021-01-14"
+  },
+  "Employees": [
+    {
+      "ValueOne": "lala",
+      "ValueTwo": "lalala"
+    }
+  ]
+}
+</code></pre>
+    <p>But I need the JSON to include the class "EmployeeImport" as a wrapping object, like this:</p>
+    <pre><code>{
+    "EmployeeImport": {
+        "Header": {
+            "Date": "2021-01-13"
+        },
+
+        "Employees": [{
+            "ValueOne": "lala",
+            "ValueTwo": "lalala"
+        }]
+    }
+}
+</code></pre>
+    <p>I've searched for a good solution for this, and I have seen that the annotation "@JsonTypeInfo" seems to fix this, but this seems to only work for the jackson-library.</p>
+    <p>Does anyone know a good solution for how this could be done with the GSON-library?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">gson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Jan 2021 at 14:55</span>
+     </div>
+    </div>
+    <div>
+     <p>You can create that wrapper class - and use that as your <code>EmployeeImport</code>.</p>
+     <p>In the below example I converted your existing <code>EmployeeImport</code> class into an inner class called <code>EmployeeImportInner</code> - and placed it inside <code>EmployeeImport</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>public class EmployeeImport {
+    
+    @SerializedName("EmployeeImport")
+    private EmployeeImportInner inner;
+    
+    public class EmployeeImportInner {
+
+        @SerializedName("Header")
+        private Header header;
+        @SerializedName("Employees")
+        private List&lt;Employee&gt; employees;
+
+        public EmployeeImportInner(final Header header,
+                final List&lt;Employee&gt; employees) {
+            this.header = header;
+            this.employees = employees;
+        }
+
+        // getters/setters not shown
+
+    }
+
+    // getter/setter not shown
+
+}
+</code></pre>
+     <p>You don't have to do it this way - you can have 2 separate classes, if you prefer.</p>
+     <p>In my case, I build the outer object like this:</p>
+     <pre class="lang-java prettyprint-override"><code>EmployeeImport employeeImport = new EmployeeImport();
+        
+final EmployeeImport.EmployeeImportInner employeeImportInner = 
+        employeeImport.new EmployeeImportInner(header, employees);
+        
+employeeImport.setInner(employeeImportInner);
+</code></pre>
+     <p>Now you will see that outer object name you require in your JSON.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is a good solution, and works just as I wanted it to. Thanks @andrewjames!</span> <span> - </span> <span class="display-name">Klatten</span> <span> </span> <span class="date">15 Jan 2021 at 10:07</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

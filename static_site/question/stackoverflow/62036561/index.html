@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Gson mess up with minute value</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Gson mess up with minute value</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>peter.cambal</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 May 2020 at 06:13</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62036561/gson-mess-up-with-minute-value">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using gson to convert serialized message to object, but I have problem with converting one attribute to <code>java.sql.Timestamp</code></p>
+    <p>The start time attribute in JSON is</p>
+    <pre><code>{...other_fields, "start_time": "2020-05-27 05:23:43.022610"}
+</code></pre>
+    <p>And my Gson parser is initialized this way</p>
+    <pre><code>new GsonBuilder().serializeNulls().setDateFormat("yyyy-MM-dd HH:mm:ss.S").create();
+</code></pre>
+    <p>The object is parsed properly, but the start time has different minutes and seconds values as it should. The result of parse start time is: <code>2020-05-27 05:24:05.61</code></p>
+    <p>What am I missing?</p>
+    <p><strong>Edit1</strong>:</p>
+    <blockquote>
+     <p>Java Version: <code>1.8</code><br>
+       Gson version: <code>2.8.2</code></p>
+    </blockquote>
+    <p><strong>Edit2</strong>:</p>
+    <blockquote>
+     <p>After change format to <code>yyyy-MM-dd HH:mm:ss</code> (omitting milliseconds) I got the right result, but without milliseconds value. I can live with that, but it would be nice if someone could still explain this issue.</p>
+    </blockquote>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">timestamp</span><span class="tag">gson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>I think <a href="https://stackoverflow.com/questions/26044881/java-date-to-utc-using-gson" title="java date to utc using gson">stackoverflow.com/questions/26044881/…</a> can help you to understand that.</span> <span> - </span> <span class="display-name">Maede</span> <span> </span> <span class="date">27 May 2020 at 06:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Well, with one <code>S</code>, <code>022610</code> is apparently interpreted as 22610 milliseconds. Your expected time plus 22610 milleseconds equals the result you get.</span> <span> - </span> <span class="display-name">MC Emperor</span> <span> </span> <span class="date">27 May 2020 at 06:52</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@Maede This guy is experiencing timezone offset shift. I could solve that. My problem is that minutes, seconds, and milliseconds are totally messed up</span> <span> - </span> <span class="display-name">peter.cambal</span> <span> </span> <span class="date">27 May 2020 at 06:53</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@MCEmperor yes it looks like it is this issue</span> <span> - </span> <span class="display-name">peter.cambal</span> <span> </span> <span class="date">27 May 2020 at 07:32</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Smile</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 May 2020 at 07:29</span>
+     </div>
+    </div>
+    <div>
+     <p><a href="https://www.javadoc.io/doc/com.google.code.gson/gson/2.8.2/com/google/gson/GsonBuilder.html#setDateFormat-java.lang.String-" rel="nofollow noreferrer"><code>GsonBuilder.setDateFormat()</code></a> uses <code>SimpleDateFormat</code>.</p>
+     <p>And <a href="https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html" rel="nofollow noreferrer"><code>SimpleDateFormat</code></a> doesn't support microseconds during parsing. <code>S</code> denotes miliseconds, which means only 3 places after the decimal.</p>
+     <p>This can be proved. In your JSON remove microseconds and use <code>2020-05-27 05:23:43.022</code> as input.</p>
+     <p>Output would be</p>
+     <blockquote>
+      <p>2020-05-27 05:23:43.022</p>
+     </blockquote>
+     <p><code>Timestamp</code> does support microseconds and if you want to convert <code>2020-05-27 05:23:43.022610</code> (with microseconds) to <code>Timestamp</code>, you are better off writing a <a href="https://stackoverflow.com/questions/6096940/how-do-i-write-a-custom-json-deserializer-for-gson">custom GSON deserializer</a></p>
+     <p><strong>Edit : Sample deserializer for Timestamp</strong></p>
+     <pre class="lang-java prettyprint-override"><code>class TimestampDeserializer implements JsonDeserializer&lt;Timestamp&gt; {
+
+    @Override
+    public Timestamp deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+        // Handle null checks or format check, etc.
+        return Timestamp.valueOf(json.getAsString());
+    }
+}
+</code></pre>
+     <p>Usage:</p>
+     <pre class="lang-java prettyprint-override"><code>Gson gson = new GsonBuilder().serializeNulls().registerTypeAdapter(Timestamp.class, new TimestampDeserializer()).create();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I tried to use it with only 3 digits after decimal point and i was working as you said. Timestamp deserializer works like a charm as well. Thank you</span> <span> - </span> <span class="display-name">peter.cambal</span> <span> </span> <span class="date">27 May 2020 at 07:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

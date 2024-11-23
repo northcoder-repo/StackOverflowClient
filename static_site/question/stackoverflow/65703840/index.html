@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to properly configure Jakarta EE libraries in Maven pom.xml for Tomcat?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to properly configure Jakarta EE libraries in Maven pom.xml for Tomcat?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>14</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user14998757</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 Jan 2021 at 14:23</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65703840/how-to-properly-configure-jakarta-ee-libraries-in-maven-pom-xml-for-tomcat">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have been trying in vain to implement tomcat 9's jakarta servlet as opposed to the previous javax.servlet implementation (as its my understanding that the jakarta package is the way forward). The issue is that when I point the browser at my servlet's url I get the following error(s)...</p>
+    <pre><code>java.lang.ClassCastException: class cti.nm.web.Index cannot be cast to class javax.servlet.Servlet (cti.nm.web.Index is in unnamed module of loader org.apache.catalina.loader.ParallelWebappClassLoader @48c76607; javax.servlet.Servlet is in unnamed module of loader java.net.URLClassLoader @621be5d1)
+    org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+    org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+    org.apache.catalina.valves.AbstractAccessLogValve.invoke(AbstractAccessLogValve.java:690)
+    org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:343)
+    org.apache.coyote.ajp.AjpProcessor.service(AjpProcessor.java:432)
+    org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+    org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:888)
+    org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1597)
+    org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+    java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1130)
+    java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:630)
+    org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+    java.base/java.lang.Thread.run(Thread.java:832)
+</code></pre>
+    <p>The problem is obvious enough. Tomcat is trying to cast my jakarta.servlet.http.HttpServlet to a javax.servlet.Servlet which clearly won't work. What I can't figure is how to tell it what class the servlet is actually implementing.</p>
+    <p>The class itself is declared as ...</p>
+    <pre><code>package cti.nm.web;
+import jakarta.servlet.http.HttpServlet;
+import java.io.IOException;
+import java.io.PrintWriter;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+public class Index extends HttpServlet {
+     
+    public void doGet(HttpServletRequest request,
+                      HttpServletResponse response)
+      throws IOException, ServletException {
+
+        response.setContentType("text/html");
+       //print a bunch of stuff
+    }
+}
+
+</code></pre>
+    <p>My web.xml file is as follows ...</p>
+    <pre><code>&lt;web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+                             https://jakarta.ee/xml/ns/jakartaee/web-app_5_0.xsd"
+         version="5.0"&gt;
+         
+    &lt;display-name&gt;NMWeb&lt;/display-name&gt;
+    &lt;description&gt;
+       NMWeb Description
+    &lt;/description&gt;
+
+    &lt;servlet&gt;
+        &lt;servlet-name&gt;Index&lt;/servlet-name&gt;
+        &lt;servlet-class&gt;cti.nm.web.Index&lt;/servlet-class&gt;
+    &lt;/servlet&gt;
+
+    &lt;servlet-mapping&gt;
+        &lt;servlet-name&gt;Index&lt;/servlet-name&gt;
+        &lt;url-pattern&gt;/NMWeb&lt;/url-pattern&gt;
+    &lt;/servlet-mapping&gt;
+
+&lt;/web-app&gt;  
+</code></pre>
+    <p>I had hoped that using the proper jakartaee xml schema in the deployment descriptor would cause the correct clases to be used but apparently not. The WAR seems to contain the proper jars ...</p>
+    <p>jakarta.jakartaee-api-9.0.0.jar<br>
+      tomcat-el-api-10.0.0.jar<br>
+      tomcat-servlet-api-10.0.0.jar jakarta.servlet-api-5.0.0.jar<br>
+      tomcat-jsp-api-10.0.0.jar</p>
+    <p>The pom is specified as ...</p>
+    <pre><code>&lt;project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+  &lt;groupId&gt;cti.nm.NMWeb&lt;/groupId&gt;
+  &lt;artifactId&gt;NMWeb&lt;/artifactId&gt;
+  &lt;version&gt;0.0.1-SNAPSHOT&lt;/version&gt;
+  &lt;packaging&gt;war&lt;/packaging&gt;
+
+  &lt;build&gt;
+    &lt;sourceDirectory&gt;src&lt;/sourceDirectory&gt;
+    &lt;plugins&gt;
+      &lt;plugin&gt;
+        &lt;artifactId&gt;maven-compiler-plugin&lt;/artifactId&gt;
+        &lt;version&gt;3.8.1&lt;/version&gt;
+        &lt;configuration&gt;
+          &lt;source&gt;1.8&lt;/source&gt;
+          &lt;target&gt;1.8&lt;/target&gt;
+        &lt;/configuration&gt;
+      &lt;/plugin&gt;
+      &lt;plugin&gt;
+        &lt;artifactId&gt;maven-war-plugin&lt;/artifactId&gt;
+        &lt;version&gt;3.2.3&lt;/version&gt;
+        &lt;configuration&gt;
+          &lt;warSourceDirectory&gt;WebContent&lt;/warSourceDirectory&gt;
+        &lt;/configuration&gt;
+      &lt;/plugin&gt;
+    &lt;/plugins&gt;
+  &lt;/build&gt;
+  &lt;dependencies&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;jakarta.platform&lt;/groupId&gt;
+      &lt;artifactId&gt;jakarta.jakartaee-api&lt;/artifactId&gt;
+      &lt;version&gt;[9.0.0,)&lt;/version&gt;
+      
+    &lt;/dependency&gt;
+    &lt;!-- https://mvnrepository.com/artifact/jakarta.servlet/jakarta.servlet-api --&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;jakarta.servlet&lt;/groupId&gt;
+      &lt;artifactId&gt;jakarta.servlet-api&lt;/artifactId&gt;
+      &lt;version&gt;[5.0.0,)&lt;/version&gt;
+      
+    &lt;/dependency&gt;
+        &lt;!-- https://mvnrepository.com/artifact/org.apache.tomcat/tomcat-jsp-api --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.apache.tomcat&lt;/groupId&gt;
+            &lt;artifactId&gt;tomcat-jsp-api&lt;/artifactId&gt;
+            &lt;version&gt;[10.0.0,)&lt;/version&gt;
+       
+        &lt;/dependency&gt;
+  &lt;/dependencies&gt;
+&lt;/project&gt;
+</code></pre>
+    <p>It's been days of searching the web for answers to this question and I can't seem to find any other instances of this exact scenario. I should mention that this is an eclipse generated probject that I have manually modified. Building with both maven and eclipse generates the same results when I deploy the war file.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">maven</span><span class="tag">tomcat</span><span class="tag">servlets</span><span class="tag">classcastexception</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>32</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BalusC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Jan 2021 at 15:08</span>
+     </div>
+    </div>
+    <div>
+     <p>You're basically physically including Tomcat 10.x specific libraries in WAR and then deploying the WAR to Tomcat 9.x. This is not the correct approach at all. Moreover, Tomcat 10.x was the first version to be Jakartified, not Tomcat 9.x.</p>
+     <h2>Tomcat 9.x</h2>
+     <p>For your Tomcat 9.x, which is based on Servlet 4.0, JSP 2.3, EL 3.0, WS 1.1 and JASIC 1.0, you should use <code>javax.*</code> imports and the <strong>entire</strong> <code>&lt;dependencies&gt;</code> section should <em>minimally</em> look like:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependencies&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;javax.servlet&lt;/groupId&gt;
+        &lt;artifactId&gt;javax.servlet-api&lt;/artifactId&gt;
+        &lt;version&gt;4.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;javax.servlet.jsp&lt;/groupId&gt;
+        &lt;artifactId&gt;javax.servlet.jsp-api&lt;/artifactId&gt;
+        &lt;version&gt;2.3.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;javax.el&lt;/groupId&gt;
+        &lt;artifactId&gt;javax.el-api&lt;/artifactId&gt;
+        &lt;version&gt;3.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;javax.websocket&lt;/groupId&gt;
+        &lt;artifactId&gt;javax.websocket-api&lt;/artifactId&gt;
+        &lt;version&gt;1.1&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;javax.security.enterprise&lt;/groupId&gt;
+        &lt;artifactId&gt;javax.security.enterprise-api&lt;/artifactId&gt;
+        &lt;version&gt;1.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+&lt;/dependencies&gt;
+</code></pre>
+     <h2>Tomcat 10.0.x</h2>
+     <p>For Tomcat 10.0.x, which is based on Servlet 5.0, JSP 3.0, EL 4.0, WS 2.0 and JASIC 2.0, you should use <code>jakarta.*</code> imports and the <strong>entire</strong> <code>&lt;dependencies&gt;</code> section should <em>minimally</em> look like:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependencies&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.servlet&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.servlet-api&lt;/artifactId&gt;
+        &lt;version&gt;5.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.servlet.jsp&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.servlet.jsp-api&lt;/artifactId&gt;
+        &lt;version&gt;3.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.el&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.el-api&lt;/artifactId&gt;
+        &lt;version&gt;4.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.websocket&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.websocket-api&lt;/artifactId&gt;
+        &lt;version&gt;2.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.security.enterprise&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.security.enterprise-api&lt;/artifactId&gt;
+        &lt;version&gt;2.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+&lt;/dependencies&gt;
+</code></pre>
+     <h2>Tomcat 10.1.x</h2>
+     <p>For Tomcat 10.1.x, which is based on Servlet 6.0, JSP 3.1, EL 5.0, WS 2.1 and JASIC 3.0, you should use <code>jakarta.*</code> imports and the <strong>entire</strong> <code>&lt;dependencies&gt;</code> section should <em>minimally</em> look like:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependencies&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.servlet&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.servlet-api&lt;/artifactId&gt;
+        &lt;version&gt;6.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.servlet.jsp&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.servlet.jsp-api&lt;/artifactId&gt;
+        &lt;version&gt;3.1.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.el&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.el-api&lt;/artifactId&gt;
+        &lt;version&gt;5.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.websocket&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.websocket-api&lt;/artifactId&gt;
+        &lt;version&gt;2.1.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.security.enterprise&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.security.enterprise-api&lt;/artifactId&gt;
+        &lt;version&gt;3.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+&lt;/dependencies&gt;
+</code></pre>
+     <h2>In any case</h2>
+     <p>Please note that the <code>&lt;scope&gt;</code> is explicitly set to <code>provided</code> for them, which means that Maven should <strong>not</strong> include the physical JAR files in <code>/WEB-INF/lib</code> of the generated WAR file (because it's already provided by Tomcat itself!). Otherwise you only end up in runtime conflicts caused by duplicate classes in the runtime classpath.</p>
+     <p>Please also note that Tomcat is <strong>not</strong> a JEE server and thus importing either <code>javax:javaee-api</code> for Tomcat 9.x or <code>jakarta.platform:jakarta.jakartaee-api</code> for Tomcat 10.x is per definition wrong. Because it will allow you to compile your code against other JEE components such as JSF, JSTL, CDI, BV, EJB, JPA, JAX-RS, JSONB, etc etc while Tomcat actually doesn't offer them out the box. <a href="http://tomcat.apache.org/whichversion.html" rel="noreferrer">Tomcat only offers Servlet, JSP, EL, WS and JASIC out the box</a>, so you should only declare them in <code>pom.xml</code>.</p>
+     <p>For example, JSTL needs to be installed separately as instructed in <a href="https://stackoverflow.com/questions/4928271/how-to-install-jstl-the-absolute-uri-http-java-sun-com-jstl-core-cannot-be-r/4928309#4928309">How to install JSTL? The absolute uri: http://java.sun.com/jstl/core cannot be resolved</a> and JSF needs to be installed separately as instructed in <a href="https://stackoverflow.com/questions/8081234/how-to-properly-install-and-configure-jsf-libraries-via-maven/8081384#8081384">How to properly install and configure JSF libraries via Maven?</a> and CDI needs to be installed separately as instructed in <a href="https://stackoverflow.com/questions/18995951/how-to-install-and-use-cdi-on-tomcat/19003725#19003725">How to install and use CDI on Tomcat?</a></p>
+     <p>If you're however very well aware of this limitation during developing code for Tomcat (i.e. make sure yourself that you don't accidentally use e.g. JSTL, CDI, BV, JPA, etc without actually installing them in Tomcat first), and merely want to minimize <code>pom.xml</code> boilerplate, then you can also get away with this minimalist dependencies configuration for Tomcat 9.x:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependencies&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;javax&lt;/groupId&gt;
+        &lt;artifactId&gt;javaee-web-api&lt;/artifactId&gt;
+        &lt;version&gt;8.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+&lt;/dependencies&gt;
+</code></pre>
+     <p>Or this for Tomcat 10.0.x:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependencies&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.platform&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.jakartaee-web-api&lt;/artifactId&gt;
+        &lt;version&gt;9.0.0&lt;/version&gt; &lt;!-- Use 9.1.0 if you're already on Java 11 --&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+&lt;/dependencies&gt;
+</code></pre>
+     <p>Or this for Tomcat 10.1.x:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;dependencies&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;jakarta.platform&lt;/groupId&gt;
+        &lt;artifactId&gt;jakarta.jakartaee-web-api&lt;/artifactId&gt;
+        &lt;version&gt;10.0.0&lt;/version&gt;
+        &lt;scope&gt;provided&lt;/scope&gt;
+    &lt;/dependency&gt;
+&lt;/dependencies&gt;
+</code></pre>
+     <h3>See also:</h3>
+     <ul>
+      <li><a href="http://tomcat.apache.org/whichversion.html" rel="noreferrer">Tomcat versions</a></li>
+      <li><a href="https://stackoverflow.com/questions/7295096/what-exactly-is-java-ee">What exactly is Java EE?</a></li>
+     </ul>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>JAXB: Unmarshal to subclass based on element value</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>JAXB: Unmarshal to subclass based on element value</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>5</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>John Douglass</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Dec 2013 at 08:32</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/20797405/jaxb-unmarshal-to-subclass-based-on-element-value">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to parse an XML file using JAXB which contains a list of items. The class of the items depends on the value of an element in the XML.</p>
+    <p>This is a legacy system and I can't easily change the input format.</p>
+    <p>For example, given the following XML and class definitions:</p>
+    <pre><code>&lt;root&gt;
+    &lt;type&gt;a&lt;/type&gt;
+    &lt;item&gt;
+       &lt;a&gt;a1&lt;/a&gt;
+    &lt;/item&gt;
+    &lt;item&gt;
+       &lt;a&gt;a2&lt;/a&gt;
+    &lt;/item&gt;
+&lt;/root&gt;
+
+@XmlRootElement(name = "root")
+public class Root {
+    @XmlElement
+    String type;
+
+    @XmlElement(name="item")
+    List&lt;Item&gt; items;
+}
+
+public class Item {}
+public class ItemA extends Item {
+    @XmlElement
+    String a;
+}
+public class ItemB extends Item {
+    @XmlElement
+    String b;
+}
+</code></pre>
+    <p>As it works now, the items list contains two Item objects.</p>
+    <p>I need the items list in the resulting Root object to contain two ItemA objects, one with a="a1" and the other with a="a2".</p>
+    <p>If the type element is "b", I need the items list to contain ItemB objects.</p>
+    <p>There will only be one type element specified in a single XML file.</p>
+    <p>I have seen several solutions using attribute values, but none using element values.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">xml</span><span class="tag">jaxb</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>The following may help: <a href="http://blog.bdoughan.com/2012/01/jaxb-and-inhertiance-using-xmladapter.html" rel="nofollow noreferrer">blog.bdoughan.com/2012/01/…</a></span> <span> - </span> <span class="display-name">bdoughan</span> <span> </span> <span class="date">27 Dec 2013 at 15:49</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thanks, Blaise. The tricky part is that the object creation is based on information in sibling elements, not in the item element itself. I thought about doing something with thread local static information in the Root class for type, but thought of something that I think is better, with input from your blog post <a href="http://blog.bdoughan.com/2012/08/handle-middle-of-xml-document-with-jaxb.html" rel="nofollow noreferrer">here</a>. I'll edit my question with my new idea.</span> <span> - </span> <span class="display-name">John Douglass</span> <span> </span> <span class="date">27 Dec 2013 at 17:56</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Max Fichtelmann</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Dec 2013 at 19:23</span>
+     </div>
+    </div>
+    <div>
+     <p>Following the tip of <a href="https://stackoverflow.com/questions/20797405/jaxb-unmarshal-to-subclass-based-on-element-value/20806552#comment31189277_20797405">Blaise Doughan</a> you could create an XmlAdapter. Unfortunately Adapters are not available on the root level so you would have to add a bit extra code during un-/marshalling.</p>
+     <p>Root/Item/ItemA/ItemB are plain POJOs without any annotations here.</p>
+     <p>The Adapter with the adapted types:</p>
+     <pre><code>public class RootAdapter extends XmlAdapter&lt;AdaptedRoot, Root&gt;
+{
+    @Override
+    public Root unmarshal( AdaptedRoot v ) throws Exception
+    {
+        Root root = new Root();
+        root.type = v.type;
+        for ( AdaptedItem adaptedItem : v.items )
+        {
+            if ( v.type.equals( "a" ) )
+            {
+                ItemA a = new ItemA();
+                a.a = adaptedItem.a;
+                root.items.add( a );
+            }
+            if ( v.type.equals( "b" ) )
+            {
+                ItemB b = new ItemB();
+                b.b = adaptedItem.b;
+                root.items.add( b );
+            }
+        }
+        return root;
+    }
+
+    @Override
+    public AdaptedRoot marshal( Root v ) throws Exception
+    {
+        AdaptedRoot adapted = new AdaptedRoot();
+        adapted.type = v.type;
+        for ( Item item : v.items )
+        {
+            AdaptedItem adaptedItem = new AdaptedItem();
+            if ( v.type.equals( "a" ) )
+            {
+                adaptedItem.a = ((ItemA) item).a;
+            }
+            if ( v.type.equals( "b" ) )
+            {
+                adaptedItem.b = ((ItemB) item).b;
+            }
+            adapted.items.add( adaptedItem );
+        }
+        return adapted;
+    }
+
+    @XmlRootElement( name = "root" )
+    public static class AdaptedRoot
+    {
+        @XmlElement
+        String            type;
+        @XmlElement( name = "item" )
+        List&lt;AdaptedItem&gt; items = new ArrayList&lt;&gt;();
+    }
+
+    public static class AdaptedItem
+    {
+        @XmlElement
+        String a;
+        @XmlElement
+        String b;
+    }
+}
+</code></pre>
+     <p>Un-/marshalling could be done like this:</p>
+     <pre><code>public static void main( String[] args ) throws Exception
+{
+    String rawRootA = "&lt;root&gt;&lt;type&gt;a&lt;/type&gt;&lt;item&gt;&lt;a&gt;a1&lt;/a&gt;&lt;/item&gt;&lt;item&gt;&lt;a&gt;a2&lt;/a&gt;&lt;/item&gt;&lt;/root&gt;";
+    String rawRootB = "&lt;root&gt;&lt;type&gt;b&lt;/type&gt;&lt;item&gt;&lt;b&gt;b1&lt;/b&gt;&lt;/item&gt;&lt;item&gt;&lt;b&gt;b2&lt;/b&gt;&lt;/item&gt;&lt;/root&gt;";
+
+    Root rootA = unmarshal( rawRootA );
+    for ( Item item : rootA.items )
+    {
+        System.out.println( item.getClass().getSimpleName() );
+    }
+    print( rootA );
+
+    Root rootB = unmarshal( rawRootB );
+    for ( Item item : rootB.items )
+    {
+        System.out.println( item.getClass().getSimpleName() );
+    }
+    print( rootB );
+}
+
+public static Root unmarshal( String xml ) throws Exception
+{
+    JAXBContext context = JAXBContext.newInstance( AdaptedRoot.class );
+    Unmarshaller unmarshaller = context.createUnmarshaller();
+    XmlAdapter&lt;AdaptedRoot, Root&gt; adapter = new RootAdapter();
+
+    AdaptedRoot adapted = (AdaptedRoot) unmarshaller.unmarshal( new StringReader( xml ) );
+    return adapter.unmarshal( adapted );
+}
+
+public static void print( Root root ) throws Exception
+{
+    JAXBContext context = JAXBContext.newInstance( AdaptedRoot.class );
+    Marshaller marshaller = context.createMarshaller();
+    marshaller.setProperty( Marshaller.JAXB_FORMATTED_OUTPUT, true );
+    XmlAdapter&lt;AdaptedRoot, Root&gt; adapter = new RootAdapter();
+
+    AdaptedRoot adaptedRoot = adapter.marshal( root );
+    marshaller.marshal( adaptedRoot, System.out );
+}
+</code></pre>
+     <p>with the expected output:</p>
+     <pre><code>ItemA
+ItemA
+&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;root&gt;
+    &lt;type&gt;a&lt;/type&gt;
+    &lt;item&gt;
+        &lt;a&gt;a1&lt;/a&gt;
+    &lt;/item&gt;
+    &lt;item&gt;
+        &lt;a&gt;a2&lt;/a&gt;
+    &lt;/item&gt;
+&lt;/root&gt;
+ItemB
+ItemB
+&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;root&gt;
+    &lt;type&gt;b&lt;/type&gt;
+    &lt;item&gt;
+        &lt;b&gt;b1&lt;/b&gt;
+    &lt;/item&gt;
+    &lt;item&gt;
+        &lt;b&gt;b2&lt;/b&gt;
+    &lt;/item&gt;
+&lt;/root&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>John Douglass</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Dec 2013 at 18:14</span>
+     </div>
+    </div>
+    <div>
+     <p>I came up with a solution using @XmlAnyElement and a technique described by Blaise Doughan <a href="http://blog.bdoughan.com/2012/08/handle-middle-of-xml-document-with-jaxb.html" rel="nofollow">here</a>.</p>
+     <p>The Root class becomes:</p>
+     <pre><code>@XmlRootElement(name = "root")
+public class Root {
+    @XmlElement
+    String type;
+
+    @XmlAnyElement
+    List&lt;Element&gt; other;
+
+    List&lt;Item&gt; items = new ArrayList&lt;Item&gt;();
+}
+</code></pre>
+     <p>Then after unmarshaling the Root object, I iterate over the other Elements and populate my items list by unmarshaling each Element for the proper class:</p>
+     <pre><code>Class unmarshalClass = null;
+switch (root.type.toLowerCase()) {
+    case "a":
+        unmarshalClass = ItemA.class;
+        break;
+    case "b":
+        unmarshalClass = ItemB.class;
+        break;
+    default:
+        throw new Exception("Unknown type " + root.type);
+}
+
+for (Element element : root.other) {
+    if (element.getNodeName().equalsIgnoreCase("item")) {
+        root.items.add(
+            (Item)jaxbUnmarshaller
+                .unmarshal(element, unmarshalClass).getValue());
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Hi John, I am confused where would the switch case part go? Should it be written in the constructor of Root class?</span> <span> - </span> <span class="display-name">Bosco</span> <span> </span> <span class="date">19 Sep 2016 at 21:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The switch would go after you do the unmarshal of the Root object. After the Root object is unmarshalled, the <code>other</code> list has been populated. The switch determines the correct element type and the for loop unmarshals each element and stores it in the <code>items</code> list.</span> <span> - </span> <span class="display-name">John Douglass</span> <span> </span> <span class="date">21 Sep 2016 at 16:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

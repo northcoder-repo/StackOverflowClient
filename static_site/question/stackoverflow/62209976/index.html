@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Different representations of DecimalFormat grouping symbol</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Different representations of DecimalFormat grouping symbol</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Omnibyte</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>5 Jun 2020 at 07:09</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62209976/different-representations-of-decimalformat-grouping-symbol">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Today I discovered a locale-problem in the next code listing. My goal is to format numbers with swiss german locale (de-CH) so that thousands are separated with apostrophes (') and decimals with period (.). According to <a href="http://www.localeplanet.com/java/de-CH/index.html" rel="nofollow noreferrer">ICU</a> this is the default for that country's locale.</p>
+    <pre><code>final NumberFormat format = NumberFormat.getNumberInstance(new Locale("en", "US"));
+format.setMinimumFractionDigits(1);
+format.setMaximumFractionDigits(1);
+
+assertEquals("1'000.2", format.format(1000.2455));
+</code></pre>
+    <p>This works as expected on my colleagues machines that use swiss german locale. However, when I run it on my machine with US locale, the test fails as the group separator is ’ and not ' (<a href="https://en.wikipedia.org/wiki/Apostrophe" rel="nofollow noreferrer">apostrophes</a>).</p>
+    <pre><code>expected:&lt;1[']000.2&gt; but was:&lt;1[’]000.2&gt;
+Expected :1'000.2
+Actual   :1’000.2
+</code></pre>
+    <p>Through another <a href="https://stackoverflow.com/a/8743252/1297789">SO post</a> I found that I can access and modify the DecimalFormat to achieve my goal. While the unit test is satisfied with this result, I am not. From the <a href="https://docs.oracle.com/javase/6/docs/api/java/text/DecimalFormat.html" rel="nofollow noreferrer">DecimalFormat API</a> I don't understand why the grouping symbol deviated from the expected thousands separator. As it is the same character, the only culprit I see is the IDE (or rather the Font its using).</p>
+    <pre><code>System.out.println(Integer.valueOf('’'));
+39
+System.out.println(Integer.valueOf('\''));
+8217
+</code></pre>
+    <p>My question is: how can I write the unit test so it is not vulnerable to different representations of the same character?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">junit</span><span class="tag">locale</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Why do you write JUnit tests testing JDK's code?</span> <span> - </span> <span class="display-name">9ilsdx 9rvj 0lo</span> <span> </span> <span class="date">26 Oct 2020 at 08:25</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Jun 2020 at 00:27</span>
+     </div>
+    </div>
+    <div>
+     <h2>Summary</h2>
+     <p>The Java output using <code>’</code> (not <code>'</code>) as the thousands separator looks correct to me, for the Swiss German locale. The ICU documentation and Java also refer to <code>’</code>.</p>
+     <p>Given this, your unit test does not have to be concerned with different representations of the thousands separator - unless you explicitly want to use <code>'</code>, not <code>’</code>.</p>
+     <h2>Background</h2>
+     <p>The two different characters are:</p>
+     <ul>
+      <li><code>'</code> - standard keyboard apostrophe (Unicode <a href="https://www.fileformat.info/info/unicode/char/27/index.htm" rel="nofollow noreferrer">U+0027</a>)</li>
+      <li><code>’</code> - right single quotation mark (Unicode <a href="https://www.fileformat.info/info/unicode/char/2019/index.htm" rel="nofollow noreferrer">U+2019</a>)</li>
+     </ul>
+     <p>According to the locale page linked to in the question (<a href="http://www.localeplanet.com/java/de-CH/index.html" rel="nofollow noreferrer">the de-CH locale page here</a>), the number grouping separator is <code>'</code> - the standard apostrophe.</p>
+     <p>However, I think this documentation is possibly incorrect - or, at least, misleading - in the context of your question.</p>
+     <p>The Java <a href="https://docs.oracle.com/en/java/javase/13/docs/api/java.base/java/util/Locale.html" rel="nofollow noreferrer"><code>Locale</code></a> object takes its language subtag values from the <a href="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry" rel="nofollow noreferrer">IANA Language Subtag Registry</a>.</p>
+     <p>The registry entry for Swiss German is this:</p>
+     <pre><code>Type: language
+Subtag: gsw
+Description: Swiss German
+Description: Alemannic
+Description: Alsatian
+Added: 2006-03-08
+Suppress-Script: Latn
+</code></pre>
+     <p>So, we build a Java locale for Swiss German using "gsw" as follows:</p>
+     <pre><code>Locale swissGermanLocale = new Locale("gsw");
+</code></pre>
+     <p>The <code>de-CH</code> language tag is an alternative way to create a "Swiss German" tag - and this is the tag referred to by that page referenced in the question.</p>
+     <p>But there is also <a href="http://www.localeplanet.com/icu/gsw/index.html" rel="nofollow noreferrer">this other page</a> for the ICU "gsw" locale. On <em>this</em> page, the grouping separator is the <code>’</code> right single quotation mark. It's hard to tell, just by looking at the page - but if you copy/paste to a monospace font, you will see the difference.</p>
+     <h2>Java Code Examples</h2>
+     <p>Looking at Java, we can write the following:</p>
+     <pre><code>double d = 12345.67;
+// This line is just so my console prints out the correct UTF-8 characters:
+PrintStream out = new PrintStream(System.out, true, StandardCharsets.UTF_8);
+
+Locale swissGermanLocale = new Locale("gsw");
+//Locale swissGermanLocale = new Locale("de", "CH");
+out.println(swissGermanLocale.getDisplayName());  // Swiss German
+
+final NumberFormat gswFormat = NumberFormat.getNumberInstance(swissGermanLocale);
+
+// Find out what the grouping separator is for the given locale:
+DecimalFormat decimalFormat = (DecimalFormat)
+NumberFormat.getNumberInstance(swissGermanLocale);
+char c = decimalFormat.getDecimalFormatSymbols().getGroupingSeparator();
+out.println(c);  // ’
+
+out.println(gswFormat.format(d));  // 12’345.67
+</code></pre>
+     <p>Note that the locale based on <code>gsw</code> is called "Swiss German".</p>
+     <p>The locale based on <code>de-CH</code> is called "German (Switzerland)". A subtle difference.</p>
+     <p>Regardless, the end result is that numbers use the <code>’</code> separator, not the standard apostrophe.</p>
+     <p>As mentioned at the start of this answer, it's possible you may want/need to use <code>'</code> as your separator, as a conscious change from the "official" locale format. If so, then you can use the decimal format object, as you mention.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

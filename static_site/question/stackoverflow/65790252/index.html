@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to add Datatables Custom row rendering / aggregates</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to add Datatables Custom row rendering / aggregates</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Wells</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Jan 2021 at 11:04</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65790252/how-to-add-datatables-custom-row-rendering-aggregates">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to add a custom row to a serverside rendered data table, inorder to show the total amount of a column the following is how the table headers are Date | Name | <strong>Amount</strong> | Ref |</p>
+    <pre><code> &lt;table id="tableExport_filter"&gt;
+    &lt;thead&gt;
+      &lt;tr&gt;
+       &lt;th&gt;Date&lt;/th&gt;
+       &lt;th&gt;Name&lt;/th&gt;
+       &lt;th&gt;Amount&lt;/th&gt;
+       &lt;th&gt;Ref&lt;/th&gt;
+     &lt;/tr&gt;
+    &lt;/thead&gt;
+    &lt;tbody&gt;
+     &lt;tr&gt;&lt;/tr&gt;
+    &lt;/tbody&gt;                                   
+  &lt;/table&gt;
+
+</code></pre>
+    <p>to get the data using AJAX</p>
+    <pre><code>var dataTable = $('#tableExport_filter').DataTable({
+    'processing': true,
+    'serverSide': true,
+    'serverMethod': 'post',
+
+ 'ajax': {
+       'url':'app/functions/collections_by_agent.php',
+       'data': function(data){}
+    },
+'columns': [
+      
+       { data: 'date_created'},
+       { data: 'name'},
+       { data: 'amount' }, 
+       { data: 'ref' }
+    ],
+});
+
+</code></pre>
+    <p>I need help to append a <strong>row</strong> to the table and Add the Sum total of the amount column</p>
+   </div>
+   <div class="tags">
+    <span class="tag">javascript</span><span class="tag">jquery</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jan 2021 at 14:46</span>
+     </div>
+    </div>
+    <div>
+     <p>I would recommend doing this by using the table footer <code>&lt;tfoot&gt;</code> instead of adding a new row to the body of the table.</p>
+     <p>Steps:</p>
+     <ol>
+      <li>In your HTML table, add an empty footer after the closing <code>&lt;tbody&gt;</code> tag:</li>
+     </ol>
+     <pre class="lang-html prettyprint-override"><code>&lt;tfoot&gt;
+  &lt;tr&gt;
+   &lt;th&gt;&lt;/th&gt;
+   &lt;th&gt;&lt;/th&gt;
+   &lt;th&gt;&lt;/th&gt;
+   &lt;th&gt;&lt;/th&gt;
+ &lt;/tr&gt;
+&lt;/tfoot&gt;
+</code></pre>
+     <ol start="2">
+      <li>Add a <code>footerCallback</code> option to your DataTable:</li>
+     </ol>
+     <pre class="lang-js prettyprint-override"><code>var dataTable = $('#tableExport_filter').DataTable({
+
+  // your existing options go here
+
+  "footerCallback": function( tfoot, data, start, end, display ) {
+    var api = this.api();
+    $( api.column( 2 ).footer() ).html(
+      api.column( 2 ).data().reduce( function ( a, b ) {
+        return a + b;
+      }, 0 )
+    );
+  }
+
+} );
+</code></pre>
+     <p>In this function, you use <code>var api = this.api();</code> to gain access to the DataTables API functions from within the table itself.</p>
+     <p>You then select column index 2 (i.e. the 3rd column) of the footer as the target for the sum.</p>
+     <p>Finally, you use a <code>reduce</code> function to sum up all the values from data column index 2. That <code>0</code> at the end of the function is the starting value used when performing the initial step of the <code>reduce</code> function.</p>
+     <p>The footer callback is documented <a href="https://datatables.net/reference/option/footerCallback" rel="nofollow noreferrer">here</a>.</p>
+     <p>The reduce function is documented <a href="https://datatables.net/reference/api/reduce()" rel="nofollow noreferrer">here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

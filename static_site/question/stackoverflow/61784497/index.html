@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>JAXB: Remove parent node keeping it's children</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>JAXB: Remove parent node keeping it's children</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Pedro Estevão</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>13 May 2020 at 20:44</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61784497/jaxb-remove-parent-node-keeping-its-children">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I know it doesn't make much sense, but I have to generate an XML from a Java object without the parent node of some elements, like explained below.</p>
+    <p>This is the example Java class model for the XML:</p>
+    <pre><code>@XmlRootElement(name = "person")
+public class PersonXml {
+
+    @XmlElement(name = "name")
+    private String name;
+
+    @XmlElement(name = "car")
+    private List&lt;CarXml&gt; cars;
+</code></pre>
+    <p>.</p>
+    <pre><code>@XmlRootElement(name = "car")
+public class CarXml {
+
+    @XmlElement(name = "model")
+    private String model;
+
+    @XmlElement(name = "brand")
+    private String brand;
+</code></pre>
+    <p>By default, if I generate the XML from an object of <code>PersonXml</code> like this:</p>
+    <pre><code>StringWriter writer = new StringWriter();
+
+JAXBContext ctx = JAXBContext.newInstance(PersonXml.class);
+Marshaller marshaller = ctx.createMarshaller();
+marshaller.marshal(xml, writer);
+</code></pre>
+    <p>I would get:</p>
+    <pre><code>&lt;person&gt;
+    &lt;name&gt;Pedro&lt;/name&gt;
+    &lt;car&gt;
+        &lt;model&gt;Logan&lt;/model&gt;
+        &lt;brand&gt;Renault&lt;/brand&gt;
+    &lt;/car&gt;
+    &lt;car&gt;
+        &lt;model&gt;Duster&lt;/model&gt;
+        &lt;brand&gt;Renault&lt;/brand&gt;
+    &lt;/car&gt;
+&lt;/person&gt;
+</code></pre>
+    <p><strong>What I need is to remove the <code>&lt;car&gt;</code> tag, or even to prevent it to be generated at all.</strong></p>
+    <p>I need the XML to be like this:</p>
+    <pre><code>&lt;person&gt;
+    &lt;name&gt;Pedro&lt;/name&gt;
+    &lt;model&gt;Logan&lt;/model&gt;
+    &lt;brand&gt;Renault&lt;/brand&gt;
+    &lt;model&gt;Duster&lt;/model&gt;
+    &lt;brand&gt;Renault&lt;/brand&gt;
+&lt;/person&gt;
+</code></pre>
+    <p>Of course I could convert the XML to a String and remove the tags with <code>replaceAll</code> or something like this, but I was wondering if there is a nicer way to achieve this.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">xml</span><span class="tag">jaxb</span><span class="tag">marshalling</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 May 2020 at 16:13</span>
+     </div>
+    </div>
+    <div>
+     <p>If you need to generate this output, you can use JAXB as follows:</p>
+     <p>1) Create a new <code>Person</code> class:</p>
+     <pre><code>import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElementRef;
+import javax.xml.bind.annotation.XmlElementRefs;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "", propOrder = {
+    "field"
+})
+@XmlRootElement(name = "person")
+public class Person {
+
+    @XmlElementRefs({
+        @XmlElementRef(name = "name", type = JAXBElement.class, required = false),
+        @XmlElementRef(name = "model", type = JAXBElement.class, required = false),
+        @XmlElementRef(name = "brand", type = JAXBElement.class, required = false)
+    })
+    protected List&lt;JAXBElement&lt;String&gt;&gt; field;
+
+    public List&lt;JAXBElement&lt;String&gt;&gt; getNameOrModelOrBrand() {
+        if (field == null) {
+            field = new ArrayList&lt;&gt;();
+        }
+        return this.field;
+    }
+
+}
+</code></pre>
+     <p>2) Create an <code>ObjectFactory</code> to make it easier to use the person class:</p>
+     <pre><code>import javax.xml.bind.JAXBElement;
+import javax.xml.bind.annotation.XmlElementDecl;
+import javax.xml.bind.annotation.XmlRegistry;
+import javax.xml.namespace.QName;
+
+@XmlRegistry
+public class ObjectFactory {
+
+    private final static QName _PersonName_QNAME = new QName("", "name");
+    private final static QName _PersonModel_QNAME = new QName("", "model");
+    private final static QName _PersonBrand_QNAME = new QName("", "brand");
+
+    public ObjectFactory() {
+    }
+
+    public Person createPerson() {
+        return new Person();
+    }
+
+    @XmlElementDecl(namespace = "", name = "name", scope = Person.class)
+    public JAXBElement&lt;String&gt; createPersonName(String value) {
+        return new JAXBElement&lt;&gt;(_PersonName_QNAME, String.class, Person.class, value);
+    }
+
+    @XmlElementDecl(namespace = "", name = "model", scope = Person.class)
+    public JAXBElement&lt;String&gt; createPersonModel(String value) {
+        return new JAXBElement&lt;&gt;(_PersonModel_QNAME, String.class, Person.class, value);
+    }
+
+    @XmlElementDecl(namespace = "", name = "brand", scope = Person.class)
+    public JAXBElement&lt;String&gt; createPersonBrand(String value) {
+        return new JAXBElement&lt;&gt;(_PersonBrand_QNAME, String.class, Person.class, value);
+    }
+
+}
+</code></pre>
+     <ol start="3">
+      <li>Use the factory as follows:</li>
+     </ol>
+     <pre><code>import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.Marshaller;
+import java.io.StringWriter;
+import java.util.List;
+
+...
+
+ObjectFactory factory = new ObjectFactory();
+
+Person person = factory.createPerson();
+List&lt;JAXBElement&lt;String&gt;&gt; list = person.getNameOrModelOrBrand();
+list.add(factory.createPersonName("Pedro"));
+list.add(factory.createPersonModel("Logan"));
+list.add(factory.createPersonBrand("Renault"));
+list.add(factory.createPersonModel("Duster"));
+list.add(factory.createPersonBrand("Renault"));
+
+JAXBContext ctx = JAXBContext.newInstance(Person.class);
+Marshaller marshaller = ctx.createMarshaller();
+marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+StringWriter writer = new StringWriter();
+marshaller.marshal(person, writer);
+System.out.println(writer.toString());
+</code></pre>
+     <p>The end result is XML as follows:</p>
+     <pre><code>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;person&gt;
+    &lt;name&gt;Pedro&lt;/name&gt;
+    &lt;model&gt;Logan&lt;/model&gt;
+    &lt;brand&gt;Renault&lt;/brand&gt;
+    &lt;model&gt;Duster&lt;/model&gt;
+    &lt;brand&gt;Renault&lt;/brand&gt;
+&lt;/person&gt;
+</code></pre>
+     <p>Creating elements in this way is the only way I know to get the end result you need.</p>
+     <p>There are probably various things you could do to refactor the above code, to streamline the creation of the list of elements - but this shows you the basic approach.</p>
+     <p>As you already know - this is far from ideal. The end result is not any type of XML that I would want to receive.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Can you please have a look at this example and provide something similar solution? I would like to remove the <code>Nodename</code> within <code>XML</code> for the data defined by the user. In those cases, everything is custom and provided by users. I have posted the question here, If you get a chance please have a look and provide your response: <a href="https://stackoverflow.com/q/67648941/7584240">stackoverflow.com/q/67648941/7584240</a></span> <span> - </span> <span class="display-name">BATMAN_2008</span> <span> </span> <span class="date">4 Jun 2021 at 06:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

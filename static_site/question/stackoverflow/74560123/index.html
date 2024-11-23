@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Can we add a formula in a DataTable's export to Excel?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Can we add a formula in a DataTable's export to Excel?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Neha</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>24 Nov 2022 at 11:36</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74560123/can-we-add-a-formula-in-a-datatables-export-to-excel">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I need to add a formula to an Excel sheet that is exported from DataTables. I am trying the code written below</p>
+    <pre><code>{
+    extend: 'excelHtml5',
+    exportOptions: { orthogonal: 'export' },
+            
+    customizeData: function(data){
+      //Add a row.
+      var desc = [
+        ['','TOTAL','','','=sum(E1:E15)']
+      ];
+      // data.body.unshift(data.header);
+      for (var i = 0; i &lt; desc.length; i++) {
+        data.body.push(desc[i]);
+      };
+  }
+},
+</code></pre>
+    <p>But it adds the formula as text and it works as a formula only after key focus on that cell.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">excel</span><span class="tag">datatables</span><span class="tag">export-to-excel</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Nov 2022 at 15:36</span>
+     </div>
+    </div>
+    <div>
+     <p>Your approach causes the Excel (xlsx) file to store the formula as a string (as you have noted).</p>
+     <p>Specifically, the DataTables Excel export stores it as an "inline string" using the <code>t="inlineStr"</code> attribute. This needs to be changed to <code>t="str"</code> for a formula. The actual text of the formula needs to be contained in a <code>&lt;f&gt;</code> tag, also (<a href="https://learn.microsoft.com/en-us/office/open-xml/working-with-formulas" rel="nofollow noreferrer">see the OpenXML reference documentation</a>).</p>
+     <p>The following code takes the raw DataTables data provided by the <code>customizeData()</code> function, and modifies the way it is stored in Excel:</p>
+     <p><em>Note - this code uses my sample data, shown below in the full demo.</em></p>
+     <pre class="lang-js prettyprint-override"><code>customize: function ( xlsx ) {
+  var sheet = xlsx.xl.worksheets['sheet1.xml'];
+  var cell = $('row c[r=D8]', sheet);
+  $(cell).attr( 't', 'str' );
+  $(cell).append('&lt;f&gt;' + $('is t', cell).text() + '&lt;/f&gt;');
+  $('is', cell).remove();
+}
+</code></pre>
+     <p>The above code uses jQuery to manipulate the XML used for storing the Excel structures.</p>
+     <p>I have simplified the logic to hard-code the cell <code>D8</code> where the formula is placed. You may have to alter that for your specific data needs.</p>
+     <p>Before the <code>customize</code> function is used, the cell content would have been stored as a plain inline string:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;c t="inlineStr" r="D8"&gt;
+    &lt;is&gt;
+       &lt;t xml:space="preserve"&gt;=sum(D3:D7)&lt;/t&gt;
+    &lt;/is&gt;
+ &lt;/c&gt;
+</code></pre>
+     <p>After the <code>customize</code> function is added, the cell content is stored as a formula:</p>
+     <pre class="lang-xml prettyprint-override"><code>&lt;c t="str" r="D8"&gt;
+    &lt;f&gt;=sum(D3:D7)&lt;/f&gt;
+&lt;/c&gt;
+</code></pre>
+     <hr>
+     <p>The demo code (I don't think this actually runs in a Stack Snippet - the Excel file cannot be downloaded here):</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>$(document).ready(function() {
+
+  var table = $('#example').DataTable({
+    dom: 'Brftip',
+    buttons: [{
+      extend: 'excelHtml5',
+
+      customizeData: function(data) {
+        var desc = [
+          ['', 'TOTAL', '', '=sum(D3:D7)']
+        ];
+        for (var i = 0; i &lt; desc.length; i++) {
+          data.body.push(desc[i]);
+        };
+      },
+
+      customize: function(xlsx) {&nbsp;&nbsp;&nbsp;&nbsp;
+        var sheet = xlsx.xl.worksheets['sheet1.xml'];
+        var cell = $('row c[r=D8]', sheet);
+        console.log(cell);
+        $(cell).attr('t', 'str');
+        console.log(cell);
+        $(cell).append('&lt;f&gt;' + $('is t', cell).text() + '&lt;/f&gt;');
+        console.log(cell);
+        $('is', cell).remove();
+        console.log(cell);
+      }
+
+    }]
+  });
+
+});</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.css" /&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.3.3/css/buttons.dataTables.css" /&gt;
+
+  &lt;script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/2.3.3/js/dataTables.buttons.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="https://cdn.datatables.net/buttons/2.3.3/js/buttons.html5.js"&gt;&lt;/script&gt;
+
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+  &lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+      &lt;thead&gt;
+        &lt;tr&gt;
+          &lt;th&gt;Name&lt;/th&gt;
+          &lt;th&gt;Position&lt;/th&gt;
+          &lt;th&gt;Office&lt;/th&gt;
+          &lt;th&gt;Age&lt;/th&gt;
+          &lt;th&gt;Start date&lt;/th&gt;
+          &lt;th&gt;Salary&lt;/th&gt;
+        &lt;/tr&gt;
+      &lt;/thead&gt;
+      &lt;tbody&gt;
+        &lt;tr&gt;
+          &lt;td&gt;Tiger Nixon&lt;/td&gt;
+          &lt;td&gt;System Architect&lt;/td&gt;
+          &lt;td&gt;Edinburgh&lt;/td&gt;
+          &lt;td&gt;61&lt;/td&gt;
+          &lt;td&gt;2011/04/25&lt;/td&gt;
+          &lt;td&gt;$320,800&lt;/td&gt;
+        &lt;/tr&gt;
+        &lt;tr&gt;
+          &lt;td&gt;Garrett Winters&lt;/td&gt;
+          &lt;td&gt;Accountant&lt;/td&gt;
+          &lt;td&gt;Tokyo&lt;/td&gt;
+          &lt;td&gt;63&lt;/td&gt;
+          &lt;td&gt;2011/07/25&lt;/td&gt;
+          &lt;td&gt;$170,750&lt;/td&gt;
+        &lt;/tr&gt;
+        &lt;tr&gt;
+          &lt;td&gt;Ashton Cox&lt;/td&gt;
+          &lt;td&gt;Junior Technical Author&lt;/td&gt;
+          &lt;td&gt;San Francisco&lt;/td&gt;
+          &lt;td&gt;66&lt;/td&gt;
+          &lt;td&gt;2009/01/12&lt;/td&gt;
+          &lt;td&gt;$86,000&lt;/td&gt;
+        &lt;/tr&gt;
+        &lt;tr&gt;
+          &lt;td&gt;Michael Bruce&lt;/td&gt;
+          &lt;td&gt;Javascript Developer&lt;/td&gt;
+          &lt;td&gt;Singapore&lt;/td&gt;
+          &lt;td&gt;29&lt;/td&gt;
+          &lt;td&gt;2011/06/27&lt;/td&gt;
+          &lt;td&gt;$183,000&lt;/td&gt;
+        &lt;/tr&gt;
+        &lt;tr&gt;
+          &lt;td&gt;Donna Snider&lt;/td&gt;
+          &lt;td&gt;Customer Support&lt;/td&gt;
+          &lt;td&gt;New York&lt;/td&gt;
+          &lt;td&gt;27&lt;/td&gt;
+          &lt;td&gt;2011/01/25&lt;/td&gt;
+          &lt;td&gt;$112,000&lt;/td&gt;
+        &lt;/tr&gt;
+      &lt;/tbody&gt;
+    &lt;/table&gt;
+
+  &lt;/div&gt;
+
+&lt;/body&gt;
+
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>The <code>customizeData</code> function (which you already have) operates on the raw data provided by DataTables.</p>
+     <p>Then the new <code>customize</code> function operates on the target Excel file (the underlying OpenXML structures), to convert a string to a formula.</p>
+     <p>The end result (in edit mode):</p>
+     <p><a href="https://i.stack.imgur.com/9Xr3C.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/9Xr3C.png" alt="enter image description here"></a></p>
+     <hr>
+     <p><strong>Final Notes</strong></p>
+     <p>When I run this in a web page, the downloaded Excel file is automatically opened in read-only mode (as a safeguard). At this point, you cannot see the formula.</p>
+     <p>You have to choose to open the file for editing for the formula to be visible.</p>
+     <p><a href="https://i.stack.imgur.com/AXLSr.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/AXLSr.png" alt="enter image description here"></a></p>
+     <p>That is a safety feature of the version of Excel I am using.</p>
+     <p>You can adjust these settings if needed (but I recommend keeping them as they are, for security):</p>
+     <p><a href="https://i.stack.imgur.com/67scx.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/67scx.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Can we do sum of rows ?</span> <span> - </span> <span class="display-name">Neha</span> <span> </span> <span class="date">1 Dec 2022 at 05:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I expect so. Have you tried?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">1 Dec 2022 at 13:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

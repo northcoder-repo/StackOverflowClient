@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How I use multi column ordering with one column in desc?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How I use multi column ordering with one column in desc?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>peace_love</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>27 Apr 2020 at 10:43</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61457030/how-i-use-multi-column-ordering-with-one-column-in-desc">source</a>
+    </div>
+   </div>
+   <div>
+    <p>This is my datatable:</p>
+    <pre><code>NAME   SORT
+Adam
+Ali    101
+David  102
+Laura
+Will
+</code></pre>
+    <p>I try to sort my table by the column <code>name</code> and also by the column <code>sort</code>.</p>
+    <p>The result I am looking for is:</p>
+    <pre><code>NAME   SORT
+David  102  
+Ali    101  
+Adam
+Laura
+Will
+</code></pre>
+    <p>This means, everything that has a sort number should sort by the column <code>sort</code> and everything else by <code>name</code>.</p>
+    <p>This is my approach:</p>
+    <pre><code>var table = $('.datatable').DataTable({
+"order": [[ 0, "asc" ]],
+"columnDefs": [
+  {
+        "targets": [ 0 ],
+        "orderData": [ 0, 1 ]
+      },
+],
+...
+</code></pre>
+    <p>But it is not working. The columns are only sorted by <code>name</code>. If I change the code to:</p>
+    <pre><code>  var table = $('.datatable').DataTable({
+    "order": [[ 0, "asc" ]],
+    "columnDefs": [
+      {
+            "targets": [ 0 ],
+            "orderData": [ 1, 0 ]
+          },
+    ],
+    ...
+</code></pre>
+    <p>It is considering now both columns for sorting, but the second column orders in the wrong direction:</p>
+    <pre><code>NAME   SORT
+Adam
+Laura
+Will
+Ali    101  
+David  102  
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">sorting</span><span class="tag">datatables</span><span class="tag">columnsorting</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Apr 2020 at 14:45</span>
+     </div>
+    </div>
+    <div>
+     <p><strong><em>UPDATE</em></strong>: I missed one item in my initial post. I have now corrected the demo from this <code>"orderData": [ 2 ]</code> to this <code>"orderData": [ 2, 0 ]</code>.</p>
+     <p>Two options:</p>
+     <h2>Suggested Approach</h2>
+     <p>The demo table:</p>
+     <pre><code>$(document).ready(function () {
+
+  var data = [
+    { "name": "Adam", "sort": null }, 
+    { "name": "Ali", "sort": 101 }, 
+    { "name": "David", "sort": 102 }, 
+    { "name": "Will", "sort": null },
+    { "name": "Laura", "sort": null } 
+  ];
+
+  $("#myTable").DataTable({
+    data: data,
+    columns: [
+      { "data": "name", "orderData": [ 2, 0 ] },
+      { "data": "sort" },
+      { "data": null, "visible" : false,
+          "render": function ( data, type, row, meta ) {
+            return (!row.sort ? 999 : row.sort * -1);
+          } 
+        }
+    ],
+    order: [ [ 1, "desc" ], [ 0, "asc" ] ]
+  });
+
+});
+</code></pre>
+     <p>We have introduced a new (hidden) column, containing the following data - unhidden just for this screenshot:</p>
+     <p><a href="https://i.stack.imgur.com/GQJwR.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/GQJwR.png" alt="enter image description here"></a></p>
+     <p>The following causes this 3rd column's data to be used when you sort on column 1 (followed by the data in column 1 - index 0):</p>
+     <pre><code>{ "data": "name", "orderData": [ 2, 0 ] },
+</code></pre>
+     <p>In this case the "2" refers to column 3 - column indexing starts at 0.</p>
+     <h2>Alternative</h2>
+     <p>This probably is not what you want, but I mention it because it is a simpler solution - albeit requiring more knowledge from the user.</p>
+     <p>Demo table:</p>
+     <pre><code>$(document).ready(function () {
+
+  var data = [
+    { "name": "Adam", "sort": null }, 
+    { "name": "Ali", "sort": 101 }, 
+    { "name": "David", "sort": 102 }, 
+    { "name": "Will", "sort": null },
+    { "name": "Laura", "sort": null }
+  ];
+
+  $("#myTable").DataTable({
+    data: data,
+    columns: [
+      { "data": "name" },
+      { "data": "sort" }
+    ],
+    order: [ [ 1, "desc" ], [ 0, "asc" ] ]
+  });
+
+});
+</code></pre>
+     <p>This line sets the initial sort order:</p>
+     <pre><code>order: [ [ 1, "desc" ], [ 0, "asc" ] ]
+</code></pre>
+     <p>This gives you the following when the table is first displayed:</p>
+     <p><a href="https://i.stack.imgur.com/AGWoA.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/AGWoA.png" alt="enter image description here"></a></p>
+     <p>To return to this starting point, the user has to do the following:</p>
+     <p>1) Click on the column 2 sort arrow until that column is sorted correctly.</p>
+     <p>2) While holding down the SHIFT key, click on column 1 until that column is sorted correctly.</p>
+     <h2>Notes</h2>
+     <p>The alternative is more flexible, but requires the user to know about the SHIFT key for multiple column sorting.</p>
+     <p>The proposed approach will do that work automatically - but users will not be able to get a "pure" alphabetic sort on user names with this option. It may even be confusing, if they don't know why the data is ordered the way it is.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

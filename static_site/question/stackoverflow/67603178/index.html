@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How can I validate the dependency of existance of value for one property value based on the existance of another property value in JSON schema</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How can I validate the dependency of existance of value for one property value based on the existance of another property value in JSON schema</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Prathvi Shetty</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 May 2021 at 12:20</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67603178/how-can-i-validate-the-dependency-of-existance-of-value-for-one-property-value-b">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a JSON schema:</p>
+    <pre><code>{
+  "type": "object",
+  "properties": {
+"name": { "type": ["string", "null"] },
+"credit_card": { 
+     "type": ["string", "null"]
+},
+"billing_address": {
+     "type": ["string", "null"]
+}
+},
+
+"dependencies": [{
+"credit_card": ["billing_address"]
+}]
+
+}
+</code></pre>
+    <p>I want the billing_address value to be present if the credit_card value is provided. But since I have specified the type of billing_address as null it accepts null value even when the credit_card value is present and hence not validating. Could someone suggest the right approach for doing this. Thanks in advance.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">schema</span><span class="tag">json-schema-validator</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 May 2021 at 12:48</span>
+     </div>
+    </div>
+    <div>
+     <p>Your <code>dependencies</code> should be defined as an object <code>{}</code> not an array <code>[]</code>. You just need to remove the outer square brackets:</p>
+     <pre class="lang-json prettyprint-override"><code>"dependencies": {
+  "credit_card": ["billing_address"]
+}
+</code></pre>
+     <p>Overall, this gives the following schema:</p>
+     <pre class="lang-json prettyprint-override"><code>{
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": ["string", "null"]
+        },
+        "credit_card": {
+            "type": ["string", "null"]
+        },
+        "billing_address": {
+            "type": ["string", "null"]
+        }
+    },
+    "dependencies": {
+        "credit_card": ["billing_address"]
+    }
+}
+</code></pre>
+     <p>Using the above schema, the following JSON is valid:</p>
+     <pre class="lang-json prettyprint-override"><code>{
+  "name": "Abel",
+  "credit_card": "1234...",
+  "billing_address": "some address here..."
+}
+</code></pre>
+     <p>But the following JSON is <em>invalid</em>:</p>
+     <pre class="lang-json prettyprint-override"><code>{
+  "name": "Abel",
+  "credit_card": "1234"
+}
+</code></pre>
+     <p>You can test these using an online validator such as <a href="https://www.jsonschemavalidator.net/" rel="nofollow noreferrer">this one</a>.</p>
+     <hr>
+     <p>You may also want to consider removing the <code>null</code> values you are using in the schema. For example, by using this:</p>
+     <pre class="lang-json prettyprint-override"><code>{
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string",
+        },
+        "credit_card": {
+            "type": "string",
+        },
+        "billing_address": {
+            "type": "string",
+        }
+    },
+    "dependencies": {
+        "credit_card": ["billing_address"]
+    }
+}
+</code></pre>
+     <p>Using this revised schema, you will now also get a validation error for JSON such as the following:</p>
+     <pre class="lang-json prettyprint-override"><code>{
+  "name": "Abel",
+  "credit_card": null,
+  "billing_address": "some address here..."
+}
+</code></pre>
+     <hr>
+     <p><strong>Update</strong> - both fields are present but null:</p>
+     <p>If both <code>credit_card</code> and <code>billing_address</code> are null, then this case can be handled using a conditional validation (added to the end of our schema below):</p>
+     <pre class="lang-json prettyprint-override"><code>{
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": ["string", "null"]
+        },
+        "credit_card": {
+            "type": ["string", "null"]
+        },
+        "billing_address": {
+            "type": ["string", "null"]
+        }
+    },
+    "dependencies": {
+        "credit_card": ["billing_address"]
+    },
+    "if": {
+      "properties": { "credit_card": { "const": null } }
+    },
+    "then": {
+      "properties": { "billing_address": { "const": null } }
+    }
+}
+</code></pre>
+     <p>Now, the following will also be valid:</p>
+     <pre class="lang-json prettyprint-override"><code>{
+  "name": "Abel",
+  "credit_card": null,
+  "billing_address": null
+}
+</code></pre>
+     <p>One note of warning: This uses a relatively newer feature of the JSON Schema spec. It is supported by the online validator I referred to above - but I do not know if it is supported by whatever validator you may be using.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thank you for the response. But doing so does not help me when both the field are null. I want my schema to be considered valid when both the fields are null. @andrewjames</span> <span> - </span> <span class="display-name">Prathvi Shetty</span> <span> </span> <span class="date">19 May 2021 at 13:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Updated to handle the case when both fields are present, but null.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">19 May 2021 at 13:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I think the issue lies in the support for JSON version. I am using mule 4 and I am adding the dependencies inside if then else. I think if then else is a JSON 7 feature and mule does not support that. @andrewjames are you aware of anything that can be use as an alternative of if then else in JSON 04?</span> <span> - </span> <span class="display-name">Prathvi Shetty</span> <span> </span> <span class="date">20 May 2021 at 05:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have used fixed the issue by using oneOf which is support in JSON draft 04 as an alternative to if else then. It works successfully. :)</span> <span> - </span> <span class="display-name">Prathvi Shetty</span> <span> </span> <span class="date">20 May 2021 at 06:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Glad you have a solution that works for you. You are welcome to <a href="https://stackoverflow.com/help/self-answer">answer your own question</a>, so other people can see exactly how you solved the problem using your approach.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 May 2021 at 12:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

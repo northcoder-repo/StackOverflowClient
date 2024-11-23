@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>"Deep replace" with javax.json.JsonObject</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>"Deep replace" with javax.json.JsonObject</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Francesco</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Dec 2020 at 14:24</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/65325128/deep-replace-with-javax-json-jsonobject">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Replacing a value in a javax.json.JsonObject ist not possible directly because javax.json.JsonObject implements an immutable map. In order to do that you have to create a new JsonObject and copy the values from the original one into the new one taking care of replacing the value you want to replace. I found examples of how to do that with "simple" JsonObject, where there are no nested JsonObjects. What I'm looking for is a general replace implementation where I pass a JsonObject, the attribute name and the new value. This method should "traverse" the JsonObject and replace the attribute (wherever in the object hierarchy it is) and leave the others attributes unchanged. For ex. this is my original JsonObject</p>
+    <pre><code>{
+   "Attr1":number1,
+   "Attr2":number2,
+   "Attr3":number3,
+   "Attr4":[
+      "string1"
+   ],
+   "Attr5":[
+      {
+         "Attr6":[
+            {
+               "Attr7":"string2",
+               "Attr8":"string3",
+               "$Attr9":number4
+            },
+            {
+               "Attr7":"string4",
+               "Attr8":"string5",
+               "Attr9":number5
+            }
+         ],
+         "Attr10":number6,
+         "Attr14":{
+            "Attr10":"string6",
+            "Attr11":"string7",
+            "Attr12":"string8"
+         },
+         "Attr13":[
+            "string9",
+            "string10"
+         ],
+         "Attr14":"string11"
+      }
+   ]
+}
+</code></pre>
+    <p>and I want to replace the Attr6 with just an array of strings instead of an array of JsonObjects:</p>
+    <pre><code>"Attr6":["newString1","newString2"],
+</code></pre>
+    <p>The corresponding call could be something like replaceValue(JsonObject jObj, String attrName, JsonValue newValue)) where 'jObj' is the entire Json, 'attrName' is 'Attr6' and 'newValue' is a JsonArray containing the two strings.</p>
+    <p>Can someone point me to an example where such a feature is implemented or help me with it?</p>
+    <p>I tried by myself with this, but it doesn't really work because the builder is re-created on every recursive iteration (or just more probably because it is all wrong... :) )</p>
+    <pre><code>public static JsonObject replaceValue( final JsonObject jsonObject, final String jsonKey, final JsonValue jsonValue )
+{
+  JsonObjectBuilder builder = Json.createObjectBuilder();
+
+  if(jsonObject == null)
+  {
+    return builder.build();
+  }
+
+  Iterator&lt;Entry&lt;String, JsonValue&gt;&gt; it = jsonObject.entrySet().iterator();
+
+  while (it.hasNext())
+  {
+    @SuppressWarnings( "rawtypes" )
+    JsonObject.Entry mapEntry = it.next();
+
+    if (mapEntry.getKey() == jsonKey)
+    {
+      builder.add(jsonKey, jsonValue);
+    }
+    else if (ValueType.STRING.equals(((JsonValue) mapEntry.getValue()).getValueType()) || ValueType.NUMBER.equals(((JsonValue) mapEntry.getValue()).getValueType()) || ValueType.TRUE.equals(((JsonValue) mapEntry.getValue()).getValueType()) ||
+        ValueType.FALSE.equals(((JsonValue) mapEntry.getValue()).getValueType()) || (JsonValue) mapEntry.getValue() == null || "schemas".equalsIgnoreCase((String) mapEntry.getKey()))
+    {
+      builder.add(mapEntry.getKey().toString(), (JsonValue) mapEntry.getValue());
+    }
+    else if (ValueType.OBJECT.equals(((JsonValue) mapEntry.getValue()).getValueType()))
+    {
+      JsonObject modifiedJsonobject = (JsonObject) mapEntry.getValue();
+      if (modifiedJsonobject != null)
+      {
+        replaceValue(modifiedJsonobject, jsonKey, jsonValue);
+      }
+    }
+    else if (ValueType.ARRAY.equals(((JsonValue) mapEntry.getValue()).getValueType()))
+    {
+      for (int i = 0; i &lt; ((JsonValue) mapEntry.getValue()).asJsonArray().size(); i++)
+      {
+        replaceValue((JsonObject) ((JsonValue) mapEntry.getValue()).asJsonArray().get(i), jsonKey, jsonValue);
+      }
+    }
+  }
+
+  return builder.build();
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>What if there are multiple keys with same name, nested within different JSON Objects? Which one to be replaced then?</span> <span> - </span> <span class="display-name">Prasanna</span> <span> </span> <span class="date">16 Dec 2020 at 14:36</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Let's assume the key is unique among the whole JsonObject.</span> <span> - </span> <span class="display-name">Francesco</span> <span> </span> <span class="date">16 Dec 2020 at 15:44</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Are you constrained to only using <code>javax.json</code>, or can you use other libraries such as Jackson or Gson?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">17 Dec 2020 at 00:39</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Yes, I must use javax.json</span> <span> - </span> <span class="display-name">Francesco</span> <span> </span> <span class="date">17 Dec 2020 at 06:56</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Francesco</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Dec 2020 at 08:57</span>
+     </div>
+    </div>
+    <div>
+     <p>After having taken a cue from Kolban's answer in this post <a href="https://stackoverflow.com/questions/21720759/convert-a-json-string-to-a-hashmap">Convert a JSON String to a HashMap</a> I should have found a solution:</p>
+     <pre><code>public class JsonUtils
+{
+
+  public static JsonObject replaceValue( final JsonObject jsonObject, final String jsonKey, final Object jsonValue )
+  {
+    JsonObjectBuilder builder = Json.createObjectBuilder();
+
+    if (jsonObject != JsonObject.NULL)
+    {
+      builder = replace(jsonObject, jsonKey, jsonValue, builder);
+    }
+
+    return builder.build();
+  }
+
+  private static JsonObjectBuilder replace( final JsonObject jsonObject, final String jsonKey, final Object jsonValue, final JsonObjectBuilder builder )
+  {
+    Iterator&lt;Entry&lt;String, JsonValue&gt;&gt; it = jsonObject.entrySet().iterator();
+
+    while (it.hasNext())
+    {
+      @SuppressWarnings( "rawtypes" )
+      JsonObject.Entry mapEntry = it.next();
+
+      String key = mapEntry.getKey().toString();
+      Object value = mapEntry.getValue();
+
+      if (key.equalsIgnoreCase(jsonKey))
+      {
+        if (jsonValue instanceof String)
+        {
+          builder.add(jsonKey, (String) jsonValue);
+        }
+        else
+        {
+          builder.add(jsonKey, (JsonValue) jsonValue);
+        }
+        
+        // here you can add the missing casting you need
+
+        continue;
+      }
+
+      if (value instanceof JsonArray)
+      {
+        value = toJsonArray((JsonArray) value, jsonKey, jsonValue, builder);
+      }
+      else if (value instanceof JsonObject)
+      {
+        JsonObjectBuilder newBuilder = Json.createObjectBuilder();
+
+        value = replace((JsonObject) value, jsonKey, jsonValue, newBuilder);
+
+        if (value instanceof JsonObjectBuilder)
+        {
+          value = ((JsonObjectBuilder) value).build();
+        }
+      }
+
+      builder.add(key, (JsonValue) value);
+    }
+
+    return builder;
+  }
+
+  private static JsonArray toJsonArray( final JsonArray array, final String jsonKey, final Object jsonValue, final JsonObjectBuilder builder )
+  {
+    JsonArrayBuilder jArray = Json.createArrayBuilder();
+
+    for (int i = 0; i &lt; array.size(); i++)
+    {
+      Object value = array.get(i);
+
+      if (value instanceof JsonArray)
+      {
+        value = toJsonArray((JsonArray) value, jsonKey, jsonValue, builder);
+      }
+      else if (value instanceof JsonObject)
+      {
+        JsonObjectBuilder newBuilder = Json.createObjectBuilder();
+
+        value = replace((JsonObject) value, jsonKey, jsonValue, newBuilder);
+
+        if (value instanceof JsonObjectBuilder)
+        {
+          value = ((JsonObjectBuilder) value).build();
+        }
+      }
+
+      jArray.add((JsonValue) value);
+    }
+
+    return jArray.build();
+  }
+</code></pre>
+     <p>Just keep in mind that this works if the key you want to replace is unique in the whole JsonObject.</p>
+     <p>Any improvement is more than appreciated...</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Dec 2020 at 23:24</span>
+     </div>
+    </div>
+    <div>
+     <p>This is an alternative approach to solving the problem, one which uses the streaming parser provide by <a href="https://docs.oracle.com/javaee/7/api/javax/json/stream/JsonParser.html" rel="nofollow noreferrer"><code>javax.json.stream.JsonParser</code></a>. This generates a stream of tokens from the JSON source, with <code>javax.json.stream.JsonParser.Event</code> values which describe the type of token (e.g. <code>START_OBJECT</code>, <code>KEY_NAME</code>, and so on).</p>
+     <p>Most importantly for us, there are <code>skipObject()</code> and <code>skipArray()</code> methods on the parser, which allow us to cut out the unwanted section of our source JSON.</p>
+     <p>The overall approach is to build a new version of the JSON, token-by-token, as a string, substituting the replacement section when we reach the relevant location (or multiple locations) in the JSON.</p>
+     <p>Finally, we convert the new string back to an object, so we can pretty-print it.</p>
+     <p>There is no recursion used in this approach.</p>
+     <pre class="lang-java prettyprint-override"><code>import java.io.IOException;
+import javax.json.Json;
+import javax.json.stream.JsonParser;
+import javax.json.stream.JsonParser.Event;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.util.HashMap;
+import java.util.Map;
+import javax.json.JsonObject;
+import javax.json.JsonWriterFactory;
+import javax.json.stream.JsonGenerator;
+
+public class StreamDemo {
+
+    public static void doStream() throws IOException {
+        JsonParser jsonParser = Json.createParser(new StringReader(JSONSTRING));
+
+        StringBuilder sb = new StringBuilder();
+        Event previous = null;
+
+        String targetKeyName = "Attr6";
+        String replacement = "[\"newString1\",\"newString2\"]";
+        // This event reflects the end of the "replacement" string - namely "]".
+        // We need this because this event may be different from the replaced event.
+        Event replacementPreviousEvent = Event.END_ARRAY;
+
+        // Used when we find the target key for replacement:
+        boolean doReplacement = false;
+
+        while (jsonParser.hasNext()) {
+            Event event = jsonParser.next();
+            if (doReplacement) {
+                // Skip over the structure we want to replace:
+                if (event.equals(Event.START_OBJECT)) {
+                    jsonParser.skipObject();
+                } else if (event.equals(Event.START_ARRAY)) {
+                    jsonParser.skipArray();
+                }
+                // Write the replacement fragment here:
+                sb.append(replacement);
+                // Move to the next event in the stream:
+                event = jsonParser.next();
+                previous = replacementPreviousEvent;
+                doReplacement = false;
+            }
+
+            if (Event.KEY_NAME.equals(event)
+                    &amp;&amp; jsonParser.getString().equals(targetKeyName)) {
+                doReplacement = true;
+            }
+
+            switch (event) {
+                case START_OBJECT:
+                    if (Event.END_OBJECT.equals(previous)) {
+                        sb.append(",");
+                    }
+                    sb.append("{");
+                    break;
+                case END_OBJECT:
+                    sb.append("}");
+                    break;
+                case START_ARRAY:
+                    sb.append("[");
+                    break;
+                case END_ARRAY:
+                    sb.append("]");
+                    break;
+                case KEY_NAME:
+                    sb = previousWasAValue(previous, sb);
+                    sb = previousWasAnEnd(previous, sb);
+                    sb.append("\"").append(jsonParser.getString()).append("\":");
+                    break;
+                case VALUE_STRING:
+                    sb = previousWasAValue(previous, sb);
+                    sb.append("\"").append(jsonParser.getString()).append("\"");
+                    break;
+                case VALUE_NUMBER:
+                    sb = previousWasAValue(previous, sb);
+                    if (jsonParser.isIntegralNumber()) {
+                        sb.append(jsonParser.getLong());
+                    } else {
+                        sb.append(jsonParser.getBigDecimal().toPlainString());
+                    }
+                    break;
+                case VALUE_TRUE:
+                    sb = previousWasAValue(previous, sb);
+                    sb.append("true");
+                    break;
+                case VALUE_FALSE:
+                    sb = previousWasAValue(previous, sb);
+                    sb.append("false");
+                    break;
+                case VALUE_NULL:
+                    sb = previousWasAValue(previous, sb);
+                    sb.append("null");
+                    break;
+                default:
+                    break;
+            }
+            previous = event;
+        }
+        
+        // At the end, pretty-print the new JSON:
+        JsonObject modifiedObject = Json.createReader(new StringReader(sb.toString())).readObject();
+        Map&lt;String, Boolean&gt; config = new HashMap&lt;&gt;();
+        config.put(JsonGenerator.PRETTY_PRINTING, true);
+        String jsonString;
+        JsonWriterFactory writerFactory = Json.createWriterFactory(config);
+        try ( Writer writer = new StringWriter()) {
+            writerFactory.createWriter(writer).write(modifiedObject);
+            jsonString = writer.toString();
+        }
+        System.out.println(jsonString);
+    }
+
+    private static StringBuilder previousWasAValue(Event previous, StringBuilder sb) {
+        // The current value follows another value - so a separating comma is needed:
+        if (Event.VALUE_STRING.equals(previous)
+                || Event.VALUE_NUMBER.equals(previous)
+                || Event.VALUE_TRUE.equals(previous)
+                || Event.VALUE_FALSE.equals(previous)
+                || Event.VALUE_NULL.equals(previous)) {
+            sb.append(",");
+        }
+        return sb;
+    }
+
+    private static StringBuilder previousWasAnEnd(Event previous, StringBuilder sb) {
+        // The current key follows the end of an object or an array, so a 
+        // separating comma is needed:
+        if (Event.END_OBJECT.equals(previous)
+                || Event.END_ARRAY.equals(previous)) {
+            sb.append(",");
+        }
+        return sb;
+    }
+
+    private static final String JSONSTRING
+            = """
+    {
+       "Attr0": null,
+       "Attr1": true,
+       "Attr2": false,
+       "Attr3": 3,
+       "Attr4": [
+               "string1"
+       ],
+       "Attr5": [{
+               "Attr6": [{
+                               "Attr7": "string2",
+                               "Attr8": "string3",
+                               "Attr9": 4
+                       },
+                       {
+                               "Attr7": "string4",
+                               "Attr8": "string5",
+                               "Attr9": 5
+                       }
+               ],
+               "Attr10": 6,
+               "Attr14": {
+                       "Attr10": "string6",
+                       "Attr11": "string7",
+                       "Attr12": "string8"
+               },
+               "Attr13": [
+                       "string9",
+                       123.45,
+                       false
+               ],
+               "Attr15": "string11"
+       }]
+    }
+    """;
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Dec 2020 at 18:09</span>
+     </div>
+    </div>
+    <div>
+     <p>If you don't want to use the streaming API (as used in my other answer), I think you can achieve a more compact approach - which is similar to yours - using <code>JsonObjectBuilder</code> and <code>JsonOArrayBuilder</code>, together with recursion:</p>
+     <pre class="lang-java prettyprint-override"><code>private static JsonStructure iterate(final JsonStructure json) {
+    if (json.getValueType().equals(ValueType.OBJECT)) {
+        JsonObjectBuilder builder = Json.createObjectBuilder();
+        json.asJsonObject().forEach((key, value) -&gt; {
+            switch (value.getValueType()) {
+                case OBJECT:
+                    if (key.equals(targetKey)) {
+                        builder.add(key, replacementJson);
+                    } else {
+                        builder.add(key, iterate(value.asJsonObject()));
+                    }   break;
+                case ARRAY:
+                    if (key.equals(targetKey)) {
+                        builder.add(key, replacementJson);
+                    } else {
+                        builder.add(key, iterate(value.asJsonArray()));
+                    }   break;
+                default:
+                    if (key.equals(targetKey)) {
+                        builder.add(key, replacementJson);
+                    } else {
+                        builder.add(key, value);
+                    }   break;
+            }
+        });
+        return builder.build();
+    } else if (json.getValueType().equals(ValueType.ARRAY)) {
+        JsonArrayBuilder builder = Json.createArrayBuilder();
+        json.asJsonArray().forEach((value) -&gt; {
+            switch (value.getValueType()) {
+                case OBJECT:
+                    builder.add(iterate(value.asJsonObject()));
+                    break;
+                case ARRAY:
+                    builder.add(iterate(value.asJsonArray()));
+                    break;
+                default:
+                    builder.add(value);
+                    break;
+            }
+        });
+        return builder.build();
+    }
+    return null;
+}
+</code></pre>
+     <p>Personally, it's harder for me to read this recursive code than it is for me to read the streaming code in my other answer. But it certainly more concise.</p>
+     <p>It works by iterating down into the nested levels of each JSON object and array, and then builds a copy of the original data from the deepest nested levels outwards. When it finds the specified replacement key, it uses the related replacement JSON as the key's value.</p>
+     <p>The above method can be invoked as follows - which pretty-prints the end result:</p>
+     <pre class="lang-java prettyprint-override"><code>final JsonStructure jsonOriginal = Json.createReader(new StringReader(JSONSTRING)).readObject();
+
+final JsonStructure jsonCopy = iterate(jsonOriginal);
+
+Map&lt;String, Boolean&gt; config = new HashMap&lt;&gt;();
+config.put(JsonGenerator.PRETTY_PRINTING, true);
+String jsonString;
+JsonWriterFactory writerFactory = Json.createWriterFactory(config);
+try ( Writer writer = new StringWriter()) {
+    writerFactory.createWriter(writer).write(jsonCopy);
+    jsonString = writer.toString();
+}
+System.out.println(jsonString);
+</code></pre>
+     <p>For my replacement JSON I used this, showing some test data examples:</p>
+     <pre class="lang-java prettyprint-override"><code>private final static String targetKey = "Attr6";
+
+//private final static JsonStructure replacementJson = Json.createArrayBuilder()
+//        .add("newString1")
+//        .add("newString2").build();
+
+private final static JsonStructure replacementJson = Json.createObjectBuilder()
+        .add("newkey1", "newString1")
+        .add("newkey2", "newString2").build();
+</code></pre>
+     <p>So, using the same starting JSON as in my other answer, this code produces the following:</p>
+     <pre class="lang-json prettyprint-override"><code>{
+    "Attr0": null,
+    "Attr1": true,
+    "Attr2": false,
+    "Attr3": 3,
+    "Attr4": [
+        "string1"
+    ],
+    "Attr5": [
+        {
+            "Attr6": {
+                "newkey1": "newString1",
+                "newkey2": "newString2"
+            },
+            "Attr10": 6,
+            "Attr14": {
+                "Attr10": "string6",
+                "Attr11": "string7",
+                "Attr12": "string8"
+            },
+            "Attr13": [
+                "string9",
+                123.45,
+                false
+            ],
+            "Attr15": "string11"
+        }
+    ]
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

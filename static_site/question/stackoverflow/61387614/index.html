@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java: Deserialize composite JSON Schema with $ref to one single schema</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java: Deserialize composite JSON Schema with $ref to one single schema</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>yevtsy</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Apr 2020 at 12:47</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61387614/java-deserialize-composite-json-schema-with-ref-to-one-single-schema">source</a>
+    </div>
+   </div>
+   <div>
+    <p>According to the <a href="https://json-schema.org/understanding-json-schema/structuring.html" rel="nofollow noreferrer">Structuring a complex schema</a>, it's possible to have the following relation:</p>
+    <ol>
+     <li>Base JSON Schema (customer.json)</li>
+    </ol>
+    <pre class="lang-js prettyprint-override"><code>{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "billing_address": { "$ref": "address.json" }
+  }
+}
+
+</code></pre>
+    <ol start="2">
+     <li>Referenced JSON Schema (address.json)</li>
+    </ol>
+    <pre class="lang-js prettyprint-override"><code>{
+  "type": "object",
+  "properties": {
+    "street_address": { "type": "string" },
+    "city":           { "type": "string" },
+    "state":          { "type": "string" }
+  },
+  "required": ["street_address", "city", "state"]
+}
+</code></pre>
+    <p>The key advantage of such an approach is reusability.</p>
+    <p><strong>The issue</strong> appears if I want to <strong>compose these schemas into one</strong>. For example, I need to generate a JSON file with dummy values for all supported fields.</p>
+    <p>So, I want to have this schema as a result:</p>
+    <pre><code>{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "billing_address": { 
+       "street_address": { "type": "string" },
+       "city":           { "type": "string" },
+       "state":          { "type": "string" }
+    }
+  }
+}
+</code></pre>
+    <p>Note that all schemas are present in the classpath.</p>
+    <p>I've been searching for existing solutions on how to do it in Java. Unfortunately, most of the libraries solve the tasks of how to generate schema by POJO. But in this case, I need the reverse one</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">jackson</span><span class="tag">jsonschema</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span></span> <span> - </span> <span class="display-name">Carsten</span> <span> </span> <span class="date">23 Apr 2020 at 21:08</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Carsten</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Apr 2020 at 20:24</span>
+     </div>
+    </div>
+    <div>
+     <p>There are generators in both directions:</p>
+     <ul>
+      <li>from POJO to Schema</li>
+      <li>from Schema to POJO</li>
+     </ul>
+     <p>You seem to be interested in neither since what you want is:</p>
+     <ul>
+      <li>from Schema (parts) to (single) Schema</li>
+     </ul>
+     <hr>
+     <p>I'm afraid your chances of finding an existing solution may be small.<br>
+       But you should be able to do this yourself, especially if you can make a couple of simplifying assumptions:</p>
+     <blockquote>
+      <ol>
+       <li>Nowhere in your data model do you have properties with the name <code>$ref</code>.</li>
+       <li>All your schema parts are present on the classpath – for simplicity's sake: in the same package as the java class performing the merge of the separate schema part.</li>
+       <li>There is no circular reference to your main/entry schema from one of its referenced other schema parts.</li>
+       <li>It is acceptable to include the different parts in the entry schema's <code>definitions</code>.</li>
+       <li>The schema parts do not have overlapping <code>definitions</code>.</li>
+      </ol>
+     </blockquote>
+     <hr>
+     <p>The utility could look something like this then:</p>
+     <pre class="lang-java prettyprint-override"><code>public class SchemaMerger {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Map&lt;String, ObjectNode&gt; schemas = new HashMap&lt;&gt;();
+    private final List&lt;ObjectNode&gt; definitions = new ArrayList&lt;&gt;();
+
+    public String createConsolidatedSchema(String entrySchemaPath) throws IOException {
+        ObjectNode entrySchema = this.getSchemaWithResolvedParts(entrySchemaPath);
+        ObjectNode consolidatedSchema = this.objectMapper.createObjectNode().setAll(entrySchema);
+        ObjectNode definitionsNode = consolidatedSchema.with("definitions");
+        this.definitions.forEach(definitionsNode::setAll);
+        for (Map.Entry&lt;String, ObjectNode&gt; schemaPart : this.schemas.entrySet()) {
+            // include schema loaded from separate file in definitions
+            definitionsNode.set(schemaPart.getKey(), schemaPart.getValue().without("$schema"));
+        }
+        return consolidatedSchema.toPrettyString();
+    }
+
+    private ObjectNode getSchemaWithResolvedParts(String schemaPath) throws IOException {
+        ObjectNode entrySchema = (ObjectNode) this.objectMapper.readTree(SchemaMerger.loadResource(schemaPath));
+        this.resolveExternalReferences(entrySchema);
+        JsonNode definitionsNode = entrySchema.get("definitions");
+        if (definitionsNode instanceof ObjectNode) {
+            this.definitions.add((ObjectNode) definitionsNode);
+            entrySchema.remove("definitions");
+        }
+        return entrySchema;
+    }
+
+    private void resolveExternalReferences(JsonNode schemaPart) throws IOException {
+        if (schemaPart instanceof ObjectNode || schemaPart instanceof ArrayNode) {
+            // recursively iterate over all nested nodes
+            for (JsonNode field : schemaPart) {
+                this.resolveExternalReferences(field);
+            }
+        }
+        if (!(schemaPart instanceof ObjectNode)) {
+            return;
+        }
+        JsonNode reference = schemaPart.get("$ref");
+        if (reference instanceof TextNode) {
+            String referenceValue = reference.textValue();
+            if (!referenceValue.startsWith("#")) {
+                // convert reference to separate file to entry in definitions
+                ((ObjectNode) schemaPart).put("$ref", "#/definitions/" + referenceValue);
+                if (!this.schemas.containsKey(referenceValue)) {
+                    this.schemas.put(referenceValue, this.getSchemaWithResolvedParts(referenceValue));
+                }
+            }
+        }
+    }
+
+    private static String loadResource(String resourcePath) throws IOException {
+        StringBuilder stringBuilder = new StringBuilder();
+        try (InputStream inputStream = SchemaMerger.class.getResourceAsStream(resourcePath);
+                Scanner scanner = new Scanner(inputStream, StandardCharsets.UTF_8.name())) {
+            while (scanner.hasNext()) {
+                stringBuilder.append(scanner.nextLine()).append('\n');
+            }
+        }
+        return stringBuilder.toString();
+    }
+}
+</code></pre>
+     <p>Calling <code>new SchemaMerger().createConsolidatedSchema("customer.json")</code> results in the following schema being generated:</p>
+     <pre><code>{
+  "$schema" : "http://json-schema.org/draft-07/schema#",
+  "type" : "object",
+  "properties" : {
+    "billing_address" : {
+      "$ref" : "#/definitions/address.json"
+    }
+  },
+  "definitions" : {
+    "address.json" : {
+      "type" : "object",
+      "properties" : {
+        "street_address" : {
+          "type" : "string"
+        },
+        "city" : {
+          "type" : "string"
+        },
+        "state" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "street_address", "city", "state" ]
+    }
+  }
+}
+</code></pre>
+     <p>This should give you a starting point from which to build what you need.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span></span> <span> - </span> <span class="display-name">Michał Ziober</span> <span> </span> <span class="date">27 Apr 2020 at 07:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ironluca</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Feb 2022 at 17:18</span>
+     </div>
+    </div>
+    <div>
+     <p>Refer: <a href="https://stackoverflow.com/a/71241380/3883475">this post</a>. I have posted a possible solution.</p>
+     <p>Though, as mentioned, i have not yet tried it out myself.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

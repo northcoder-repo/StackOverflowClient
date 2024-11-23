@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf - Constructing URL based off form data</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf - Constructing URL based off form data</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Nicholas</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Apr 2020 at 05:03</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61221693/thymeleaf-constructing-url-based-off-form-data">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm currently writing an E-Commerce web application and I am working on the add to cart feature.</p>
+    <p>When you add to cart, it creates a post request that will submit data to the user's cart. I want to know if there's a better way of writing this (how to put the form data in the URL).</p>
+    <p>When someone clicks add to cart, it should send a post request based off the currently logged in user (w/ spring security) in this type of url: <strong>/cart/{productId}/{quantity}</strong> - then it will be added to the user's cart.</p>
+    <p>Thymeleaf Code:</p>
+    <pre><code>    &lt;div th:each="product : ${popularProducts}"&gt;
+&lt;form action="#" th:action="@{/cart/} + ${product.getId() + @{/} + ${quantity}" th:object="${product}" method="POST"&gt;
+  &lt;div class="card"&gt;
+    &lt;img class="card-img" th:src="${product.getPictureUrl()}"&gt;
+      &lt;a href="#" class="card-link text-danger like"&gt;
+        &lt;i class="fas fa-heart"&gt;&lt;/i&gt;
+      &lt;/a&gt;
+    &lt;/div&gt;
+    &lt;div class="card-body"&gt;
+      &lt;h4 class="card-title"  th:text="${product.getName()}"&gt;&lt;/h4&gt;
+      &lt;h6 class="card-subtitle mb-2 text-muted"  th:text="${product.getCategory()}"&gt;&lt;/h6&gt;
+      &lt;p class="card-text" th:text="${product.getDescription()}"&gt;
+      &lt;div class="buy d-flex justify-content-between align-items-center"&gt;
+        &lt;div class="price text-success"&gt;&lt;h5 class="mt-4" th:text="'$' + ${product.getPrice()}"&gt;&lt;/h5&gt;&lt;/div&gt;
+        &lt;div class="form-group blu-margin"&gt;
+         &lt;div class="form-label-group"&gt;
+              &lt;input th:field="*{quantity}" type="text" id="quantity" name="quantity" class="form-control" placeholder="1" required="required"&gt;
+           &lt;/div&gt;
+        &lt;/div&gt;
+         &lt;a href="#" class="btn btn-danger mt-3"&gt;&lt;i class="fas fa-shopping-cart"&gt;&lt;/i&gt; Add to Cart&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;/form&gt;
+</code></pre>
+    <p>CartController:</p>
+    <pre><code>@PostMapping("/cart/{productId}/{quantity}")
+public void addProduct(@PathVariable String productId, @PathVariable String quantity, Model model) {
+    Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    User user = ((User) principal);
+
+    if (productService.findById(Long.parseLong(productId)) != null) {
+        Optional&lt;Product&gt; product = productService.findById(Long.parseLong(productId));
+        int quantityAmount = Integer.parseInt(quantity);
+        user.getCart().getCartItems().add(new CartItems(product.get(), quantityAmount,
+                product.get().getPrice() * quantityAmount, user.getCart()));
+    }
+
+    List&lt;CartItems&gt; itemsInCart = user.getCart().getCartItems();
+    int numItems = itemsInCart.size() + 1;
+
+    model.addAttribute("amountOfItems", numItems);
+
+}
+</code></pre>
+    <p>Product Class:</p>
+    <pre><code>@Table(name = "products")
+public class Product {
+
+@Id
+@GeneratedValue(strategy = GenerationType.IDENTITY)
+@Column(name = "product_id")
+private Long id;
+
+@Column(name = "name")
+private String name;
+
+@Column(name = "category")
+private String category;
+
+@Column(name = "description")
+private String description;
+
+@Column(name = "price")
+private Double price;
+
+@Column(name = "stock")
+private int stock;
+
+@Column(name = "picture_url")
+private String pictureUrl;
+
+public Product() {
+
+}
+
+public Product(String name, String category, String description, Double price, int stock, String pictureUrl) {
+    this.name = name;
+    this.category = category;
+    this.description = description;
+    this.price = price;
+    this.stock = stock;
+    this.pictureUrl = pictureUrl;
+}
+// and getters/setters...
+</code></pre>
+    <p>CartItems Class:</p>
+    <pre><code>@Table(name = "cartitems")
+public class CartItems implements Serializable {
+
+private static final long serialVersionUID = -3426230490106082532L;
+
+@Id
+@GeneratedValue(strategy = GenerationType.AUTO)
+private int id;
+
+@Column(name = "quantity")
+private int quantity;
+
+@Column(name = "price")
+private double price;
+
+@OneToOne
+@JoinColumn(name = "product_id")
+private Product product;
+
+@ManyToOne
+@JoinColumn(name = "cart_id")
+private Cart cart;
+
+public CartItems() {
+
+}
+
+public CartItems(Product product, int quantity, double price, Cart cart) {
+    this.quantity = quantity;
+    this.price = price;
+    this.product = product;
+    this.cart = cart;
+}
+// all getters and setters..
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">spring-boot</span><span class="tag">spring-mvc</span><span class="tag">spring-security</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Apr 2020 at 14:58</span>
+     </div>
+    </div>
+    <div>
+     <h2>Thymeleaf URLs using Form Data</h2>
+     <p><em>how to put the form data in the URL?</em></p>
+     <p>You can't construct a Thymeleaf URL using data entered by a user in a web form. Thymeleaf is a server-side HTML pre-processor. It uses data already available on the server to "fill in the blanks" in a Thymeleaf template. The resulting HTML is then sent from the server to the browser. There is no Thymeleaf in the browser, at that point.</p>
+     <h2>Using POST Data</h2>
+     <p>You are right to use an http POST operation for your form data. This means all the user-provided data will be sent to the server in the body of the request, as I'm sure you already know.</p>
+     <p>Generally, it's not a good idea to try to add such data to the URL. You can do this, using client-side JavaScript - but it's a bad idea for various reasons - not least being this: URLs can be bookmarked, saved, and easily re-played. Form data typically represents a transaction. You don't want to re-submit most transactions in this way (duplicate orders, etc.). Some background reading is <a href="https://stackoverflow.com/questions/504947/when-should-i-use-get-or-post-method-whats-the-difference-between-them">here</a>.</p>
+     <p>So, use a more generic URL, and then extract the form data from the body of the request. The data in the body is, basically, the same as the data you are trying to add to the URL, anyway.</p>
+     <h2>Thymeleaf URLs - In General</h2>
+     <p>A final note: Just for future reference, and <strong><em>not directly relevant to this specific URL</em></strong>, for reasons already mentioned above...</p>
+     <p>Instead of using this:</p>
+     <pre><code>"@{/cart/} + ${product.getId() + @{/} + ${quantity}"
+</code></pre>
+     <p>...the link should be created like this:</p>
+     <pre><code>"@{/cart/{id}/{qty}(id=${product.id},qty=${quantity})}"
+</code></pre>
+     <p>In this example, <code>{id}</code> is a placeholder (call it whatever you want) which receives its value from the parameter in parentheses <code>()</code>:</p>
+     <pre><code>id=${product.id}
+</code></pre>
+     <p>And the same points apply to <code>{qty}</code>.</p>
+     <p>Also, you shouldn't need to use the getters such as <code>getId()</code> directly. Use the field name <code>id</code>. Thymeleaf will handle calling the relevant getter (assuming it is defined correctly).</p>
+     <p>See the documentation for Thymeleaf <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#link-urls" rel="nofollow noreferrer">link urls</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

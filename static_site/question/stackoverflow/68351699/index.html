@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Lucene: TF-IDF of each token</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Lucene: TF-IDF of each token</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Alessandro D'Orazio</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Jul 2021 at 17:34</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68351699/lucene-tf-idf-of-each-token">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to study Lucene 8, this is my first time with Lucene.</p>
+    <p>I want to have the TF-IDF of each term, in order to obtain the top 10.000 tokens in my Lucene Directory. I've tried in many ways but I'm stuck, I don't know how to proceed. This is an example of what I did:</p>
+    <pre><code>private static void getTokensForField(IndexReader reader, String fieldName) throws IOException {
+
+        List&lt;LeafReaderContext&gt; list = reader.leaves();
+        Similarity similarity = new ClassicSimilarity();
+
+        int docnum = reader.numDocs();
+
+        for (LeafReaderContext lrc : list) {
+            Terms terms = lrc.reader().terms(fieldName);
+            if (terms != null) {
+                TermsEnum termsEnum = terms.iterator();
+
+                BytesRef term;
+                while ((term = termsEnum.next()) != null) {
+                    double tf = termsEnum.totalTermFreq() / terms.size();
+                    double idf =Math.log(docnum  / termsEnum.docFreq());
+                   // System.out.println(term.utf8ToString() + "\tTF: " + tf + "\tIDF: " + idf);
+                }
+            }
+        }
+    }
+</code></pre>
+    <p>I'm actually studying this topic, but the resources I've found are not really useful.</p>
+    <p>I've also searched on the Internet, but everything is deprecated.</p>
+    <p>Do you have some suggestions?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">lucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Jul 2021 at 19:44</span>
+     </div>
+    </div>
+    <div>
+     <p>The simplest way I know to access statistics such as TF and IDF is to use the <a href="https://lucene.apache.org/core/8_9_0/core/org/apache/lucene/search/Explanation.html" rel="nofollow noreferrer"><code>Explanation</code></a> class.</p>
+     <p>However, just to clarify (apologies if I am telling you what you already know): The Term Frequency value is for a term <em>within a document</em> - so the same term may result in different values, across different docs.</p>
+     <p>I'm not really sure what that means for your wish to "<em>obtain the top 10.000 tokens in my Lucene Directory</em>". Perhaps that means you will need to calculate the TF for every term in every document, and then pick the "best" value for that term, for your needs?</p>
+     <p>Here is a simple example of building an <code>Explanation</code>:</p>
+     <pre class="lang-java prettyprint-override"><code>private static void getExplanation(IndexSearcher searcher, Query query, int docID) throws IOException {
+    Explanation explanation = searcher.explain(query, docID);
+    //explanation.getDescription(); // do what you need with this data
+    //explanation.getDetails();     // do what you need with this data
+    }
+</code></pre>
+     <p>So, you might call this method as you iterate over the hits for a query:</p>
+     <pre><code>private static void printHits(Query query) throws IOException {
+    IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(INDEX_PATH)));
+
+    IndexSearcher searcher = new IndexSearcher(reader);
+    TopDocs results = searcher.search(query, 100); // or whatever you need instead of 100
+    ScoreDoc[] hits = results.scoreDocs;
+    for (ScoreDoc hit : hits) {
+        getExplanation(searcher, query, hit.doc);
+    }
+}
+</code></pre>
+     <p>The information provided by <code>explanation.getDetails()</code> is basically the same as the information you would see if you were to use Luke to analyze a query:</p>
+     <p><a href="https://i.stack.imgur.com/MY7Bg.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/MY7Bg.png" alt="enter image description here"></a></p>
+     <p>As text:</p>
+     <pre><code>0.14566182 weight(body:war in 3) [BM25Similarity], result of:
+  0.14566182 score(freq=1.0), computed as boost * idf * tf from:
+    0.2876821 idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:
+      4 n, number of documents containing term
+      5 N, total number of documents with field
+    0.50632906 tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:
+      1.0 freq, occurrences of term within document
+      1.2 k1, term saturation parameter
+      0.75 b, length normalization parameter
+      3.0 dl, length of field
+      4.0 avgdl, average length of field
+
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

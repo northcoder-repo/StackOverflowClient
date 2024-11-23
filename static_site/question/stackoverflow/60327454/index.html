@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Apache commons-compress</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Apache commons-compress</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Yana K.</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Feb 2020 at 19:44</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60327454/apache-commons-compress">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using commons-compress to process tarball files and noticed that even files which are not tar seem to be processed. Why is this -- is there a better library to detect valid tar files</p>
+    <pre><code> &lt;dependency&gt;
+      &lt;groupId&gt;org.apache.commons&lt;/groupId&gt;
+      &lt;artifactId&gt;commons-compress&lt;/artifactId&gt;
+      &lt;version&gt;1.20&lt;/version&gt;
+ &lt;/dependency&gt;
+</code></pre>
+    <p><code>bug689.csv</code> is a CSV file, the test fails because apparently te.isFile() returns true. te.getName() seems to return the contents of the CSV. Is this a bug of am I using the package incorrectly -- I'd expect the InputStream to not be successfully converted to TarArchiveEntry</p>
+    <pre><code>    @Test
+    public void testTarball() throws IOException{
+        InputStream tarData = this.getClass().getResourceAsStream("/bug689.csv");
+        TarArchiveInputStream tis = new TarArchiveInputStream(tarData);
+        TarArchiveEntry te = tis.getNextTarEntry();
+        assertFalse(te.isFile());
+    }
+
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">apache-commons-compress</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>If I run your code on a csv file, then <code>tis.getNextTarEntry()</code> returns <code>null</code>. If I run it on a tar file (which happens to have a csv file suffix), and which contains a regular csv file, then <code>te.isFile()</code> returns <code>true</code>. All as I would expect. Are you absolutely sure <code>bug689.csv</code> is an uncompressed file (forgive me for asking)?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Feb 2020 at 20:59</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Feb 2020 at 21:27</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are not dealing with a tar file, then <code>tis.getNextTarEntry()</code> will be <code>null</code> - so you would have to check for that explicitly.</p>
+     <p>But if you do have a valid tar file, beware relying on <code>te.isFile()</code>. The first item in your tar may not be a regular file. It may be a directory or something else.</p>
+     <p>The tar file may even be empty - in which case <code>tis.getNextTarEntry()</code> will again be null.</p>
+     <p>If you want to only test for a tar containing one regular file, then I see no issue with using <code>te.isFile()</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I would expect it to be null...but it's not -- this was my first surprise. Not only is it not null, it seems to think the conent is a valid file?! I pushed a sample repo here: <a href="https://github.com/yanakad/commons-compress-test" rel="nofollow noreferrer">github.com/yanakad/commons-compress-test</a>. If you have a version that produces null for <code>tis.getNextTarEntry()</code> I would much appreciate advice on what is different</span> <span> - </span> <span class="display-name">Yana K.</span> <span> </span> <span class="date">24 Feb 2020 at 13:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I'm sorry - I can't recreate the problem you are having. Your github code, with no changes, works fine for me. That is strange.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">24 Feb 2020 at 14:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you, you've actually been very helpful. I was seeing strange results but was only running via an IDE. After your comment I force wiped the local maven cache and ran through command line. I finally get an NPE</span> <span> - </span> <span class="display-name">Yana K.</span> <span> </span> <span class="date">25 Feb 2020 at 17:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Glad I could "<a href="https://en.wikipedia.org/wiki/Rubber_duck_debugging" rel="nofollow noreferrer">help</a>". Thanks for sharing the solution, though - appreciate it.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">25 Feb 2020 at 17:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

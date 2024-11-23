@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>In fasterxml's JsonParser I want to get the raw text from property</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>In fasterxml's JsonParser I want to get the raw text from property</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Loren Cahlander</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 Nov 2022 at 00:05</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74468685/in-fasterxmls-jsonparser-i-want-to-get-the-raw-text-from-property">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a sample snippet that parses the JSON that I am trying to get the rawtext of the value. I want to properly escape the text for XML.</p>
+    <pre class="lang-java prettyprint-override"><code>package org.example;
+
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+
+import java.io.IOException;
+
+public class App
+{
+    public static void main( String[] args )
+    {
+        JsonFactory factory = createJsonFactory(true);
+        try (final JsonParser parser = factory.createParser("{ \"value\": \"\\u0000\" }")) {
+            JsonToken token;
+            while ((token = parser.nextValue()) != null) {
+                switch (token) {
+                    case VALUE_STRING:
+                        String text = parser.getText();
+                        System.out.println(text);
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+
+        } catch (JsonParseException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static JsonFactory createJsonFactory(boolean liberal) {
+        JsonFactory factory = new JsonFactory();
+        factory.configure(JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS, true);
+
+        // duplicates are handled in readValue
+        factory.configure(JsonParser.Feature.STRICT_DUPLICATE_DETECTION, false);
+        if (liberal) {
+            factory.configure(JsonParser.Feature.ALLOW_COMMENTS, true);
+            factory.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
+            factory.configure(JsonParser.Feature.ALLOW_NUMERIC_LEADING_ZEROS, true);
+            factory.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
+            factory.configure(JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER, true);
+        }
+        return factory;
+    }
+}
+</code></pre>
+    <p>How do I get the output of <code>\u0000</code> instead of the null character?</p>
+    <p>I have the following as my dependency:</p>
+    <pre class="lang-xml prettyprint-override"><code>    &lt;dependency&gt;
+      &lt;groupId&gt;com.fasterxml.jackson.core&lt;/groupId&gt;
+      &lt;artifactId&gt;jackson-core&lt;/artifactId&gt;
+      &lt;version&gt;2.13.4&lt;/version&gt;
+    &lt;/dependency&gt;
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">jackson</span><span class="tag">jsonparser</span><span class="tag">fasterxml</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Nov 2022 at 01:29</span>
+     </div>
+    </div>
+    <div>
+     <p>The solution is to use</p>
+     <pre><code>"{ \"value\": \"\\\\u0000\" }"
+</code></pre>
+     <p>In other words, double up the backslashes.</p>
+     <p>If you use <code>\\0000</code> in your Java string literal, then Java will know that you do not have a Unicode escape sequence (you do not want <code>\U0000</code> to be interpreted as the null character).</p>
+     <p>But that means Java will pass <code>\u0000</code> to the JSON parser.</p>
+     <p>The parser will then apply JSON's own rules regarding backslashes - which also act as escape characters. So, JSON will now interpret <code>\u0000</code> as the null character.</p>
+     <p>By doubling up the backslashes from 2 to 4, you will ensure that JSON receives a string containing <code>\\u0000</code>. Java will reduce each pair of backslashes to a single literal backslash in its resulting string.</p>
+     <p>And that means that JSON will know it is a literal <code>\u0000</code> string and not the null character.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>The problem with this is that it does not help with the fn:json-to-xml() XQuery method that should render <code>&lt;fn:string escaped="true"&gt;\u0000&lt;/fn:string&gt;</code>. I created this example to allow for the recreation, but the code is deeper. Take a look at <a href="https://github.com/eXist-db/exist/blob/develop/exist-core/src/main/java/org/exist/xquery/functions/fn/JSON.java" rel="nofollow noreferrer">github.com/eXist-db/exist/blob/develop/exist-core/src/main/j‌​ava/…</a> where I am working on this. Also see <a href="https://github.com/eXist-db/exist/issues/3594" rel="nofollow noreferrer">github.com/eXist-db/exist/issues/3594</a></span> <span> - </span> <span class="display-name">Loren Cahlander</span> <span> </span> <span class="date">17 Nov 2022 at 04:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

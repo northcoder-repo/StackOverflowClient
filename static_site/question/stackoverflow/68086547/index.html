@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf: Comma separated values of a list?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf: Comma separated values of a list?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jack</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>22 Jun 2021 at 15:32</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68086547/thymeleaf-comma-separated-values-of-a-list">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am beginner in Thymeleaf, I have a list and want to list elements in a line by separating comma e.g. London, Paris, Berlin, HonKong (there will be no comma after the the last element). However, the following code generate new row. So, how can I make it work as explained above?</p>
+    <pre><code>&lt;td th:each="city : ${country.cityList}"&gt;
+    &lt;td th:text="${city.name}? ${city.name} + ',' : ${city.name}"&gt;&lt;/td&gt;
+&lt;/td&gt;
+
+</code></pre>
+    <p>I know it also add an extra comma at the end of the last element and I need to use index e.g. for detecting the last index. How can I do this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">html</span><span class="tag">spring</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jun 2021 at 15:49</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use a sequence of <code>&lt;span&gt;</code> tags to hold your text.</p>
+     <p>You can use Thymeleaf's <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#keeping-iteration-status" rel="nofollow noreferrer">iteration status tracking values</a> to know when you are handling the last item in the list.</p>
+     <p>Combining these:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;td&gt;
+    &lt;span th:each="city,iterStat : ${country.cityList}"
+          th:text="${city.name} + ${!iterStat.last ? ', ' : ''}"&gt;&lt;/span&gt;
+&lt;/td&gt;
+</code></pre>
+     <p>The <code>iterStat.last</code> value is a boolean which tells us when we are processing the final value - and the <code>!</code> (not) operator is used to suppress the final comma + space.</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>Based on the comment:</p>
+     <blockquote>
+      <p><em>how make href links for city.name but span only for comma ?</em></p>
+     </blockquote>
+     <p>For something like this, you can move the <code>th:each</code> expression into a parent tag - and this is where <code>&lt;th:block&gt;</code> may be useful, because it does not itself generate any HTML:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;th:block th:each="city,iterStat : ${country.cityList}"&gt;
+    &lt;a th:text="${city}" th:href="${city}"&gt;&lt;/a&gt;&lt;span th:text="${!iterStat.last ? ', ' : ''}"&gt;&lt;/span&gt;
+&lt;/th:block&gt;
+</code></pre>
+     <p>Inside the <code>&lt;th:block&gt;...&lt;/th:block&gt;</code> you can use multiple child tags to build whatever you need.</p>
+     <p>Using the above Thymeleaf, the end result could be the following HTML:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;a href="São Paulo"&gt;São Paulo&lt;/a&gt;&lt;span&gt;, &lt;/span&gt;
+&lt;a href="Rio de Janeiro"&gt;Rio de Janeiro&lt;/a&gt;&lt;span&gt;, &lt;/span&gt;
+&lt;a href="Brasilia"&gt;Brasilia&lt;/a&gt;&lt;span&gt;&lt;/span&gt;
+</code></pre>
+     <p>This generates an empty <code>&lt;span&gt;&lt;/span&gt;</code> at the end.</p>
+     <p>If you don't want that empty span, you can enhance the logic by using an explicit <code>th:if</code> expression:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;th:block th:each="city,iterStat : ${country.cityList}"&gt;
+    &lt;a th:text="${city}" th:href="${city}"&gt;&lt;/a&gt;&lt;span th:if="${!iterStat.last}"&gt;, &lt;/span&gt;
+&lt;/th:block&gt;
+</code></pre>
+     <p>Now, you will get something like this:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;a href="São Paulo"&gt;São Paulo&lt;/a&gt;&lt;span&gt;, &lt;/span&gt;
+&lt;a href="Rio de Janeiro"&gt;Rio de Janeiro&lt;/a&gt;&lt;span&gt;, &lt;/span&gt;
+&lt;a href="Brasilia"&gt;Brasilia&lt;/a&gt;
+</code></pre>
+     <p>Now, there is no empty span at the end.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Perfect!.. Thank you very much for this good solution and wonderful explanations :)</span> <span> - </span> <span class="display-name">Jack</span> <span> </span> <span class="date">22 Jun 2021 at 23:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>But, how make href links for city.name but span only for comma ?</span> <span> - </span> <span class="display-name">ilw</span> <span> </span> <span class="date">18 Mar 2023 at 19:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I added some notes to the answer @ilw</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">18 Mar 2023 at 20:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Slava Ivanov</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jun 2021 at 15:51</span>
+     </div>
+    </div>
+    <div>
+     <p>You should look at Thymeleaf <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf.html#strings" rel="noreferrer"><code>#strings</code> utility methods</a>. There is a set of functions to split and join different types of lists. Your code may look like ...</p>
+     <pre><code>&lt;td th:text="${#strings.listJoin(country.cityList.![name], ',')}"&gt;&lt;/td&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks a lot for you help, voted up. But it does not work as it does not include <code>th:each</code></span> <span> - </span> <span class="display-name">Jack</span> <span> </span> <span class="date">22 Jun 2021 at 23:50</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Rosa you should wrap it on a &lt;th:block&gt; or something like that, this should be the accepted answer</span> <span> - </span> <span class="display-name">Joaquín L. Robles</span> <span> </span> <span class="date">16 Jul 2021 at 18:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Too late, I marked the answer 1 month ago.</span> <span> - </span> <span class="display-name">Jack</span> <span> </span> <span class="date">22 Jul 2021 at 22:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>IntelliJ IDEA underlines in red: <code>'!=', '%', '&amp;&amp;', '(', ')', '*', '+', '+=', ',', '-', '.', '/', &lt;, &lt;=, '==', '&gt;', '&gt;=', '?', '?.', '?:', and, div, eq, ge, gt, le, lt, mod, ne, or, '||' or '}' expected, got '.'</code></span> <span> - </span> <span class="display-name">ilw</span> <span> </span> <span class="date">18 Mar 2023 at 19:28</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

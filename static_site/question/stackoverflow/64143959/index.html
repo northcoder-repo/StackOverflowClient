@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java synchronous function from async function with callbacks</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java synchronous function from async function with callbacks</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>JohnnyLambada</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>30 Sep 2020 at 18:49</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64143959/java-synchronous-function-from-async-function-with-callbacks">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a synchronous function that looks like this:</p>
+    <pre><code>void doStuff(int x, String y, Consumer&lt;String&gt; onSuccess, Consumer&lt;Throwable&gt; onFail) {
+   // start something that happens on other Threads using RxJava that eventually either
+   // 1) Calls onSuccess(String) or onFail(Throwable)
+   // 2) returns to caller right away after starting this mess off
+}
+</code></pre>
+    <p>I want to write a wrapper around this that calls it synchronously. I've already written a class named <code>Result</code> to return to the caller. It will either have a <code>String</code> or a <code>Throwable</code> in it. What I'm trying to do is figure out how call the async function and use its <code>onSuccess</code> and <code>onFail</code> parameters to signal that the <code>doStuff</code> function should exit returning the proper <code>Result</code>.</p>
+    <pre><code>Result doStuffSync(int x, String y) {
+   // magic that calls `doStuff` with callbacks that enable the entire thing to run
+   // within this function and build a Result
+   return result;
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">asynchronous</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Louis Wasserman</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Sep 2020 at 18:56</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>Result doStuffSync(int x, String y) {
+  BlockingQueue&lt;Result&gt; result = new ArrayBlockingQueue&lt;&gt;(1);
+  doStuff(
+    x, y,
+    (s) -&gt; result.add(Result.of(s)),
+    (x) -&gt; result.add(Result.failure(x));
+  return result.take();
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Works perfectly. My solution had many more lines of code involving <code>Thread.join()</code> etc. And it didn't work -- this is so much nicer!</span> <span> - </span> <span class="display-name">JohnnyLambada</span> <span> </span> <span class="date">30 Sep 2020 at 23:20</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

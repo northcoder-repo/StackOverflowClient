@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Spark Java serve static file at virtual file location</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Spark Java serve static file at virtual file location</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>5</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Ruiqi Li</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>6 Feb 2021 at 00:33</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66072420/spark-java-serve-static-file-at-virtual-file-location">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Express has the ability to serve static files at a different virtual location:</p>
+    <pre class="lang-js prettyprint-override"><code>app.use('/static', express.static('public'))
+</code></pre>
+    <p>However, I'm using Java for my server using Spark Java. I know how to serve static files, but is it even possible for Spark Java to serve static files at a virtual location? If it is possible, how? I have searched for a while, but all the tutorials I find just tell me how to serve static files, not serve static files at a virtual location.</p>
+    <p>Edit: an explanation of "virtual location": Lets suppose this is the current dir:</p>
+    <pre><code>public/
+|-----index.html
+|-----style.css
+|-----etc...
+</code></pre>
+    <p>Then, we can get a webpage with <code>http://localhost:8080/public/index.html</code><br>
+      However, I want to change it so that I have it can get the webpage with <code>http://localhost:8080/somedir/virtual/pathindex.html</code></p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">server</span><span class="tag">static-files</span><span class="tag">spark-java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>May it be a path defined by a GUID?</span> <span> - </span> <span class="display-name">aran</span> <span> </span> <span class="date">6 Feb 2021 at 00:43</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@aran updated question</span> <span> - </span> <span class="display-name">Ruiqi Li</span> <span> </span> <span class="date">6 Feb 2021 at 00:59</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Feb 2021 at 02:51</span>
+     </div>
+    </div>
+    <div>
+     <p>When using Spark-Java, the <code>Spark</code> class contains the <code>staticFiles</code> static import, which provides a set of <a href="https://javadoc.io/static/com.sparkjava/spark-core/2.9.3/spark/Service.StaticFiles.html" rel="nofollow noreferrer">static file utility methods</a>.</p>
+     <p>One of these is <code>externalLocation(String externalFolder)</code>.</p>
+     <p>So, for example, you can define your Spark application, and in the <code>init()</code> method you can define the external location:</p>
+     <pre class="lang-java prettyprint-override"><code>Spark.staticFiles.externalLocation("[your external path here]");
+</code></pre>
+     <p>This location can be outside of the application's classpath.</p>
+     <p>This is documented <a href="http://sparkjava.com/documentation#static-files" rel="nofollow noreferrer">here</a>.</p>
+     <p>Regarding a "virtual" location: the word "virtual" suggests a directory which is just a Linux-style symlink or pointer to some other location on the file system. As long as your application has permissions to access the target of the symlink/pointer, this should work OK.</p>
+     <p>(<em>I have not tried this with Windows shortcuts - those may not work.</em>)</p>
+     <hr>
+     <p>Just to note: If you define your external location as this:</p>
+     <pre><code>staticFiles.externalLocation("public");
+</code></pre>
+     <p>then you will <strong>not</strong> be able to access resources at:</p>
+     <pre><code>http://localhost:8080/public/index.html
+</code></pre>
+     <p>Instead you will need to use:</p>
+     <pre><code>http://localhost:8080/index.html
+</code></pre>
+     <p>In this case, <code>public</code> is the starting point. If you want to explicitly include <code>public</code> in your URL, you would need to add a subdirectory called <code>public</code>:</p>
+     <pre><code>public/
+|----public/
+     |-----index.html
+     |-----style.css
+     |-----etc...
+</code></pre>
+     <p>Now this will work, as you have it in your question:</p>
+     <pre><code>http://localhost:8080/public/index.html
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>So, unfortunately, I guess there is no way to do it pragmatically and you have to use a symlink. That's ok, thanks!</span> <span> - </span> <span class="display-name">Ruiqi Li</span> <span> </span> <span class="date">6 Feb 2021 at 15:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you for the feedback. Just to clarify - did you mean "<i>do it programmatically</i>"? In other words, you want to <i>dynamically</i> change the location of <code>public</code> after the application has started? If that is the objective, then you are correct, there is no way of doing that. Once the static file location has been defined, it cannot be changed, while the application is running. Please correct me if I have misunderstood your comment.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">6 Feb 2021 at 16:16</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

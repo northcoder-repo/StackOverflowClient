@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>What is contentObject in the constructor of JAXBSource</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>What is contentObject in the constructor of JAXBSource</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>hallo545401</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>8 Sep 2020 at 08:46</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63790341/what-is-contentobject-in-the-constructor-of-jaxbsource">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have to create a program which reads (and writes) a person from (to) a file. The writing part worked fine. To read the person I'm using a tutorial which uses JAXBSource. In the constructor of JAXBSource:</p>
+    <pre><code>JAXBSource(JAXBContext context, Object contentObject);
+</code></pre>
+    <p>there is this Object contentObject, which I don't understand what datatype it should be and what it's used for. Maybe someone can help me.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">jaxb</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Sep 2020 at 14:54</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Short Answer</strong></p>
+     <p>The <code>contentObject</code> is whatever object you want to provide as input into your XML process. For example, this process could be a <em>transformation</em> process.</p>
+     <p>So, if you have a <code>Person</code> class, and you have created a <code>person</code> object, then you would have:</p>
+     <pre><code>JAXBSource source = new JAXBSource(context, person);
+</code></pre>
+     <p>However, I think there may be a couple misunderstandings in the question.</p>
+     <p>You mentioned you can successfully write a <code>person</code> object to a file (as XML, I assume). But now you want to read that data back from the file into a new <code>person</code> object.</p>
+     <p>But a <code>JAXBSource</code> <strong>starts with the object</strong> (as shown above) and then typically writes that object to some new target (e.g. a file). And, as I mentioned, it alows for a transformation of the data along the way.</p>
+     <p>If all you want to do is write an object to an XML file, and then read that XML data back into an object, then you can simplify the code by using <code>javax.xml.bind.Marshaller</code> and <code>javax.xml.bind.Unarshaller</code>.</p>
+     <p><strong>Longer Answer - With Examples</strong></p>
+     <p>To help clarify, here are some examples - starting with the simplest approach.</p>
+     <p>Assume we have the following <code>Person</code> class:</p>
+     <pre><code>import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement
+public class Person {
+    
+    private String firstName;
+    private String lastName;
+
+    // getters and setters not shown here
+}
+</code></pre>
+     <p><em>Example 1 - Writing to a File</em></p>
+     <pre><code>    public void writeObjectToFile() throws JAXBException {
+        JAXBContext jc = JAXBContext.newInstance(Person.class);
+        Person person = new Person();
+        person.setFirstName("Jack");
+        person.setLastName("Frost");
+        File xmlFile2 = new File("C:/tmp/files/person2.xml");
+
+        Marshaller marshaller = jc.createMarshaller();
+        marshaller.marshal(person, xmlFile2);
+    }
+</code></pre>
+     <p>This writes the following basic XML to the file:</p>
+     <pre><code>&lt;person&gt;
+  &lt;firstName&gt;Jack&lt;/firstName&gt;
+  &lt;lastName&gt;Frost&lt;/lastName&gt;
+&lt;/person&gt;
+</code></pre>
+     <p><em>Example 2 - Reading From the File</em></p>
+     <p>This reads from the file we created in example 1:</p>
+     <pre><code>    public void readObjectFromFile() throws JAXBException {
+        JAXBContext jc = JAXBContext.newInstance(Person.class);
+        Unmarshaller unmarshaller = jc.createUnmarshaller();
+        File xmlFile = new File("C:/tmp/files/person2.xml");
+        Person person = (Person) unmarshaller.unmarshal(xmlFile);
+        System.out.println(person.getFirstName() + " " + person.getLastName());
+    }
+</code></pre>
+     <p>In both of the above examples, we did not perform any custom transformation of the data - and we did not need to use <code>JAXBSource</code> (or <code>JAXBResult</code> - see below).</p>
+     <p>Simple marshalling and unmarshalling was sufficient.</p>
+     <p><em>Example 3 - Transforming from Object to File</em></p>
+     <pre><code>    public void transformObjectToFile() throws JAXBException,
+            TransformerConfigurationException, TransformerException, IOException {
+        JAXBContext jc = JAXBContext.newInstance(Person.class);
+        Person person = new Person();
+        person.setFirstName("John");
+        person.setLastName("Smith");
+
+        JAXBSource source = new JAXBSource(jc, person);
+        TransformerFactory tf = TransformerFactory.newInstance();
+        Transformer t = tf.newTransformer(new StreamSource("C:/tmp/files/person.xslt"));
+
+        Writer writer = new FileWriter("C:/tmp/files/person.xml");
+        t.transform(source, new StreamResult(writer));
+    }
+</code></pre>
+     <p>In example 3 there is more code - and a new XSLT file, which contains the <em>transformation</em> rules we want to apply to the XML generated from the <code>Person</code> object. This is where we use the <code>JAXBSource</code> constructor from your question.</p>
+     <p>In my test, I used a XSLT file which does not actually change the XML - it just passes it through unchanged from the Java object to the XML file:</p>
+     <pre><code> xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+    &lt;xsl:template match="node()|@*"&gt;
+      &lt;xsl:copy&gt;
+        &lt;xsl:apply-templates select="node()|@*"/&gt;
+      &lt;/xsl:copy&gt;
+    &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;
+</code></pre>
+     <p>But if I wanted to re-arrange the XML, this is where those instructions would be placed.</p>
+     <p><em>Example 4 - Transforming from File to Object</em></p>
+     <p>This final example is the reverse of example 3. It takes the example 3 file and creates a new <code>Person</code> object:</p>
+     <pre><code>    public void transformFileToObject() throws JAXBException,
+            TransformerConfigurationException, TransformerException {
+        JAXBContext jc = JAXBContext.newInstance(Person.class);
+
+        JAXBResult result = new JAXBResult(jc);
+        TransformerFactory tf = TransformerFactory.newInstance();
+        Transformer t = tf.newTransformer(new StreamSource("C:/tmp/files/person.xslt"));
+
+        t.transform(new StreamSource("C:/tmp/files/person.xml"), result);
+
+        Person person = (Person) result.getResult();
+        System.out.println(person.getFirstName() + " " + person.getLastName());
+    }
+</code></pre>
+     <p>Again, the transformation I use is "no transformation at all", in my example.</p>
+     <p>Finally, here are all the related imports for the above:</p>
+     <pre><code>import java.io.File;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.util.JAXBSource;
+import javax.xml.bind.util.JAXBResult;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
+import java.io.Writer;
+import java.io.FileWriter;
+import java.io.IOException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks for the answer, I only thougt you could write the person to the file with JAXBSource cause in a book I was reading they showed it like that.</span> <span> - </span> <span class="display-name">hallo545401</span> <span> </span> <span class="date">9 Sep 2020 at 12:16</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

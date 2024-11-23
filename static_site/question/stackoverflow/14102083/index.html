@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why is BigDecimal.equals specified to compare both value and scale individually?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why is BigDecimal.equals specified to compare both value and scale individually?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>51</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>bacar</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>31 Dec 2012 at 13:16</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/14102083/why-is-bigdecimal-equals-specified-to-compare-both-value-and-scale-individually">source</a>
+    </div>
+   </div>
+   <div>
+    <p>This is not a question about how to compare two <code>BigDecimal</code> objects - I know that you can use <code>compareTo</code> instead of <code>equals</code> to do that, since <code>equals</code> is documented as:</p>
+    <blockquote>
+     <p>Unlike compareTo, this method considers two BigDecimal objects equal only if they are equal in value and scale (thus 2.0 is not equal to 2.00 when compared by this method).</p>
+    </blockquote>
+    <p>The question is: why has the <code>equals</code> been specified in this seemingly counter-intuitive manner? That is, why is it <strong>important</strong> to be able to distinguish between 2.0 and 2.00?</p>
+    <p>It seems likely that there must be a reason for this, since the <code>Comparable</code> documentation, which specifies the <code>compareTo</code> method, states:</p>
+    <blockquote>
+     <p>It is strongly recommended (though not required) that natural orderings be consistent with equals</p>
+    </blockquote>
+    <p>I imagine there must be a good reason for ignoring this recommendation.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">bigdecimal</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>9</td>
+       <td><span>It is worth nothing that <code>new BigDecimal("2.0").compareTo(new BigDecimal("2.00")) == 0</code></span> <span> - </span> <span class="display-name">Peter Lawrey</span> <span> </span> <span class="date">31 Dec 2012 at 13:29</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>38</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Oliver Charlesworth</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Dec 2012 at 13:20</span>
+     </div>
+    </div>
+    <div>
+     <p>Because in some situations, an indication of precision (i.e. the margin of error) may be important.</p>
+     <p>For example, if you're storing measurements made by two physical sensors, perhaps one is 10x more precise than the other. It may be important to represent this fact.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>I guess I haven't thought of use of <code>BigDecimal</code> to capture the amount of precision (just as a type which allows arbitrary <i>amounts</i> of precision). Viewed in that way, it makes perfect sense, however then I have to let go of thinking of the object as a numerical type - it does not behave as one as far as <code>equals</code> is concerned.</span> <span> - </span> <span class="display-name">bacar</span> <span> </span> <span class="date">31 Dec 2012 at 13:31</span></td>
+       </tr>
+       <tr>
+        <td>36</td>
+        <td><span>In my experience the situations in which you want <code>equals()</code> to capture that semantical difference in precision are far rarer than the intuitive case. On top of that, the intuitive case would mean <code>BigDecimal</code>'s <code>compareTo()</code> would be consistent with <code>equals()</code>. In my opinion, sun made a mistake here.</span> <span> - </span> <span class="display-name">bowmore</span> <span> </span> <span class="date">31 Dec 2012 at 13:44</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@bowmore, that would be my guess too, but experiences vary. Purists could argue they should have provided 2 classes - one class not suitable for sorting (no <code>compareTo</code>) that captures precision as a visible part of the object; and a second class implementing <code>Comparable</code> with <code>compareTo</code> consistent with <code>equals</code> that treats scale &amp; value as a whole. However providing both could seem rather bloated / unpragmatic and create rather than defuse confusion - Sun allowed both functionalities by providing inconsistent <code>compareTo</code> and <code>equals</code> (and surprise many of us along the way).</span> <span> - </span> <span class="display-name">bacar</span> <span> </span> <span class="date">31 Dec 2012 at 13:57</span></td>
+       </tr>
+       <tr>
+        <td>13</td>
+        <td><span>@bacar an implementation featuring a method like say <code>boolean equalsWithPrecision(BigDecimal other)</code> would have allowed both functionalities, <i>and</i> be consistent.</span> <span> - </span> <span class="display-name">bowmore</span> <span> </span> <span class="date">31 Dec 2012 at 14:24</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>It also seems to <a href="http://stackoverflow.com/questions/20091723/how-do-i-check-if-a-bigdecimal-is-in-a-set-or-map-in-a-scale-independent-way">break Set and Map usages</a>.</span> <span> - </span> <span class="display-name">Geoffrey De Smet</span> <span> </span> <span class="date">20 Nov 2013 at 09:17</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@GeoffreyDeSmet: Whether such usages are "broken" depends the intended purpose of the set. If one is creating a set for the purpose of allowing references to equivalent-but-distinct instances to be replaced with references to a single instance, the behavior of <code>equals</code> is perfect; I would consider definitions of <code>equals</code> which were inconsistent with usage somewhat dangerous.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">27 Jul 2014 at 17:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I agree with this idea, but IMHO a class called "Measure" with two numbers: a measured value and an errorbar would have been better, because in most of the cases your instrumental error is not necessarely 1 on some digit.</span> <span> - </span> <span class="display-name">user1708042</span> <span> </span> <span class="date">6 Nov 2019 at 13:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>31</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Stuart Marks</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Feb 2021 at 23:49</span>
+     </div>
+    </div>
+    <div>
+     <p>The general rule for <code>equals</code> is that two equal values should be substitutable for one another. That is, if performing a computation using one value gives some result, substituting an <code>equals</code> value into the same computation should give a result that <code>equals</code> the first result. This applies to objects that are values, such as <code>String</code>, <code>Integer</code>, <code>BigDecimal</code>, etc.</p>
+     <p>Now consider <code>BigDecimal</code> values 2.0 and 2.00. We know they are numerically equal, and that <code>compareTo</code> on them returns 0. But <code>equals</code> returns false. Why?</p>
+     <p>Here's an example where they are <em>not substitutable</em>:</p>
+     <pre><code>var a = new BigDecimal("2.0");
+var b = new BigDecimal("2.00");
+var three = new BigDecimal(3);
+
+a.divide(three, RoundingMode.HALF_UP)
+==&gt; 0.7
+
+b.divide(three, RoundingMode.HALF_UP)
+==&gt; 0.67
+</code></pre>
+     <p>The results are clearly unequal, so the value of <code>a</code> is not substitutable for <code>b</code>. Therefore, <code>a.equals(b)</code> should be false.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>you make it sound sooo easy with this example. awesome!</span> <span> - </span> <span class="display-name">Eugene</span> <span> </span> <span class="date">9 Mar 2021 at 20:34</span></td>
+       </tr>
+       <tr>
+        <td>11</td>
+        <td><span>@Eugene The example was soooo good that we decided to put it into the javadoc: <a href="https://github.com/openjdk/jdk/commit/a1181852" rel="nofollow noreferrer">github.com/openjdk/jdk/commit/a1181852</a> (it should appear in JDK 17 build 13).</span> <span> - </span> <span class="display-name">Stuart Marks</span> <span> </span> <span class="date">11 Mar 2021 at 01:38</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>…and this leads to the conclusion that we should be careful when mixing order and equality, as otherwise, we get bugs like the behavior of <code>Stream.of("0.1", "0.10", "0.1") .map(BigDecimal::new) .sorted().distinct() .forEach(System.out::println);</code></span> <span> - </span> <span class="display-name">Holger</span> <span> </span> <span class="date">22 Mar 2021 at 16:01</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Holger Correct. <a href="https://bugs.openjdk.java.net/browse/JDK-8223933" rel="nofollow noreferrer">JDK-8223933</a>.</span> <span> - </span> <span class="display-name">Stuart Marks</span> <span> </span> <span class="date">22 Mar 2021 at 21:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>10</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>supercat</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Jul 2014 at 23:25</span>
+     </div>
+    </div>
+    <div>
+     <p>A point which has not yet been considered in any of the other answers is that <code>equals</code> is required to be consistent with <code>hashCode</code>, and the cost of a <code>hashCode</code> implementation which was required to yield the same value for 123.0 as for 123.00 (but still do a reasonable job of distinguishing different values) would be much greater than that of a hashCode implementation which was not required to do so. Under the present semantics, <code>hashCode</code> requires a multiply-by-31 and add for each 32 bits of stored value. If <code>hashCode</code> were required to be consistent among values with different precision, it would either have to compute the normalized form of any value (expensive) or else, at minimum, do something like compute the base-999999999 digital root of the value and multiply that, mod 999999999, based upon the precision. The inner loop of such a method would be:</p>
+     <pre><code>temp = (temp + (mag[i] &amp; LONG_MASK) * scale_factor[i]) % 999999999;
+</code></pre>
+     <p>replacing a multiply-by-31 with a 64-bit modulus operation--much more expensive. If one wants a hash table which regards numerically-equivalent <code>BigDecimal</code> values as equivalent, and most keys which are sought in the table will be found, the efficient way to achieve the desired result would be to use a hash table which stores value wrappers, rather than storing values directly. To find a value in the table, start by looking for the value itself. If none is found, normalize the value and look for that. If nothing is found, create an empty wrapper and store an entry under the original and normalized forms of the number.</p>
+     <p>Looking for something which isn't in the table and hasn't been searched for previously would require an expensive normalization step, but looking for something that has been searched for would be much faster. By contrast, if HashCode needed to return equivalent values for numbers which, because of differing precision, were stored totally differently, that would make all hash table operations much slower.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Interesting observation. Correctness trumps performance, so you have to have a short list of what you consider to be the "correct" behaviour of a BigDecimal class (ie should scale/precision be considered for equality) before you start considering performance. We've no idea if this particular argument swung it. Your arguments are equally applicable to <code>equals</code> too, of course.</span> <span> - </span> <span class="display-name">bacar</span> <span> </span> <span class="date">27 Jul 2014 at 14:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@bacar: There are two equivalence-related questions which can sensibly be asked of any object (IHMO, the virtual methods of <code>Object</code> should have provided for both): "May X and Y be safely regarded as equivalent, even if references are freely shared with outside code", and "May X and Y be safely regarded as equivalent by their owner, if it maintains exclusive control over X, Y, and all constituent mutable state?" I would suggest that the only types which should define <code>equals</code> in a fashion which doesn't match either of the above would be those whose instances are not expect to be...</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">27 Jul 2014 at 16:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>...exposed to the outside world. For example, if one needs to use a hashed set of strings which are compared in case-insensitive fashion, one could define a <code>CaseInsensitiveStringWrapper</code> type whose <code>equals</code> and <code>hashCode</code> operate on uppercase versions of the wrapped string. Although the wrapper would have an "unusual" meaning for <code>equals</code>, <i>it would not be exposed to outside code</i>. Since <code>BigDecimal</code> is intended for use by outside code, it should only report instances as equal if all reasonable outside code would consider them equivalent.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">27 Jul 2014 at 16:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@bacar: Personally, I think the situation with the <code>equals</code> and <code>compareTo</code> methods of <code>BigDecimal</code> is great: code which wants things to be compared based upon value can use <code>compareTo</code>, and code which wants to compare based upon equivalence can use <code>equals</code>. Note that precision doesn't just affect output; I believe at least one way of performing division uses precision of the dividend to control the precision to which the result is rounded, such that 10.0/3 would 3.3, while 10.000/3 would yield 3.333. Substituting 10.0 for 10.000 would thus not be safe.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">27 Jul 2014 at 16:26</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Division may have been specified to behave differently, if equality had been specified differently. I think your <code>CaseInsensitiveStringWrapper</code>raises a very interesting point though - it is easy to implement a 'fuzzier' equivalence on top of a stricter one, whereas it may be harder, impossible or simply surprising to implement a strict one in terms of a fuzzier one. Either way, the principle of least surprise if violated for one set of users or another.</span> <span> - </span> <span class="display-name">bacar</span> <span> </span> <span class="date">27 Jul 2014 at 20:29</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@bacar: I would suggest that if users are taught that they should <i>expect</i> to use methods other than <code>equals</code> when they want to test loose equality, then nobody need be surprised.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">27 Jul 2014 at 20:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Aleksander Blomskøld</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Dec 2012 at 13:21</span>
+     </div>
+    </div>
+    <div>
+     <p>In math, 10.0 equals 10.00. In physics 10.0m and 10.00m are arguably different (different precision), when talking about objects in an OOP, I would definitely say that they are not equal.</p>
+     <p>It's also easy to think of unexpected functionality if equals ignored the scale (For instance: if a.equals(b), wouldn't you expect a.add(0.1).equals(b.add(0.1)?).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Yes, I would expect that, but I don't understand your point; I'm not suggesting it ignore the scale; I'm suggesting it consider the value and the scale as a <i>whole</i>, as <code>compareTo</code> does.</span> <span> - </span> <span class="display-name">bacar</span> <span> </span> <span class="date">31 Dec 2012 at 13:22</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>OK. I understand that sometimes users may want to consider precision, but I still don't get what your point is about unexpected functionality. If they'd chosen to let 2.0 equals 2.00, I'm not sure where your example of adding 0.1 causes problems.</span> <span> - </span> <span class="display-name">bacar</span> <span> </span> <span class="date">31 Dec 2012 at 13:44</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>assylias</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Dec 2012 at 13:22</span>
+     </div>
+    </div>
+    <div>
+     <p>If numbers get rounded, it shows the precision of the calculation - in other words:</p>
+     <ul>
+      <li>10.0 could mean that the exact number was between 9.95 and 10.05</li>
+      <li>10.00 could mean that the exact number was between 9.995 and 10.005</li>
+     </ul>
+     <p>In other words, it is linked to <a href="http://en.wikipedia.org/wiki/Arithmetic_precision" rel="noreferrer">arithmetic precision</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>supercat</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Jan 2013 at 20:20</span>
+     </div>
+    </div>
+    <div>
+     <p>The <code>compareTo</code> method knows that trailing zeros do not affect the numeric value represented by a <code>BigDecimal</code>, which is the only aspect <code>compareTo</code> cares about. By contrast, the <code>equals</code> method generally has no way of knowing what aspects of an object someone cares about, and should thus only return <code>true</code> if two objects are equivalent in <em>every</em> way that a programmer might be interested in. If <code>x.equals(y)</code> is true, it would be rather surprising for <code>x.toString().equals(y.toString())</code> to yield false.</p>
+     <p>Another issue which is perhaps even more significant is that <code>BigDecimal</code> essentially combines a <code>BigInteger</code> and a scaling factor, such that if two numbers represent the same value but have different numbers of trailing zeroes, one will hold a <code>bigInteger</code> whose value is some power of ten times the other. If equality requires that the mantissa and scale both match, then the <code>hashCode()</code> for <code>BigDecimal</code> can use the hash code of <code>BigInteger</code>. If it's possible for two values to be considered "equal" even though they contain different <code>BigInteger</code> values, however, that will complicate things significantly. A <code>BigDecimal</code> type which used its own backing storage, rather than a <code>BigInteger</code>, could be implemented in a variety of ways to allow numbers to be quickly hashed in such a way that values representing the same number would compare equal (as a simple example, a version which packed nine decimal digits in each <code>long</code> value and always required that the decimal point sit between groups of nine, could compute the hash code in a way that would ignore trailing groups whose value was zero) but a <code>BigDecimal</code> that encapsulates a <code>BigInteger</code> can't do that.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>"the <code>equals</code> method generally has no way of knowing what aspects of an object someone cares about" - I <b>vehemently</b> disagree with this statement. Classes define (sometimes implicitly) a contract for their externally visible behaviour, which includes <code>equals</code>. Classes often exist <b>specifically to hide (by encapsulation) details that users do not care about</b>.</span> <span> - </span> <span class="display-name">bacar</span> <span> </span> <span class="date">22 Jan 2013 at 09:59</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Also - I don't think that in general you should have an expectation that <code>equals</code> be consistent with <code>toString</code>. Classes are at liberty to define <code>toString</code> pretty much however they see fit. Consider an example from the JDK, <code>Set&lt;String&gt; s1 = new LinkedHashSet&lt;String&gt;(); s1.add("foo"); s1.add("bar"); Set&lt;String&gt; s2 = new LinkedHashSet&lt;String&gt;(); s2.add("bar"); s2.add("foo");</code> <code>s1</code> and <code>s2</code> have different string representations but compare equal.</span> <span> - </span> <span class="display-name">bacar</span> <span> </span> <span class="date">22 Jan 2013 at 10:44</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@bacar: Perhaps I'm over-extending .Net principles to Java. The hashed collections in .Net allow one to specify methods for equality comparison and hashing, thus effectively telling the collection what aspects of the object it should be interested in. If one had a collection type that maintained its elements in sequence, but offered <code>SequenceEquals</code> <code>GetSequenceHashCode</code>, <code>ContentEquals</code>, and <code>GetContentHashCode</code> methods, one could then store such a type into a hashed collection using reference equality, sequence equality, or order-independent content equality.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">22 Jan 2013 at 16:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I disagree with this statement, too. I've found, in my own experience when overriding the <code>equals()</code> method in custom objects, it's better to define equivalence on a small scale (aka, as few object attributes as possible) rather than on a big scale. The fewer attributes that contribute to equivalence, the better. Databases work in this same principle.</span> <span> - </span> <span class="display-name">ryvantage</span> <span> </span> <span class="date">4 Jan 2014 at 21:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ryvantage: One wouldn't generally expect to use objects with many fields as dictionary keys for purposes of looking up "other" information, but especially when dealing with hierarchical collections there may be a number of circumstances where one ends up with many copies of the same information; if one can efficiently identify references to distinct but equivalent objects, replacing references to all but the oldest copy with references to the oldest copy may save memory and improve performance; to do that, one must compare all fields.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">4 Jan 2014 at 23:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Well, for me, I use Objects in my applications that are modeled exactly like they are on the database, using <code>HashSet</code> to store a lot of them, and using methods like <code>add()</code> and <code>contains()</code>, it looks for equivalence, so, at first, when I overrode <code>equals()</code> it compared every field of the object, but if for some reason a new element got added that was a little different, the <code>HashSet</code> would retain them both, which was no bueno. I ended up defining equality (and hashvalue) based exclusively on the <code>id</code> (primary key) from the database.</span> <span> - </span> <span class="display-name">ryvantage</span> <span> </span> <span class="date">5 Jan 2014 at 00:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>So, in my sense, if two objects have the same <code>id</code>, <b>they represent the same instance of the object</b>, even if their fields aren't equal. This was the only way to get them to behave in any kind <code>Set</code> I used.</span> <span> - </span> <span class="display-name">ryvantage</span> <span> </span> <span class="date">5 Jan 2014 at 00:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Are the objects mutable or immutable, and what is their relation to any persistent store? If the objects are tied to rows in a database, I would suggest that multiple distinct objects attached to the same row shouldn't <i>exist</i> in the first place. Otherwise, I'm not quite clear why you're using a <code>Set</code> rather than <code>Map</code>? I would think that natural way to store things would be as a `Map, whose "key" object encapsulates those parts of the data which are relevant to equality.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">5 Jan 2014 at 00:37</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Matt R</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Jul 2014 at 08:24</span>
+     </div>
+    </div>
+    <div>
+     <blockquote>
+      <p>I imagine there must be a good reason for ignoring this recommendation.</p>
+     </blockquote>
+     <p>Maybe not. I propose the simple explanation that the designers of <code>BigDecimal</code> just made a bad design choice.</p>
+     <ol>
+      <li>A good design optimises for the common use case. The majority of the time (&gt;95%), people want to compare two quantities based on mathematical equality. For the minority of the time where you really do care about the two numbers being equal in both scale and value, there could have been an additional method for that purpose.</li>
+      <li>It goes against people's expectations, and creates a trap that's very easy to fall into. A good API obeys the "principle of least surprise".</li>
+      <li>It breaks the usual Java convention that <code>Comparable</code> is consistent with equality.</li>
+     </ol>
+     <p>Interestingly, Scala's <code>BigDecimal</code> class (which is implemented using Java's <code>BigDecimal</code> under the hood) has made the opposite choice:</p>
+     <pre><code>BigDecimal("2.0") == BigDecimal("2.00")     // true
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>A fundamental requirement of <code>equals</code> is that two objects with unequal hash codes must compare unequal, and the design of <code>BigDecimal</code> is such that numbers with different precision are stored very differently. Thus, having <code>equals</code> regard values with different precision as equivalent would greatly impair the performance of hash tables, even those in which all values were stored with equivalent precision.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">25 Jul 2014 at 23:06</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@supercat Good observation. However, I'd argue that <code>BigDecimal</code>-keyed <code>Map</code>s (and <code>Set</code>s) are so rare a use-case that it's not sufficient justification for a scale-sensitive <code>equals</code>.</span> <span> - </span> <span class="display-name">Matt R</span> <span> </span> <span class="date">26 Jul 2014 at 11:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Use of such types as map keys may not be terribly common, but it's probably not terribly rare either. Among other things, code which ends up computing similar values frequently may sometimes benefit enormously from caching frequently-computed values. For that to work efficiently, it's imperative that the hash function be good and fast.</span> <span> - </span> <span class="display-name">supercat</span> <span> </span> <span class="date">27 Jul 2014 at 04:41</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@supercat 1) It's safe to say <code>BigDecimal</code> keys are much rarer than people getting bitten by its unintuitive definition of equality; 2) if a scale-insensitive hash is a performance bottleneck, you're likely in a setting where using <code>BigDecimal</code> itself is too slow (e.g. you might switch to <code>long</code>s for monetary calculations).</span> <span> - </span> <span class="display-name">Matt R</span> <span> </span> <span class="date">27 Jul 2014 at 09:21</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

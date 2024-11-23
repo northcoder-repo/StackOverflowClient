@@ -1,0 +1,1028 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Why is my Spring @Autowired field null?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Why is my Spring @Autowired field null?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>755</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>chrylis -cautiouslyoptimistic-</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>11 Nov 2013 at 00:05</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/19896870/why-is-my-spring-autowired-field-null">source</a>
+    </div>
+   </div>
+   <div>
+    <p><em>Note: This is intended to be a canonical answer for a common problem.</em></p>
+    <p>I have a Spring <code>@Service</code> class (<code>MileageFeeCalculator</code>) that has an <code>@Autowired</code> field (<code>rateService</code>), but the field is <code>null</code> when I try to use it. The logs show that both the <code>MileageFeeCalculator</code> bean and the <code>MileageRateService</code> bean are being created, but I get a <code>NullPointerException</code> whenever I try to call the <code>mileageCharge</code> method on my service bean. Why isn't Spring autowiring the field?</p>
+    <p>Controller class:</p>
+    <pre><code>@Controller
+public class MileageFeeController {    
+    @RequestMapping("/mileage/{miles}")
+    @ResponseBody
+    public float mileageFee(@PathVariable int miles) {
+        MileageFeeCalculator calc = new MileageFeeCalculator();
+        return calc.mileageCharge(miles);
+    }
+}
+</code></pre>
+    <p>Service class:</p>
+    <pre><code>@Service
+public class MileageFeeCalculator {
+
+    @Autowired
+    private MileageRateService rateService; // &lt;--- should be autowired, is null
+
+    public float mileageCharge(final int miles) {
+        return (miles * rateService.ratePerMile()); // &lt;--- throws NPE
+    }
+}
+</code></pre>
+    <p>Service bean that should be autowired in <code>MileageFeeCalculator</code> but it isn't:</p>
+    <pre><code>@Service
+public class MileageRateService {
+    public float ratePerMile() {
+        return 0.565f;
+    }
+}
+</code></pre>
+    <p>When I try to <code>GET /mileage/3</code>, I get this exception:</p>
+    <pre><code>java.lang.NullPointerException: null
+    at com.chrylis.example.spring_autowired_npe.MileageFeeCalculator.mileageCharge(MileageFeeCalculator.java:13)
+    at com.chrylis.example.spring_autowired_npe.MileageFeeController.mileageFee(MileageFeeController.java:14)
+    ...
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">spring</span><span class="tag">null</span><span class="tag">nullpointerexception</span><span class="tag">autowired</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>4</td>
+       <td><span>Another scenario can be when bean <code>F</code> is called inside the constructor of another bean <code>S</code>. In this case pass the required bean <code>F</code> as a parameter to the other beans <code>S</code> constructor and annotate the constructor of <code>S</code> with <code>@Autowire</code>. Remember to annotate the class of the first bean <code>F</code> with <code>@Component</code>.</span> <span> - </span> <span class="display-name">aliopi</span> <span> </span> <span class="date">11 Nov 2015 at 12:36</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>I coded up a few examples very similar to this one using Gradle here: <a href="https://github.com/swimorsink/spring-aspectj-examples" rel="nofollow noreferrer">github.com/swimorsink/spring-aspectj-examples</a>. Hopefully someone will find it useful.</span> <span> - </span> <span class="display-name">Ross117</span> <span> </span> <span class="date">14 Nov 2018 at 02:33</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>775</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>chrylis -cautiouslyoptimistic-</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Nov 2013 at 00:05</span>
+     </div>
+    </div>
+    <div>
+     <p>The field annotated <code>@Autowired</code> is <code>null</code> because Spring doesn't know about the copy of <code>MileageFeeCalculator</code> that you created with <code>new</code> and didn't know to autowire it.</p>
+     <p><a href="http://docs.spring.io/spring/docs/current/spring-framework-reference/html/beans.html">The Spring Inversion of Control (IoC) container</a> has three main logical components: a registry (called the <code>ApplicationContext</code>) of components (beans) that are available to be used by the application, a configurer system that injects objects' dependencies into them by matching up the dependencies with beans in the context, and a dependency solver that can look at a configuration of many different beans and determine how to instantiate and configure them in the necessary order.</p>
+     <p>The IoC container isn't magic, and it has no way of knowing about Java objects unless you somehow inform it of them. When you call <code>new</code>, the JVM instantiates a copy of the new object and hands it straight to you--it never goes through the configuration process. There are three ways that you can get your beans configured.</p>
+     <p>I have posted all of this code, using Spring Boot to launch, at <a href="https://github.com/chrylis/spring_autowired_npe_example">this GitHub project</a>; you can look at a full running project for each approach to see everything you need to make it work. <strong>Tag with the <code>NullPointerException</code>: <a href="https://github.com/chrylis/spring_autowired_npe_example/tree/nonworking"><code>nonworking</code></a></strong></p>
+     <h2>Inject your beans</h2>
+     <p>The most preferable option is to let Spring autowire all of your beans; this requires the least amount of code and is the most maintainable. To make the autowiring work like you wanted, also autowire the <code>MileageFeeCalculator</code> like this:</p>
+     <pre><code>@Controller
+public class MileageFeeController {
+
+    @Autowired
+    private MileageFeeCalculator calc;
+
+    @RequestMapping("/mileage/{miles}")
+    @ResponseBody
+    public float mileageFee(@PathVariable int miles) {
+        return calc.mileageCharge(miles);
+    }
+}
+</code></pre>
+     <p>If you need to create a new instance of your service object for different requests, you can still use injection by using <a href="http://docs.spring.io/spring/docs/current/spring-framework-reference/html/beans.html#beans-factory-scopes">the Spring bean scopes</a>.</p>
+     <p><strong>Tag that works by injecting the <code>@MileageFeeCalculator</code> service object: <a href="https://github.com/chrylis/spring_autowired_npe_example/tree/working-inject-bean"><code>working-inject-bean</code></a></strong></p>
+     <h2>Use @Configurable</h2>
+     <p>If you really need objects created with <code>new</code> to be autowired, you can <a href="http://docs.spring.io/spring/docs/current/spring-framework-reference/html/aop.html#aop-atconfigurable">use the Spring <code>@Configurable</code> annotation along with AspectJ compile-time weaving</a> to inject your objects. This approach inserts code into your object's constructor that alerts Spring that it's being created so that Spring can configure the new instance. This requires a bit of configuration in your build (such as compiling with <code>ajc</code>) and turning on Spring's runtime configuration handlers (<code>@EnableSpringConfigured</code> with the JavaConfig syntax). This approach is used by the Roo Active Record system to allow <code>new</code> instances of your entities to get the necessary persistence information injected.</p>
+     <pre><code>@Service
+@Configurable
+public class MileageFeeCalculator {
+
+    @Autowired
+    private MileageRateService rateService;
+
+    public float mileageCharge(final int miles) {
+        return (miles * rateService.ratePerMile());
+    }
+}
+</code></pre>
+     <p><strong>Tag that works by using <code>@Configurable</code> on the service object: <a href="https://github.com/chrylis/spring_autowired_npe_example/tree/working-configurable"><code>working-configurable</code></a></strong></p>
+     <h2>Manual bean lookup: not recommended</h2>
+     <p>This approach is suitable only for interfacing with legacy code in special situations. It is nearly always preferable to create a singleton adapter class that Spring can autowire and the legacy code can call, but it is possible to directly ask the Spring application context for a bean.</p>
+     <p>To do this, you need a class to which Spring can give a reference to the <code>ApplicationContext</code> object:</p>
+     <pre><code>@Component
+public class ApplicationContextHolder implements ApplicationContextAware {
+    private static ApplicationContext context;
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        context = applicationContext;   
+    }
+
+    public static ApplicationContext getContext() {
+        return context;
+    }
+}
+</code></pre>
+     <p>Then your legacy code can call <code>getContext()</code> and retrieve the beans it needs:</p>
+     <pre><code>@Controller
+public class MileageFeeController {    
+    @RequestMapping("/mileage/{miles}")
+    @ResponseBody
+    public float mileageFee(@PathVariable int miles) {
+        MileageFeeCalculator calc = ApplicationContextHolder.getContext().getBean(MileageFeeCalculator.class);
+        return calc.mileageCharge(miles);
+    }
+}
+</code></pre>
+     <p><strong>Tag that works by manually looking up the service object in the Spring context: <a href="https://github.com/chrylis/spring_autowired_npe_example/tree/working-manual-lookup"><code>working-manual-lookup</code></a></strong></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>The other thing to look at is making objects for beans in a <code>@Configuration</code> bean, where the method to make an instance of a particular bean class is annotated with <code>@Bean</code>.</span> <span> - </span> <span class="display-name">Donal Fellows</span> <span> </span> <span class="date">11 Nov 2013 at 00:12</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@DonalFellows I'm not entirely sure what you're talking about ("making" is ambiguous). Are you talking about a problem with multiple calls to <code>@Bean</code> methods when using Spring Proxy AOP?</span> <span> - </span> <span class="display-name">chrylis -cautiouslyoptimistic-</span> <span> </span> <span class="date">11 Nov 2013 at 00:16</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Hi there, I am running into a similar issue, however when I use your first suggestion, my application thinks "calc" is null when calling the "mileageFee" method. It's as if it never initializes the <code>@Autowired MileageFeeCalculator calc</code>. Any thoughts?</span> <span> - </span> <span class="display-name">Theo</span> <span> </span> <span class="date">14 Jul 2014 at 22:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I think you should add an entry at the top of your answer that explains that retrieving the first bean, the root from which you do everything, should be done through the <code>ApplicationContext</code>. Some users (for which I've closed as duplicates) don't understand this.</span> <span> - </span> <span class="display-name">Sotirios Delimanolis</span> <span> </span> <span class="date">18 Oct 2014 at 01:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@SotiriosDelimanolis Please explain the issue; I'm not sure exactly what point you're making.</span> <span> - </span> <span class="display-name">chrylis -cautiouslyoptimistic-</span> <span> </span> <span class="date">18 Oct 2014 at 02:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>For non web-app examples (and some times for), if you want to use the bean object tree, you need to access some bean through the <code>ApplicationContext</code>. That is the entry point to a Spring application. I've seen questions where users define their XML (or other) configs but fail to define the container. They just expect the an object created through <code>new</code> to be managed. When you explain to them that this isn't a bean and they need to get it from the context, they don't understand.</span> <span> - </span> <span class="display-name">Sotirios Delimanolis</span> <span> </span> <span class="date">18 Oct 2014 at 02:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@SotiriosDelimanolis I'll munch on that. It's a good point, but this answer is already a bit unwieldy, and it doesn't mention either constructor injection, which avoids this problem entirely, or Spring Boot. I'll try to figure out how to rework it.</span> <span> - </span> <span class="display-name">chrylis -cautiouslyoptimistic-</span> <span> </span> <span class="date">18 Oct 2014 at 07:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><i>Spring doesn't know about the copy of MileageFeeCalculator that you created with new and didn't know to autowire it</i> this sentence solves my problem. Plus one for this.</span> <span> - </span> <span class="display-name">OO7</span> <span> </span> <span class="date">26 Mar 2015 at 13:43</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Correct me if I'm wrong but specifying both the <code>@Service</code> and <code>@Configurable</code> annotations on the <code>MilegageFeeCalculator</code> might be incorrect, as per the Spring AOP <a href="http://docs.spring.io/spring/docs/current/spring-framework-reference/html/aop.html#aop-atconfigurable" rel="nofollow noreferrer">documentation</a>: <i>...make sure that you <b>do not use <code>@Configurable</code> on bean classes which are registered as regular Spring beans</b> with the container: You would get double initialization otherwise, once through the container and once through the aspect.</i> So in essence, you should only pick one of them.</span> <span> - </span> <span class="display-name">Priidu Neemre</span> <span> </span> <span class="date">3 Sep 2015 at 12:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@PriiduNeemre The problem in this usual case is that the programmer isn't registering the Java object as a Spring bean. Yes, this would be inefficient, but it shouldn't produce incorrect behavior, just suboptimal. I'm meaning to update this to recommend constructor injection anyhow.</span> <span> - </span> <span class="display-name">chrylis -cautiouslyoptimistic-</span> <span> </span> <span class="date">3 Sep 2015 at 14:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Regarding the "Use @Configurable" solution: I have to use Gradle as the build tool. Is it possbile to incorporate the compile-time weaving somehow into Gradle?</span> <span> - </span> <span class="display-name">kiltek</span> <span> </span> <span class="date">7 Nov 2018 at 12:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I had this problem for a few days where Value was null, and my issue was importing the wrong package, even though no errors were thrown...make sure to import org.springframework.beans.factory.annotation.Value;</span> <span> - </span> <span class="display-name">Sammy Cakes</span> <span> </span> <span class="date">23 Oct 2019 at 20:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Note the last version using ApplicationContextHolder can be simplified by autowiring <code>BeanFactory</code> so you can directly call beanFactory.getBean(Service.class);</span> <span> - </span> <span class="display-name">Kevin Guanche Darias</span> <span> </span> <span class="date">5 May 2022 at 17:09</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>71</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Shirish Coolkarni</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Apr 2014 at 06:47</span>
+     </div>
+    </div>
+    <div>
+     <p>If you are not coding a web application, make sure your class in which @Autowiring is done is a spring bean. Typically, spring container won't be aware of the class which we might think of as a spring bean. We have to tell the Spring container about our spring classes.</p>
+     <p>This can be achieved by configuring in appln-contxt or <strong>the better way</strong> is to annotate class as <strong>@Component</strong> and please do not create the annotated class using new operator. Make sure you get it from Appln-context as below.</p>
+     <pre><code>@Component
+public class MyDemo {
+
+
+    @Autowired
+    private MyService  myService; 
+
+    /**
+     * @param args
+     */
+    public static void main(String[] args) {
+        // TODO Auto-generated method stub
+            System.out.println("test");
+            ApplicationContext ctx=new ClassPathXmlApplicationContext("spring.xml");
+            System.out.println("ctx&gt;&gt;"+ctx);
+
+            Customer c1=null;
+            MyDemo myDemo=ctx.getBean(MyDemo.class);
+            System.out.println(myDemo);
+            myDemo.callService(ctx);
+
+
+    }
+
+    public void callService(ApplicationContext ctx) {
+        // TODO Auto-generated method stub
+        System.out.println("---callService---");
+        System.out.println(myService);
+        myService.callMydao();
+
+    }
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>hi , I gone through your solution, that's correct . And Here I would like to know " Why we don't create instance of annotated class using new operator, may I know the reason behind that.</span> <span> - </span> <span class="display-name">Ashish</span> <span> </span> <span class="date">29 Dec 2014 at 11:30</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>if u create the object using new, u will be handling the life cycle of the bean which contradicts the concept of IOC. We need to ask the container to do it, which does it in a better way</span> <span> - </span> <span class="display-name">Shirish Coolkarni</span> <span> </span> <span class="date">20 Aug 2015 at 03:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>54</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ravi Durairaj</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jul 2016 at 09:25</span>
+     </div>
+    </div>
+    <div>
+     <p>Actually, you should use either JVM managed Objects or Spring-managed Object to invoke methods. from your above code in your controller class, you are creating a new object to call your service class which has an auto-wired object.</p>
+     <pre><code>MileageFeeCalculator calc = new MileageFeeCalculator();
+</code></pre>
+     <p>so it won't work that way.</p>
+     <p>The solution makes this MileageFeeCalculator as an auto-wired object in the Controller itself.</p>
+     <p>Change your Controller class like below.</p>
+     <pre><code>@Controller
+public class MileageFeeController {
+
+    @Autowired
+    MileageFeeCalculator calc;  
+
+    @RequestMapping("/mileage/{miles}")
+    @ResponseBody
+    public float mileageFee(@PathVariable int miles) {
+        return calc.mileageCharge(miles);
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>This is the answer. Because you're instantiating a new MilageFeeCalculator on your own, Spring isn't involved in the instantiation, so Spring spring has no knowledge the object exists. Thus, it can't do anything to it, like inject dependencies.</span> <span> - </span> <span class="display-name">cyotee doge</span> <span> </span> <span class="date">19 Sep 2017 at 17:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>35</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>smwikipedia</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Nov 2015 at 13:41</span>
+     </div>
+    </div>
+    <div>
+     <p>I once encountered the same issue when I was <em>not quite used to the life in the IoC world</em>. The <code>@Autowired</code> field of one of my beans is null at runtime.</p>
+     <p>The root cause is, instead of using the auto-created bean maintained by the Spring IoC container (whose <code>@Autowired</code> field is indeed properly injected), I am <code>new</code>ing my own instance of that bean type and using it. Of course this one's <code>@Autowired</code> field is null because Spring has no chance to inject it.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>This one helped me forever!</span> <span> - </span> <span class="display-name">Abdulbasith</span> <span> </span> <span class="date">21 Feb 2022 at 10:33</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This works, so long as the <code>new</code> object itself is not dependent on IoC</span> <span> - </span> <span class="display-name">PowerAktar</span> <span> </span> <span class="date">21 Jul 2022 at 12:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>25</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Deepak</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Oct 2015 at 09:17</span>
+     </div>
+    </div>
+    <div>
+     <p>Your problem is new (object creation in java style)</p>
+     <pre><code>MileageFeeCalculator calc = new MileageFeeCalculator();
+</code></pre>
+     <p>With annotation <code>@Service</code>, <code>@Component</code>, <code>@Configuration</code> beans are created in the<br>
+       application context of Spring when server is started. But when we create objects using new operator the object is not registered in application context which is already created. For Example Employee.java class i have used.</p>
+     <p>Check this out:</p>
+     <pre class="lang-java prettyprint-override"><code>public class ConfiguredTenantScopedBeanProcessor implements BeanFactoryPostProcessor {
+    @Override
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+        String name = "tenant";
+        System.out.println("Bean factory post processor is initialized"); 
+        beanFactory.registerScope("employee", new Employee());
+
+        Assert.state(beanFactory instanceof BeanDefinitionRegistry,
+                "BeanFactory was not a BeanDefinitionRegistry, so CustomScope cannot be used.");
+        BeanDefinitionRegistry registry = (BeanDefinitionRegistry) beanFactory;
+
+        for (String beanName : beanFactory.getBeanDefinitionNames()) {
+            BeanDefinition definition = beanFactory.getBeanDefinition(beanName);
+            if (name.equals(definition.getScope())) {
+                BeanDefinitionHolder proxyHolder = ScopedProxyUtils.createScopedProxy(new BeanDefinitionHolder(definition, beanName), registry, true);
+                registry.registerBeanDefinition(beanName, proxyHolder.getBeanDefinition());
+            }
+        }
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>bluish</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 May 2015 at 12:44</span>
+     </div>
+    </div>
+    <div>
+     <p><em>I'm new to Spring, but I discovered this working solution. Please tell me if it's a deprecable way.</em></p>
+     <p>I make Spring inject <code>applicationContext</code> in this bean:</p>
+     <pre><code>import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.stereotype.Component;
+
+@Component
+public class SpringUtils {
+
+    public static ApplicationContext ctx;
+
+    /**
+     * Make Spring inject the application context
+     * and save it on a static variable,
+     * so that it can be accessed from any point in the application. 
+     */
+    @Autowired
+    private void setApplicationContext(ApplicationContext applicationContext) {
+        ctx = applicationContext;       
+    }
+}
+</code></pre>
+     <p>You can put this code also in the main application class if you want.</p>
+     <p>Other classes can use it like this:</p>
+     <pre><code>MyBean myBean = (MyBean)SpringUtils.ctx.getBean(MyBean.class);
+</code></pre>
+     <p>In this way <strong>any bean can be obtained by any object in the application</strong> (also intantiated with <code>new</code>) and <strong>in a static way</strong>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>This pattern is necessary to make Spring beans accessible to legacy code but should be avoided in new code.</span> <span> - </span> <span class="display-name">chrylis -cautiouslyoptimistic-</span> <span> </span> <span class="date">14 May 2015 at 13:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>In my case i required this because there were few third party classes. Spring (IOC) didn't have the control on them. These classes were never called from my spring boot app. I followed this approach and it worked for me.</span> <span> - </span> <span class="display-name">Joginder Malik</span> <span> </span> <span class="date">29 May 2020 at 20:49</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alireza Fattahi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Jun 2016 at 15:15</span>
+     </div>
+    </div>
+    <div>
+     <p>It seems to be rare case but here is what happened to me:</p>
+     <p>We used <code>@Inject</code> instead of <code>@Autowired</code> which is javaee standard supported by Spring. Every places it worked fine and the beans injected correctly, instead of one place. The bean injection seems the same</p>
+     <pre><code>@Inject
+Calculator myCalculator
+</code></pre>
+     <p>At last we found that the error was that we (actually, the Eclipse auto complete feature) imported <code>com.opensymphony.xwork2.Inject</code> instead of <code>javax.inject.Inject</code> !</p>
+     <p>So to summarize, make sure that your annotations (<code>@Autowired</code>, <code>@Inject</code>, <code>@Service</code> ,... ) have correct packages!</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>JackLeEmmerdeur</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Jul 2019 at 14:51</span>
+     </div>
+    </div>
+    <div>
+     <p>What hasn't been mentioned here is described in <a href="https://technology.amis.nl/2018/02/22/java-how-to-fix-spring-autowired-annotation-not-working-issues/" rel="noreferrer">this</a> article in the paragraph "Order of execution".</p>
+     <p>After "learning" that I had to annotate a class with @Component or the derivatives @Service or @Repository (I guess there are more), to autowire other components inside them, it struck me that these other components still were null inside the constructor of the parent component.</p>
+     <p>Using @PostConstruct solves that:</p>
+     <pre><code>@SpringBootApplication
+public class Application {
+    @Autowired MyComponent comp;
+}
+</code></pre>
+     <p>and:</p>
+     <pre><code>@Component
+public class MyComponent {
+    @Autowired ComponentDAO dao;
+
+    public MyComponent() {
+        // dao is null here
+    }
+
+    @PostConstruct
+    public void init() {
+        // dao is initialized here
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ashutosh Tiwari</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Oct 2020 at 11:39</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>One of the below will work :</strong></p>
+     <ol>
+      <li>
+       <p>The class where you are using @Autowired is not a Bean (You may have used new() somewhere I am sure).</p></li>
+      <li>
+       <p>Inside the SpringConfig class you have not mentioned the packages the Spring should look for @Component ( I am talking about @ComponentScan(basePackages"here") )</p></li>
+     </ol>
+     <p>If above two don't work .... start putting System.out.println() and figure out where it is going wrong.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>I used the new() in my code and that caused the problem. I need to use that new(). But also need to use @Autowire in that new Class. How to do that.</span> <span> - </span> <span class="display-name">Soumik Das</span> <span> </span> <span class="date">17 Mar 2021 at 11:40</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>You don't need to do new ! You can simply declare the class variable and use @ Autowire above it. You also have to make sure you have included @ Component above the class (e.g. above class ABC { ... }) which you want to autowire. It will work :)</span> <span> - </span> <span class="display-name">Ashutosh Tiwari</span> <span> </span> <span class="date">20 Mar 2021 at 08:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Brent Bradburn</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Apr 2018 at 18:25</span>
+     </div>
+    </div>
+    <div>
+     <p>If this is happening in a test class, make sure you haven't forgotten to annotate the class.</p>
+     <p>For example, in <strong>Spring Boot</strong>:</p>
+     <pre class="lang-java prettyprint-override"><code>@RunWith(SpringRunner.class)
+@SpringBootTest
+public class MyTests {
+    ....
+</code></pre>
+     <hr>
+     <h2>Some time elapses...</h2>
+     <p>Spring Boot <a href="https://spring.io/blog/2016/04/15/testing-improvements-in-spring-boot-1-4" rel="nofollow noreferrer">continues to evolve</a>. It is no longer required to use <code>@RunWith</code> <em>if you use the correct version of JUnit</em>.</p>
+     <p>For <code>@SpringBootTest</code> to work stand alone, you need to use <code>@Test</code> from <a href="https://stackoverflow.com/q/48853312">JUnit5 instead of JUnit4</a>.</p>
+     <pre><code>//import org.junit.Test; // JUnit4
+import org.junit.jupiter.api.Test; // JUnit5
+
+@SpringBootTest
+public class MyTests {
+    ....
+</code></pre>
+     <hr>
+     <p>If you get this configuration wrong your tests will compile, but <code>@Autowired</code> and <code>@Value</code> fields (for example) will be <code>null</code>. Since Spring Boot operates by magic, you may have few avenues for directly debugging this failure.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>See also: <a href="https://stackoverflow.com/questions/4130486/spring-value-annotation-always-evaluating-as-null" title="spring value annotation always evaluating as null">stackoverflow.com/questions/4130486/…</a></span> <span> - </span> <span class="display-name">Brent Bradburn</span> <span> </span> <span class="date">9 Apr 2020 at 02:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Note: <code>@Value</code> will be null when used with <code>static</code> fields.</span> <span> - </span> <span class="display-name">Brent Bradburn</span> <span> </span> <span class="date">9 Apr 2020 at 02:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Spring provides numerous ways to fail (with no help from the compiler). When things go wrong, your best bet is to return to square one -- using only the combination of annotations that you know will work together.</span> <span> - </span> <span class="display-name">Brent Bradburn</span> <span> </span> <span class="date">2 Jun 2020 at 07:01</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>SAMUEL</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Nov 2019 at 04:44</span>
+     </div>
+    </div>
+    <div>
+     <p>In simple words there are mainly two reasons for an <code>@Autowired</code> field to be <code>null</code></p>
+     <ul>
+      <li><strong>YOUR CLASS IS NOT A SPRING BEAN.</strong></li>
+     </ul>
+     <p>The class in which you define the <code>@Autowire</code> anotation is not a spring bean. Thus spring will not auto wire the members.</p>
+     <ul>
+      <li><strong>THE FIELD IS NOT A BEAN.</strong></li>
+     </ul>
+     <p>There is no bean with the type or type in hierarchy you specified in the <code>@Autowired</code> field is not yet present in the spring application context or registry</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ondrej Bozek</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Apr 2015 at 11:35</span>
+     </div>
+    </div>
+    <div>
+     <p>Another solution would be to put a call of <code>SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this)</code><br>
+       to <code>MileageFeeCalculator</code> constructor like this:</p>
+     <pre><code>@Service
+public class MileageFeeCalculator {
+
+    @Autowired
+    private MileageRateService rateService; // &lt;--- will be autowired when constructor is called
+
+    public MileageFeeCalculator() {
+        SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this)
+    }
+
+    public float mileageCharge(final int miles) {
+        return (miles * rateService.ratePerMile()); 
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>This uses unsafe publication.</span> <span> - </span> <span class="display-name">chrylis -cautiouslyoptimistic-</span> <span> </span> <span class="date">21 Apr 2015 at 12:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>msucil</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Jan 2017 at 18:00</span>
+     </div>
+    </div>
+    <div>
+     <p>I think you have missed to instruct spring to scan classes with annotation.</p>
+     <p>You can use <code>@ComponentScan("packageToScan")</code> on the configuration class of your spring application to instruct spring to scan.</p>
+     <p><code>@Service, @Component</code> etc annotations add meta description. <br></p>
+     <p>Spring only injects instances of those classes which are either created as bean or marked with annotation.</p>
+     <p>Classes marked with annotation need to be identified by spring before injecting, <code>@ComponentScan</code> instruct spring look for the classes marked with annotation. When Spring finds <code>@Autowired</code> it searches for the related bean, and injects the required instance.</p>
+     <p>Adding annotation only, does not fix or facilitate the dependency injection, Spring needs to know where to look for.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>ran into this when i forgot to add <code>&lt;context:component-scan base-package="com.mypackage"/&gt;</code> to my <code>beans.xml</code> file</span> <span> - </span> <span class="display-name">Ralph Callaway</span> <span> </span> <span class="date">5 Dec 2018 at 05:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Atul Jain</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 May 2019 at 07:02</span>
+     </div>
+    </div>
+    <div>
+     <p>This is the culprit of giving NullPointerException <code>MileageFeeCalculator calc = new MileageFeeCalculator();</code> We are using Spring - don't need to create object manually. Object creation will be taken care of by IoC container.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>62mkv</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Oct 2017 at 04:43</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>UPDATE:</strong> Really smart people were quick to point on <a href="https://stackoverflow.com/a/13177782/2583044">this</a> answer, which explains the weirdness, described below</p>
+     <p><strong>ORIGINAL ANSWER:</strong></p>
+     <p>I don't know if it helps anyone, but I was stuck with the same problem even while doing things seemingly right. In my Main method, I have a code like this:</p>
+     <pre><code>ApplicationContext context =
+    new ClassPathXmlApplicationContext(new String[] {
+        "common.xml",
+        "token.xml",
+        "pep-config.xml" });
+    TokenInitializer ti = context.getBean(TokenInitializer.class);
+</code></pre>
+     <p>and in a <code>token.xml</code> file I've had a line</p>
+     <pre><code>&lt;context:component-scan base-package="package.path"/&gt;
+</code></pre>
+     <p>I noticed that the package.path does no longer exist, so I've just dropped the line for good.</p>
+     <p>And after that, NPE started coming in. In a <code>pep-config.xml</code> I had just 2 beans:</p>
+     <pre><code>&lt;bean id="someAbac" class="com.pep.SomeAbac" init-method="init"/&gt;
+&lt;bean id="settings" class="com.pep.Settings"/&gt;
+</code></pre>
+     <p>and SomeAbac class has a property declared as</p>
+     <pre><code>@Autowired private Settings settings;
+</code></pre>
+     <p>for some unknown reason, settings is <em>null</em> in init(), when <code>&lt;context:component-scan/&gt;</code> element is not present at all, but when it's present and has some bs as a basePackage, everything works well. This line now looks like this:</p>
+     <pre><code>&lt;context:component-scan base-package="some.shit"/&gt;
+</code></pre>
+     <p>and it works. May be someone can provide an explanation, but for me it's enough right now )</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span><a href="https://stackoverflow.com/a/13177782/2684760">That answer</a> is the explanation. <code>&lt;context:component-scan/&gt;</code> implicitly enables <code>&lt;context:annotation-config/&gt;</code> necessary for the <code>@Autowired</code> to work.</span> <span> - </span> <span class="display-name">ForNeVeR</span> <span> </span> <span class="date">12 Oct 2017 at 04:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>yglodt</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Jan 2019 at 15:55</span>
+     </div>
+    </div>
+    <div>
+     <p>Also note that if, for whatever reason, you make a method in a <code>@Service</code> as <code>final</code>, the autowired beans you will access from it will always be <code>null</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>I spent a good day banging my head on this issue. Thank you. You're a god. :D</span> <span> - </span> <span class="display-name">aakoch</span> <span> </span> <span class="date">18 Aug 2022 at 21:50</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Abhishek</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Oct 2016 at 18:41</span>
+     </div>
+    </div>
+    <div>
+     <p>You can also fix this issue using @Service annotation on service class and passing the required bean classA as a parameter to the other beans classB constructor and annotate the constructor of classB with @Autowired. Sample snippet here :</p>
+     <pre><code>@Service
+public class ClassB {
+
+    private ClassA classA;
+
+    @Autowired
+    public ClassB(ClassA classA) {
+        this.classA = classA;
+    }
+
+    public void useClassAObjectHere(){
+        classA.callMethodOnObjectA();
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>this worked for me bu t can you please elaborate on how this is solving the issue ?</span> <span> - </span> <span class="display-name">CruelEngine</span> <span> </span> <span class="date">5 Mar 2018 at 12:58</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@CruelEngine, look this is constructor injection (where you explicitly setting an object) instead of just using field injection (this is mostly done by spring configuration mostly). So if you are creating a object of ClassB using "new" operator is some other scope then that would not be visible or autowired set for ClassA. Hence, while calling classB.useClassAObjectHere() would throw NPE as classA object was not autowired if you just declare field Injection. Read chrylis is trying to explain same. And this why constructor injection is recommended over field injection. Does it make sense now ?</span> <span> - </span> <span class="display-name">Abhishek</span> <span> </span> <span class="date">11 Apr 2018 at 08:45</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Rishabh Agarwal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Dec 2019 at 16:33</span>
+     </div>
+    </div>
+    <div>
+     <p>This is only valid in case of Unit test.</p>
+     <p>My Service class had an annotation of service and it was <code>@autowired</code> another component class. When I tested the component class was coming null. Because for service class I was creating the object using <code>new</code></p>
+     <p>If you are writing unit test make sure you are not creating object using <code>new object()</code>. Use instead injectMock.</p>
+     <p>This fixed my issue. Here is a useful <a href="https://www.moreofless.co.uk/spring-mvc-java-autowired-component-null-repository-service/" rel="nofollow noreferrer">link</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Arefe</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 May 2020 at 13:31</span>
+     </div>
+    </div>
+    <div>
+     <p>Not entirely related to the question, but if the field injection is null, the constructor based injection will still work fine.</p>
+     <pre><code>    private OrderingClient orderingClient;
+    private Sales2Client sales2Client;
+    private Settings2Client settings2Client;
+
+    @Autowired
+    public BrinkWebTool(OrderingClient orderingClient, Sales2Client sales2Client, Settings2Client settings2Client) {
+        this.orderingClient = orderingClient;
+        this.sales2Client = sales2Client;
+        this.settings2Client = settings2Client;
+    }
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sean</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Dec 2020 at 03:56</span>
+     </div>
+    </div>
+    <div>
+     <p>In addition, don't inject to a <code>static</code> member, it will be <code>null</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Qin Kai</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Oct 2020 at 10:13</span>
+     </div>
+    </div>
+    <div>
+     <p>if you are using a <code>private</code> method, it will be <code>null</code>, try to change <code>private</code> to <code>public</code> in controller.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I dont think access modifiers have anything to do here</span> <span> - </span> <span class="display-name">ennth</span> <span> </span> <span class="date">6 Jul 2021 at 09:15</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

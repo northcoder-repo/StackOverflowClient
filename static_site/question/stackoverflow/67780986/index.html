@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Upload json object to Google Cloud Storage with Google Apps Script</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Upload json object to Google Cloud Storage with Google Apps Script</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Simon Breton</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>31 May 2021 at 23:00</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67780986/upload-json-object-to-google-cloud-storage-with-google-apps-script">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm calling an API in a Google Apps Script. The response is a json object. I'd like to send it to Google Cloud Storage.</p>
+    <p>Here is the script I wrote so far:</p>
+    <pre><code>function uploadToGoogleCloudStorage() {
+
+  var api_response = '{ "var":"value"}'
+  var url = 'https://storage.googleapis.com/storage/v1/b/my_bucket_name/o/test?fields=OBJECT'.replace("OBJECT", JSON.stringify(api_response))
+
+  var response = UrlFetchApp.fetch(url, {
+    method: "POST"
+  });
+
+}
+</code></pre>
+    <p>I have the following error <code>Exception: Invalid argument: https://storage.googleapis.com/storage/v1/b/gtm_container_export/o/test?fields="{%20\"var\":\"value\"}"</code></p>
+    <p>I didn't find any documentation on how to interact with Google Cloud Storage from Google Apps Script. I'm wondering if <code>UrlFetchApp</code> is the right way to do it or if I should activate a specific service.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">json</span><span class="tag">google-apps-script</span><span class="tag">google-cloud-storage</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span><a href="https://cloud.google.com/storage/docs/how-to" rel="nofollow noreferrer">cloud.google.com/storage/docs/how-to</a></span> <span> - </span> <span class="display-name">Cooper</span> <span> </span> <span class="date">1 Jun 2021 at 00:56</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>This may help, also: <a href="https://cloud.google.com/storage/docs/uploading-objects#rest-upload-objects" rel="nofollow noreferrer">Uploading an object to a bucket</a></span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">1 Jun 2021 at 01:03</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>There isn't any example on how things work with Google App Script in these documents.</span> <span> - </span> <span class="display-name">Simon Breton</span> <span> </span> <span class="date">1 Jun 2021 at 15:47</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Jun 2021 at 17:05</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a basic example for you - your approach just needs to be modified a bit:</p>
+     <pre class="lang-js prettyprint-override"><code>function uploadToGoogleCloudStorage() {
+
+  let url = "https://storage.googleapis.com/upload/storage/v1/b/[replace this with your bucket ID]/o?uploadType=media&amp;name=my_test_json.json";
+
+  let token = "Bearer [replace this with your oauth token!]";
+ 
+  // this is the content of the document we will create in the bucket
+  let data = {
+    'name': 'Bob Smith',
+    'age': 35,
+    'pets': ['fido', 'fluffy']
+  };
+
+  let options = {
+    'method' : 'post',
+    'headers' : {
+      'Authorization' : token
+    },
+    'contentType': 'application/json',
+    // Convert the JavaScript object to a JSON string.
+    'payload' : JSON.stringify(data)
+  };
+  var response = UrlFetchApp.fetch(url, options);
+
+  console.log( response.getResponseCode() ); // 200 OK
+  console.log( response.getContentText() );
+
+}
+</code></pre>
+     <p>In this case, the file name in the bucket will be "my_test_json.json", as defined in <code>name=my_test_json.json</code>.</p>
+     <p>Replace <code>[replace this with your bucket ID]</code> with your bucket ID.</p>
+     <p>Replace <code>[replace this with your oauth token!]</code> with your oauth token.</p>
+     <p>If you are not familiar with tokens, that is a fairly large topic, and outside the scope of this question. But in case it helps, here are some very basic notes: To generate a test token, I used the <a href="https://developers.google.com/oauthplayground" rel="nofollow noreferrer">OAuth 2.0 Playground</a> to create a test token. I chose "Cloud Storage API" read/write scope. After step 2, I copy/pasted the <code>access_token</code> string out of the "response" box on the right had side of the page. This string is over 300 characters in length. This is not a production-strength solution - it's just for testing.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks. That's the answer I was looking for. I was a bit lost because with Google App Script sometimes OAuth process is much more easier which doesn't seems the case with the Cloud Storage API. And the error msg I had was not clear about what was the issue really.</span> <span> - </span> <span class="display-name">Simon Breton</span> <span> </span> <span class="date">1 Jun 2021 at 17:52</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

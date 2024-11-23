@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>datatables callback on pagination</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>datatables callback on pagination</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>FireFoxII</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>4 Mar 2021 at 10:35</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66473288/datatables-callback-on-pagination">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm implementing <a href="https://abpetkov.github.io/switchery/" rel="nofollow noreferrer">switchery</a> into datatable in this way</p>
+    <p><strong>UPDATE</strong></p>
+    <pre><code>  var table = $('#table').DataTable({
+        pageLength: 25,
+        responsive: true,
+        deferRender: true,
+        stateSave: false,
+        info: false,
+        ordering: false,
+        dom: 'lTfgt&lt;"float-left"i&gt;p',
+        ajax: {
+            "url": "../src/routes.php",
+            "type": "POST",
+            "async":true,
+            "dataType": "json",
+            "data": function(d) {
+                d.call = "data-vol";
+                d.dataform = $('#filtroForm').serialize();
+                d.market = JSON.stringify($('#jstree_topmarket').jstree("get_selected"));
+
+                return d;
+            }
+        },
+        language: {
+            "url": "assets/js/plugins/dataTables/it_IT.txt"
+        },
+        "fnDrawCallback": function() {
+            var elems = Array.prototype.slice.call(document.querySelectorAll('.js-switch'));
+
+            elems.forEach(function(html) {
+                var switchery = new Switchery(html, { size: 'small' });
+            });
+        }
+    });
+</code></pre>
+    <p>and seems ok</p>
+    <p><a href="https://i.stack.imgur.com/oGItW.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/oGItW.png" alt="enter image description here"></a></p>
+    <p>but when I switch to page 2 and then come back to page 1, I have this result</p>
+    <p><a href="https://i.stack.imgur.com/xhnHF.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/xhnHF.png" alt="enter image description here"></a></p>
+    <p><strong>EDIT</strong></p>
+    <p>Replacing <strong>fnDrawCallback</strong> with <strong>initComplete</strong> seems not working</p>
+    <p><a href="https://i.stack.imgur.com/Z7tEp.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/Z7tEp.png" alt="enter image description here"></a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">ajax</span><span class="tag">datatable</span><span class="tag">switchery</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Mar 2021 at 14:57</span>
+     </div>
+    </div>
+    <div>
+     <p>I would recommend using an <a href="https://datatables.net/reference/option/initComplete" rel="nofollow noreferrer"><code>initComplete</code></a> function instead of <code>drawCallback</code>. This will avoid the problem you are seeing where you get new sliders added every time there is another draw event in your DataTable.</p>
+     <p>To access the checkbox nodes from <code>initComplete</code> you can use this:</p>
+     <pre><code>"initComplete": function() {
+  var allNodes = $('#example').DataTable().cells().nodes();
+  $.each($( '.js-switch', allNodes), function(index, node) {
+    var switchery = new Switchery(node, { size: 'small' });
+  });   
+}
+</code></pre>
+     <p>The first line of the function uses the Datatables API to access every node in the table.</p>
+     <p><code>allNodes</code> is a collection of <code>&lt;td&gt;</code> nodes - so then we have to select only those which contain a child node which uses your <code>js-switch</code> class.</p>
+     <p>Since we already have jQuery, I chose to use its iterator <code>$.each()</code> to iterate over al these checkbox nodes, to create the switchery object.</p>
+     <hr>
+     <p>Update:</p>
+     <p>Here is the full DataTable I am using to test with:</p>
+     <pre><code>$('#example').DataTable( {
+  data: dataSet,
+  columns: [
+    { title: "Name", data: "name" },
+    { title: "Office", data: "office" },
+    { title: "Position", data: "position" },
+    { title: "", defaultContent: '&lt;input type="checkbox" class="js-switch" checked /&gt;' }
+  ],
+  "initComplete": function() {
+    var allNodes = $('#example').DataTable().cells().nodes();
+    $.each($( '.js-switch', allNodes), function(index, node) {
+      var switchery = new Switchery(node, { size: 'small' });
+    }); 
+  }
+
+} ); 
+</code></pre>
+     <p>My test data is in a JavaScript variable:</p>
+     <pre><code>var dataSet = [
+    {
+      "id": "1",
+      "name": "Tiger Nixon",
+      "position": "System Architect",
+      "salary": "$320,800",
+      "start_date": "2011/04/25",
+      "office": "Edinburgh",
+      "extn": "5421"
+    },
+
+    // more data not shown here...
+
+    {
+      "id": "57",
+      "name": "Donna Snider",
+      "position": "Customer Support",
+      "salary": "$112,000",
+      "start_date": "2011/01/25",
+      "office": "New York",
+      "extn": "4226"
+    }
+  ];
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks but replacing fnDrawCallback with initComplete seems not working, i have native html checkbox</span> <span> - </span> <span class="display-name">FireFoxII</span> <span> </span> <span class="date">4 Mar 2021 at 16:53</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>In my test, I am using checkboxes like this: <code>&lt;input type="checkbox" class="js-switch" checked /&gt;</code>. They are placed in the related DataTable <code>&lt;td&gt;&lt;/td&gt;</code> cells. Can you describe what you mean by "not working"? What do you see? Are errors thrown in the browser's console? Do you still get multiple sliders in each cell?</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">4 Mar 2021 at 17:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I added my full test example, in case that helps.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">4 Mar 2021 at 17:04</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Note that my DataTable is called "example" - yours may have a different name, as defined in the HTML table: <code>&lt;table id="example"</code>...&gt;...&lt;/table&gt;`. You may need to change my code, accordingly.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">4 Mar 2021 at 17:06</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I have also updated my first post with full code of datatable... Is it possibile the problem is the ajax call?</span> <span> - </span> <span class="display-name">FireFoxII</span> <span> </span> <span class="date">4 Mar 2021 at 17:10</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Did you change my example code to match your table name? Your table is called "table", whereas my table is called "example": <code>var allNodes = $('#table').DataTable().cells().nodes();</code></span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">4 Mar 2021 at 17:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yes, now I'm using your sample code, but always works with with callback... And with your code, when I'm coming back from page 2 to 1, I'm seeing three switchery for each cell insted of 2... :)</span> <span> - </span> <span class="display-name">FireFoxII</span> <span> </span> <span class="date">4 Mar 2021 at 17:26</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>OK - thank you for the notes. I do not know why your use of my code is behaving differently from my use of my code - very strange.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">4 Mar 2021 at 17:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks to you! Anyway I have also tried your full code and it works also with initComplete... Difference beetween yours and mine code, is ajax call, that I need ...</span> <span> - </span> <span class="display-name">FireFoxII</span> <span> </span> <span class="date">4 Mar 2021 at 17:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Antón Casais Mera</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Jul 2021 at 08:18</span>
+     </div>
+    </div>
+    <div>
+     <p>I use <code>createdRow</code>, this is my code:</p>
+     <pre><code>createdRow: function (row) {
+    initializeSwitchElement(row)
+}
+
+
+function initializeSwitchElement(row) {
+    let checkbox = Array.prototype.slice.call($(row).find('.js-switch'));
+    if ($(checkbox).prop('checked')) {
+        $(checkbox).trigger('keyup').blur()
+    }
+    checkbox.forEach(function (element) {
+        new Switchery(element, { size: 'small' });
+    });
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf does not recognize the span-tag</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf does not recognize the span-tag</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Dana</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>12 Jul 2022 at 13:00</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/72952757/thymeleaf-does-not-recognize-the-span-tag">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I just wanted to have different colors for the different enum values in my DataTable. I also need <code>th:text</code> for my filter I created.</p>
+    <p>What can I do so that I can use <code>th:text</code> and keep my span formatting?</p>
+    <pre class="lang-html prettyprint-override"><code>&lt;td class="incident" th:text="${ticket.getStatus().toString()}"&gt;
+    &lt;a th:if="${ticket.getStatus().toString()} == 'OPEN'"&gt;
+        &lt;span th:text="${ticket.getStatus().toString()}" class="badge text-white" style="background-color: #F93154"&gt;&lt;/span&gt;
+    &lt;/a&gt;
+    &lt;a th:if="${ticket.getStatus().toString()} == 'IN_PROCESS'"&gt;
+        &lt;span th:text="${ticket.getStatus().toString()}" class="badge text-white" style="background-color: #FFEA00"&gt;&lt;/span&gt;
+    &lt;/a&gt;
+    &lt;a th:if="${ticket.getStatus().toString()} == 'CLOSED'"&gt;
+        &lt;span th:text="${ticket.getStatus().toString()}" class="badge text-white" style="background-color: #00E676"&gt;&lt;/span&gt;
+    &lt;/a&gt;
+&lt;/td&gt;
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">html-table</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Jul 2022 at 14:50</span>
+     </div>
+    </div>
+    <div>
+     <p>Change this:</p>
+     <pre><code>&lt;td class="incident" th:text="${ticket.getStatus().toString()}"&gt;
+</code></pre>
+     <p>to this:</p>
+     <pre><code>&lt;td class="incident"&gt;
+</code></pre>
+     <p>The reason is that the <code>th:text</code> expression in the <code>&lt;td&gt;</code> tag will cause all child content to be ignored.</p>
+     <hr>
+     <p>You can also clean up the Thymeleaf a bit by changing <code>getStatus()</code> to just <code>status</code>, since Thymeleaf will automatically apply JavaBean naming rules to the field name <code>status</code> and acutally invoke <code>getStatus()</code> behind the scenes.</p>
+     <hr>
+     <p>I would also recommend considering updating your enum, so that it can return string values directly - see <a href="https://stackoverflow.com/q/6667243/12567365">Using Enum values as String literals</a>. This will further allow you to simplify your Thymeleaf, and get rid of all those <code>.toString()</code> methods embedded in the template.</p>
+     <p>For example, assume you have the enum:</p>
+     <pre class="lang-java prettyprint-override"><code>public enum Status {
+    OPEN, IN_PROCESS, CLOSED;
+}
+</code></pre>
+     <p>You can change that to the following:</p>
+     <pre class="lang-java prettyprint-override"><code>public enum Status {
+    OPEN("Open"),
+    IN_PROCESS("In Process"),
+    CLOSED("Closed");
+
+    private final String label;
+
+    private Status(String s) {
+        label = s;
+    }
+    
+    public String getLabel() {
+        return label;
+    }
+    
+    // toString and comparison methods not shown
+}
+</code></pre>
+     <p>Now each enum has a related string value (the "label") which you can use as follows:</p>
+     <pre class="lang-html prettyprint-override"><code>&lt;table&gt;
+    &lt;td class="incident"&gt;
+        &lt;a th:if="${ticket.status.label} == 'Open'"&gt;
+            &lt;span th:text="${ticket.status.label}" 
+                  class="badge text-white" 
+                  style="background-color: #F93154"&gt;&lt;/span&gt;
+        &lt;/a&gt;
+        &lt;a th:if="${ticket.status.label} == 'In Progress'"&gt;
+            &lt;span th:text="${ticket.status.label}" 
+                  class="badge text-white" 
+                  style="background-color: #FFEA00"&gt;&lt;/span&gt;
+        &lt;/a&gt;
+        &lt;a th:if="${ticket.status.label} == 'Closed'"&gt;
+            &lt;span th:text="${ticket.status.label}" 
+                  class="badge text-white" 
+                  style="background-color: #00E676"&gt;&lt;/span&gt;
+        &lt;/a&gt;
+    &lt;/td&gt;
+&lt;/table&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

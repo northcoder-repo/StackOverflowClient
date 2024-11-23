@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to get a list of all tokens from Lucene 8.6.1 index?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to get a list of all tokens from Lucene 8.6.1 index?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>PSK</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>19 Nov 2020 at 22:38</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/64921086">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have looked at <a href="https://stackoverflow.com/questions/4356037/how-to-get-a-list-of-all-tokens-from-solr-lucene-index">how to get a list of all tokens from Solr/Lucene index?</a> but Lucene 8.6.1 doesn't seem to offer <code>IndexReader.terms()</code>. Has it been moved or replaced? Is there an easier way than <a href="https://stackoverflow.com/questions/60371411/apache-lucene-8-4-1-how-to-get-indexed-fields-and-term-list">this answer</a>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">python</span><span class="tag">search</span><span class="tag">lucene</span><span class="tag">pylucene</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>here's a <a href="https://stackoverflow.com/questions/60371411/apache-lucene-8-4-1-how-to-get-indexed-fields-and-term-list">similar question</a> with some code in one answer extracting fields and terms. Basically iterate over all documents and <code>getValues</code> for each of thenm</span> <span> - </span> <span class="display-name">Curiosa Globunznik</span> <span> </span> <span class="date">19 Nov 2020 at 23:52</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Thanks @NikolaiDmitriev I guess that's one way but I'm just wondering if <code>IndexReader.terms()</code> has moved or been replaced by an alternative.</span> <span> - </span> <span class="display-name">PSK</span> <span> </span> <span class="date">19 Nov 2020 at 23:59</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Nov 2020 at 02:03</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Some History</strong></p>
+     <p>You asked: <em>I'm just wondering if <code>IndexReader.terms()</code> has moved or been replaced by an alternative.</em></p>
+     <p>The Lucene v3 method <a href="https://lucene.apache.org/core/3_0_3/api/core/org/apache/lucene/index/IndexReader.html#terms()" rel="nofollow noreferrer"><code>IndexReader.terms()</code></a> was moved to <a href="https://lucene.apache.org/core/4_0_0/core/org/apache/lucene/index/AtomicReader.html" rel="nofollow noreferrer"><code>AtomicReader</code></a> in Lucene v4. This was documented in the <a href="https://lucene.apache.org/core/7_0_1/changes/Changes.html#v4.0.0-alpha.changes_in_backwards_compatibility_policy" rel="nofollow noreferrer">v4 alpha release notes</a>.</p>
+     <p>(Bear in mind that Lucene v4 was released way back in 2012.)</p>
+     <p>The method in <code>AtomicReader</code> in v4 takes a <a href="https://lucene.apache.org/core/4_0_0/core/org/apache/lucene/index/AtomicReader.html#terms(java.lang.String)" rel="nofollow noreferrer">field name</a>.</p>
+     <p>As the v4 release notes state:</p>
+     <blockquote>
+      <p><em>One big difference is that field and terms are now enumerated separately: a TermsEnum provides a BytesRef (wraps a byte[]) per term within a single field, not a Term.</em></p>
+     </blockquote>
+     <p>The key part there is <em>"per term within a single field"</em>. So from that point onward there was no longer a single API call to retrieve all terms from an index.</p>
+     <p>This approach has carried through to later releases - except that the <code>AtomicReader</code> and <code>AtomicReaderContext</code> classes were renamed to <code>LeafReader</code> and <code>LeafReaderContext</code> in Lucene v 5.0.0. See <a href="https://issues.apache.org/jira/browse/LUCENE-5569" rel="nofollow noreferrer">Lucene-5569</a>.</p>
+     <p><strong>Recent Releases</strong></p>
+     <p>That leaves us with the ability to access lists of terms - but only on a per-field basis:</p>
+     <p>The following code is based on the latest release of Lucene (8.7.0), but should also hold true for the version you mention (8.6.1) - with the example using Java:</p>
+     <pre class="lang-java prettyprint-override"><code>private void getTokensForField(IndexReader reader, String fieldName) throws IOException {
+    List&lt;LeafReaderContext&gt; list = reader.leaves();
+
+    for (LeafReaderContext lrc : list) {
+        Terms terms = lrc.reader().terms(fieldName);
+        if (terms != null) {
+            TermsEnum termsEnum = terms.iterator();
+
+            BytesRef term;
+            while ((term = termsEnum.next()) != null) {
+                System.out.println(term.utf8ToString());
+            }
+        }
+    }
+}
+</code></pre>
+     <p>The above example assumes an index as follows:</p>
+     <pre class="lang-java prettyprint-override"><code>private static final String INDEX_PATH = "/path/to/index/directory";
+...
+IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(INDEX_PATH)));
+</code></pre>
+     <p>If you need to enumerate field names, the code in <a href="https://stackoverflow.com/questions/62128466/extracting-all-fields-from-a-lucene8-index">this question</a> may provide a starting point.</p>
+     <p><strong>Final Note</strong></p>
+     <p>I guess you can also access terms on a <em>per document</em> basis, instead of a <em>per field</em> basis, as mentioned in the comments. I have not tried this.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>sorry, I hadn't tested this out before accepting the answer. I'm trying this in Python and I get an error like this <code>AttributeError: 'TermsEnum' object has no attribute 'next'</code>. I think its got something to do with "The TermsEnum is unpositioned when you first obtain it and you must first successfully call BytesRefIterator.next() or one of the seek methods." but I don't understand it. Could you please help?</span> <span> - </span> <span class="display-name">PSK</span> <span> </span> <span class="date">20 Nov 2020 at 06:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Sorry, I have not used the Python wrapper for Lucene. Does <code>__next__()</code> exist? Or can you use <code>next(x)</code> (see <a href="https://stackoverflow.com/questions/1073396/is-generator-next-visible-in-python-3">here</a>). Otherwise, I think you may need to ask a new Python question specifically about this.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Nov 2020 at 13:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Both <code>next()</code> and <code>__next__()</code> don't seem to work either. I have posted a new question <a href="https://stackoverflow.com/questions/64960527/how-to-get-a-list-of-all-tokens-from-lucene-8-6-1-index-using-pylucene">here</a>.</span> <span> - </span> <span class="display-name">PSK</span> <span> </span> <span class="date">22 Nov 2020 at 23:03</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>copy cells between Excel workbooks with Apache POI</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>copy cells between Excel workbooks with Apache POI</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Dónal</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>18 Mar 2020 at 18:12</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60745266/copy-cells-between-excel-workbooks-with-apache-poi">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm trying to copy from cells from one workbook to another with the latest version of Apache POI (4.1.2).</p>
+    <p>If both workbooks are .xlsx files, everything works fine. But if the source workbook is an (old) .xls file and the destination workbook is an .xlsx file, the following code fails</p>
+    <pre><code>// Copy style from old cell and apply to new cell
+CellStyle newCellStyle = targetWorkbook.createCellStyle();
+newCellStyle.cloneStyleFrom(sourceCell.getCellStyle());
+targetCell.setCellStyle(newCellStyle);
+</code></pre>
+    <p>The exception that's thrown is:</p>
+    <blockquote>
+     <p>java.lang.IllegalArgumentException: Can only clone from one XSSFCellStyle to another, not between HSSFCellStyle and XSSFCellStyle</p>
+    </blockquote>
+    <p>If we can't use <code>cloneStyleFrom</code> when the files (or <code>Workbook</code> objects) are of different types, how can we convert a <code>HSSFCellStyle</code> object to a <code>XSSFCellStyle</code>?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">excel</span><span class="tag">apache-poi</span><span class="tag">apache-poi-4</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Axel Richter</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Mar 2020 at 09:38</span>
+     </div>
+    </div>
+    <div>
+     <p>The answer to your question "How can we convert a <code>HSSFCellStyle</code> object to a <code>XSSFCellStyle</code>?" is: We can't do that using <code>apache poi 4.1.2</code>. This simply is not supported as clearly stated in <a href="https://poi.apache.org/apidocs/dev/org/apache/poi/ss/usermodel/CellStyle.html#cloneStyleFrom-org.apache.poi.ss.usermodel.CellStyle-" rel="nofollow noreferrer">CellStyle.cloneStyleFrom</a>: "However, both of the CellStyles will need to be of the same type (HSSFCellStyle or XSSFCellStyle)."</p>
+     <p>The other question is: <strong>Should</strong> we at all convert one cell style into another? Or what use cases are there for <code>CellStyle.cloneStyleFrom</code> at all? In my opinion there are none. There are <code>Excel</code> limitations for the count of unique cell formats/cell styles. See <a href="https://support.office.com/en-us/article/excel-specifications-and-limits-1672b34d-7043-467e-8e27-269d656771c3" rel="nofollow noreferrer">Excel specifications and limits</a>. So we should not create a single cell style for each single cell because then those limitations will be reached very fast. So instead of cloning cell styles we should get the style properties from source style <code>style1</code> and then using <a href="https://poi.apache.org/apidocs/dev/org/apache/poi/ss/util/CellUtil.html#setCellStyleProperties-org.apache.poi.ss.usermodel.Cell-java.util.Map-" rel="nofollow noreferrer">CellUtil.setCellStyleProperties</a> to set those style properties to the other cell in question. This method attempts to find an existing <code>CellStyle</code> that matches the cell's current style plus styles properties in <code>properties</code>. A new style only is created if the workbook does not contain a matching style.</p>
+     <p>Since your question title is "Copy cells between Excel workbooks with Apache POI", I have created a working draft of how I woud do this.</p>
+     <p>The following code first gets a existent <code>Workbook.xls</code> as <code>HSSFWorkbook</code> <code>wb1</code> and creates a new <code>XSSFWorkbook</code> <code>wb2</code>. Then it loops over all cells of the first sheet of <code>wb1</code> and tries copying those cells into the first sheet of <code>wb2</code>. To do so there is a method <code>copyCells(Cell cell1, Cell cell2)</code> which uses <code>copyStyles(Cell cell1, Cell cell2)</code>. The latter gets the style properties from source style <code>style1</code> got from <code>cell1</code> and then uses <code>CellUtil.setCellStyleProperties</code> to set those style properties to <code>cell2</code>. For copying fonts <code>copyFont(Font font1, Workbook wb2)</code> is used. This tries creating new fonts in <code>wb2</code> only if such a font is not already present in that workbook. This is necessary because there also is a limit of unique font types per workbook in <code>Excel</code>.</p>
+     <p>Working example:</p>
+     <pre><code>import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.util.CellUtil;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+
+import java.util.*;
+
+class ExcelCopyCells {
+
+ static Font copyFont(Font font1, Workbook wb2) {
+  boolean isBold = font1.getBold();
+  short color = font1.getColor();
+  short fontHeight = font1.getFontHeight();
+  String fontName = font1.getFontName();
+  boolean isItalic = font1.getItalic();
+  boolean isStrikeout = font1.getStrikeout();
+  short typeOffset = font1.getTypeOffset();
+  byte underline = font1.getUnderline();
+
+  Font font2 = wb2.findFont(isBold, color, fontHeight, fontName, isItalic, isStrikeout, typeOffset, underline);
+  if (font2 == null) {
+   font2 = wb2.createFont();
+   font2.setBold(isBold);
+   font2.setColor(color);
+   font2.setFontHeight(fontHeight);
+   font2.setFontName(fontName);
+   font2.setItalic(isItalic);
+   font2.setStrikeout(isStrikeout);
+   font2.setTypeOffset(typeOffset);
+   font2.setUnderline(underline);
+  }
+
+  return font2;
+ }
+
+ static void copyStyles(Cell cell1, Cell cell2) {
+  CellStyle style1 = cell1.getCellStyle();
+  Map&lt;String, Object&gt; properties = new HashMap&lt;String, Object&gt;();
+
+  //CellUtil.DATA_FORMAT
+  short dataFormat1 = style1.getDataFormat();
+  if (BuiltinFormats.getBuiltinFormat(dataFormat1) == null) {
+   String formatString1 = style1.getDataFormatString();
+   DataFormat format2 = cell2.getSheet().getWorkbook().createDataFormat();
+   dataFormat1 = format2.getFormat(formatString1);
+  }
+  properties.put(CellUtil.DATA_FORMAT, dataFormat1);
+
+  //CellUtil.FILL_PATTERN  
+  //CellUtil.FILL_FOREGROUND_COLOR 
+  FillPatternType fillPattern = style1.getFillPattern();
+  short fillForegroundColor = style1.getFillForegroundColor(); //gets only indexed colors, no custom HSSF or XSSF colors
+  properties.put(CellUtil.FILL_PATTERN, fillPattern);
+  properties.put(CellUtil.FILL_FOREGROUND_COLOR, fillForegroundColor);
+
+  //CellUtil.FONT
+  Font font1 = cell1.getSheet().getWorkbook().getFontAt(style1.getFontIndexAsInt());
+  Font font2 = copyFont(font1, cell2.getSheet().getWorkbook());
+  properties.put(CellUtil.FONT, font2.getIndexAsInt());
+
+  //BORDERS
+  BorderStyle borderStyle = null;
+  short borderColor = -1;
+  //CellUtil.BORDER_LEFT 
+  //CellUtil.LEFT_BORDER_COLOR
+  borderStyle = style1.getBorderLeft();
+  properties.put(CellUtil.BORDER_LEFT, borderStyle);
+  borderColor = style1.getLeftBorderColor();
+  properties.put(CellUtil.LEFT_BORDER_COLOR, borderColor);
+  //CellUtil.BORDER_RIGHT 
+  //CellUtil.RIGHT_BORDER_COLOR
+  borderStyle = style1.getBorderRight();
+  properties.put(CellUtil.BORDER_RIGHT, borderStyle);
+  borderColor = style1.getRightBorderColor();
+  properties.put(CellUtil.RIGHT_BORDER_COLOR, borderColor);
+  //CellUtil.BORDER_TOP 
+  //CellUtil.TOP_BORDER_COLOR
+  borderStyle = style1.getBorderTop();
+  properties.put(CellUtil.BORDER_TOP, borderStyle);
+  borderColor = style1.getTopBorderColor();
+  properties.put(CellUtil.TOP_BORDER_COLOR, borderColor);
+  //CellUtil.BORDER_BOTTOM 
+  //CellUtil.BOTTOM_BORDER_COLOR
+  borderStyle = style1.getBorderBottom();
+  properties.put(CellUtil.BORDER_BOTTOM, borderStyle);
+  borderColor = style1.getBottomBorderColor();
+  properties.put(CellUtil.BOTTOM_BORDER_COLOR, borderColor);
+
+  CellUtil.setCellStyleProperties(cell2, properties);
+ }
+
+ static void copyCells(Cell cell1, Cell cell2) {
+  switch (cell1.getCellType()) {
+   case STRING:
+   /*
+    //TODO: copy HSSFRichTextString to XSSFRichTextString 
+    RichTextString rtString1 = cell1.getRichStringCellValue();
+    cell2.setCellValue(rtString1); // this fails if cell2 is XSSF and rtString1 is HSSF
+   */
+    String string1 = cell1.getStringCellValue();
+    cell2.setCellValue(string1);
+   break;
+   case NUMERIC:
+    if (DateUtil.isCellDateFormatted(cell1)) {
+     Date date1 = cell1.getDateCellValue();
+     cell2.setCellValue(date1);
+    } else {
+     double cellValue1 = cell1.getNumericCellValue();
+     cell2.setCellValue(cellValue1);
+    }
+   break;
+   case FORMULA:
+    String formula1 = cell1.getCellFormula();
+    cell2.setCellFormula(formula1);
+   break;
+
+   //case : //TODO: further cell types
+
+  }
+
+  copyStyles(cell1, cell2);
+
+ }
+
+ public static void main(String[] args) throws Exception {
+  Workbook wb1 = WorkbookFactory.create(new FileInputStream("Workbook.xls"));
+  Workbook wb2 = new XSSFWorkbook();
+
+  Sheet sheet1 = wb1.getSheetAt(0);
+  Sheet sheet2 = wb2.createSheet();
+
+  Set&lt;Integer&gt; columns = new HashSet&lt;Integer&gt;();
+  Row row2 = null;
+  Cell cell2 = null;
+  for (Row row1 : sheet1) {
+   row2 = sheet2.createRow(row1.getRowNum());
+   for (Cell cell1 : row1) {
+    columns.add(cell1.getColumnIndex());
+    cell2 = row2.createCell(cell1.getColumnIndex());
+    copyCells(cell1, cell2);
+   }
+  }
+
+  wb1.close();
+
+  for (Integer column : columns) {
+   sheet2.autoSizeColumn(column);
+  }
+
+  FileOutputStream out = new FileOutputStream("Workbook.xlsx");
+  wb2.write(out);
+  out.close();
+  wb2.close();
+ }
+}
+</code></pre>
+     <p>If <code>Workbook.xls</code> looks like this:</p>
+     <p><a href="https://i.stack.imgur.com/a358x.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/a358x.png" alt="enter image description here"></a></p>
+     <p>then the resulting <code>Workbook.xlsx</code> looks like this:</p>
+     <p><a href="https://i.stack.imgur.com/xL91X.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/xL91X.png" alt="enter image description here"></a></p>
+     <p>Note: This is a working draft and needs to be completed. See <code>TODO</code> comments in the code. <code>RichTextString</code> cell values needs to be considered. Further cell types needs to be considered.</p>
+     <p>Method <code>copyStyles</code> only provides copying data format, fill pattern and fill foreground color (only for indexed colors), font and borders. Further cell style properties needs to be considered.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Thanks a lot for your answer. Could you explain in what way your working draft is incomplete?</span> <span> - </span> <span class="display-name">Dónal</span> <span> </span> <span class="date">19 Mar 2020 at 10:42</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Dónal: See supplements in my answer.</span> <span> - </span> <span class="display-name">Axel Richter</span> <span> </span> <span class="date">19 Mar 2020 at 11:14</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

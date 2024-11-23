@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Docker Container time &amp; timezone (will not reflect changes)</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Docker Container time &amp; timezone (will not reflect changes)</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>254</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Chockomonkey</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>14 Apr 2015 at 23:49</span>
+    </div>
+    <div>
+     <a href="https://serverfault.com/questions/683605/docker-container-time-timezone-will-not-reflect-changes">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Where do Docker containers get their time information? I've created some containers from the basic ubuntu:trusty image, and when I run it and request 'date', I get UTC time.</p>
+    <p>For awhile I got around this by doing the following in my Dockerfile:</p>
+    <pre><code>RUN sudo echo "America/Los_Angeles" &gt; /etc/timezone
+</code></pre>
+    <p>However, for some reason that stopped working. Searching online I saw the below suggested:</p>
+    <pre><code>docker run -v /etc/timezone:/etc/timezone [image-name]
+</code></pre>
+    <p>Both these methods correctly set the timezone though!</p>
+    <pre><code>$ cat /etc/timezone
+America/Los_Angeles
+$ date
+Tue Apr 14 23:46:51 UTC 2015
+</code></pre>
+    <p>Anyone know what gives?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">date</span><span class="tag">timezone</span><span class="tag">docker</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>5</td>
+       <td><span>If you use <code>Alpine</code>, you need to install <code>tzdata</code> first, see here <a href="https://github.com/gliderlabs/docker-alpine/issues/136" rel="nofollow noreferrer">github.com/gliderlabs/docker-alpine/issues/136</a></span> <span> - </span> <span class="display-name">Belter</span> <span> </span> <span class="date">27 Dec 2017 at 14:56</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>FYI . . . I wish to set the timezone of container at docker run time not at docker build/dockerfile time. Using <code>-v /etc/localtime:/etc/localtime:ro</code> (CentOS) sort of works. Inside container command-line date returns date in the expected timezone format. BUT jenkins running in container thinks timezone is UTC. Why? /etc/localtime is a symlink to ../usr/share/zoneinfo/UTC in built container. The content of the UTC file in container is now the new timezone. But jenkins (and perhaps other java based software) use the name of the symlink which is still "UTC". Searching for solution . . .</span> <span> - </span> <span class="display-name">gaoithe</span> <span> </span> <span class="date">21 Jan 2019 at 17:29</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>Need 2 things, 1. when container is created use an init script to set /etc/localtime symlink and /etc/timezone and 2. for jenkins timezone is taken from two java options, these options need to be passed to the init script which starts the jenkins process. e.g. " -Dorg.apache.commons.jelly.tags.fmt.timeZone=America/New_Yor‌​k -Duser.timezone=America/New_York ". Apologies, this is jenkins specific but hopefully useful for some other jenkins users.</span> <span> - </span> <span class="display-name">gaoithe</span> <span> </span> <span class="date">22 Jan 2019 at 16:59</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>356</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Michael Hampton</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Apr 2015 at 19:55</span>
+     </div>
+    </div>
+    <div>
+     <p>The secret here is that <code>dpkg-reconfigure tzdata</code> simply creates <code>/etc/localtime</code> as a copy, hardlink or symlink (a symlink is preferred) to a file in <code>/usr/share/zoneinfo</code>. So it is possible to do this entirely from your Dockerfile. Consider:</p>
+     <pre><code>ENV TZ=America/Los_Angeles
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime &amp;&amp; echo $TZ &gt; /etc/timezone
+</code></pre>
+     <p>And as a bonus, TZ will be set correctly in the container as well.</p>
+     <p>This is also distribution-agnostic, so it works with pretty much any Linux.</p>
+     <p>Note: if you are using an alpine based image you have to install the <code>tzdata</code> first. (see this issue <a href="https://github.com/gliderlabs/docker-alpine/issues/136" rel="noreferrer">here</a>)</p>
+     <p>Looks like this:</p>
+     <pre><code>RUN apk add --no-cache tzdata
+ENV TZ America/Los_Angeles
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>41</td>
+        <td><span>List of TZ names: <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones" rel="nofollow noreferrer">en.wikipedia.org/wiki/List_of_tz_database_time_zones</a></span> <span> - </span> <span class="display-name">BillyTom</span> <span> </span> <span class="date">14 Aug 2017 at 09:19</span></td>
+       </tr>
+       <tr>
+        <td>12</td>
+        <td><span>With Ubuntu:16.04 (and maybe others version) you need to have <code>tzdata</code> package installed for make this work.</span> <span> - </span> <span class="display-name">Opsse</span> <span> </span> <span class="date">23 Oct 2017 at 01:29</span></td>
+       </tr>
+       <tr>
+        <td>13</td>
+        <td><span>Am I the only one who thinks it is not very smart to hardcode a timezone in the Dockerfile?</span> <span> - </span> <span class="display-name">Wolfgang</span> <span> </span> <span class="date">2 Nov 2018 at 15:39</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>@Wolfgang This is an example. You can provide it in any other way you would ordinarily provide environment variables, such as the command line, docker-compose.yml, etc.</span> <span> - </span> <span class="display-name">Michael Hampton</span> <span> </span> <span class="date">2 Nov 2018 at 15:42</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>I noticed that, at least for Alpine-based images, just setting the <code>TZ</code> variable was enough. I didn't have to setup the symlinks or anything else.</span> <span> - </span> <span class="display-name">code_dredd</span> <span> </span> <span class="date">21 Jun 2019 at 21:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I would have sworn that this used to work if I used <code>apk del tzdata</code> after setting it on Alpine, but it doesn't seem to work anymore.</span> <span> - </span> <span class="display-name">mbomb007</span> <span> </span> <span class="date">14 Apr 2020 at 18:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@mbomb007 If you want to delete <code>tzdata</code> package, then you need to <i>copy</i> the file to <code>/etc/localtime</code> instead of symlinking it.</span> <span> - </span> <span class="display-name">Michael Hampton</span> <span> </span> <span class="date">14 Apr 2020 at 18:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@MichaelHampton The Alpine code doesn't use a symlink. See the lower portion of the answer.</span> <span> - </span> <span class="display-name">mbomb007</span> <span> </span> <span class="date">14 Apr 2020 at 18:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@mbomb007 Eh? You did read the rest of the answer, right?</span> <span> - </span> <span class="display-name">Michael Hampton</span> <span> </span> <span class="date">14 Apr 2020 at 18:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@MichaelHampton If I run <code>RUN apk add --no-cache tzdata\n ENV TZ America/Chicago\n RUN cp /usr/share/zoneinfo/$TZ /etc/localtime &amp;&amp; echo $TZ &gt; /etc/timezone &amp;&amp; apk del tzdata</code>, it doesn't work. And look at the guide for Alpine; no symlink is necessary, only the TZ env variable and the tzdata package.</span> <span> - </span> <span class="display-name">mbomb007</span> <span> </span> <span class="date">14 Apr 2020 at 18:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@mbomb007 Well that's strange. I suggest Alpine is doing something odd, and you probably should ask a new question.</span> <span> - </span> <span class="display-name">Michael Hampton</span> <span> </span> <span class="date">14 Apr 2020 at 18:52</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@MichaelHampton <a href="https://serverfault.com/q/1012310/352016">New question here</a></span> <span> - </span> <span class="display-name">mbomb007</span> <span> </span> <span class="date">14 Apr 2020 at 19:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Alpine users might be able to get away without installing tzdata, and just setting the TZ environment variable, if one of the old deprecated abbreviations exists for their time zone. For example, TZ=EST5EDT for United States Eastern time. (Caveat: I have not verified which apps/libraries recognize these abbreviations, nor whether they obey modern daylight saving time schedules.)</span> <span> - </span> <span class="display-name">ʇsәɹoɈ</span> <span> </span> <span class="date">28 Sep 2020 at 00:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you very much! It's so easy when the explanation has already been received!</span> <span> - </span> <span class="display-name">S.H.</span> <span> </span> <span class="date">20 Oct 2021 at 16:04</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>118</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Victor Klos</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Jan 2017 at 22:15</span>
+     </div>
+    </div>
+    <div>
+     <p>Usually it is sufficient to set an environment variable in the docker container, like so:</p>
+     <pre><code>docker run -e TZ=Europe/Amsterdam debian:jessie date
+</code></pre>
+     <p>Of course this would work also with <code>docker-compose</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>9</td>
+        <td><span>This seems to be the most elegant way. Take care that some base image, like <code>ubuntu:16.04</code>, does not have the <code>tzdata</code> package which should be added in Dockerfile.</span> <span> - </span> <span class="display-name">Julien Fastré</span> <span> </span> <span class="date">19 May 2017 at 10:25</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>+1 -- I agree with Julien; this appears to be the most elegant approach for setting time zones at runtime. This works well with CentOS. Alpine image does require installation of 'tzdata' package, which is preferred over harcoding configurations at build time unless the extra 3MB image payload cannot be tolerated :)</span> <span> - </span> <span class="display-name">Frelling</span> <span> </span> <span class="date">27 Dec 2017 at 16:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This seems good but seems to not work for me (with CentOS 7.5.1804 and tzdata-2018e-3.el7.noarch) ? sad face</span> <span> - </span> <span class="display-name">gaoithe</span> <span> </span> <span class="date">21 Jan 2019 at 17:19</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>WARNING: I've end up with programs partially using UTC and partially TZ info. It took me a while to figure out why my sql client is using UTC while $ date gives me correct time zone. :(</span> <span> - </span> <span class="display-name">Piotr Czapla</span> <span> </span> <span class="date">7 Apr 2022 at 14:36</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>38</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Y4roc</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Jun 2017 at 15:55</span>
+     </div>
+    </div>
+    <div>
+     <p>You can add your local files (/etc/timezone and /etc/localtime) as volume in your docker-container.</p>
+     <p>Update your <code>docker-compose.yml</code> with the following lines.</p>
+     <pre><code>volumes:
+    - "/etc/timezone:/etc/timezone:ro"
+    - "/etc/localtime:/etc/localtime:ro"
+</code></pre>
+     <p>Now the container time is the same as on your host</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>If your on CentOS distrib host enter the command <code>echo "Europe/Paris" &gt; /etc/timezone</code> before restarting the container.</span> <span> - </span> <span class="display-name">CrazyMax</span> <span> </span> <span class="date">18 Sep 2017 at 13:21</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Does this work on MacOS host?</span> <span> - </span> <span class="display-name">Redsandro</span> <span> </span> <span class="date">26 Oct 2017 at 23:24</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Does not WORK in MAC</span> <span> - </span> <span class="display-name">Marcello de Sales</span> <span> </span> <span class="date">19 Jan 2018 at 03:08</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This used to work on MacOS but I just tried it again after a long time and I get the following. Not sure if High Sierra or a docker change caused this: "docker: Error response from daemon: Mounts denied: The path /etc/localtime is not shared from OS X and is not known to Docker. You can configure shared paths from Docker -&gt; Preferences... -&gt; File Sharing. See <a href="https://docs.docker.com/docker-for-mac/osxfs/#namespaces" rel="nofollow noreferrer">docs.docker.com/docker-for-mac/osxfs/#namespaces</a> for more info."</span> <span> - </span> <span class="display-name">gae123</span> <span> </span> <span class="date">4 Mar 2018 at 02:22</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>This will corrupt your zoneinfo db as /etc/localtime is a symlink (thus /usr/share/zoneinfo/Some/Thing is likely to get mounted as /usr/share/zoneinfo/UTC inside the container). Not to mention that you'd mix the db file from the host with the one in the container.</span> <span> - </span> <span class="display-name">ionelmc</span> <span> </span> <span class="date">10 May 2018 at 15:03</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Works on both Alpine and Debian images (from Linux host, of course). @ionelmc How will this corrupt anything if it's mounted read-only?</span> <span> - </span> <span class="display-name">admirabilis</span> <span> </span> <span class="date">30 May 2018 at 07:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@TeresaeJunior inside the container you will have a broken zoneinfo db because the mount is wrong. Corrupion is not necessarily mixing up some bytes inside a file, it can be mixing up whole files as well ;)</span> <span> - </span> <span class="display-name">ionelmc</span> <span> </span> <span class="date">20 Jul 2018 at 10:18</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>WARNING: This can cause strange bugs! See <a href="https://github.com/nodejs/node/issues/28743" rel="nofollow noreferrer">github.com/nodejs/node/issues/28743</a>. At the very least you should mount <code>/usr/share/zoneinfo</code> as well.</span> <span> - </span> <span class="display-name">SystemParadox</span> <span> </span> <span class="date">8 Jul 2020 at 10:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>23</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>VonC</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Apr 2015 at 06:14</span>
+     </div>
+    </div>
+    <div>
+     <p>Mounting <code>/etc/localtime</code> in the image, so it is in sync with <code>host -v</code> is the most popular one.</p>
+     <p>But see <a href="https://github.com/docker/docker/issues/12084" rel="noreferrer">issue 12084</a>:</p>
+     <blockquote>
+      <p>it is not correct because it does not work when the software requires instead the file <code>/etc/timezone</code> to be set.<br>
+        That way you are using leaves it as the default value <code>etc/UTC</code>.</p>
+      <p>I have determined that actually there is no foolproof elegant way to set the time zone inside of a docker container.<br>
+        So have finally settled on this solution:</p>
+      <p>App dockerfile:</p>
+     </blockquote>
+     <pre><code># Relocate the timezone file
+RUN mkdir -p /config/etc &amp;&amp; mv /etc/timezone /config/etc/ &amp;&amp; ln -s /config/etc/timezone /etc/
+</code></pre>
+     <blockquote>
+      <p>App entrypoint script:</p>
+     </blockquote>
+     <pre><code># Set timezone as specified in /config/etc/timezone
+dpkg-reconfigure -f noninteractive tzdata
+</code></pre>
+     <blockquote>
+      <p>Data volume <code>/config</code> dockerfile, localized to a specific country or region:</p>
+     </blockquote>
+     <pre><code># Set the time zone
+RUN echo "Europe/London" &gt; /config/etc/timezone
+</code></pre>
+     <blockquote>
+      <p>... it is not elegant because involving 3 separate files, and re-creating <code>/etc/localtime</code> on every runtime container start. Which is rather wasteful.</p>
+      <p>However it does work properly, and successfully achieve separation between the base app image, and each per-country localized configuration.<br>
+        In 3 lines of code.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>For me, it was : <code>RUN echo "Europe/London" &gt; /etc/timezone</code></span> <span> - </span> <span class="display-name">jpmottin</span> <span> </span> <span class="date">19 Oct 2017 at 11:54</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@jpmottin So a bit as in <a href="https://serverfault.com/a/856593/783">serverfault.com/a/856593/783</a> then?</span> <span> - </span> <span class="display-name">VonC</span> <span> </span> <span class="date">19 Oct 2017 at 12:01</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>18</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>qwerty</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jun 2017 at 10:12</span>
+     </div>
+    </div>
+    <div>
+     <p>In ubuntu 16.04 image there is bug. Solution was</p>
+     <pre><code>    ENV TZ 'Europe/Tallinn'
+    RUN echo $TZ &gt; /etc/timezone &amp;&amp; \
+    apt-get update &amp;&amp; apt-get install -y tzdata &amp;&amp; \
+    rm /etc/localtime &amp;&amp; \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime &amp;&amp; \
+    dpkg-reconfigure -f noninteractive tzdata &amp;&amp; \
+    apt-get clean
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>Seriously...this is the only solution that worked!</span> <span> - </span> <span class="display-name">Gerrat</span> <span> </span> <span class="date">30 Jun 2017 at 22:13</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Also had to do this - seems tzdata is no longer in some distros by default.</span> <span> - </span> <span class="display-name">Peter</span> <span> </span> <span class="date">24 Jan 2018 at 07:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Xianlin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>16 Jul 2015 at 03:37</span>
+     </div>
+    </div>
+    <div>
+     <p>if you are using docker image based on <code>ubuntu</code> :</p>
+     <pre><code># Change the docker default timezone from UTC to SGT
+echo "Asia/Singapore" &gt; /etc/timezone
+dpkg-reconfigure tzdata
+date
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alpha</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Apr 2018 at 01:05</span>
+     </div>
+    </div>
+    <div>
+     <p>Adding my two cents here, because I've tried several of these but none worked on alpine-based images.</p>
+     <p>However, this did the trick:</p>
+     <pre><code>ENV TZ=America/Toronto
+RUN apk update
+RUN apk upgrade
+RUN apk add ca-certificates &amp;&amp; update-ca-certificates
+RUN apk add --update tzdata
+RUN rm -rf /var/cache/apk/*
+</code></pre>
+     <p>[<a href="https://github.com/gliderlabs/docker-alpine/issues/136#issuecomment-272703023" rel="noreferrer">Source</a>]</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>flynn</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 May 2020 at 03:00</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>In alpine basic Image (example use node:10.16.0-alpine):</strong></p>
+     <blockquote>
+      <p>Dockerfile</p>
+     </blockquote>
+     <pre><code>FROM node:10.16.0-alpine
+
+ENV TZ=America/Los_Angeles
+
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime &amp;&amp; echo $TZ &gt; /etc/timezone
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+
+RUN npm i --production
+
+COPY . .
+
+CMD node index.js
+
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Perry Harrington</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 May 2021 at 07:26</span>
+     </div>
+    </div>
+    <div>
+     <p>Using a Fedora container (likely to work with ubuntu also):</p>
+     <p>The simplest solution I found was to use the following in docker-compose.yml</p>
+     <pre><code>environment: 
+  TZ: "${TZ:-America/Los_Angeles}"
+</code></pre>
+     <p>Then in your .env file (which docker-compose automatically reads)</p>
+     <pre><code>TZ=America/Los_Angeles
+</code></pre>
+     <p>This allows you to put docker-compose.yml under version control and use a customized .env file which can be ignored by git.</p>
+     <p>You get a default value for the container and you get customization, best of both worlds.</p>
+     <p>For Fedora no other changes were necessary, it just works!</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Chockomonkey</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Apr 2015 at 19:10</span>
+     </div>
+    </div>
+    <div>
+     <p>Thanks to VonC for the information and link to the issue. This seems like such a convoluted mess, so I did some testing on my own idea of how to solve this and it seems to work great.</p>
+     <pre><code>&gt;docker run -it ubuntu:trusty /bin/bash
+#dpkg-reconfigure tzdata
+</code></pre>
+     <p>(follow prompts to select my timezone)</p>
+     <pre><code>&gt;docker commit [container-id] chocko/ubuntu:local
+</code></pre>
+     <p>Then I updated my Dockerfiles to reflect this:</p>
+     <pre><code>FROM chocko/ubuntu:local
+</code></pre>
+     <p>There must be something wrong with this because it seems too easy to be overlooked... Or is this acceptable?</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is also what I tried, but the timezone <i>still</i> resets itself after I <code>exit</code> the container. This is on Debian.</span> <span> - </span> <span class="display-name">Mike Chamberlain</span> <span> </span> <span class="date">9 Jun 2017 at 04:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@MikeChamberlain did you happen to try the accepted answer by Michael Hampton above? I haven't implemented it myself, but I reckon it's the way to go considering the upvotes that it has received.</span> <span> - </span> <span class="display-name">Chockomonkey</span> <span> </span> <span class="date">9 Jun 2017 at 17:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mugen</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Aug 2018 at 09:03</span>
+     </div>
+    </div>
+    <div>
+     <p>A more generic way to set the timezone in <code>docker run</code> arguments:</p>
+     <pre><code>-e TZ=`ls -la /etc/localtime | cut -d/ -f8-9`
+</code></pre>
+     <p>Or for reuse:</p>
+     <pre><code>function GET_TZ () {
+    ls -la /etc/localtime | cut -d/ -f8-9
+}
+
+...
+-e TZ=`GET_TZ`
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>doesn't help if your base image is alpine(5MB) which doesn't has the "tzdata" installed</span> <span> - </span> <span class="display-name">max4ever</span> <span> </span> <span class="date">21 Jun 2019 at 14:05</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

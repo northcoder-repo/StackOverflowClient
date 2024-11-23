@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Jackson ObjectMapper ignore certain keys when converting to POJO</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Jackson ObjectMapper ignore certain keys when converting to POJO</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>user12530264</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>18 May 2020 at 10:29</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61867532/jackson-objectmapper-ignore-certain-keys-when-converting-to-pojo">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Here is my class</p>
+    <pre class="lang-java prettyprint-override"><code>import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.*;
+
+public class Util {
+
+    public static void main(String[] args) throws JsonProcessingException {
+        String json = "{ \"argA\" : 5, \"unneededkey\" : 6}";
+        ObjectMapper mapper = new ObjectMapper();
+        MyObject object3 = mapper.readValue(json, MyObject.class);
+        System.out.println(object3);
+
+    }
+    @ToString
+    @RequiredArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class MyObject {
+        public MyObject(int argA) {
+            this.argA = argA;
+        }
+
+        public MyObject(int argA, boolean argB) {
+            this.argA = argA;
+            this.argB = argB;
+        }
+
+        public MyObject(int argA, int argC, int argD) {
+            this.argA = argA;
+            this.argC = argC;
+            this.argD = argD;
+        }
+
+        public MyObject(int argA, String argE) {
+            this.argA = argA;
+            this.argE = argE;
+        }
+
+        public int argA = 1;
+        public boolean argB;
+        public int argC = 4;
+        public int argD = 5;
+        public String argE;
+    }
+}
+</code></pre>
+    <p>@JsonIgnoreProperties(ignoreUnknown = true) works but this ignores all unneeded keys. What if I only want to ignore certain unneeded keys and if I am given a key thats not part of my object constructor or in the unneeded set, it will throw an exception.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 May 2020 at 21:17</span>
+     </div>
+    </div>
+    <div>
+     <p>My suggested approach:</p>
+     <p>Keep the <code>@JsonIgnoreProperties(ignoreUnknown = true)</code> annotation on your class.</p>
+     <p>Assume the following input JSON:</p>
+     <pre><code>{
+    "argA": 5,
+    "unneededkey": 6,
+    "unexpectedKey": 99
+}
+</code></pre>
+     <p>Create a set containing the allowed field names (where "allowed" is a field which exists in your <code>MyObject</code> class, or it can be safely ignored):</p>
+     <pre><code>Set&lt;String&gt; allowedFields = new HashSet(Arrays.asList(
+            "argA", "argB", "argC", "argD", "argE",
+            "unneededkey", "unneededkey2"));
+</code></pre>
+     <p>Then process the JSON as follows:</p>
+     <pre><code>ObjectMapper mapper = new ObjectMapper();
+
+JsonNode rootNode = mapper.readTree(json);
+Iterator&lt;String&gt; fieldNames = rootNode.fieldNames();
+boolean fieldFailure = false;
+Set&lt;String&gt; unexpectedFields = new HashSet();
+
+while (fieldNames.hasNext()) {
+    String fieldName = fieldNames.next();
+    if (!allowedFields.contains(fieldName)) {
+        fieldFailure = true;
+        unexpectedFields.add(fieldName);
+    }
+}
+</code></pre>
+     <p>You can then choose how to proceed, based on the boolean <code>fieldFailure</code>. Either throw an exception (using the list of unexpected field names for information), or create your object in the usual way:</p>
+     <pre><code>MyObject object = mapper.readValue(json, MyObject.class);
+</code></pre>
+     <p>The down side to this is that it may traverse the JSON twice - once to check for problems, and again (assuming no problems) to deserialize the data.</p>
+     <p><em>Points to note:</em></p>
+     <p>(1) The above code assumes a flat JSON structure - no embedded objects - which matches what you have in your question. For more flexibility, you can use the following <code>findKeys</code> method to recursively visit all nodes:</p>
+     <pre><code>Map&lt;String, Object&gt; treeMap = mapper.readValue(json, Map.class);
+List&lt;String&gt; keys  = Lists.newArrayList();
+List&lt;String&gt; result = findKeys(treeMap, keys);
+
+private List&lt;String&gt; findKeys(Map&lt;String, Object&gt; treeMap, List&lt;String&gt; keys) {
+    treeMap.forEach((key, value) -&gt; {
+        if (value instanceof LinkedHashMap) {
+            Map&lt;String, Object&gt; map = (LinkedHashMap) value;
+            findKeys(map, keys);
+        }
+        keys.add(key);
+    });
+
+    return keys;
+}
+</code></pre>
+     <p>Acknowledgement: See <a href="https://stackoverflow.com/a/48787047/12567365">this answer</a> for details.</p>
+     <p>(2) I considered a custom deserializer:</p>
+     <pre><code>public class MyDeserializer extends StdDeserializer&lt;Util.MyObject&gt; { 
+    ...
+}
+</code></pre>
+     <p>But you would still have the same issue - not to mention the extra work needed to invoke the correct constructor, depending on the specific combination of non-null field values it finds.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

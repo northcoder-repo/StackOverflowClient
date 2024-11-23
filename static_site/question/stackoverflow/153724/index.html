@@ -1,0 +1,2088 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to round a number to n decimal places in Java</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to round a number to n decimal places in Java</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1452</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Alex Spurling</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>30 Sep 2008 at 16:01</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/153724/how-to-round-a-number-to-n-decimal-places-in-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>What I would like is a method to convert a double to a string which rounds using the half-up method - i.e. if the decimal to be rounded is 5, it always rounds up to the next number. This is the standard method of rounding most people expect in most situations.</p>
+    <p>I also would like only significant digits to be displayed - i.e. there should not be any trailing zeroes.</p>
+    <p>I know one method of doing this is to use the <code>String.format</code> method:</p>
+    <pre><code>String.format("%.5g%n", 0.912385);
+</code></pre>
+    <p>returns:</p>
+    <pre><code>0.91239
+</code></pre>
+    <p>which is great, however it always displays numbers with 5 decimal places even if they are not significant:</p>
+    <pre><code>String.format("%.5g%n", 0.912300);
+</code></pre>
+    <p>returns:</p>
+    <pre><code>0.91230
+</code></pre>
+    <p>Another method is to use the <code>DecimalFormatter</code>:</p>
+    <pre><code>DecimalFormat df = new DecimalFormat("#.#####");
+df.format(0.912385);
+</code></pre>
+    <p>returns:</p>
+    <pre><code>0.91238
+</code></pre>
+    <p>However as you can see this uses half-even rounding. That is it will round down if the previous digit is even. What I'd like is this:</p>
+    <pre><code>0.912385 -&gt; 0.91239
+0.912300 -&gt; 0.9123
+</code></pre>
+    <p>What is the best way to achieve this in Java?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">decimal</span><span class="tag">rounding</span><span class="tag">digits</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>874</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>curtisk</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Sep 2008 at 16:14</span>
+     </div>
+    </div>
+    <div>
+     <p>Use <a href="http://docs.oracle.com/javase/8/docs/api/java/text/DecimalFormat.html#setRoundingMode(java.math.RoundingMode)" rel="noreferrer"><code>setRoundingMode</code></a>, set the <a href="http://docs.oracle.com/javase/8/docs/api/java/math/RoundingMode.html" rel="noreferrer"><code>RoundingMode</code></a> explicitly to handle your issue with the half-even round, then use the format pattern for your required output.</p>
+     <p>Example:</p>
+     <pre><code>DecimalFormat df = new DecimalFormat("#.####");
+df.setRoundingMode(RoundingMode.CEILING);
+for (Number n : Arrays.asList(12, 123.12345, 0.23, 0.1, 2341234.212431324)) {
+    Double d = n.doubleValue();
+    System.out.println(df.format(d));
+}
+</code></pre>
+     <p>gives the output:</p>
+     <pre><code>12
+123.1235
+0.23
+0.1
+2341234.2125
+</code></pre>
+     <hr>
+     <p><strong>EDIT</strong>: The original answer does not address the accuracy of the double values. That is fine if you don't care much whether it rounds up or down. But if you want accurate rounding, then you need to take the expected accuracy of the values into account. Floating point values have a binary representation internally. That means that a value like 2.7735 does not actually have that exact value internally. It can be slightly larger or slightly smaller. If the internal value is slightly smaller, then it will not round up to 2.7740. To remedy that situation, you need to be aware of the accuracy of the values that you are working with, and add or subtract that value before rounding. For example, when you know that your values are accurate up to 6 digits, then to round half-way values up, add that accuracy to the value:</p>
+     <pre><code>Double d = n.doubleValue() + 1e-6;
+</code></pre>
+     <p>To round down, subtract the accuracy.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>10</td>
+        <td><span>This is probably the best solution presented so far. The reason I didn't spot this facility when I first looked at the DecimalFormat class is that it was only introduced in Java 1.6. Unfortunately I'm restricted to using 1.5 but it will be useful to know for the future.</span> <span> - </span> <span class="display-name">Alex Spurling</span> <span> </span> <span class="date">1 Oct 2008 at 13:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Doesn't work with exponent decimalformats, say format("0.0E00"). It will in this example round 0.0155 to 0.0E00 instead of 1.6E-02.</span> <span> - </span> <span class="display-name">Martin Clemens Bloch</span> <span> </span> <span class="date">15 Oct 2014 at 23:50</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I tried this with: <code>"#.##"</code>, rounding <code>HALF_UP</code>. <code>256.335f</code> -&gt; <code>"256.33"</code> ...(example comes from comments to @asterite's answer).</span> <span> - </span> <span class="display-name">bigstones</span> <span> </span> <span class="date">11 Dec 2015 at 11:43</span></td>
+       </tr>
+       <tr>
+        <td>6</td>
+        <td><span>Please be carefull as DecimalFormat depend on your current Local configuration, you may not get a dot as a separator. I personnally prefer Asterite's answer below</span> <span> - </span> <span class="display-name">Gomino</span> <span> </span> <span class="date">2 Mar 2016 at 17:01</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Also be aware that you should not expect DecimalFormat to be thread-safe. As per <a href="https://docs.oracle.com/javase/7/docs/api/java/text/DecimalFormat.html" rel="nofollow noreferrer">Java docs</a>: <i>Decimal formats are generally not synchronized. It is recommended to create separate format instances for each thread. If multiple threads access a format concurrently, it must be synchronized externally.</i></span> <span> - </span> <span class="display-name">CGK</span> <span> </span> <span class="date">10 Aug 2016 at 03:05</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>how do i make it so that it does a proper rounding so it will not round 0.0004 to 0.001</span> <span> - </span> <span class="display-name">user4919188</span> <span> </span> <span class="date">20 Oct 2016 at 08:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Cannot get this working with HALF_UP: Example <code>DecimalFormat df = new DecimalFormat("0.00"); df.setMaximumFractionDigits(2); df.setRoundingMode(RoundingMode.HALF_UP); df.format(3.775)</code> returns 3.77</span> <span> - </span> <span class="display-name">Thorsten Niehues</span> <span> </span> <span class="date">11 Dec 2017 at 14:20</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>It's not too difficult to create cases where this simply doesn't work. I wouldn't use this method if it's important to get the correct result.</span> <span> - </span> <span class="display-name">Dawood ibn Kareem on strike</span> <span> </span> <span class="date">20 Feb 2018 at 02:04</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ThorstenNiehues Just because you specify it as 3.775, does not mean it has that value internally. Internally it has a binary value, and 3.775 cannot be represented exactly as a binary value. So it might have a value corresponding to 3.77499999999 internally. When rounding, always add the expected accuracy of the value.</span> <span> - </span> <span class="display-name">fishinear</span> <span> </span> <span class="date">25 Oct 2019 at 15:51</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>All these are good and all, BUT my response is not printed, it is serialized to Json.... Would the solution work?</span> <span> - </span> <span class="display-name">ntg</span> <span> </span> <span class="date">18 Oct 2021 at 10:52</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>520</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>asterite</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Sep 2008 at 16:07</span>
+     </div>
+    </div>
+    <div>
+     <p>Assuming <code>value</code> is a <code>double</code>, you can do:</p>
+     <pre><code>(double)Math.round(value * 100000d) / 100000d
+</code></pre>
+     <p>That's for 5 digits precision. The number of zeros indicate the number of decimals.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Math.round uses an internal cast to long, which you are then casting back to double.</span> <span> - </span> <span class="display-name">Chris Cudmore</span> <span> </span> <span class="date">30 Sep 2008 at 16:22</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I think this is better than using DecimalFormat though. DecimalFormat will allocate various objects implicitly, and also a String on each call to decimalFormat.Format(). I would image it's better to cast to a few primatives than allocate objects.</span> <span> - </span> <span class="display-name">Andi Jay</span> <span> </span> <span class="date">9 Jul 2012 at 20:01</span></td>
+       </tr>
+       <tr>
+        <td>84</td>
+        <td><span>UPDATE: I just confirmed that doing this IS WAY faster than using DecimalFormat. I looped using DecimalFormat 200 times, and this method. DecimalFormat took 14ms to complete the 200 loops, this method took less than 1ms. As I suspected, this is faster. If you get paid by the clock cycle, this is what you should be doing. I'm surprised Chris Cudmore would even say what he said to be honest. allocating objects is always more expensive than casting primitives and using static methods (Math.round() as opposed to decimalFormat.format()).</span> <span> - </span> <span class="display-name">Andi Jay</span> <span> </span> <span class="date">10 Jul 2012 at 14:35</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>@Andi Jay I'm not saying you're wrong or right, but you can't really say that an isolated test on a single machine confirms your theory.</span> <span> - </span> <span class="display-name">arkon</span> <span> </span> <span class="date">25 Aug 2012 at 12:33</span></td>
+       </tr>
+       <tr>
+        <td>121</td>
+        <td><span>This technique fails in over 90% of cases. -1.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">2 Oct 2012 at 03:12</span></td>
+       </tr>
+       <tr>
+        <td>28</td>
+        <td><span>Indeed, this fails: <code>Math.round(0.1 * Math.pow(10,20))/Math.pow(10,20) == 0.09223372036854775</code>.</span> <span> - </span> <span class="display-name">Robert Tupelo-Schneck</span> <span> </span> <span class="date">3 Oct 2012 at 18:51</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>I think doing multiplication will be faster than division, so <code>(double)Math.round(value * 100000) * 0.000001</code></span> <span> - </span> <span class="display-name">Alvin Wong</span> <span> </span> <span class="date">15 Jan 2013 at 15:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I used this method for a long time, but now realized it was not the way to go</span> <span> - </span> <span class="display-name">Victor P.</span> <span> </span> <span class="date">19 Mar 2013 at 22:54</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@RobertTupelo-Schneck This does not work, because double only has a precision of approximately 14 decimal places (anything more than that will not be accurate anyway)</span> <span> - </span> <span class="display-name">sambe</span> <span> </span> <span class="date">19 Aug 2013 at 14:18</span></td>
+       </tr>
+       <tr>
+        <td>67</td>
+        <td><span>Be very careful when using this method (or any rounding of floating points). It fails for something as simple as 265.335. The intermediate result of 265.335 * 100 (precision of 2 digits) is 26533.499999999996. This means it gets rounded down to 265.33. There simply are inherent problems when converting from floating point numbers to real decimal numbers. See EJP's answer here at <a href="http://stackoverflow.com/a/12684082/144578">stackoverflow.com/a/12684082/144578</a></span> <span> - </span> <span class="display-name">Sebastiaan van den Broek</span> <span> </span> <span class="date">14 Nov 2013 at 13:51</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ChrisCudmore has the best answer here scroll down now, also Math.pow(10,20) is way too big, if you need 20 decimal places of precision then double is not for you.</span> <span> - </span> <span class="display-name">satur9nine</span> <span> </span> <span class="date">10 Apr 2014 at 17:21</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>This fails with very small values too: <code>(double)Math.round(1.005 * 100) / 100 == 1.0</code> Don't use it!</span> <span> - </span> <span class="display-name">Matthias Braun</span> <span> </span> <span class="date">19 May 2014 at 14:23</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>1.005 == 1.00 and 265.335 == 265.33 -&gt; so what! it is fine. there is conversions of floating point going into round, there is conversions of floating point going into the division, there is floating point conversions going into 100.0 you just have to accept that floating point is FLOATING POINT... it is approximation! of decimals. floating point double is fast!!! sure you lose some precision, but who cares.. its super duper fast!</span> <span> - </span> <span class="display-name">hamish</span> <span> </span> <span class="date">13 Jul 2014 at 07:56</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>sure you lose some tincy wincy precision on the ROUND_EVEN/ROUND_UP on those fringy cases, but who cares.. its super duper fast! that is why programmers use double in the first place. you are rounding those extras off the end anyway so they are obviously not significant to you or your users. otherwise you would not be using double (aka floating point) in the first place.</span> <span> - </span> <span class="display-name">hamish</span> <span> </span> <span class="date">13 Jul 2014 at 08:04</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@AndiJay: "If you get paid by the clock cycle, this is what you should be doing" -- I disagree. If I was paid by clock cycle, I would use the <code>DecimalFormat</code> to make my code as slow as possible: the more clock cycles it requires, the more money for me ;)</span> <span> - </span> <span class="display-name">Franz D.</span> <span> </span> <span class="date">15 Jul 2015 at 07:38</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>for speed, I have converted to an int before where $5.00 became 500. Super fast math, always rounding to 2 decimal points, and display only requires a divide by 100.</span> <span> - </span> <span class="display-name">darren</span> <span> </span> <span class="date">5 Aug 2015 at 17:54</span></td>
+       </tr>
+       <tr>
+        <td>13</td>
+        <td><span>@SebastiaanvandenBroek: Wow I never knew it was that easy to get a wrong answer. However, if one is working with non-exact numbers, one must recognize that any value <i>is not exact</i>. <code>265.335</code> really means <code>265.335 += tolerance</code>, where tolerance depends on previous operations and range of input values. We do not know the true, exact value. <b>At the edge values, <i>either</i> answer is arguably correct.</b> If we need to be exact, we shouldn't work in double. The <code>fail</code> here isn't in converting back to double. Its in OP thinking he can rely on the incoming <code>265.335</code> as being exactly that.</span> <span> - </span> <span class="display-name">ToolmakerSteve</span> <span> </span> <span class="date">28 Aug 2015 at 03:17</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I don't think the <code>(double)</code> cast is necessary.</span> <span> - </span> <span class="display-name">shmosel</span> <span> </span> <span class="date">8 Sep 2016 at 06:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@ToolmakerSteve When the initial number has three decimals and you want only two, this gives you the right (<code>HALF_EVEN</code> rounded) answer: <code>x = Math.rint(1000*x); x = Math.rint(x/10.0); return x / 100.0;</code>. Obviously, the result is not exactly <code>365.34</code>, but it's the closest approximation and it prints out like this.</span> <span> - </span> <span class="display-name">maaartinus</span> <span> </span> <span class="date">21 Jun 2017 at 04:47</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This method method will never work reliably. The reason is that the result is a not a string but a double value, which has a binary representation internally. But the result will likely not be representable as a binary number.</span> <span> - </span> <span class="display-name">fishinear</span> <span> </span> <span class="date">25 Oct 2019 at 15:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>this method is faster, but it doesn't work if (the value * 10000d) &gt; Long.MAX as Math.round() will return the closes long which is Long.MAX. put in another way, Math.pow(10, x) must be &lt;= Long.MAX</span> <span> - </span> <span class="display-name">SmAxlL</span> <span> </span> <span class="date">6 May 2022 at 07:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It returns a number with zeroes at the end</span> <span> - </span> <span class="display-name">Sergey Zolotarev</span> <span> </span> <span class="date">27 Jan 2023 at 15:54</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>209</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>MetroidFan2002</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Sep 2008 at 18:33</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>new BigDecimal(String.valueOf(double)).setScale(yourScale, BigDecimal.ROUND_HALF_UP);
+</code></pre>
+     <p>will get you a <code>BigDecimal</code>. To get the string out of it, just call that <code>BigDecimal</code>'s <code>toString</code> method, or the <code>toPlainString</code> method for Java 5+ for a plain format string.</p>
+     <p>Sample program:</p>
+     <pre><code>package trials;
+import java.math.BigDecimal;
+
+public class Trials {
+
+    public static void main(String[] args) {
+        int yourScale = 10;
+        System.out.println(BigDecimal.valueOf(0.42344534534553453453-0.42324534524553453453).setScale(yourScale, BigDecimal.ROUND_HALF_UP));
+    }
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>43</td>
+        <td><span>That's my preferred solution. Even shorter: BigDecimal.valueOf(doubleVar).setScale(yourScaleHere, BigDecimal.ROUND_HALF_UP); BigDecimal.valueOf(double val) actually calls Double.toString() under the hood ;)</span> <span> - </span> <span class="display-name">Etienne Neveu</span> <span> </span> <span class="date">9 Feb 2010 at 10:59</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>Nice. Don't cut corners and use <code>new BigDecimal(doubleVar)</code> as you can run into issues with rounding of floating points</span> <span> - </span> <span class="display-name">Edd</span> <span> </span> <span class="date">26 Jan 2015 at 17:57</span></td>
+       </tr>
+       <tr>
+        <td>8</td>
+        <td><span>@Edd, interestingly, the rounding issue occurs in the case SebastiaanvandenBroek mentions in comment to asterite's answer. <code>double val = 265.335;</code>, <code>BigDecimal.valueOf(val).setScale(decimals, BigDecimal.ROUND_HALF_UP).toPlainString();</code> =&gt; <code>265.34</code>, but <code>(new BigDecimal(val)).setScale(decimals, BigDecimal.ROUND_HALF_UP).toPlainString();</code> =&gt; <code>265.33</code>.</span> <span> - </span> <span class="display-name">ToolmakerSteve</span> <span> </span> <span class="date">28 Aug 2015 at 03:41</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>@ToolmakerSteve That's because using new BigDecimal with the double takes the double value directly and attempts to use that to create the BigDecimal, whereas when using BigDecimal.valueOf or the tostring form parses it to a string first (a more exact representation) before the conversion.</span> <span> - </span> <span class="display-name">MetroidFan2002</span> <span> </span> <span class="date">30 Aug 2015 at 05:09</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>There's a big trade off between accuracy and speed, as the method specified by @asterite is much faster, but rounds to errors. In cases where multiple calls to this method here consume 120 ms, the other method (multiply/divide) consumes mere 7 ms. So if you're just removing decimals in order to store a GPS bearing with only one decimal into a JSON string, you probably don't need all the precision of this expensive method.</span> <span> - </span> <span class="display-name">Daniel F</span> <span> </span> <span class="date">19 May 2021 at 09:16</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span><code>BigDecimal.ROUND_HALF_UP</code> is deprecated since 9. You can use: <code>RoundingMode.HALF_UP</code> instead.</span> <span> - </span> <span class="display-name">Niels Ferguson</span> <span> </span> <span class="date">16 Nov 2021 at 13:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>RoundingMode.HALF_UP is behaving like RoundingMode.HALF_DOWN on Android SDK 31</span> <span> - </span> <span class="display-name">fillobotto</span> <span> </span> <span class="date">7 Nov 2022 at 11:03</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>133</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Milhous</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Sep 2008 at 16:58</span>
+     </div>
+    </div>
+    <div>
+     <p>You can also use the</p>
+     <pre><code>DecimalFormat df = new DecimalFormat("#.00000");
+df.format(0.912385);
+</code></pre>
+     <p>to make sure you have the trailing 0's.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>26</td>
+        <td><span>I believe one of the goals of the question was that "there should <b>not</b> be any trailing zeroes".</span> <span> - </span> <span class="display-name">Lunchbox</span> <span> </span> <span class="date">20 Nov 2012 at 20:10</span></td>
+       </tr>
+       <tr>
+        <td>9</td>
+        <td><span>For this question, the op didn't want zeros, but this is exactly what I wanted. If you have a list of numbers with 3 decimal places, you want them to all have the same digits even if it's 0.</span> <span> - </span> <span class="display-name">Tom Kincaid</span> <span> </span> <span class="date">8 Apr 2014 at 17:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You forgot to specify <code>RoundingMode.</code></span> <span> - </span> <span class="display-name">IgorGanapolsky</span> <span> </span> <span class="date">29 Sep 2015 at 21:27</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@IgorGanapolsky by default <code>Decimal mode</code> uses <code>RoundingMode.HALF_EVEN.</code></span> <span> - </span> <span class="display-name">EndermanAPM</span> <span> </span> <span class="date">27 Sep 2016 at 15:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>96</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user207421</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Oct 2012 at 03:18</span>
+     </div>
+    </div>
+    <div>
+     <p>As some others have noted, the correct answer is to use either <code>DecimalFormat</code> or <code>BigDecimal</code>. Floating-point doesn't <em>have</em> decimal places so you cannot possibly round/truncate to a specific number of them in the first place. You have to work in a decimal radix, and that is what those two classes do.</p>
+     <p>I am posting the following code as a counter-example to all the answers in this thread and indeed all over StackOverflow (and elsewhere) that recommend multiplication followed by truncation followed by division. It is incumbent on advocates of this technique to explain why the following code produces the wrong output in over 92% of cases.</p>
+     <pre><code>public class RoundingCounterExample
+{
+
+    static float roundOff(float x, int position)
+    {
+        float a = x;
+        double temp = Math.pow(10.0, position);
+        a *= temp;
+        a = Math.round(a);
+        return (a / (float)temp);
+    }
+
+    public static void main(String[] args)
+    {
+        float a = roundOff(0.0009434f,3);
+        System.out.println("a="+a+" (a % .001)="+(a % 0.001));
+        int count = 0, errors = 0;
+        for (double x = 0.0; x &lt; 1; x += 0.0001)
+        {
+            count++;
+            double d = x;
+            int scale = 2;
+            double factor = Math.pow(10, scale);
+            d = Math.round(d * factor) / factor;
+            if ((d % 0.01) != 0.0)
+            {
+                System.out.println(d + " " + (d % 0.01));
+                errors++;
+            }
+        }
+        System.out.println(count + " trials " + errors + " errors");
+    }
+}
+</code></pre>
+     <p>Output of this program:</p>
+     <pre><code>10001 trials 9251 errors
+</code></pre>
+     <p><strong>EDIT:</strong> To address some comments below I redid the modulus part of the test loop using <code>BigDecimal</code> and <code>new MathContext(16)</code> for the modulus operation as follows:</p>
+     <pre><code>public static void main(String[] args)
+{
+    int count = 0, errors = 0;
+    int scale = 2;
+    double factor = Math.pow(10, scale);
+    MathContext mc = new MathContext(16, RoundingMode.DOWN);
+    for (double x = 0.0; x &lt; 1; x += 0.0001)
+    {
+        count++;
+        double d = x;
+        d = Math.round(d * factor) / factor;
+        BigDecimal bd = new BigDecimal(d, mc);
+        bd = bd.remainder(new BigDecimal("0.01"), mc);
+        if (bd.multiply(BigDecimal.valueOf(100)).remainder(BigDecimal.ONE, mc).compareTo(BigDecimal.ZERO) != 0)
+        {
+            System.out.println(d + " " + bd);
+            errors++;
+        }
+    }
+    System.out.println(count + " trials " + errors + " errors");
+}
+</code></pre>
+     <p>Result:</p>
+     <pre><code>10001 trials 4401 errors
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>10</td>
+        <td><span>The trick is that in all of your 9251 errors, the printed result is still correct.</span> <span> - </span> <span class="display-name">Didier L</span> <span> </span> <span class="date">9 Aug 2013 at 07:52</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@DidierL That proves that the 'printed result' and the 'result' aren't the same thing. The correctness of the 'printed result' is affected by what happens during printing. The multiply-and-divide alone doesn't solve the problem.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">11 Aug 2013 at 01:03</span></td>
+       </tr>
+       <tr>
+        <td>8</td>
+        <td><span>@DidierL It doesn't surprise me. I had the very good fortune of doing 'Numerical Methods' as my very first computing course and being introduced right at the start to what floating-point can and cannot do. Most programmers are pretty vague about it.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">13 Aug 2013 at 09:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>the same output was produced by the python version of this program.</span> <span> - </span> <span class="display-name">ultrajohn</span> <span> </span> <span class="date">2 Sep 2013 at 05:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>hmm, it seems that there is an error in your program. System.out.println("a="+a+" (a % <i>.0001</i>)="+(a % <i>0.001</i>));</span> <span> - </span> <span class="display-name">ultrajohn</span> <span> </span> <span class="date">2 Sep 2013 at 05:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Well, I confess I'm pretty vague about these 'Numerical Methods'. If you have some time, I'd love your insight on <a href="http://stackoverflow.com/questions/17120806/ordering-operation-to-maximize-double-precision">an earlier question of mine</a>.</span> <span> - </span> <span class="display-name">Matthieu</span> <span> </span> <span class="date">19 Oct 2013 at 06:04</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>While the original point stands (truncation of a floating-point is not the same as decimal rounding), this counter-example is a little bit suspect to me. Note that we know the double 0.25 is exactly equal to 1/4, yet <code>((0.25 % 0.01) == 0.0)</code> evaluates to false.</span> <span> - </span> <span class="display-name">Alex</span> <span> </span> <span class="date">25 Oct 2013 at 17:27</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>I would change the test from <code>if ((d % 0.01) != 0.0)</code> to <code>if (BigDecimal.valueOf(d).compareTo(new BigDecimal(d)) != 0)</code>, which indicates that the error rate is even higher than originally estimated (and increases with the scale, up to 99.9% for a scale of 5)</span> <span> - </span> <span class="display-name">Alex</span> <span> </span> <span class="date">25 Oct 2013 at 17:44</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>There's an explanation: (d % 0.01) adds inaccuracy to the result and shadows the precision of the rounding operation. So it only proves that 92% of the time the modulus operation is not precise. I have a counter example:<code>code double d1, d2; d1 = 10.0100000000000000000123D; d2 = 10.0100000D; System.out.println(Math.round(d1 * 100)/100D == d2); // true double d3 = 0.0000090000000000000000000789D; System.out.println(Math.round(d3 * 100)/100D == 0.0D); // true</code> BTW, I'm not advocating this technique. It's prone to a possible overflow.</span> <span> - </span> <span class="display-name">Yuri</span> <span> </span> <span class="date">27 Nov 2013 at 12:06</span></td>
+       </tr>
+       <tr>
+        <td>17</td>
+        <td><span>All you are doing is refuting that floating doesn't represent many decimal values exactly, which I would hope we all understand. Not that rounding does causes a problem. As you admit, the numbers still print as expected.</span> <span> - </span> <span class="display-name">Peter Lawrey</span> <span> </span> <span class="date">2 Mar 2014 at 11:21</span></td>
+       </tr>
+       <tr>
+        <td>10</td>
+        <td><span>Your test is broken, take round() out and the test fails 94% of the time. <a href="http://ideone.com/1y62CY" rel="nofollow noreferrer">ideone.com/1y62CY</a> prints <code>100 trials 94 errors</code> You should start with a test which passes, and show that introducing rounding breaks the test.</span> <span> - </span> <span class="display-name">Peter Lawrey</span> <span> </span> <span class="date">2 Mar 2014 at 11:26</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>Refutation, refuted here. Using Math.round for this range of <code>double</code> as no errors <a href="http://ideone.com/BVCHh3" rel="nofollow noreferrer">ideone.com/BVCHh3</a></span> <span> - </span> <span class="display-name">Peter Lawrey</span> <span> </span> <span class="date">2 Mar 2014 at 11:42</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@PeterLawrey Good point, but it's only true if it's impossible to round .001 to an exact number of decimal places, which is <i>quod erat demonstrandum.</i></span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">3 Apr 2014 at 20:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>yeah exactness would mean 100 times more memory usage, and exactness would mean 100 times slower. draw your own conclusions as to why programmers and cpu's love floating point doubles :) in 50 years time when cpu's are 10,000 times faster.. nobody is going to care about doubles anymore :) even now we are seeing faster quad ARM android processors... that is why people already on this thread want exactness over speed.</span> <span> - </span> <span class="display-name">hamish</span> <span> </span> <span class="date">4 Sep 2015 at 00:07</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@ToolmakerSteve The question is about getting exactly <i>n</i> decimal places. Any other result is off-topic, as are your remarks about my attitude.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">27 Jan 2016 at 03:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@hamish It requires a decimal radix, not 100 times more memory.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">27 Jan 2016 at 03:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>While I agree with you, as <code>0.01</code> cannot be represented exactly, this test is bad. A better test would be to convert the result of <code>roundOff</code> to <code>BigDecimal</code>, and compare it to the exact result calculated with <code>BigDecimal</code>.</span> <span> - </span> <span class="display-name">geza</span> <span> </span> <span class="date">5 Oct 2017 at 11:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@geza I redid the loop part using <code>BigDecimal/MathContext</code> with 16 digits of precision for the modulus part and I got 50% failures.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">18 Dec 2017 at 03:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>a *= temp;</code> has an imprecision in rounding problem values near a boundary. E.g. x.xx5 and <code>position == 2</code>. The product saved in <code>a</code> incurs a rounding that will result in the wrong <code>roundOff()</code> value from time to time. It would have made more sense here to maintain the extra precision of <code>double</code> with <code>a = Math.round(a * temp);</code> rather than <code>a *= temp; a = Math.round(a);</code></span> <span> - </span> <span class="display-name">chux - Reinstate Monica</span> <span> </span> <span class="date">27 Feb 2018 at 12:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@chux-ReinstateMonica That isn't the underlying problem. You can't get a quart out of a pint pot.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">19 May 2021 at 10:25</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>92</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user593581</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jan 2011 at 09:52</span>
+     </div>
+    </div>
+    <div>
+     <p>Suppose you have</p>
+     <pre><code>double d = 9232.129394d;
+</code></pre>
+     <p>you can use <a href="http://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html" rel="noreferrer"><code>BigDecimal</code></a></p>
+     <pre><code>BigDecimal bd = new BigDecimal(d).setScale(2, RoundingMode.HALF_EVEN);
+d = bd.doubleValue();
+</code></pre>
+     <p>or without BigDecimal</p>
+     <pre><code>d = Math.round(d*100)/100.0d;
+</code></pre>
+     <p>with both solutions <code>d == 9232.13</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>I think this is the best solution for Java 1.5 users (and below). One comment tho, don't use the HALF_EVEN rounding mode since it has diff behavior for odd and even numbers (2.5 rounds to 2 while 5.5 rounds to 6, for example), unless this is what you want.</span> <span> - </span> <span class="display-name">IcedDante</span> <span> </span> <span class="date">16 Jul 2012 at 19:11</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>The first solution is correct: the second one doesn't work. See <a href="http://stackoverflow.com/a/7593617/207421">here</a> for proof.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">19 Mar 2013 at 23:27</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@EJP: Even the first solution with <code>RoundingMode.HALF_UP</code> is wrong. Try it with <code>1.505</code>. The right way is to use <code>BigDecimal.valueOf(d)</code>.</span> <span> - </span> <span class="display-name">Matthias Braun</span> <span> </span> <span class="date">29 Mar 2014 at 00:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Matthias Braun, the solution is fine, hence 31 ups.. 1.505 decimal is stored in floating point double as 1.50499998 if you want to take 1.505 and convert from double to decimal, then you have to convert it to Double.toString(x) first then put it into a BigDecimal(), but that is extremely slow, and defeats the purpose of using double for speed in the first place.</span> <span> - </span> <span class="display-name">hamish</span> <span> </span> <span class="date">13 Jul 2014 at 08:22</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Ran a loop of 100k with BigDecimal (took 225 ms) and Math.round (2 ms) way and here is the timing...Time Taken : 225 milli seconds to convert using to : 9232.13 Time Taken : 2 milli seconds to convert to : 9232.13 <a href="http://www.techiesinfo.com" rel="nofollow noreferrer">techiesinfo.com</a></span> <span> - </span> <span class="display-name">user1114134</span> <span> </span> <span class="date">31 Jul 2014 at 19:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>this solution is 112 times slower than other methods. I guess if you do not care about writing fast code, why use a double in the first place. if you want proper base 10 numbers, then NEVER use a double in the first place.</span> <span> - </span> <span class="display-name">hamish</span> <span> </span> <span class="date">4 Sep 2015 at 00:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@IcedDante The <code>HALF_EVEN</code> mode is known as <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_to_even" rel="nofollow noreferrer">“Banker's rounding”</a> often used in financial matters (thus the name). This approach is more fair mathematically than the <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_up" rel="nofollow noreferrer">“Schoolhouse rounding”</a> typically taught to children. Since 5 is exactly in the middle, always rounding up ("Schoolhouse") <b>biases results to larger numbers</b>. Banker's Rounding splits the difference, so half the values round up and half round down (given a random distribution of values).</span> <span> - </span> <span class="display-name">Basil Bourque</span> <span> </span> <span class="date">14 Sep 2015 at 22:27</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The first solution is also incorrect in a special case: BigDecimal bd = new BigDecimal(12.475d).setScale(2, RoundingMode.HALF_EVEN); bd.doubleValue(); --&gt; Result: 12.47 The correct way would be to do: BigDecimal bd = new BigDecimal(Double.toString(12.475d)).setScale(2, RoundingMode.HALF_EVEN); Reason: new BigDecimal(12.475d) creates a BigDecimal with value 12.4749999999999996447286321199499070644378662109375</span> <span> - </span> <span class="display-name">stefan.m</span> <span> </span> <span class="date">18 Feb 2016 at 13:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You want <code>BigDecimal.valueOf(d)</code> instead of <code>new BigDecimal(d)</code> if you want to avoid errors due to floating point inaccuracy.</span> <span> - </span> <span class="display-name">Dawood ibn Kareem on strike</span> <span> </span> <span class="date">20 Feb 2018 at 03:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>64</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>JibW</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>29 Sep 2011 at 07:01</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use the DecimalFormat class.</p>
+     <pre><code>double d = 3.76628729;
+
+DecimalFormat newFormat = new DecimalFormat("#.##");
+double twoDecimal =  Double.valueOf(newFormat.format(d));
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Any reason why <code>Double.valueOf()</code> was chosen over <code>Double.parseDouble()</code>? The <code>valueOf()</code> method returns a <code>Double</code> object, while <code>parseDouble()</code> will return a <code>double</code> primitive. With the way the current code is written, you also apply auto-unboxing to the return to cast it to the primitive that your <code>twoDouble</code> variable expects, an extra bytecode operation. I'd change the answer to use <code>parseDouble()</code> instead.</span> <span> - </span> <span class="display-name">ecbrodie</span> <span> </span> <span class="date">3 Dec 2015 at 06:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>Double.parseDouble()</code> needs <code>String</code> input.</span> <span> - </span> <span class="display-name">Ryde</span> <span> </span> <span class="date">5 May 2016 at 23:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>47</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ovesh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>1 Sep 2009 at 11:14</span>
+     </div>
+    </div>
+    <div>
+     <p>Real's Java How-to <a href="http://www.rgagnon.com/javadetails/java-0016.html" rel="noreferrer">posts</a> this solution, which is also compatible for versions before Java 1.6.</p>
+     <pre><code>BigDecimal bd = new BigDecimal(Double.toString(d));
+bd = bd.setScale(decimalPlace, BigDecimal.ROUND_HALF_UP);
+return bd.doubleValue();
+</code></pre>
+     <h3>UPDATE: BigDecimal.ROUND_HALF_UP is deprecated - Use RoundingMode</h3>
+     <pre><code>BigDecimal bd = new BigDecimal(Double.toString(number));
+bd = bd.setScale(decimalPlaces, RoundingMode.HALF_UP);
+return bd.doubleValue();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>32</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Chris Cudmore</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Sep 2008 at 16:09</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>double myNum = .912385;
+int precision = 10000; //keep 4 digits
+myNum= Math.floor(myNum * precision +.5)/precision;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>yes this is exactly what math.round does for positive numbers, but have you tried this with negative numbers? people are using math.round in the other solutions to also cover the case of negative numbers.</span> <span> - </span> <span class="display-name">hamish</span> <span> </span> <span class="date">13 Jul 2014 at 08:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Note: <code>Math.floor(x + 0.5)</code> and <code>Math.round(x)</code></span> <span> - </span> <span class="display-name">Peter Lawrey</span> <span> </span> <span class="date">2 Feb 2018 at 11:25</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>31</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ivan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Jul 2011 at 15:50</span>
+     </div>
+    </div>
+    <div>
+     <p>@Milhous: the decimal format for rounding is excellent:</p>
+     <blockquote>
+      <p>You can also use the</p>
+      <pre><code>DecimalFormat df = new DecimalFormat("#.00000");
+df.format(0.912385);
+</code></pre>
+      <p>to make sure you have the trailing 0's.</p>
+     </blockquote>
+     <p>I would add that this method is very good at providing an actual numeric, rounding mechanism - not only visually, but also when processing.</p>
+     <p>Hypothetical: you have to implement a rounding mechanism into a GUI program. To alter the accuracy / precision of a result output simply change the caret format (i.e. within the brackets). So that:</p>
+     <pre><code>DecimalFormat df = new DecimalFormat("#0.######");
+df.format(0.912385);
+</code></pre>
+     <p>would return as output: <code>0.912385</code></p>
+     <pre><code>DecimalFormat df = new DecimalFormat("#0.#####");
+df.format(0.912385);
+</code></pre>
+     <p>would return as output: <code>0.91239</code></p>
+     <pre><code>DecimalFormat df = new DecimalFormat("#0.####");
+df.format(0.912385);
+</code></pre>
+     <p>would return as output: <code>0.9124</code></p>
+     <p>[EDIT: also if the caret format is like so ("#0.############") and you enter a decimal, e.g. 3.1415926, for argument's sake, DecimalFormat does not produce any garbage (e.g. trailing zeroes) and will return: <code>3.1415926</code> .. if you're that way inclined. Granted, it's a little verbose for the liking of some dev's - but hey, it's got a low memory footprint during processing and is very easy to implement.]</p>
+     <p>So essentially, the beauty of DecimalFormat is that it simultaneously handles the string appearance - as well as the level of rounding precision set. Ergo: you get two benefits for the price of one code implementation. ;)</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>If you really want decimal numbers for calculation (and not only for output), <b>do not use a binary-based floating point format</b> like <code>double</code>. Use BigDecimal or any other decimal-based format.</span> <span> - </span> <span class="display-name">Paŭlo Ebermann</span> <span> </span> <span class="date">3 Jul 2011 at 19:57</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mifeet</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Aug 2015 at 15:09</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a summary of what you can use if you want the result as String:</p>
+     <ol>
+      <li>
+       <p><a href="http://docs.oracle.com/javase/6/docs/api/java/text/DecimalFormat.html#setRoundingMode%28java.math.RoundingMode%29" rel="noreferrer">DecimalFormat#setRoundingMode()</a>:</p>
+       <pre><code>DecimalFormat df = new DecimalFormat("#.#####");
+df.setRoundingMode(RoundingMode.HALF_UP);
+String str1 = df.format(0.912385)); // 0.91239
+</code></pre></li>
+      <li>
+       <p><a href="http://docs.oracle.com/javase/7/docs/api/java/math/BigDecimal.html#setScale(int,%20java.math.RoundingMode)" rel="noreferrer">BigDecimal#setScale()</a></p>
+       <pre><code>String str2 = new BigDecimal(0.912385)
+    .setScale(5, BigDecimal.ROUND_HALF_UP)
+    .toString();
+</code></pre></li>
+     </ol>
+     <p>Here is a suggestion of what libraries you can use if you want <code>double</code> as a result. I wouldn't recommend it for string conversion, though, as double may not be able to represent what you want exactly (see e.g. <a href="https://stackoverflow.com/q/3730019/2032064">here</a>):</p>
+     <ol>
+      <li>
+       <p><a href="http://commons.apache.org/proper/commons-math/javadocs/api-3.5/org/apache/commons/math3/util/Precision.html" rel="noreferrer">Precision</a> from Apache Commons Math</p>
+       <pre><code>double rounded = Precision.round(0.912385, 5, BigDecimal.ROUND_HALF_UP);
+</code></pre></li>
+      <li>
+       <p><a href="http://dst.lbl.gov/ACSSoftware/colt/api/cern/jet/math/Functions.html" rel="noreferrer">Functions</a> from Colt</p>
+       <pre><code>double rounded = Functions.round(0.00001).apply(0.912385)
+</code></pre></li>
+      <li>
+       <p><a href="http://weka.sourceforge.net/doc.stable/weka/core/Utils.html#roundDouble(double,%20int)" rel="noreferrer">Utils</a> from Weka</p>
+       <pre><code>double rounded = Utils.roundDouble(0.912385, 5)
+</code></pre></li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>19</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Amit</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Apr 2011 at 15:56</span>
+     </div>
+    </div>
+    <div>
+     <p>You could use the following utility method-</p>
+     <pre><code>public static double round(double valueToRound, int numberOfDecimalPlaces)
+{
+    double multipicationFactor = Math.pow(10, numberOfDecimalPlaces);
+    double interestedInZeroDPs = valueToRound * multipicationFactor;
+    return Math.round(interestedInZeroDPs) / multipicationFactor;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>@mariolpantunes: It will fail. Try this: <code>round(1.005,2);</code> or <code>round(0.50594724957626620092, 20);</code></span> <span> - </span> <span class="display-name">Matthias Braun</span> <span> </span> <span class="date">29 Mar 2014 at 01:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It works. But uninformatively float and doubles are approximations. Let us consider your first example. If you print the output of interestedInZeroDPs before Math.round it will print 100.49999999999999. You lost precision as such Math.round round it as 100. Due to the nature or floats and doubles there are borderlines cases when it does not work properly (more information here <a href="http://en.wikipedia.org/wiki/Floating_point#Accuracy_problems" rel="nofollow noreferrer">en.wikipedia.org/wiki/Floating_point#Accuracy_problems</a>)</span> <span> - </span> <span class="display-name">mariolpantunes</span> <span> </span> <span class="date">31 Mar 2014 at 09:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>double is a fast! decimal is slow. computers don't bother processing their thinking in decimal notation. you have to give up some decimal precision to keep floating point double fast.</span> <span> - </span> <span class="display-name">hamish</span> <span> </span> <span class="date">13 Jul 2014 at 09:16</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@hamish The question is about precision, not about speed.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">25 Apr 2016 at 10:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>18</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>MAbraham1</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Jul 2017 at 13:36</span>
+     </div>
+    </div>
+    <div>
+     <p>A succinct solution:</p>
+     <pre><code>   public static double round(double value, int precision) {
+      int scale = (int) Math.pow(10, precision);
+      return (double) (Math.round(value * scale) / scale);
+  }
+</code></pre>
+     <p>See also, <a href="https://stackoverflow.com/a/22186845/212950">https://stackoverflow.com/a/22186845/212950</a> Thanks to <a href="https://stackoverflow.com/users/2984077/jpdymond">jpdymond</a> for offering this.</p>
+     <p><strong>Edit</strong>: Added round brackets. Casts the whole result to double, not the first argument only!</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Easwaramoorthy K</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jul 2014 at 09:49</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use BigDecimal</p>
+     <pre><code>BigDecimal value = new BigDecimal("2.3");
+value = value.setScale(0, RoundingMode.UP);
+BigDecimal value1 = new BigDecimal("-2.3");
+value1 = value1.setScale(0, RoundingMode.UP);
+System.out.println(value + "n" + value1);
+</code></pre>
+     <p>Refer: <a href="http://www.javabeat.net/precise-rounding-of-decimals-using-rounding-mode-enumeration/">http://www.javabeat.net/precise-rounding-of-decimals-using-rounding-mode-enumeration/</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jorgesys</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Mar 2018 at 17:40</span>
+     </div>
+    </div>
+    <div>
+     <p>To achieve this we can use this formatter:</p>
+     <pre><code> DecimalFormat df = new DecimalFormat("#.00");
+ String resultado = df.format(valor)
+</code></pre>
+     <p>or:</p>
+     <pre><code>DecimalFormat df = new DecimalFormat("0.00"); :
+</code></pre>
+     <p>Use this method to get always two decimals:</p>
+     <pre><code>   private static String getTwoDecimals(double value){
+      DecimalFormat df = new DecimalFormat("0.00"); 
+      return df.format(value);
+    }
+</code></pre>
+     <hr>
+     <p>Defining this values:</p>
+     <pre><code>91.32
+5.22
+11.5
+1.2
+2.6
+</code></pre>
+     <p>Using the method we can get this results:</p>
+     <pre><code>91.32
+5.22
+11.50
+1.20
+2.60
+</code></pre>
+     <p><a href="https://www.ideone.com/jJGyRa" rel="noreferrer"><strong>demo online.</strong></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ivan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Jul 2011 at 09:10</span>
+     </div>
+    </div>
+    <div>
+     <p>If you really want decimal numbers for calculation (and not only for output), do not use a binary-based floating point format like double.</p>
+     <pre><code>Use BigDecimal or any other decimal-based format.
+</code></pre>
+     <p>I do use BigDecimal for calculations, but bear in mind it is dependent on the size of numbers you're dealing with. In most of my implementations, I find parsing from double or integer to Long is sufficient enough for very large number calculations.</p>
+     <p>In fact, I've recently used parsed-to-Long to get accurate representations (as opposed to hex results) in a GUI for numbers as big as ################################# characters (as an example).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Li Ying</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Feb 2014 at 05:04</span>
+     </div>
+    </div>
+    <div>
+     <p>Try this: org.apache.commons.math3.util.Precision.round(double x, int scale)</p>
+     <p>See: <a href="http://commons.apache.org/proper/commons-math/apidocs/org/apache/commons/math3/util/Precision.html">http://commons.apache.org/proper/commons-math/apidocs/org/apache/commons/math3/util/Precision.html</a></p>
+     <p>Apache Commons Mathematics Library homepage is: <a href="http://commons.apache.org/proper/commons-math/index.html">http://commons.apache.org/proper/commons-math/index.html</a></p>
+     <p>The internal implemetation of this method is:</p>
+     <pre><code>public static double round(double x, int scale) {
+    return round(x, scale, BigDecimal.ROUND_HALF_UP);
+}
+
+public static double round(double x, int scale, int roundingMethod) {
+    try {
+        return (new BigDecimal
+               (Double.toString(x))
+               .setScale(scale, roundingMethod))
+               .doubleValue();
+    } catch (NumberFormatException ex) {
+        if (Double.isInfinite(x)) {
+            return x;
+        } else {
+            return Double.NaN;
+        }
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>7</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user2154462</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Nov 2016 at 07:50</span>
+     </div>
+    </div>
+    <div>
+     <p>Since I found no complete answer on this theme I've put together a class that should handle this properly, with support for:</p>
+     <ul>
+      <li><strong>Formatting</strong>: Easily format a double to string with a certain number of decimal places</li>
+      <li><strong>Parsing</strong>: Parse the formatted value back to double</li>
+      <li><strong>Locale</strong>: Format and parse using the default locale</li>
+      <li><strong>Exponential notation</strong>: Start using exponential notation after a certain threshold</li>
+     </ul>
+     <p><strong>Usage is pretty simple</strong>:</p>
+     <p>(For the sake of this example I am using a custom locale)</p>
+     <pre><code>public static final int DECIMAL_PLACES = 2;
+
+NumberFormatter formatter = new NumberFormatter(DECIMAL_PLACES);
+
+String value = formatter.format(9.319); // "9,32"
+String value2 = formatter.format(0.0000005); // "5,00E-7"
+String value3 = formatter.format(1324134123); // "1,32E9"
+
+double parsedValue1 = formatter.parse("0,4E-2", 0); // 0.004
+double parsedValue2 = formatter.parse("0,002", 0); // 0.002
+double parsedValue3 = formatter.parse("3423,12345", 0); // 3423.12345
+</code></pre>
+     <p><strong>Here is the class</strong>:</p>
+     <pre><code>import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.ParseException;
+import java.util.Locale;
+
+public class NumberFormatter {
+
+    private static final String SYMBOL_INFINITE           = "\u221e";
+    private static final char   SYMBOL_MINUS              = '-';
+    private static final char   SYMBOL_ZERO               = '0';
+    private static final int    DECIMAL_LEADING_GROUPS    = 10;
+    private static final int    EXPONENTIAL_INT_THRESHOLD = 1000000000; // After this value switch to exponential notation
+    private static final double EXPONENTIAL_DEC_THRESHOLD = 0.0001; // Below this value switch to exponential notation
+
+    private DecimalFormat decimalFormat;
+    private DecimalFormat decimalFormatLong;
+    private DecimalFormat exponentialFormat;
+
+    private char groupSeparator;
+
+    public NumberFormatter(int decimalPlaces) {
+        configureDecimalPlaces(decimalPlaces);
+    }
+
+    public void configureDecimalPlaces(int decimalPlaces) {
+        if (decimalPlaces &lt;= 0) {
+            throw new IllegalArgumentException("Invalid decimal places");
+        }
+
+        DecimalFormatSymbols separators = new DecimalFormatSymbols(Locale.getDefault());
+        separators.setMinusSign(SYMBOL_MINUS);
+        separators.setZeroDigit(SYMBOL_ZERO);
+
+        groupSeparator = separators.getGroupingSeparator();
+
+        StringBuilder decimal = new StringBuilder();
+        StringBuilder exponential = new StringBuilder("0.");
+
+        for (int i = 0; i &lt; DECIMAL_LEADING_GROUPS; i++) {
+            decimal.append("###").append(i == DECIMAL_LEADING_GROUPS - 1 ? "." : ",");
+        }
+
+        for (int i = 0; i &lt; decimalPlaces; i++) {
+            decimal.append("#");
+            exponential.append("0");
+        }
+
+        exponential.append("E0");
+
+        decimalFormat = new DecimalFormat(decimal.toString(), separators);
+        decimalFormatLong = new DecimalFormat(decimal.append("####").toString(), separators);
+        exponentialFormat = new DecimalFormat(exponential.toString(), separators);
+
+        decimalFormat.setRoundingMode(RoundingMode.HALF_UP);
+        decimalFormatLong.setRoundingMode(RoundingMode.HALF_UP);
+        exponentialFormat.setRoundingMode(RoundingMode.HALF_UP);
+    }
+
+    public String format(double value) {
+        String result;
+        if (Double.isNaN(value)) {
+            result = "";
+        } else if (Double.isInfinite(value)) {
+            result = String.valueOf(SYMBOL_INFINITE);
+        } else {
+            double absValue = Math.abs(value);
+            if (absValue &gt;= 1) {
+                if (absValue &gt;= EXPONENTIAL_INT_THRESHOLD) {
+                    value = Math.floor(value);
+                    result = exponentialFormat.format(value);
+                } else {
+                    result = decimalFormat.format(value);
+                }
+            } else if (absValue &lt; 1 &amp;&amp; absValue &gt; 0) {
+                if (absValue &gt;= EXPONENTIAL_DEC_THRESHOLD) {
+                    result = decimalFormat.format(value);
+                    if (result.equalsIgnoreCase("0")) {
+                        result = decimalFormatLong.format(value);
+                    }
+                } else {
+                    result = exponentialFormat.format(value);
+                }
+            } else {
+                result = "0";
+            }
+        }
+        return result;
+    }
+
+    public String formatWithoutGroupSeparators(double value) {
+        return removeGroupSeparators(format(value));
+    }
+
+    public double parse(String value, double defValue) {
+        try {
+            return decimalFormat.parse(value).doubleValue();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return defValue;
+    }
+
+    private String removeGroupSeparators(String number) {
+        return number.replace(String.valueOf(groupSeparator), "");
+    }
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>marco</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Nov 2015 at 12:54</span>
+     </div>
+    </div>
+    <div>
+     <p>I agree with the chosen answer to use <code>DecimalFormat</code> --- or alternatively <code>BigDecimal</code>.</p>
+     <p>Please read <strong>Update</strong> below first!</p>
+     <p><s>However if you <em>do</em> want to round the double value and get a <code>double</code> value result, you can use <code>org.apache.commons.math3.util.Precision.round(..)</code> as mentioned above. The implementation uses <code>BigDecimal</code>, is slow and creates garbage.</s></p><s> </s>
+     <p><s>A similar but fast and garbage-free method is provided by the <code>DoubleRounder</code> utility in the decimal4j library:</s></p>
+     <pre><code> double a = DoubleRounder.round(2.0/3.0, 3);
+ double b = DoubleRounder.round(2.0/3.0, 3, RoundingMode.DOWN);
+ double c = DoubleRounder.round(1000.0d, 17);
+ double d = DoubleRounder.round(90080070060.1d, 9);
+ System.out.println(a);
+ System.out.println(b);
+ System.out.println(c);
+ System.out.println(d);
+</code></pre>
+     <p>Will output</p>
+     <pre><code> 0.667
+ 0.666
+ 1000.0
+ 9.00800700601E10
+</code></pre>
+     <p>See <a href="https://github.com/tools4j/decimal4j/wiki/DoubleRounder-Utility" rel="nofollow noreferrer">https://github.com/tools4j/decimal4j/wiki/DoubleRounder-Utility</a></p>
+     <p><em>Disclosure:</em> I am involved in the decimal4j project.</p>
+     <p><strong>Update:</strong> As @iaforek pointed out DoubleRounder sometimes returns counterintuitive results. The reason is that it performs mathematically correct rounding. For instance <code>DoubleRounder.round(256.025d, 2)</code> will be rounded down to 256.02 because the double value represented as 256.025d is somewhat smaller than the rational value 256.025 and hence will be rounded down.</p>
+     <p><strong>Notes:</strong></p>
+     <ul>
+      <li>This behaviour is very similar to that of the <code>BigDecimal(double)</code> constructor (but not to <code>valueOf(double)</code> which uses the string constructor).</li>
+      <li>The problem can be circumvented with a double rounding step to a higher precision first, but it is complicated and I am not going into the details here</li>
+     </ul>
+     <p>For those reasons and everything mentioned above in this post I <strong>cannot recommend to use DoubleRounder</strong>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Do you have metrics showing how efficient is your solution compared to the other ones?</span> <span> - </span> <span class="display-name">iaforek</span> <span> </span> <span class="date">19 May 2017 at 14:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I haven't compared it with other solutions but there is a jmh benchmark available in the source code: <a href="https://github.com/tools4j/decimal4j/blob/master/src/jmh/java/org/decimal4j/jmh/DoubleRounderBenchmark.java" rel="nofollow noreferrer">github.com/tools4j/decimal4j/blob/master/src/jmh/java/org/…</a> I did run the benchmark on a VM, the results are available as csv file here: <a href="https://github.com/tools4j/decimal4j/wiki/Performance" rel="nofollow noreferrer">github.com/tools4j/decimal4j/wiki/Performance</a></span> <span> - </span> <span class="display-name">marco</span> <span> </span> <span class="date">19 May 2017 at 22:23</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>DoubleRounder fails for following cases: DoubleRounder.round(256.025d, 2) - expected: 256.03, actual: 256.02 or for DoubleRounder.round(260.775d, 2) - expected: 260.78, actual: 260.77.</span> <span> - </span> <span class="display-name">iaforek</span> <span> </span> <span class="date">1 Jun 2017 at 22:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@iaforek: this is correct, because DoubleRounder performs mathematically correct rounding. However I admit that this is somewhat counterintuitive and will hence update my answer accordingly.</span> <span> - </span> <span class="display-name">marco</span> <span> </span> <span class="date">11 Jun 2017 at 23:45</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>ashr</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Mar 2016 at 11:43</span>
+     </div>
+    </div>
+    <div>
+     <p>Just in case someone still needs help with this. This solution works perfectly for me.</p>
+     <pre><code>private String withNoTrailingZeros(final double value, final int nrOfDecimals) {
+return new BigDecimal(String.valueOf(value)).setScale(nrOfDecimals,  BigDecimal.ROUND_HALF_UP).stripTrailingZeros().toPlainString();
+
+}
+</code></pre>
+     <p>returns a <code> String </code> with the desired output.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Please include your reason for downvoting in the comment, otherwise that's what we call intimidation.</span> <span> - </span> <span class="display-name">ashr</span> <span> </span> <span class="date">30 Jul 2019 at 18:08</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span> <span class="arrow"> <a href="#answer_22">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Suragch</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Feb 2017 at 14:42</span>
+     </div>
+    </div>
+    <div>
+     <p>I came here just wanting a simple answer on how to round a number. This is a supplemental answer to provide that.</p>
+     <h1>How to round a number in Java</h1>
+     <p>The most common case is to use <code>Math.round()</code>.</p>
+     <pre><code>Math.round(3.7) // 4
+</code></pre>
+     <p>Numbers are rounded to the nearest whole number. A <code>.5</code> value is rounded up. If you need different rounding behavior than that, you can use one of the other <a href="http://docs.oracle.com/javase/6/docs/api/java/lang/Math.html" rel="noreferrer">Math</a> functions. See the comparison below.</p>
+     <h1><a href="http://docs.oracle.com/javase/6/docs/api/java/lang/Math.html#round(float)" rel="noreferrer">round</a></h1>
+     <p>As stated above, this rounds to the nearest whole number. <code>.5</code> decimals round up. This method returns an <code>int</code>.</p>
+     <pre><code>Math.round(3.0); // 3
+Math.round(3.1); // 3
+Math.round(3.5); // 4
+Math.round(3.9); // 4
+
+Math.round(-3.0); // -3
+Math.round(-3.1); // -3
+Math.round(-3.5); // -3 *** careful here ***
+Math.round(-3.9); // -4
+</code></pre>
+     <h1><a href="http://docs.oracle.com/javase/6/docs/api/java/lang/Math.html#ceil(double)" rel="noreferrer">ceil</a></h1>
+     <p>Any decimal value is rounded up to the next integer. It goes to the <strong>ceil</strong>ing. This method returns a <code>double</code>.</p>
+     <pre><code>Math.ceil(3.0); // 3.0
+Math.ceil(3.1); // 4.0
+Math.ceil(3.5); // 4.0
+Math.ceil(3.9); // 4.0
+
+Math.ceil(-3.0); // -3.0
+Math.ceil(-3.1); // -3.0
+Math.ceil(-3.5); // -3.0
+Math.ceil(-3.9); // -3.0
+</code></pre>
+     <h1><a href="http://docs.oracle.com/javase/6/docs/api/java/lang/Math.html#floor(double)" rel="noreferrer">floor</a></h1>
+     <p>Any decimal value is rounded down to the next integer. This method returns a <code>double</code>.</p>
+     <pre><code>Math.floor(3.0); // 3.0
+Math.floor(3.1); // 3.0
+Math.floor(3.5); // 3.0
+Math.floor(3.9); // 3.0
+
+Math.floor(-3.0); // -3.0
+Math.floor(-3.1); // -4.0
+Math.floor(-3.5); // -4.0
+Math.floor(-3.9); // -4.0
+</code></pre>
+     <h1><a href="http://docs.oracle.com/javase/6/docs/api/java/lang/Math.html#rint(double)" rel="noreferrer">rint</a></h1>
+     <p>This is similar to round in that decimal values round to the closest integer. However, unlike <code>round</code>, <code>.5</code> values round to the even integer. This method returns a <code>double</code>.</p>
+     <pre><code>Math.rint(3.0); // 3.0
+Math.rint(3.1); // 3.0
+Math.rint(3.5); // 4.0 ***
+Math.rint(3.9); // 4.0
+Math.rint(4.5); // 4.0 ***
+Math.rint(5.5); // 6.0 ***
+
+Math.rint(-3.0); // -3.0
+Math.rint(-3.1); // -3.0
+Math.rint(-3.5); // -4.0 ***
+Math.rint(-3.9); // -4.0
+Math.rint(-4.5); // -4.0 ***
+Math.rint(-5.5); // -6.0 ***
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>you are only solving the particular case of rounding to 0 decimals. The original question is more generic.</span> <span> - </span> <span class="display-name">lukas84</span> <span> </span> <span class="date">5 Mar 2019 at 10:18</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_22"><span>Answer 22</span> <span class="arrow"> <a href="#answer_21">↑</a> </span> <span class="arrow"> <a href="#answer_23">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alain Cruz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Oct 2019 at 20:07</span>
+     </div>
+    </div>
+    <div>
+     <p>So after reading most of the answers, I realized most of them won't be precise, in fact using <code>BigDecimal</code> seems like the best choice, but if you don't understand how the <code>RoundingMode</code> works, you will inevitable lose precision. I figured this out when working with big numbers in a project and thought it could help others having trouble rounding numbers. For example.</p>
+     <pre><code>BigDecimal bd = new BigDecimal("1363.2749");
+bd = bd.setScale(2, RoundingMode.HALF_UP);
+System.out.println(bd.doubleValue());
+</code></pre>
+     <p>You would expect to get <code>1363.28</code> as an output, but you will end up with <code>1363.27</code>, which is not expected, if you don't know what the <code>RoundingMode</code> is doing. So looking into the <a href="https://docs.oracle.com/javase/7/docs/api/java/math/RoundingMode.html" rel="noreferrer">Oracle Docs</a>, you will find the following description for <code>RoundingMode.HALF_UP</code>.</p>
+     <blockquote>
+      <p>Rounding mode to round towards "nearest neighbor" unless both neighbors are equidistant, in which case round up.</p>
+     </blockquote>
+     <p>So knowing this, we realized that we won't be getting an exact rounding, unless we want to round towards <em>nearest neighbor</em>. So, to accomplish an adequate round, we would need to loop from the <code>n-1</code> decimal towards the desired decimals digits. For example.</p>
+     <pre><code>private double round(double value, int places) throws IllegalArgumentException {
+
+    if (places &lt; 0) throw new IllegalArgumentException();
+
+    // Cast the number to a String and then separate the decimals.
+    String stringValue = Double.toString(value);
+    String decimals = stringValue.split("\\.")[1];
+
+    // Round all the way to the desired number.
+    BigDecimal bd = new BigDecimal(stringValue);
+    for (int i = decimals.length()-1; i &gt;= places; i--) {
+        bd = bd.setScale(i, RoundingMode.HALF_UP);
+    }
+
+    return bd.doubleValue();
+}
+</code></pre>
+     <p>This will end up giving us the expected output, which would be <code>1363.28</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_23"><span>Answer 23</span> <span class="arrow"> <a href="#answer_22">↑</a> </span> <span class="arrow"> <a href="#answer_24">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Drew Noakes</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Jun 2015 at 11:54</span>
+     </div>
+    </div>
+    <div>
+     <p>If you're using <code>DecimalFormat</code> to convert <code>double</code> to <code>String</code>, it's very straightforward:</p>
+     <pre><code>DecimalFormat formatter = new DecimalFormat("0.0##");
+formatter.setRoundingMode(RoundingMode.HALF_UP);
+
+double num = 1.234567;
+return formatter.format(num);
+</code></pre>
+     <p>There are several <code>RoundingMode</code> enum values to select from, depending upon the behaviour you require.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_24"><span>Answer 24</span> <span class="arrow"> <a href="#answer_23">↑</a> </span> <span class="arrow"> <a href="#answer_25">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Craigo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Jan 2018 at 07:10</span>
+     </div>
+    </div>
+    <div>
+     <p>If you're using a technology that has a minimal JDK. Here's a way without any Java libs:</p>
+     <pre><code>double scale = 100000;    
+double myVal = 0.912385;
+double rounded = (int)((myVal * scale) + 0.5d) / scale;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This would fail in cases where the myVal is not less that 1 and with zeros after decimal beyond scale value. Say you have myVal = 9.00000000912385; The above will return 9.0. I think we should provide a solution that works in all cases of myVal. Not specifically for the value you stated.</span> <span> - </span> <span class="display-name">tavalendo</span> <span> </span> <span class="date">21 Jun 2019 at 20:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@user102859 In your example, 9.0 is the correct result. I don't understand how this would fail.</span> <span> - </span> <span class="display-name">Craigo</span> <span> </span> <span class="date">26 Jun 2019 at 16:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>For <code>1.45</code> and scale of <code>1</code> (no decimal places) it rounds down, even if I'd expect <code>2</code></span> <span> - </span> <span class="display-name">PAX</span> <span> </span> <span class="date">26 Jul 2022 at 09:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@PAX Why would you expect 2? 1.45 rounded to no decimal places is 1, not 2.</span> <span> - </span> <span class="display-name">Craigo</span> <span> </span> <span class="date">27 Jul 2022 at 10:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Craigo I take all decimal places into account, starting at the most right-hand side. At 5 and greater I round up the next digit to the left. On the most right-hand side there's a 5. So, I increment 4 and it becomes 5. 5, in turn, means incrementing, again. So, 1 becomes 2.</span> <span> - </span> <span class="display-name">PAX</span> <span> </span> <span class="date">28 Jul 2022 at 15:01</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Craigo I just performed a research: obviously, I learnt it wrong in the elementary school. I found one source which explains rounding like I always did, and many many other sources that explain it like you do. You are right!</span> <span> - </span> <span class="display-name">PAX</span> <span> </span> <span class="date">28 Jul 2022 at 16:14</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_25"><span>Answer 25</span> <span class="arrow"> <a href="#answer_24">↑</a> </span> <span class="arrow"> <a href="#answer_26">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Amr Ali</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Feb 2018 at 10:37</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is a better function that rounds edge cases like <code>1.005</code> correctly.</p>
+     <p>Simply, we add the smallest possible float value (= 1 ulp; unit in the last place) to the number before rounding. This moves to the next representable value after the number, away from zero.</p>
+     <p>This is a little program to test it: <a href="https://ideone.com/TnTOic" rel="nofollow noreferrer">ideone.com</a></p>
+     <pre><code>/**
+ * Round half away from zero ('commercial' rounding)
+ * Uses correction to offset floating-point inaccuracies.
+ * Works symmetrically for positive and negative numbers.
+ */
+public static double round(double num, int digits) {
+
+    // epsilon correction
+    double n = Double.longBitsToDouble(Double.doubleToLongBits(num) + 1);
+    double p = Math.pow(10, digits);
+    return Math.round(n * p) / p;
+}
+
+// test rounding of half
+System.out.println(round(0.5, 0));   // 1
+System.out.println(round(-0.5, 0));  // -1
+
+// testing edge cases
+System.out.println(round(1.005, 2));   // 1.01
+System.out.println(round(2.175, 2));   // 2.18
+System.out.println(round(5.015, 2));   // 5.02
+
+System.out.println(round(-1.005, 2));  // -1.01
+System.out.println(round(-2.175, 2));  // -2.18
+System.out.println(round(-5.015, 2));  // -5.02
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>If I want to round <code>12.45</code> with no digits, I'd expect <code>13</code>, but it rounds down to <code>12</code></span> <span> - </span> <span class="display-name">PAX</span> <span> </span> <span class="date">26 Jul 2022 at 10:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_26"><span>Answer 26</span> <span class="arrow"> <a href="#answer_25">↑</a> </span> <span class="arrow"> <a href="#answer_27">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Md. Jamal Uddin</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Aug 2019 at 03:29</span>
+     </div>
+    </div>
+    <div>
+     <p>here is my answer:</p>
+     <pre><code>double num = 4.898979485566356;
+DecimalFormat df = new DecimalFormat("#.##");      
+time = Double.valueOf(df.format(num));
+
+System.out.println(num); // 4.89
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_27"><span>Answer 27</span> <span class="arrow"> <a href="#answer_26">↑</a> </span> <span class="arrow"> <a href="#answer_28">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jasdeep Singh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>8 Sep 2011 at 11:09</span>
+     </div>
+    </div>
+    <div>
+     <p>The code snippet below shows how to display n digits. The trick is to set variable pp to 1 followed by n zeros. In the example below, variable pp value has 5 zeros, so 5 digits will be displayed.</p>
+     <pre><code>double pp = 10000;
+
+double myVal = 22.268699999999967;
+String needVal = "22.2687";
+
+double i = (5.0/pp);
+
+String format = "%10.4f";
+String getVal = String.format(format,(Math.round((myVal +i)*pp)/pp)-i).trim();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_28"><span>Answer 28</span> <span class="arrow"> <a href="#answer_27">↑</a> </span> <span class="arrow"> <a href="#answer_29">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Se Song</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Nov 2016 at 09:06</span>
+     </div>
+    </div>
+    <div>
+     <p>DecimalFormat is the best ways to output, but I don't prefer it. I always do this all the time, because it return the double value. So I can use it more than just output.</p>
+     <pre><code>Math.round(selfEvaluate*100000d.0)/100000d.0;
+</code></pre>
+     <p>OR</p>
+     <pre><code>Math.round(selfEvaluate*100000d.0)*0.00000d1;
+</code></pre>
+     <p>If you need large decimal places value, you can use BigDecimal instead. Anyways <code>.0</code> is important. Without it the rounding of 0.33333d5 return 0.33333 and only 9 digits are allows. The second function without <code>.0</code> has problems with 0.30000 return 0.30000000000000004.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_29"><span>Answer 29</span> <span class="arrow"> <a href="#answer_28">↑</a> </span> <span class="arrow"> <a href="#answer_30">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Enamul Haque</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 May 2020 at 04:49</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>I have used bellow like in java 8. it is working for me</strong></p>
+     <pre><code>    double amount = 1000.431;        
+    NumberFormat formatter = new DecimalFormat("##.00");
+    String output = formatter.format(amount);
+    System.out.println("output = " + output);
+</code></pre>
+     <p><strong>Output:</strong></p>
+     <pre><code>output = 1000.43
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_30"><span>Answer 30</span> <span class="arrow"> <a href="#answer_29">↑</a> </span> <span class="arrow"> <a href="#answer_31">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Dmitry Fisenko</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>24 Jun 2020 at 13:01</span>
+     </div>
+    </div>
+    <div>
+     <p>the following method could be used if need <code>double</code></p>
+     <pre class="lang-java prettyprint-override"><code>double getRandom(int decimalPoints) {
+    double a = Math.random();
+    int multiplier = (int) Math.pow(10, decimalPoints);
+    int b = (int) (a * multiplier);
+    return b / (double) multiplier;
+}
+</code></pre>
+     <p>for example <code>getRandom(2)</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_31"><span>Answer 31</span> <span class="arrow"> <a href="#answer_30">↑</a> </span> <span class="arrow"> <a href="#answer_32">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Niraj</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Aug 2020 at 01:04</span>
+     </div>
+    </div>
+    <div>
+     <ol>
+      <li>In order to have trailing 0s up to 5th position</li>
+     </ol>
+     <blockquote>
+      <pre><code>DecimalFormat decimalFormatter = new DecimalFormat("#.00000");
+decimalFormatter.format(0.350500); // result 0.350500
+</code></pre>
+     </blockquote>
+     <ol start="2">
+      <li>In order to avoid trailing 0s up to 5th position</li>
+     </ol>
+     <blockquote>
+      <pre><code>DecimalFormat decimalFormatter= new DecimalFormat("#.#####");
+decimalFormatter.format(0.350500); // result o.3505
+</code></pre>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_32"><span>Answer 32</span> <span class="arrow"> <a href="#answer_31">↑</a> </span> <span class="arrow"> <a href="#answer_33">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Milan Paudyal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>19 Jan 2021 at 06:53</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>public static double formatDecimal(double amount) {
+    BigDecimal amt = new BigDecimal(amount);
+    amt = amt.divide(new BigDecimal(1), 2, BigDecimal.ROUND_HALF_EVEN);
+    return amt.doubleValue();
+}
+</code></pre>
+     <p>Test using Junit</p>
+     <pre><code>@RunWith(Parameterized.class)
+public class DecimalValueParameterizedTest {
+
+  @Parameterized.Parameter
+  public double amount;
+
+  @Parameterized.Parameter(1)
+  public double expectedValue;
+
+@Parameterized.Parameters
+public static List&lt;Object[]&gt; dataSets() {
+    return Arrays.asList(new Object[][]{
+            {1000.0, 1000.0},
+            {1000, 1000.0},
+            {1000.00000, 1000.0},
+            {1000.01, 1000.01},
+            {1000.1, 1000.10},
+            {1000.001, 1000.0},
+            {1000.005, 1000.0},
+            {1000.007, 1000.01},
+            {1000.999, 1001.0},
+            {1000.111, 1000.11}
+    });
+}
+
+@Test
+public void testDecimalFormat() {
+    Assert.assertEquals(expectedValue, formatDecimal(amount), 0.00);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_33"><span>Answer 33</span> <span class="arrow"> <a href="#answer_32">↑</a> </span> <span class="arrow"> <a href="#answer_34">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nur Alam</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Sep 2021 at 15:56</span>
+     </div>
+    </div>
+    <div>
+     <p>Very simple method</p>
+     <pre><code>public static double round(double value, int places) {
+    if (places &lt; 0) throw new IllegalArgumentException();
+
+    DecimalFormat deciFormat = new DecimalFormat();
+    deciFormat.setMaximumFractionDigits(places);
+    String newValue = deciFormat.format(value);
+
+    return Double.parseDouble(newValue);
+
+}
+
+double a = round(12.36545, 2);
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is a very <i>bad</i> method. A string isn't a double</span> <span> - </span> <span class="display-name">Panagiotis Kanavos</span> <span> </span> <span class="date">29 Nov 2021 at 15:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_34"><span>Answer 34</span> <span class="arrow"> <a href="#answer_33">↑</a> </span> <span class="arrow"> <a href="#answer_35">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>aim</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Apr 2014 at 23:51</span>
+     </div>
+    </div>
+    <div>
+     <p>Where <em>dp</em> = decimal place you want, and <em>value</em> is a double.</p>
+     <pre><code>    double p = Math.pow(10d, dp);
+
+    double result = Math.round(value * p)/p;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Produces <code>1.0</code> for <code>value = 1.005</code> and <code>dp = 2</code>. Use <a href="https://stackoverflow.com/questions/153724/how-to-round-a-number-to-n-decimal-places-in-java#answer-4826827">this</a> instead.</span> <span> - </span> <span class="display-name">Matthias Braun</span> <span> </span> <span class="date">19 May 2014 at 14:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>it is ok Matt, your example is not valid. because 1.005 can not be represented in floating point double anyway. it has to stored really above or below 1.005 i.e. it is stored as double when you compile: 1.0049998 (it is not stored as decimal in your compiled code as you would have the readers believe) aim is correct, he is storing values as floating point double, where fringe cases like yours is insignificant anyway. if it was, then you would be using 3dp then converting it to decimal, then doing a decimal round function, just like the link you posted.</span> <span> - </span> <span class="display-name">hamish</span> <span> </span> <span class="date">13 Jul 2014 at 08:15</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@hamish I don't see where Matthias 'would have the readers believe' any such thing as that the value is compiled as decimal. Don't put words into other people's mouths.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">28 Jun 2015 at 13:02</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_35"><span>Answer 35</span> <span class="arrow"> <a href="#answer_34">↑</a> </span> <span class="arrow"> <a href="#answer_36">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>pwojnowski</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Nov 2016 at 22:24</span>
+     </div>
+    </div>
+    <div>
+     <p>Keep in mind that String.format() and DecimalFormat produce string using default Locale. So they may write formatted number with dot or comma as a separator between integer and decimal parts. To make sure that rounded String is in the format you want use java.text.NumberFormat as so:</p>
+     <pre><code>  Locale locale = Locale.ENGLISH;
+  NumberFormat nf = NumberFormat.getNumberInstance(locale);
+  // for trailing zeros:
+  nf.setMinimumFractionDigits(2);
+  // round to 2 digits:
+  nf.setMaximumFractionDigits(2);
+
+  System.out.println(nf.format(.99));
+  System.out.println(nf.format(123.567));
+  System.out.println(nf.format(123.0));
+</code></pre>
+     <p>Will print in English locale (no matter what your locale is): 0.99 123.57 123.00</p>
+     <p>The example is taken from Farenda - <a href="http://farenda.com/java/java-format-double-2-decimal-places/" rel="nofollow noreferrer">how to convert double to String correctly</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_36"><span>Answer 36</span> <span class="arrow"> <a href="#answer_35">↑</a> </span> <span class="arrow"> <a href="#answer_37">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Harisudha</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Oct 2020 at 10:24</span>
+     </div>
+    </div>
+    <div>
+     <p>A simple way to compare if it is limited number of decimal places. Instead of DecimalFormat, Math or BigDecimal, we can use Casting!</p>
+     <p>Here is the sample,</p>
+     <pre><code>public static boolean threeDecimalPlaces(double value1, double value2){
+    boolean isEqual = false;
+    // value1 = 3.1756 
+    // value2 = 3.17
+    //(int) (value1 * 1000) = 3175
+    //(int) (value2 * 1000) = 3170
+
+    if ((int) (value1 * 1000) == (int) (value2 * 1000)){
+        areEqual = true;
+    }
+
+    return isEqual;
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_37"><span>Answer 37</span> <span class="arrow"> <a href="#answer_36">↑</a> </span> <span class="arrow"> <a href="#answer_38">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Salix alba</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Jul 2022 at 09:49</span>
+     </div>
+    </div>
+    <div>
+     <p>There is a problem with the <code>Math.round</code> solution when trying to round to a negative number of decimal places. Consider the code</p>
+     <pre><code>long l = 10;
+for(int dp = -1; dp &gt; -10; --dp) {
+    double mul = Math.pow(10,dp);
+    double res = Math.round(l * mul) / mul;
+    System.out.println(""+l+" rounded to "+dp+" dp = "+res);
+    l *=10;
+}
+</code></pre>
+     <p>this has the results</p>
+     <pre><code>10 rounded to -1 dp = 10.0
+100 rounded to -2 dp = 100.0
+1000 rounded to -3 dp = 1000.0
+10000 rounded to -4 dp = 10000.0
+100000 rounded to -5 dp = 99999.99999999999
+1000000 rounded to -6 dp = 1000000.0
+10000000 rounded to -7 dp = 1.0E7
+100000000 rounded to -8 dp = 1.0E8
+1000000000 rounded to -9 dp = 9.999999999999999E8
+</code></pre>
+     <p>The problem with -5 decimal places occur when dividing 1 by 1.0E-5 which is inexact.</p>
+     <p>This can be fixed using</p>
+     <pre><code>double mul = Math.pow(10,dp);
+double res;
+if(dp &lt; 0 ) {
+    double div = Math.pow(10,-dp);
+    res = Math.round(l * mul) *div;
+} else {
+    res = Math.round(l * mul) / mul;
+}
+</code></pre>
+     <p>But this is another reason to use the BigDecimal methods.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_38"><span>Answer 38</span> <span class="arrow"> <a href="#answer_37">↑</a> </span> <span class="arrow"> <a href="#answer_39">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jackson Meires</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>5 Sep 2022 at 12:38</span>
+     </div>
+    </div>
+    <div>
+     <p>This was the simplest way I found to display only two decimal places.</p>
+     <pre><code>double x = 123.123;
+System.out.printf( "%.2f", x );
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_39"><span>Answer 39</span> <span class="arrow"> <a href="#answer_38">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Qamar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Nov 2016 at 07:36</span>
+     </div>
+    </div>
+    <div>
+     <p>If you Consider 5 or n number of decimal. May be this answer solve your prob.</p>
+     <pre><code>    double a = 123.00449;
+    double roundOff1 = Math.round(a*10000)/10000.00;
+    double roundOff2 = Math.round(roundOff1*1000)/1000.00;
+    double roundOff = Math.round(roundOff2*100)/100.00;
+
+    System.out.println("result:"+roundOff);
+</code></pre>
+     <p><strong>Output will be:</strong> 123.0<strong>1</strong> <br>
+      this can be solve with loop and recursive function.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

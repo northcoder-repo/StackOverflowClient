@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf handle missing replacements</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf handle missing replacements</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Jaroslav</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>1 Mar 2021 at 12:15</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66421978/thymeleaf-handle-missing-replacements">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using Thymeleaf from Java application to generate my HTML emails. To replace the variables within the *.html template I am using following working syntax.</p>
+    <pre><code>&lt;p style="margin-top: 0px; ...;" th:inline="text"&gt;[(${myVariable})]&lt;/p&gt;
+</code></pre>
+    <p>The Java code example is following:</p>
+    <pre><code>String mailContent = "myTemplateLoadedFromResourcesElsewhere";
+// Context already filled with variables
+org.thymeleaf.context.Context ctx = EMailGenerator.getContext();
+String htmlMailResult = new SpringTemplateEngine().process(mailContent, ctx.getContext());
+</code></pre>
+    <p><strong>The problem</strong> is when some of the replacement is missing, there is just empty space.. I would like to either leave the name of variable (just not replaced at all), or throw some exception notifying me of missing information. Unfortunatelly I was not able to find similar options either in the Context or the org.thymeleaf.TemplateEngine</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Mar 2021 at 19:24</span>
+     </div>
+    </div>
+    <div>
+     <p>I think there are two very different questions here, so they should probably be asked as 2 separate SO questions.</p>
+     <p>Having said that:</p>
+     <hr>
+     <p><strong>1 Leaving the name of the variable</strong></p>
+     <p>Inside of a <code>[[...]]</code> or a <code>[(...)]</code> <em>inline expression</em>, you can use the same types of Thymeleaf expressions that you would use inside <code>th:text</code> or <code>th:utext</code>.</p>
+     <p>So, you can do the following:</p>
+     <pre><code>&lt;p style="margin-top: 0px; ...;"&gt;[(${myVariable} ?: 'myVariable is missing!')]&lt;/p&gt;
+</code></pre>
+     <p>The <code>?:</code> operator will use the value on the right hand side of the <code>?:</code>, if the value on the left-hand side is null.</p>
+     <p>Given you are generating HTML content, however, you don't have to use these inline expressions at all. You can do this, if you prefer:</p>
+     <pre><code>&lt;p style="margin-top: 0px; ...;" th:text="${myVariable} ?: 'myVariable is missing!'"&gt;&lt;/p&gt;
+</code></pre>
+     <p><strong>WARNING</strong>:</p>
+     <p>Never use <code>[(...)]</code> or <code>th:utext</code> if you will be handling user-provided (and therefore untrusted) inputs. Use <code>[[...]]</code> or <code>th:text</code> instead. This will ensure any HTML elements included in the inputs are safely encoded.</p>
+     <hr>
+     <p><strong>2 throw some exception notifying me of missing information</strong></p>
+     <p>That is a potentially much bigger question, and depends on information not provided in the question, such as how you need to be notified, and how any data errors errors should affect the overall processing of your e-mail (or many e-mails).</p>
+     <blockquote>
+      <p>Context already filled with variables</p>
+     </blockquote>
+     <p>Using a validator such as Hibernate Validator is one way in which the fields of a bean could be checked before data is loaded into the template context. But that assumes you have a bean containing the related data.</p>
+     <hr>
+     <p><strong>Update: Using Inline Text</strong></p>
+     <p>If you are using <code>th:inline="text"</code>, the above examples are still valid.</p>
+     <p>But there is also an additional syntax which you can use - where expressions are placed between and opening <code>[#</code> and a closing <code>/]</code>. This is equivalent to using the <code>th:block</code> element in standard HTML mode.</p>
+     <p>Example:</p>
+     <pre><code>&lt;div th:inline="text"&gt;
+    &lt;p&gt;
+        [# th:text="${myVariable} ?: 'myVariable is missing'" /]
+    &lt;/p&gt;
+&lt;/div&gt;
+</code></pre>
+     <p>In all these cases, however, you still need to be aware of escaped HTML vs. unescaped HTML, since this is all still taking place within the overall context of HTML processing, in your code.</p>
+     <p>There is more information about this additional syntax <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#textual-syntax" rel="nofollow noreferrer">here</a>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>thanks for the hints! I have updated my question with a detail I forgot - th:inline="text" parameter. I don't know if that would somehow affect the safety, etc.. But I will certainly use the [[]] brackets. Regarding the missing text validation - I am loading the strings from ResourceBundle with forEach loop based on key prefix, so I would like it to "fail" during QA if the string is missing &gt;&gt; either see the "missingResource" keyword, or do fullText search of the result and throw someting.. Thanks again!</span> <span> - </span> <span class="display-name">Jaroslav</span> <span> </span> <span class="date">3 Mar 2021 at 15:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you. If you are using <code>inline=text</code> then there is an alternative syntax which may be useful. I added some notes about that. I can't really give you any guidance on your QA requirements - but your ideas make good sense to me.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">3 Mar 2021 at 17:34</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

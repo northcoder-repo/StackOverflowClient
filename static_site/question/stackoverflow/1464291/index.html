@@ -1,0 +1,907 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to read text file from classpath in Java?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to read text file from classpath in Java?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>411</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Chaitanya MSV</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Sep 2009 at 06:38</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/1464291/how-to-read-text-file-from-classpath-in-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to read a text file which is set in CLASSPATH system variable. Not a user variable.</p>
+    <p>I am trying to get input stream to the file as below:</p>
+    <p>Place the directory of file (<code>D:\myDir</code>) in CLASSPATH and try below:</p>
+    <pre class="lang-java prettyprint-override"><code>InputStream in = this.getClass().getClassLoader().getResourceAsStream("SomeTextFile.txt");
+InputStream in = this.getClass().getClassLoader().getResourceAsStream("/SomeTextFile.txt");
+InputStream in = this.getClass().getClassLoader().getResourceAsStream("//SomeTextFile.txt");
+</code></pre>
+    <p>Place full path of file (<code>D:\myDir\SomeTextFile.txt</code>) in CLASSPATH and try the same above 3 lines of code.</p>
+    <p>But unfortunately NONE of them are working and I am always getting <code>null</code> into my InputStream <code>in</code>.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">file-io</span><span class="tag">resources</span><span class="tag">classpath</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>666</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Jon Skeet</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Sep 2009 at 07:03</span>
+     </div>
+    </div>
+    <div>
+     <p>With the directory on the classpath, from a class loaded by the same classloader, you should be able to use either of:</p>
+     <pre><code>// From ClassLoader, all paths are "absolute" already - there's no context
+// from which they could be relative. Therefore you don't need a leading slash.
+InputStream in = this.getClass().getClassLoader()
+                                .getResourceAsStream("SomeTextFile.txt");
+// From Class, the path is relative to the package of the class unless
+// you include a leading slash, so if you don't want to use the current
+// package, include a slash like this:
+InputStream in = this.getClass().getResourceAsStream("/SomeTextFile.txt");
+</code></pre>
+     <p>If those aren't working, that suggests something else is wrong.</p>
+     <p>So for example, take this code:</p>
+     <pre><code>package dummy;
+
+import java.io.*;
+
+public class Test
+{
+    public static void main(String[] args)
+    {
+        InputStream stream = Test.class.getResourceAsStream("/SomeTextFile.txt");
+        System.out.println(stream != null);
+        stream = Test.class.getClassLoader().getResourceAsStream("SomeTextFile.txt");
+        System.out.println(stream != null);
+    }
+}
+</code></pre>
+     <p>And this directory structure:</p>
+     <pre><code>code
+    dummy
+          Test.class
+txt
+    SomeTextFile.txt
+</code></pre>
+     <p>And then (using the Unix path separator as I'm on a Linux box):</p>
+     <pre><code>java -classpath code:txt dummy.Test
+</code></pre>
+     <p>Results:</p>
+     <pre><code>true
+true
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>You mixed relative and absolute paths up. A path that starts with "/" is absolute (i.e. starts from whatever is listed in CLASSPATH). All other paths are relative to the package of the class on which you call <code>getResourceAsStream()</code></span> <span> - </span> <span class="display-name">Aaron Digulla</span> <span> </span> <span class="date">23 Sep 2009 at 07:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I've fixed your examples and added another one to show how a relative path works.</span> <span> - </span> <span class="display-name">Aaron Digulla</span> <span> </span> <span class="date">23 Sep 2009 at 07:38</span></td>
+       </tr>
+       <tr>
+        <td>22</td>
+        <td><span>No, you <i>broke</i> my example. I'll edit the comments to make them clearer, but the point is that using ClassLoader all paths are assumed to be absolute already. There's nothing for them to be relative to.</span> <span> - </span> <span class="display-name">Jon Skeet</span> <span> </span> <span class="date">23 Sep 2009 at 07:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thanks Jon! I spent a while looking for this, also. The only other piece of information I needed was that DocumentBuilder parse method takes "File" and "InputStream" objects both.</span> <span> - </span> <span class="display-name">john_science</span> <span> </span> <span class="date">4 Jul 2012 at 03:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>More than 3 years, and this is still the most useful post about the topic!!! Thanks Jon!!</span> <span> - </span> <span class="display-name">mdm</span> <span> </span> <span class="date">14 Dec 2012 at 10:52</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>Also do not use Java.IO.File.Separator. It wont work on windows. If you are running this code on windows it still has to be '/' and not '\'</span> <span> - </span> <span class="display-name">Pradhan</span> <span> </span> <span class="date">14 Jun 2013 at 17:56</span></td>
+       </tr>
+       <tr>
+        <td>36</td>
+        <td><span>@Pradhan: No, you shouldn't be using <code>File.Separator</code> - because you're not asking for a <i>file</i>, you're asking for a <i>resource</i>. It's important to understand that the abstraction involved isn't the file system.</span> <span> - </span> <span class="display-name">Jon Skeet</span> <span> </span> <span class="date">14 Jun 2013 at 17:59</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>also the thread context classloader? <a href="http://stackoverflow.com/questions/1771679/difference-between-threads-context-class-loader-and-normal-classloader" title="difference between threads context class loader and normal classloader">stackoverflow.com/questions/1771679/…</a></span> <span> - </span> <span class="display-name">Kalpesh Soni</span> <span> </span> <span class="date">26 Aug 2013 at 15:09</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@jagdpanzer: Well it's only for classes which are loaded by the same classloader, basically - and it's because <code>Class.getResourceAsStream</code> is really a convenience method for calling <code>ClassLoader.getResourceAsStream</code>, but with the additional feature of "relative" resources. If you're specifying an absolute resource, then any call using the same classloader will do the same thing.</span> <span> - </span> <span class="display-name">Jon Skeet</span> <span> </span> <span class="date">5 Nov 2015 at 18:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@qwebek: "Didn't work" doesn't really tell us anything about <i>exactly</i> what you tried or what went wrong. This answer definitely <i>does</i> work, but you do need to follow the instructions precisely.</span> <span> - </span> <span class="display-name">Jon Skeet</span> <span> </span> <span class="date">4 Mar 2016 at 18:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Can you please add to your post an exception safe code?</span> <span> - </span> <span class="display-name">Stephan</span> <span> </span> <span class="date">21 Apr 2016 at 15:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Stephan: That warning isn't really needed for this code - I don't think it would ever throw.</span> <span> - </span> <span class="display-name">Jon Skeet</span> <span> </span> <span class="date">21 Apr 2016 at 15:37</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The main difference is that when using the getResourceAsStream on a ClassLoader instance, the path is treated as absolute starting from the root of the classpath. When used against a Class instance, the path could be relative to the package, or an absolute path, which is hinted by the leading slash.</span> <span> - </span> <span class="display-name">mkebri</span> <span> </span> <span class="date">19 Oct 2018 at 08:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Hi Jon, could you elaborate a bit on <code>from a class loaded by the same classloader</code>? Does that refer to whichever class that called <code>getResourceAsStream</code>? Thanks</span> <span> - </span> <span class="display-name">Weishi Z</span> <span> </span> <span class="date">29 Nov 2018 at 05:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@WeishiZeng: Not necessarily. I mean "the same classloader that is used to load classes from the classpath, or wherever you're trying to load resources from" - it's hard to be more precise than that, as the context can vary so much.</span> <span> - </span> <span class="display-name">Jon Skeet</span> <span> </span> <span class="date">29 Nov 2018 at 06:22</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>How is "SomeTextFile.txt" an absolute path?</span> <span> - </span> <span class="display-name">Philip Rego</span> <span> </span> <span class="date">13 Feb 2019 at 14:01</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@PhilipRego: It's absolute in that when passed to a classloader, it's unambiguous. The classloader effectively provides the context. It's "relative to the root of the resources served by the classloader" if you want to think of it like that.</span> <span> - </span> <span class="display-name">Jon Skeet</span> <span> </span> <span class="date">13 Feb 2019 at 14:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>132</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>yawn</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Sep 2009 at 07:50</span>
+     </div>
+    </div>
+    <div>
+     <p>When using the <a href="http://www.springsource.org/" rel="noreferrer">Spring</a> Framework (either as a collection of utilities <strong>or</strong> container - you do not need to use the latter functionality) you can easily use the <em>Resource</em> abstraction.</p>
+     <pre><code>Resource resource = new ClassPathResource("com/example/Foo.class");
+</code></pre>
+     <p>Through the <em>Resource</em> interface you can access the resource as <em>InputStream</em>, <em>URL</em>, <em>URI</em> or <em>File</em>. Changing the resource type to e.g. a file system resource is a simple matter of changing the instance.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>7</td>
+        <td><span>Could you please provide a sample code on how this can be used in file I/O? I can't find a <i>decent</i>, <i>explicit</i> and <i>straightforward</i> way on how to use it in the Internet :((((</span> <span> - </span> <span class="display-name">user1685185</span> <span> </span> <span class="date">11 Feb 2014 at 16:00</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Works like a charm. The provided one liner is all you need. Use the stream parsing from other examples if you don't know how to get a string from the stream.</span> <span> - </span> <span class="display-name">Joseph Lust</span> <span> </span> <span class="date">16 Feb 2014 at 18:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I had a bit of trouble figuring out exactly what to do with the resource variable as well. I've edited the answer with a bit more detail</span> <span> - </span> <span class="display-name">DavidZemon</span> <span> </span> <span class="date">2 Dec 2014 at 14:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I was already using Spring and trying the "pure java" way. It was killing me, the differences between getResource, getResourceAsStream, etc, with no good working examples. This is a perfect example of encapsulation, so I don't have to care.</span> <span> - </span> <span class="display-name">TinkerTenorSoftwareGuy</span> <span> </span> <span class="date">19 Jan 2017 at 16:08</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>Be careful, if you package your project into a jar you should use an InputStream. If you use a File it work in your IDE but will fail if you test it from the jar. If you really need a File try with <a href="https://stackoverflow.com/questions/4317035/how-to-convert-inputstream-to-virtual-file" title="how to convert inputstream to virtual file">stackoverflow.com/questions/4317035/…</a></span> <span> - </span> <span class="display-name">Rafael Membrives</span> <span> </span> <span class="date">30 Aug 2017 at 07:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>String data = StreamUtils.copyToString(new ClassPathResource("data.txt").getInputStream(), Charset.defaultCharset());</code></span> <span> - </span> <span class="display-name">conspicillatus</span> <span> </span> <span class="date">6 May 2021 at 14:08</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>72</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Peter Perháč</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Jul 2014 at 13:57</span>
+     </div>
+    </div>
+    <div>
+     <p>This is how I read all lines of a text file on my classpath, using Java 7 NIO:</p>
+     <pre><code>...
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+...
+
+Files.readAllLines(
+    Paths.get(this.getClass().getResource("res.txt").toURI()), Charset.defaultCharset());
+</code></pre>
+     <p>NB this is an example of how it can be done. You'll have to make improvements as necessary. This example will only work if the file is actually present on your classpath, otherwise a NullPointerException will be thrown when getResource() returns null and .toURI() is invoked on it.</p>
+     <p>Also, since Java 7, one convenient way of specifying character sets is to use the constants defined in <code>java.nio.charset.StandardCharsets</code> (these are, according to their <a href="https://docs.oracle.com/javase/7/docs/api/java/nio/charset/StandardCharsets.html">javadocs</a>, "guaranteed to be available on every implementation of the Java platform.").</p>
+     <p>Hence, if you know the encoding of the file to be UTF-8, then specify explicitly the charset <code>StandardCharsets.UTF_8</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Thank you for the NIO solution - so few people use this great API it is a shame.</span> <span> - </span> <span class="display-name">mvreijn</span> <span> </span> <span class="date">14 Apr 2015 at 18:50</span></td>
+       </tr>
+       <tr>
+        <td>7</td>
+        <td><span>To read into a single String try. new String(Files.readAllBytes(Paths.get(MyClass.class.getResourc‌​e(resource).toURI())‌​));</span> <span> - </span> <span class="display-name">Theo Briscoe</span> <span> </span> <span class="date">23 Jul 2016 at 12:03</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Best solution for me, as it doesn't need any dependencies, like Spring or Commons IO.</span> <span> - </span> <span class="display-name">Bernie</span> <span> </span> <span class="date">25 Sep 2016 at 09:44</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>This will fail if your resource file is inside a jar, e.g. a maven module. In that case you'll need to use something like <code>Spring</code>'s <code>StreamUtils.copyToString</code>.</span> <span> - </span> <span class="display-name">Somu</span> <span> </span> <span class="date">14 Feb 2020 at 09:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>27</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>tangens</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Sep 2009 at 06:44</span>
+     </div>
+    </div>
+    <div>
+     <p>Please try</p>
+     <pre><code>InputStream in = this.getClass().getResourceAsStream("/SomeTextFile.txt");
+</code></pre>
+     <p>Your tries didn't work because only the class loader for <em>your</em> classes is able to load from the classpath. You used the class loader for the java system itself.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Not sure about the "/" though. A relative path might work better in this case.</span> <span> - </span> <span class="display-name">VonC</span> <span> </span> <span class="date">23 Sep 2009 at 06:53</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>If you use it without "/" you are looking for your file inside the package of "this".</span> <span> - </span> <span class="display-name">tangens</span> <span> </span> <span class="date">23 Sep 2009 at 07:04</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>InputStream file = this.getClass().getResourceAsStream("SomeTextFile.txt"); InputStream file = this.getClass().getResourceAsStream("/SomeTextFile.txt"); InputStream file = this.getClass().getResourceAsStream("//SomeTextFile.txt"); None of the above worked :(</span> <span> - </span> <span class="display-name">Chaitanya MSV</span> <span> </span> <span class="date">23 Sep 2009 at 07:37</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Chaitanya: Can you run the example from John Skeet's answer?</span> <span> - </span> <span class="display-name">Aaron Digulla</span> <span> </span> <span class="date">23 Sep 2009 at 07:40</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Here are a few <a href="https://www.codota.com/code/java/methods/java.lang.ClassLoader/getResourceAsStream" rel="nofollow noreferrer">good examples for getResourceAsStream</a></span> <span> - </span> <span class="display-name">drorw</span> <span> </span> <span class="date">17 Nov 2018 at 22:13</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Pavel</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jun 2014 at 20:42</span>
+     </div>
+    </div>
+    <div>
+     <p>To actually read the contents of the file, I like using Commons IO + Spring Core. Assuming Java 8:</p>
+     <pre><code>try (InputStream stream = new ClassPathResource("package/resource").getInputStream()) {
+    IOUtils.toString(stream);
+}
+</code></pre>
+     <p>Alternatively:</p>
+     <pre><code>InputStream stream = null;
+try {
+    stream = new ClassPathResource("/log4j.xml").getInputStream();
+    IOUtils.toString(stream);
+} finally {
+    IOUtils.closeQuietly(stream);
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>What about closing the inputstream?</span> <span> - </span> <span class="display-name">Stephan</span> <span> </span> <span class="date">21 Apr 2016 at 15:32</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>The stream will be closed automatically. It is a feature of Java 7 "Try with resources" <a href="https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html" rel="nofollow noreferrer">docs.oracle.com/javase/tutorial/essential/exceptions/…</a></span> <span> - </span> <span class="display-name">Michał Maciej Gałuszka</span> <span> </span> <span class="date">13 Sep 2018 at 06:58</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Only if it is inside the try statement, which is not the case here. It should have been try (final InputStream stream = new ClassPathResource("/log4j.xml").getInputStream()) {...</span> <span> - </span> <span class="display-name">andresp</span> <span> </span> <span class="date">13 May 2019 at 13:23</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>webcom</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 May 2013 at 18:05</span>
+     </div>
+    </div>
+    <div>
+     <p>To get the class absolute path try this:</p>
+     <pre><code>String url = this.getClass().getResource("").getPath();
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>And then what? That information is no use by itself.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">14 Apr 2015 at 22:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This information was perfect. I was only missing getPath()!</span> <span> - </span> <span class="display-name">Patrick</span> <span> </span> <span class="date">16 Aug 2015 at 16:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Patrick This answer does not provide the 'class absolute path'. It provides a URL. Not at all the same thing.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">25 Oct 2015 at 09:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user1695166</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Dec 2014 at 15:50</span>
+     </div>
+    </div>
+    <div>
+     <p>Somehow the best answer doesn't work for me. I need to use a slightly different code instead.</p>
+     <pre><code>ClassLoader loader = Thread.currentThread().getContextClassLoader();
+InputStream is = loader.getResourceAsStream("SomeTextFile.txt");
+</code></pre>
+     <p>I hope this help those who encounters the same issue.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This helped me on Android as well where a class was loaded by the application loader, but a key that it needed was lazy loaded in the UI thread.</span> <span> - </span> <span class="display-name">asokan</span> <span> </span> <span class="date">4 Jul 2016 at 22:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You need to provide information on why the best answer does not work for you (e.g. your application's structure, the framework you are using, the error etc.). The best answer said clearly that 1) the directory needs to be on classpath, 2) you need to request from a class loaded by the same class loader. Chances are one of these assumptions does not hold for your application. Also the context class loader is very discouraged as it was introduced as a hack. Some framework does make use of it but it is important to know the implication (which requires you describe your project's background)</span> <span> - </span> <span class="display-name">Xinchao</span> <span> </span> <span class="date">20 Jul 2018 at 06:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This works in a static context (unlike other solutions mentioned here).</span> <span> - </span> <span class="display-name">Vitaly Sazanovich</span> <span> </span> <span class="date">21 Jun 2021 at 20:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Alexey Simonov</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Aug 2017 at 05:56</span>
+     </div>
+    </div>
+    <div>
+     <p>If you use Guava:</p>
+     <pre><code>import com.google.common.io.Resources;
+</code></pre>
+     <p>we can get URL from CLASSPATH:</p>
+     <pre><code>URL resource = Resources.getResource("test.txt");
+String file = resource.getFile();   // get file path 
+</code></pre>
+     <p>or InputStream:</p>
+     <pre><code>InputStream is = Resources.getResource("test.txt").openStream();
+</code></pre>
+     <p><a href="https://stackoverflow.com/a/35446009/7281453">Ways to convert an InputStream to a String</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>The file path isn't any use if the resource is in a JAR or WAR file.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">7 Aug 2017 at 06:33</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The getFile method of URL does not return a file name. It just returns the path portion of the URL, which is not guaranteed to be a valid file name. (The URL class was part of Java 1.0; back then, most URLs did in fact refer to physical files on either the same computer or a different computer.)</span> <span> - </span> <span class="display-name">VGR</span> <span> </span> <span class="date">21 Sep 2018 at 19:34</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I needed to retrieve images I had stored in a submap under <code>recources</code>. Worked locally with my relative filePath, but the <code>Resources.getResource("submap/file").openStream()</code> was the ONLY solution I got working when deployed on a remote server</span> <span> - </span> <span class="display-name">Paul</span> <span> </span> <span class="date">17 Feb 2021 at 14:08</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BullyWiiPlaza</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Feb 2016 at 12:44</span>
+     </div>
+    </div>
+    <div>
+     <p>To read the contents of a file into a String from the <code>classpath</code>, you can use this:</p>
+     <pre><code>private String resourceToString(String filePath) throws IOException, URISyntaxException
+{
+    try (InputStream inputStream = this.getClass().getClassLoader().getResourceAsStream(filePath))
+    {
+        return IOUtils.toString(inputStream);
+    }
+}
+</code></pre>
+     <p>Note:<br><a href="https://commons.apache.org/proper/commons-io/apidocs/org/apache/commons/io/IOUtils.html" rel="nofollow"><code>IOUtils</code></a> is part of <a href="http://mvnrepository.com/artifact/commons-io/commons-io" rel="nofollow"><code>Commons IO</code></a>.</p>
+     <p>Call it like this:</p>
+     <pre><code>String fileContents = resourceToString("ImOnTheClasspath.txt");
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Aaron Digulla</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Sep 2009 at 07:50</span>
+     </div>
+    </div>
+    <div>
+     <p>You say "I am trying to read a text file which is set in CLASSPATH system variable." My guess this is on Windows and you are using this ugly dialog to edit the "System Variables".</p>
+     <p>Now you run your Java program in the console. And that doesn't work: The console gets a copy of the values of the system variables <em>once</em> when it is <em>started</em>. This means any change in the dialog <em>afterwards</em> doesn't have any effect.</p>
+     <p>There are these solutions:</p>
+     <ol>
+      <li>
+       <p>Start a new console after every change</p></li>
+      <li>
+       <p>Use <code>set CLASSPATH=...</code> in the console to set the copy of the variable in the console and when your code works, paste the last value into the variable dialog.</p></li>
+      <li>
+       <p>Put the call to Java into <code>.BAT</code> file and double click it. This will create a new console every time (thus copying the current value of the system variable).</p></li>
+     </ol>
+     <p>BEWARE: If you also have a User variable <code>CLASSPATH</code> then it will shadow your system variable. That is why it is usually better to put the call to your Java program into a <code>.BAT</code> file and set the classpath in there (using <code>set CLASSPATH=</code>) rather than relying on a global system or user variable.</p>
+     <p>This also makes sure that you can have more than one Java program working on your computer because they are bound to have different classpaths.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Abhijit Pritam Dutta</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Aug 2019 at 12:34</span>
+     </div>
+    </div>
+    <div>
+     <p>My answer is not exactly what is asked in the question. Rather I am giving a solution exactly how easily we can read a file into out java application from our project class path.</p>
+     <p>For example suppose a config file name <strong>example.xml</strong> is located in a path like below:-</p>
+     <p><strong>com.myproject.config.dev</strong></p>
+     <p>and our java executable class file is in the below path:-</p>
+     <p><strong>com.myproject.server.main</strong></p>
+     <p>now just check in both the above path which is the nearest common directory/folder from where you can access both <strong>dev</strong> and <strong>main</strong> directory/folder (com.myproject.server.main - where our application’s java executable class is existed) – We can see that it is <strong>myproject</strong> folder/directory which is the nearest common directory/folder from where we can access our example.xml file. Therefore from a java executable class resides in folder/directory <strong>main</strong> we have to go back two steps like <strong>../../</strong> to access <strong>myproject</strong>. Now following this, see how we can read the file:-</p>
+     <pre><code>package com.myproject.server.main;
+
+class Example {
+
+  File xmlFile;
+
+  public Example(){
+       String filePath = this.getClass().getResource("../../config/dev/example.xml").getPath();
+       this.xmlFile = new File(filePath);
+    }
+
+  public File getXMLFile() {
+      return this.xmlFile;
+  }
+   public static void main(String args[]){
+      Example ex = new Example();
+      File xmlFile = ex.getXMLFile();
+   }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Thanks, useful in cases where the api does not provide a stream parameter.</span> <span> - </span> <span class="display-name">Alok P</span> <span> </span> <span class="date">28 Aug 2020 at 23:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ahmed ALI</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Jan 2020 at 12:25</span>
+     </div>
+    </div>
+    <div>
+     <p>If you compile your project in jar file: you can put your file in resources/files/your_file.text or pdf;</p>
+     <p>and use this code:</p>
+     <pre><code>import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.io.*;
+
+public class readFileService(){
+    private static final Logger LOGGER = LoggerFactory.getLogger(readFileService.class);
+
+
+    public byte[] getFile(){
+        String filePath="/files/your_file";
+        InputStream inputStreamFile;
+        byte[] bytes;
+        try{
+            inputStreamFile = this.getClass().getResourceAsStream(filePath);
+            bytes = new byte[inputStreamFile.available()];
+            inputStreamFile.read(bytes);    
+        } catch(NullPointerException | IOException e) {
+            LOGGER.error("Erreur read file "+filePath+" error message :" +e.getMessage());
+            return null;
+        }
+        return bytes;
+    } 
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sardar Saikh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Aug 2015 at 13:22</span>
+     </div>
+    </div>
+    <div>
+     <p>I am using webshpere application server and my Web Module is build on Spring MVC. The <code>Test.properties</code> were located in the resources folder, i tried to load this files using the following:</p>
+     <ol>
+      <li><code>this.getClass().getClassLoader().getResourceAsStream("Test.properties");</code></li>
+      <li><code>this.getClass().getResourceAsStream("/Test.properties");</code></li>
+     </ol>
+     <p>None of the above code loaded the file.</p>
+     <p>But with the help of below code the property file was loaded successfully:</p>
+     <p><code>Thread.currentThread().getContextClassLoader().getResourceAsStream("Test.properties");</code></p>
+     <p>Thanks to the user <em>"user1695166"</em>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Welcome to Stack Overflow! Please don't add "thanks" as answers even if you're also partially providing how your solution went, if your solutions is the same as another post it doesn't need to be added. After you've invested some time in the site you'll gain sufficient <a href="//stackoverflow.com/privileges">privileges</a> to upvote answers you like, which is the Stack Overflow way of saying thank you.</span> <span> - </span> <span class="display-name">SuperBiasedMan</span> <span> </span> <span class="date">10 Aug 2015 at 13:26</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Charu Khurana</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Oct 2017 at 16:20</span>
+     </div>
+    </div>
+    <div>
+     <p>Use <code>org.apache.commons.io.FileUtils.readFileToString(new File("src/test/resources/sample-data/fileName.txt"));</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>reference to src should not be used... Doesn't not work in the final artifact.</span> <span> - </span> <span class="display-name">L. Holanda</span> <span> </span> <span class="date">1 Aug 2018 at 00:41</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sachinthana87</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jul 2015 at 10:03</span>
+     </div>
+    </div>
+    <div>
+     <p>Don't use getClassLoader() method and use the "/" before the file name. "/" is very important</p>
+     <pre><code>this.getClass().getResourceAsStream("/SomeTextFile.txt");
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Using the leading <code>/</code> has exactly the same effect as using the <code>getClassLoader()</code> method.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">25 Oct 2015 at 09:32</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Helper</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Jul 2015 at 15:45</span>
+     </div>
+    </div>
+    <div>
+     <pre><code>import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+
+public class ReadFile
+
+{
+    /**
+     * * feel free to make any modification I have have been here so I feel you
+     * * * @param args * @throws InterruptedException
+     */
+
+    public static void main(String[] args) throws InterruptedException {
+        // thread pool of 10
+        File dir = new File(".");
+        // read file from same directory as source //
+        if (dir.isDirectory()) {
+            File[] files = dir.listFiles();
+            for (File file : files) {
+                // if you wanna read file name with txt files
+                if (file.getName().contains("txt")) {
+                    System.out.println(file.getName());
+                }
+
+                // if you want to open text file and read each line then
+                if (file.getName().contains("txt")) {
+                    try {
+                        // FileReader reads text files in the default encoding.
+                        FileReader fileReader = new FileReader(
+                                file.getAbsolutePath());
+                        // Always wrap FileReader in BufferedReader.
+                        BufferedReader bufferedReader = new BufferedReader(
+                                fileReader);
+                        String line;
+                        // get file details and get info you need.
+                        while ((line = bufferedReader.readLine()) != null) {
+                            System.out.println(line);
+                            // here you can say...
+                            // System.out.println(line.substring(0, 10)); this
+                            // prints from 0 to 10 indext
+                        }
+                    } catch (FileNotFoundException ex) {
+                        System.out.println("Unable to open file '"
+                                + file.getName() + "'");
+                    } catch (IOException ex) {
+                        System.out.println("Error reading file '"
+                                + file.getName() + "'");
+                        // Or we could just do this:
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        }
+
+    }
+
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Doesn't answer the question in any way.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">25 Oct 2015 at 09:31</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Salandur</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Sep 2009 at 06:58</span>
+     </div>
+    </div>
+    <div>
+     <p>you have to put your 'system variable' on the java classpath.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I put System variable itself.</span> <span> - </span> <span class="display-name">Chaitanya MSV</span> <span> </span> <span class="date">23 Sep 2009 at 07:36</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The 'system variable' <i>is</i> the Java CLASSPATH. Answer doesn't make sense.</span> <span> - </span> <span class="display-name">user207421</span> <span> </span> <span class="date">14 Apr 2015 at 22:42</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Totally true... did not even remember writing this answer :)</span> <span> - </span> <span class="display-name">Salandur</span> <span> </span> <span class="date">15 Apr 2015 at 20:20</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

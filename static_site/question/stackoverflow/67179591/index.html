@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>fnupdate updates wrong row datatables</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>fnupdate updates wrong row datatables</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>penta</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Apr 2021 at 13:08</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67179591/fnupdate-updates-wrong-row-datatables">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am trying to update a row by passing index.</p>
+    <p><a href="http://live.datatables.net/raculubo/1/" rel="nofollow noreferrer">http://live.datatables.net/raculubo/1/</a></p>
+    <p>But it most of the time replaces a wrong row.</p>
+    <p>The code is :-</p>
+    <p>$(document).ready(function() {</p>
+    <p>var table = $('#example').DataTable(); var index = table.column(0).data().indexOf("Cedric Kelly"); console.log("index2",index); table.row().data(["ax","by","dd"], index);</p>
+    <p>} );</p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Some notes in case they help: (1) You only need one "document ready" function. (2) You only need one <code>var table = ...</code> statement. (3) Be careful when using <code>$('#example').DataTable()</code> vs <code>$('#example').dataTable()</code> - they mean two subtly different things (see <a href="https://datatables.net/reference/api/" rel="nofollow noreferrer">here</a> for details). (4) It's not mandatory, but it is preferable to use the modern names for functions - so, instead of the old <code>fnUpdate()</code>, use <code>row().data()</code> (see <a href="https://datatables.net/upgrade/1.10-convert" rel="nofollow noreferrer">here</a> for details).</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">20 Apr 2021 at 13:42</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>can you check now....it still behaves the same. Just try to replace the names &amp; it edits different rows</span> <span> - </span> <span class="display-name">penta</span> <span> </span> <span class="date">20 Apr 2021 at 14:33</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Apr 2021 at 18:46</span>
+     </div>
+    </div>
+    <div>
+     <p>This is happening because of how you are sorting your data, leading to a difference between the "sort order" index and the "internal DataTables" index.</p>
+     <p>The <code>table.column(0).data()</code> function will return an array of names, as currently displayed in the table, taking into account sorting. In this scenario, the index of "Cedric Kelly" is therefore <code>1</code>.</p>
+     <p>However, the <em>internal unique index value stored by DataTables</em> is actually <code>3</code> because that is the order provided to DataTables from your HTML code when the data was loaded for the very first time (where Cedric Kelly is the 4th record listed - so the index is <code>3</code>).</p>
+     <p>This initial loading happens before data is sorted, and it is during this step that data indexes are assigned. Once assigned, they never change (unless you delete data).</p>
+     <p>Your data update function uses the value of <code>1</code> - thus updating the wrong row.</p>
+     <p>The fix for this is to tell DataTables to use the original loading order in the <code>table.column(0).data()</code> function:</p>
+     <pre class="lang-js prettyprint-override"><code>var index = table.column(0, {order:'index'} ).data().indexOf("Cedric Kelly");
+</code></pre>
+     <p>That directive <code>{order:'index'}</code> causes DataTables to use the original loading order. Now, the correct record will be updated because this <code>index</code> will now return <code>3</code> instead of <code>1</code>.</p>
+     <p>You can see more details about this "selector modifier" syntax <a href="https://datatables.net/reference/type/selector-modifier" rel="nofollow noreferrer">here</a>.</p>
+     <p>Bear in mind that the correct syntax for updating a row is actually this:</p>
+     <pre><code>table.row( index ).data(["ax","by","dd"]);
+</code></pre>
+     <p>Finally, bear in mind that if you filter your data, then you are OK, since the default value used is <code>search: 'none'</code> - which means "do not take searching/filtering into account" when selecting the column data.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Update Datatables column searching dropdownbox after ajax load</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Update Datatables column searching dropdownbox after ajax load</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>ASH</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Feb 2021 at 13:24</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/66208905/update-datatables-column-searching-dropdownbox-after-ajax-load">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I added a filtering function with Individual column searching (<a href="https://datatables.net/examples/api/multi_filter_select.html" rel="nofollow noreferrer">https://datatables.net/examples/api/multi_filter_select.html</a>) to my datatable which is working fine. This table also has a button to reload table data. The button triggers code like:</p>
+    <pre><code>table.ajax.url("foo").load();
+</code></pre>
+    <p>It updates table data correctly. Now, I want to update searching dropdown box with new column data. I want to empty dropdown box something like select.empty() then fill the box, but not sure how. I think this update process should be written in "rowCallback".</p>
+   </div>
+   <div class="tags">
+    <span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Feb 2021 at 20:15</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Summary</strong></p>
+     <p>To rebuild the drop-downs after each ajax call, here is one approach:</p>
+     <ol>
+      <li>
+       <p>Instead of using the DataTables <code>ajax</code> option, you can fetch the data using a jQuery ajax call, outside of DataTables.</p></li>
+      <li>
+       <p>Use the jQuery <code>done</code> function populate the table, and re-build the drop-downs after each ajax call.</p></li>
+     </ol>
+     <p>This approach ensures that the ajax data has been fetched before any additional processing takes place.</p>
+     <p><strong>Walkthrough</strong></p>
+     <p>Assume we have a button like this:</p>
+     <pre><code>&lt;button type="button" onclick="fetchData();"&gt;Reload Data&lt;/button&gt;
+</code></pre>
+     <p>And a HTML table like this:</p>
+     <pre><code>&lt;table id="example" class="display" style="width:100%"&gt;
+    &lt;tfoot&gt;
+        &lt;tr&gt;
+            &lt;th&gt;&lt;/th&gt;
+            &lt;th&gt;&lt;/th&gt;
+            &lt;th&gt;&lt;/th&gt;  &lt;!-- you may need more footer cells in your table --&gt;
+        &lt;/tr&gt;
+    &lt;/tfoot&gt;
+&lt;/table&gt;
+</code></pre>
+     <p>Here is the related <code>fetchData</code> function, which clears all existing data, then re-populates the table with the newly fetched data:</p>
+     <pre><code>function fetchData() {
+  $.ajax({
+    url: [your url goes here],  // your URL here
+    context: document.body
+  }).done(function( data ) {
+    var table = $('#example').DataTable();
+    table.clear();
+    table.rows.add(data);
+    buildSelectLists();
+    table.draw();
+  });
+}
+</code></pre>
+     <p>The function to rebuild the select lists is identical to the logic from the DataTables example solution:</p>
+     <pre><code>function buildSelectLists() {
+  
+  $('#example').DataTable().columns().every(function() {
+    var column = this;
+
+    var select = $('&lt;select&gt;&lt;option value=""&gt;&lt;/option&gt;&lt;/select&gt;')
+      .appendTo($(column.footer()).empty())
+      .on('change', function() {
+
+        var val = $.fn.dataTable.util.escapeRegex(
+          $(this).val()
+        );
+        column
+          .search(val ? '^' + val + '$' : '', true, false)
+          .draw();
+      });
+
+    column.data().unique().sort().each(function(d, j) {
+      select.append('&lt;option value="' + d + '"&gt;' + d + '&lt;/option&gt;')
+    });
+  });
+}
+</code></pre>
+     <p>Finally, the DataTable is defined in a "document ready" function:</p>
+     <pre><code>$(document).ready(function() {
+
+  $('#example').DataTable({
+    // your options here - but no need for the ajax or data options
+    "initComplete": function() {
+      fetchData(); // make sure the table contains data, when it is created
+    }
+  });
+
+});
+</code></pre>
+     <hr>
+     <p>Alternatively:</p>
+     <p>You can achieve a similar result by using the DataTables <code>ajax</code> option which makes use of a function:</p>
+     <p>Example (taken from the <a href="https://datatables.net/reference/option/ajax" rel="nofollow noreferrer">documentation here</a>):</p>
+     <pre><code>$('#example').dataTable( {
+  "ajax": function (data, callback, settings) {
+    callback(
+      JSON.parse( localStorage.getItem('dataTablesData') )
+    );
+  }
+} );
+</code></pre>
+     <p>I think in this case, it is a bit cleaner to keep the <code>ajax</code> call in its own separate function.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Your solusion worked pefectly! Thanks a lot!</span> <span> - </span> <span class="display-name">ASH</span> <span> </span> <span class="date">16 Feb 2021 at 05:39</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

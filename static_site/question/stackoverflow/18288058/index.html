@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How is driver class located in JDBC4</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How is driver class located in JDBC4</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>12</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Aniket Thakur</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 Aug 2013 at 11:04</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/18288058/how-is-driver-class-located-in-jdbc4">source</a>
+    </div>
+   </div>
+   <div>
+    <p>One of the great additions in version 4 of JDBC You don't have to explicitly load the driver by calling <code>Class.forName</code> anymore. When your application attempts to connect the database for the first time, <code>DriverManager</code> automatically loads the driver found in the application <code>CLASSPATH</code>.</p>
+    <p><strong>My question is how? What if there are multiple drivers in the classpath?</strong></p>
+    <p>One thing I can guess is that on parsing the connection URL whether driver needed is of JDBC or ODBC can be figured out but how can one say out of multiple jdbc compliant drivers which one is to be selected for the database I am using? (lets say I am using MySql and I need MySql-Connector driver). Is there any static mapping of such database drivers in JVM?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">database</span><span class="tag">jdbc</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span></span> <span> - </span> <span class="display-name">Roman C</span> <span> </span> <span class="date">17 Aug 2013 at 11:05</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span></span> <span> - </span> <span class="display-name">Aniket Thakur</span> <span> </span> <span class="date">17 Aug 2013 at 11:06</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span></span> <span> - </span> <span class="display-name">Roman C</span> <span> </span> <span class="date">17 Aug 2013 at 11:19</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mark Rotteveel</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Aug 2013 at 08:54</span>
+     </div>
+    </div>
+    <div>
+     <p>Every JDBC 4 compliant driver has a file in its jar called <code>META-INF/services/java.sql.Driver</code>, in that file it will list its implementation(s) of <code>java.sql.Driver</code>. When you request a connection, <code>DriverManager</code> will use the <a href="http://docs.oracle.com/javase/7/docs/api/java/util/ServiceLoader.html" rel="noreferrer"><code>ServiceLoader</code></a> to find all(!) copies of <code>META-INF/services/java.sql.Driver</code> in the classpath and will then load all classes listed. When a <code>java.sql.Driver</code> class is loaded, it has to register itself with the <code>DriverManager</code>, so the <code>DriverManager</code> loads all classes using the service loader, and each <code>Driver</code> implementation registers itself.</p>
+     <p>When you request a connection from <code>DriverManager</code>, the <code>DriverManager</code> will iterate over all registered drivers asking them for a <code>Connection</code>. The driver will use the JDBC url to check if it's a protocol it supports (eg Jaybird/Firebird JDBC checks if the url starts with <code>"jdbc:firebirdsql:"</code> or <code>"jdbc:firebird:"</code>). If the driver does not support the protocol, it will return <code>null</code>, if it does support the protocol it will either return an established connection, or it will throw an <code>SQLException</code> (eg if you made an error in the URL, or it couldn't connect). If all drivers return <code>null</code> (none support the protocol), then <code>DriverManager</code> will throw an <code>SQLException</code> with error <code>"No suitable driver found for &lt;url&gt;"</code></p>
+     <p>So, having multiple drivers on the classpath does not matter as long as they support different protocols, however if there are multiple drivers for the same database (or at least: same protocol prefixes), it will use the first in the list of drivers. Depending on the Java version, if that driver fails with an <code>SQLException</code>, it will continue with the next driver (at least Java 5 and later), or stop trying and throw the exception (I believe this was in Java 1.4 or maybe even earlier).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span></span> <span> - </span> <span class="display-name">Joseph_Marzbani</span> <span> </span> <span class="date">25 Jun 2020 at 09:58</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span></span> <span> - </span> <span class="display-name">Mark Rotteveel</span> <span> </span> <span class="date">25 Jun 2020 at 10:00</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Juned Ahsan</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Aug 2013 at 11:06</span>
+     </div>
+    </div>
+    <div>
+     <p>Some information about JDBC4 driver loading taken from : <a href="http://www.onjava.com/2006/08/02/jjdbc-4-enhancements-in-java-se-6.html" rel="noreferrer">http://www.onjava.com/2006/08/02/jjdbc-4-enhancements-in-java-se-6.html</a></p>
+     <blockquote>
+      <p>When the method getConnection is called, the DriverManager will attempt to locate a suitable driver from among the JDBC drivers that were loaded at initialization and those loaded explicitly using the same class loader as the current application.</p>
+      <p>The DriverManager methods getConnection and getDrivers have been enhanced to support the Java SE Service Provider mechanism (SPM). According to SPM, a service is defined as a well-known set of interfaces and abstract classes, and a service provider is a specific implementation of a service. It also specifies that the service provider configuration files are stored in the META-INF/services directory. JDBC 4.0 drivers must include the file META-INF/services/java.sql.Driver. This file contains the name of the JDBC driver's implementation of java.sql.Driver. For example, to load the JDBC driver to connect to a Apache Derby database, the META-INF/services/java.sql.Driver file would contain the following entry:</p>
+     </blockquote>
+     <pre><code>org.apache.derby.jdbc.EmbeddedDriver
+</code></pre>
+     <p>Now coming to your question.</p>
+     <blockquote>
+      <p>My question is how? What if there are multiple drivers in the classpath?</p>
+     </blockquote>
+     <p>As a class loader rule, any class found first will be loaded and if it is already loaded then will not be reloaded by the class loader.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ajithlal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>28 Aug 2020 at 06:20</span>
+     </div>
+    </div>
+    <div>
+     <p>Answer for your question will get it from java.sql.DriverManager java class ,method loadInitialDrivers.</p>
+     <pre><code>drivers = AccessController.doPrivileged(new PrivilegedAction&lt;String&gt;() {
+    public String run() {
+                return System.getProperty("jdbc.drivers");
+            }
+        });  
+</code></pre>
+     <p>If program found multiple jdbc driver,it will use below logic to take exact driver</p>
+     <pre><code>    String[] driversList = drivers.split(":");
+    println("number of Drivers:" + driversList.length);
+    for (String aDriver : driversList) {
+        try {
+            println("DriverManager.Initialize: loading " + aDriver);
+            Class.forName(aDriver, true,
+                    ClassLoader.getSystemClassLoader());
+        } catch (Exception ex) {
+            println("DriverManager.Initialize: load failed: " + ex);
+        } 
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

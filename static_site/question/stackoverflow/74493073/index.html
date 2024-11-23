@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Using a GitHub fine-grained token with git pull over HTTPS</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Using a GitHub fine-grained token with git pull over HTTPS</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>5</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>andrewJames</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>18 Nov 2022 at 17:02</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/74493073/using-a-github-fine-grained-token-with-git-pull-over-https">source</a>
+    </div>
+   </div>
+   <div>
+    <p><strong>Question:</strong></p>
+    <p>Is there a way to combine the advantages of GitHub's fine-grained PATs with the simplicity of <code>git pull</code> over HTTPS? If so, then how?</p>
+    <p><strong>Background</strong></p>
+    <p>GitHub has "classic" and "fine-grained" personal access tokens (PATs):</p>
+    <p><a href="https://i.stack.imgur.com/KkklW.png" rel="noreferrer"><img src="https://i.stack.imgur.com/KkklW.png" alt="enter image description here"></a></p>
+    <p>Go to Settings &gt; Developer Settings to see these.</p>
+    <p>I have been using a classic PAT to run <code>git pull</code> commands over HTTPS, to pull the latest commits from GitHub:</p>
+    <pre class="lang-bash prettyprint-override"><code>git pull https://${token}@github.com/${owner}/${repo}.git
+</code></pre>
+    <p>This works without prompting for a password (I keep the PAT's expiration period reasonably short).</p>
+    <p>I cannot just (naively) substitute a new fine-grained token for the classic token in my <code>git pull</code> command. It prompts me for a password. (It is treated as a user ID, I assume.)</p>
+    <p>Fine-grained PATs certainly work with the GitHub <a href="https://docs.github.com/en/rest" rel="noreferrer">REST API</a>. I can use the API to <a href="https://docs.github.com/en/rest/git/commits#get-a-commit" rel="noreferrer">get a commit</a> if I have the commit SHA. But that is quite low-level compared to <code>git pull</code> and I don't want to "reimplement a lot of Git functionality" (<a href="https://docs.github.com/en/rest/guides/getting-started-with-the-git-database-api" rel="noreferrer">ref</a>).</p>
+    <p>Fine-grained PATs are welcomed because of their ability to lock down access to specific repos and specific functions. But how (if at all) can they be used directly with <code>git pull</code> commands?</p>
+    <p>I am using Git v2.38.1 (the latest release, currently).</p>
+   </div>
+   <div class="tags">
+    <span class="tag">git</span><span class="tag">github</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Note: if you are an outside contributor, f-g PATs are not supported yet.</span> <span> - </span> <span class="display-name">Robino</span> <span> </span> <span class="date">5 Feb 2023 at 17:25</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Nov 2022 at 23:23</span>
+     </div>
+    </div>
+    <div>
+     <p>I used @bk2204's <a href="https://stackoverflow.com/a/74495336/12567365">answer</a> and took the following steps, to move from a "token-in-the-URL" approach (bad!) to a "credentials-in-a-store" approach (better!).</p>
+     <p>Using the newer GitHub fine-grained tokens for this worked without a problem.</p>
+     <p>I wanted to document the specific steps - here they are.</p>
+     <hr>
+     <p><strong>In GitHub:</strong></p>
+     <ol>
+      <li>
+       <p>Create a new PAT: Settings &gt; Developer Settings &gt; Fine-grained tokens.</p></li>
+      <li>
+       <p>Give this token access to one repository.</p></li>
+      <li>
+       <p>Grant one Repository permission: Contents (read-only).</p></li>
+     </ol>
+     <p><a href="https://i.stack.imgur.com/N6JJH.png" rel="noreferrer"><img src="https://i.stack.imgur.com/N6JJH.png" alt="enter image description here"></a></p>
+     <p>This also automatically sets the Metadata (read-only) permission, as well.</p>
+     <ol start="4">
+      <li>I did NOT need or grant any Account permissions.</li>
+     </ol>
+     <hr>
+     <p><strong>On my server:</strong></p>
+     <p>This is a headless Linux box. I do not have any 3rd party key stores integrated with Git (for example, no <code>libsecret</code>).</p>
+     <p>I chose to use the Git-provided <code>store</code>. Although this stores credentials in plaintext, it's no less secure (in my opinion) than SSH keys stored in <code>.ssh</code>. This is acceptable for my situation - and is far better than what I have been doing (placing a token directly in the URL of the <code>pull</code> command).</p>
+     <p>Specific one-time set-up commands:</p>
+     <pre><code>git config --global credential.helper store
+git config --global credential.useHttpPath true
+</code></pre>
+     <p>That creates the following in my global <code>.gitconfig</code> file:</p>
+     <pre><code>[credential]
+        helper = store
+        useHttpPath = true
+</code></pre>
+     <p>Then, in my Git repo directory, I run a simple <code>pull</code>:</p>
+     <pre><code>git pull https://github.com/${owner}/${repo}.git
+</code></pre>
+     <p>As a one-time step, I have to manually provide my user ID and the PAT at the prompts.</p>
+     <p>These credentials are stored in a new (for me) <code>.git-credentials</code> file. The format of the credentials is:</p>
+     <pre><code>https://&lt;user ID&gt;:&lt;fine-grained PAT&gt;@github.com/&lt;owner&gt;/&lt;repo&gt;.git
+</code></pre>
+     <p>I can repeat this process for more repos, each with their own PAT, as needed.</p>
+     <p>When I execute subsequent <code>git pull</code> commands, the relevant URL-specific credentials from the store are used - no command line interaction is needed.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>bk2204</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Nov 2022 at 21:08</span>
+     </div>
+    </div>
+    <div>
+     <p>You generally want to avoid using a token in the URL. While this is convenient when testing things from the command line, it's not very secure, and Git is trying to make it more difficult to do this.</p>
+     <p>If you want to store this information, use a credential helper. You can use a credential per URL in the credential helper by setting <code>credential.usehttppath</code> to true. (You can also use something like <code>credential.https://github.com.usehttppath</code> as well.) Then, when you're prompted for your username, specify your regular username, and specify the token for the password.</p>
+     <p>If you need to operate something from a shell script or other non-interactive use, <a href="https://git-scm.com/docs/gitfaq#http-credentials-environment" rel="nofollow noreferrer">the Git FAQ mentions how to use a simple credential helper to read from the environment</a>. Again, specify the token as the password, not the username.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Bench Vue</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Nov 2022 at 21:15</span>
+     </div>
+    </div>
+    <div>
+     <p>Using same format for git pull command as classic token</p>
+     <pre><code>git pull https://${token}@github.com/${owner}/${repo}.git
+</code></pre>
+     <p>It gives a three choices to me.</p>
+     <p>#1 First (Sign in with your browser): I can login by username and password</p>
+     <p>#2 Second (Sign in with a code) : I can login by 8 digits hex code</p>
+     <p>#3 Third (Token) : I can login by fine token (PAT)</p>
+     <p><a href="https://i.stack.imgur.com/qM2kN.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/qM2kN.png" alt="enter image description here"></a></p>
+     <p>The Fine token assigned all repository or specific repositories only. And assign <a href="https://docs.github.com/en/rest/overview/permissions-required-for-fine-grained-personal-access-tokens" rel="nofollow noreferrer">detail permissions</a> by PAT UI screen.</p>
+     <p><a href="https://github.blog/2022-10-18-introducing-fine-grained-personal-access-tokens-for-github/" rel="nofollow noreferrer">Here</a> is detail information about Fine grained PAT.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>-1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>k4rim</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Nov 2022 at 20:27</span>
+     </div>
+    </div>
+    <div>
+     <p>Just add your username:</p>
+     <pre class="lang-bash prettyprint-override"><code>git pull https://${username}:${token}@github.com/${owner}/${repo}.git
+</code></pre>
+     <p>However, as <a href="https://stackoverflow.com/a/74495336/19382866">bk2204</a> stated, it is generally not recommended to have secret tokens in your URL.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This doesn't work for me. <code>remote: Support for password authentication was removed on August 13, 2021. remote: Please see https://docs.github.com/en/get-started/getting-started-with-‌​git/about-remote-rep‌​ositories#cloning-wi‌​th-https-urls for information on currently recommended modes of authentication.</code></span> <span> - </span> <span class="display-name">Emre</span> <span> </span> <span class="date">29 Dec 2022 at 11:10</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Please see <a href="https://stackoverflow.com/a/68781050/19382866">stackoverflow.com/a/68781050/19382866</a>, Emre Sülün.</span> <span> - </span> <span class="display-name">k4rim</span> <span> </span> <span class="date">29 Dec 2022 at 22:05</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

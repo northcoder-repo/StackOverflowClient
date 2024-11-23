@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Add new line at the end of Jersey generated JSON</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Add new line at the end of Jersey generated JSON</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>6</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>botchniaque</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>9 Oct 2015 at 14:26</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/33040791/add-new-line-at-the-end-of-jersey-generated-json">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a Jersey (1.x) based REST service. It uses Jackson 2.4.4 to generate JSON responses. I need to add a newline character at the end of response (cURL users complain that there's no new line in responses). I am using Jersey pretty-print feature (<code>SerializationFeature.INDENT_OUTPUT</code>).</p>
+    <p><em>current:</em> <code>{\n "prop" : "value"\n}</code></p>
+    <p><em>wanted:</em> <code>{\n "prop" : "value"\n}\n</code></p>
+    <ol>
+     <li>
+      <p>I tried using a custom serializer. I need to add <code>\n</code> only at the end of the root object. Serializer is defined per data type, which means, if an instance of such class is nested in a response, I will get <code>\n</code> in the middle of my JSON.</p></li>
+     <li>
+      <p>I thought of subclassing <code>com.fasterxml.jackson.core.JsonGenerator.java</code>, overriding <code>close()</code> where i'd add <code>writeRaw('\n')</code>, but that feels very hacky.</p></li>
+     <li>
+      <p>Another idea would be to add Servlet filter which would re-write the response from Jersey Filter, adding the <code>\n</code> and incrementing the contentLenght by 1. Seems not only <em>hacky</em>, but also inefficient.</p></li>
+     <li>
+      <p>I could also give up Jersey taking care of serializing the content and do <code>ObjectMapper.writeValue() + "\n"</code>, but this is quite intrusive to my code (need to change many places).</p></li>
+    </ol>
+    <p>What is the <em>clean</em> solution for that problem?</p>
+    <p>I have found these threads for the same problem, but none of them provides solution:</p>
+    <ul>
+     <li><a href="http://markmail.org/message/nj4aqheqobmt4o5c" rel="nofollow">http://markmail.org/message/nj4aqheqobmt4o5c</a></li>
+     <li><a href="http://jackson-users.ning.com/forum/topics/add-newline-after-object-serialization-in-jersey" rel="nofollow">http://jackson-users.ning.com/forum/topics/add-newline-after-object-serialization-in-jersey</a></li>
+    </ul>
+    <hr>
+    <p><strong>Update</strong></p>
+    <p>Finally I went for @arachnid's solution with <code>NewlineAddingPrettyPrinter</code> (also bumper Jackson version to 2.6.2). Sadly, it does not work out of the box with Jaskson as <a href="https://jax-rs-spec.java.net/" rel="nofollow">JAX-RS</a> Json provider. Changed <code>PrettyPrinter</code> in <code>ObjectMapper</code> does not get propagated to <code>JsonGenerator</code> (see <a href="https://github.com/FasterXML/jackson-jaxrs-providers/blob/master/base/src/main/java/com/fasterxml/jackson/jaxrs/base/ProviderBase.java#L593" rel="nofollow">here</a> why). To make it work, I had to add <code>ResponseFilter</code> which adds <code>ObjectWriterModifier</code> (now I can easily toggle between pretty-print and minimal, based on input param ):</p>
+    <pre><code>@Provider
+public class PrettyPrintFilter extends BaseResponseFilter {
+
+    public ContainerResponse filter(ContainerRequest request, ContainerResponse response) {
+        ObjectWriterInjector.set(new PrettyPrintToggler(true));
+        return response;
+    }
+
+    final class PrettyPrintToggler extends ObjectWriterModifier {
+
+        private static final PrettyPrinter NO_PRETTY_PRINT = new MinimalPrettyPrinter();
+
+        private final boolean usePrettyPrint;
+
+        public PrettyPrintToggler(boolean usePrettyPrint) {
+            this.usePrettyPrint = usePrettyPrint;
+        }
+
+        @Override
+        public ObjectWriter modify(EndpointConfigBase&lt;?&gt; endpoint, MultivaluedMap&lt;String, Object&gt; responseHeaders,
+                                   Object valueToWrite, ObjectWriter w, JsonGenerator g) throws IOException {
+            if (usePrettyPrint) g.setPrettyPrinter(new NewlineAddingPrettyPrinter());
+            else g.setPrettyPrinter(NO_PRETTY_PRINT);
+            return w;
+        }
+
+    }
+}
+</code></pre>
+   </div>
+   <div class="tags">
+    <span class="tag">json</span><span class="tag">jersey</span><span class="tag">jackson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>araqnid</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Oct 2015 at 17:05</span>
+     </div>
+    </div>
+    <div>
+     <p>Actually, wrapping up (not subclassing) JsonGenerator isn't <em>too</em> bad:</p>
+     <pre><code>public static final class NewlineAddingJsonFactory extends JsonFactory {
+    @Override
+    protected JsonGenerator _createGenerator(Writer out, IOContext ctxt) throws IOException {
+        return new NewlineAddingJsonGenerator(super._createGenerator(out, ctxt));
+    }
+
+    @Override
+    protected JsonGenerator _createUTF8Generator(OutputStream out, IOContext ctxt) throws IOException {
+        return new NewlineAddingJsonGenerator(super._createUTF8Generator(out, ctxt));
+    }
+}
+
+public static final class NewlineAddingJsonGenerator extends JsonGenerator {
+    private final JsonGenerator underlying;
+    private int depth = 0;
+
+    public NewlineAddingJsonGenerator(JsonGenerator underlying) {
+        this.underlying = underlying;
+    }
+
+    @Override
+    public void writeStartObject() throws IOException {
+        underlying.writeStartObject();
+        ++depth;
+    }
+
+    @Override
+    public void writeEndObject() throws IOException {
+        underlying.writeEndObject();
+        if (--depth == 0) {
+            underlying.writeRaw('\n');
+        }
+    }
+
+    // ... and delegate all the other methods of JsonGenerator (CGLIB can hide this if you put in some time)
+}
+
+
+@Test
+public void append_newline_after_end_of_json() throws Exception {
+    ObjectWriter writer = new ObjectMapper(new NewlineAddingJsonFactory()).writer();
+    assertThat(writer.writeValueAsString(ImmutableMap.of()), equalTo("{}\n"));
+    assertThat(writer.writeValueAsString(ImmutableMap.of("foo", "bar")), equalTo("{\"foo\":\"bar\"}\n"));
+}
+</code></pre>
+     <p>A servlet filter isn't necessarily too bad either, although recently the ServletOutputStream interface has been more involved to intercept properly.</p>
+     <p>I found doing this via PrettyPrinter problematic on earlier Jackson versions (such as your 2.4.4), in part because of the need to go through an ObjectWriter to configure it properly: only fixed in Jackson 2.6. For completeness, this is a working 2.5 solution:</p>
+     <pre><code>@Test
+public void append_newline_after_end_of_json() throws Exception {
+    // Jackson 2.6:
+//      ObjectMapper mapper = new ObjectMapper()
+//              .setDefaultPrettyPrinter(new NewlineAddingPrettyPrinter())
+//              .enable(SerializationFeature.INDENT_OUTPUT);
+//      ObjectWriter writer = mapper.writer();
+
+    ObjectMapper mapper = new ObjectMapper();
+    ObjectWriter writer = mapper.writer().with(new NewlineAddingPrettyPrinter());
+    assertThat(writer.writeValueAsString(ImmutableMap.of()), equalTo("{}\n"));
+    assertThat(writer.writeValueAsString(ImmutableMap.of("foo", "bar")),
+            equalTo("{\"foo\":\"bar\"}\n"));
+}
+
+public static final class NewlineAddingPrettyPrinter
+                    extends MinimalPrettyPrinter
+                    implements Instantiatable&lt;PrettyPrinter&gt; {
+    private int depth = 0;
+
+    @Override
+    public void writeStartObject(JsonGenerator jg) throws IOException, JsonGenerationException {
+        super.writeStartObject(jg);
+        ++depth;
+    }
+
+    @Override
+    public void writeEndObject(JsonGenerator jg, int nrOfEntries) throws IOException, JsonGenerationException {
+        super.writeEndObject(jg, nrOfEntries);
+        if (--depth == 0) {
+            jg.writeRaw('\n');
+        }
+    }
+
+    @Override
+    public PrettyPrinter createInstance() {
+        return new NewlineAddingPrettyPrinter();
+    }
+}
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Eventually I went for <code>PrettyPrinter</code> solution; white-spaces are not essential part of a generated JSON, and IMO should be managed by a <i>formatter</i> (pretty printer). There's still a problem with Jackson as <a href="https://jax-rs-spec.java.net/" rel="nofollow noreferrer">JAS-RS</a> provider - you can overwrite the implementation of prettyPrinter in <code>ObjectMapper,</code> but <code>JsonGenerator</code> will use the default anyways ((see <a href="https://github.com/FasterXML/jackson-jaxrs-providers/blob/master/base/src/main/java/com/fasterxml/jackson/jaxrs/base/ProviderBase.java#L593" rel="nofollow noreferrer">here</a>). My solution described in Q update.</span> <span> - </span> <span class="display-name">botchniaque</span> <span> </span> <span class="date">12 Oct 2015 at 11:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>salyh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Oct 2015 at 15:52</span>
+     </div>
+    </div>
+    <div>
+     <p>Not yet tested but the following should work:</p>
+     <pre><code>public class MyObjectMapper extends ObjectMapper {
+
+       _defaultPrettyPrinter = com.fasterxml.jackson.core.util.MinimalPrettyPrinter("\n");
+
+    // AND/OR
+
+       @Override
+       protected PrettyPrinter _defaultPrettyPrinter() {
+            return new com.fasterxml.jackson.core.util.MinimalPrettyPrinter("\n");
+       }
+
+}
+
+
+public class JerseyConfiguration extends ResourceConfig {
+    ...
+    MyObjectMapper mapper = new MyObjectMapper();
+    mapper.enable(SerializationFeature.INDENT_OUTPUT); //enables pretty printing
+
+    // create JsonProvider to provide custom ObjectMapper
+    JacksonJaxbJsonProvider provider = new JacksonJaxbJsonProvider();
+    provider.setMapper(mapper);
+    register(provider); //register so that jersey use it
+}
+</code></pre>
+     <p>Do not know if this is the "cleanest" solution but it feels less hacky than the others.</p>
+     <p>Should produce something like</p>
+     <p>{\n "root" : "1"\n}\n{\n "root2" : "2"\n}</p>
+     <p>But it seems that does not work if there is only one root element.</p>
+     <p>Idea is from <a href="https://gist.github.com/deverton/7743979" rel="nofollow">https://gist.github.com/deverton/7743979</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I have already pretty print configured (not overriding the default <code>PrettyPrinter</code> though), and it gives me JSON like: <code>{\n "prop" : "value"\n}</code>. I think I did not express myself clearly - what I need is a new line <i>after the whole</i> JSON entity like: <code>{\n "prop" : "value"\n}\n</code>. I have tested your solution, but it does not differ functionally from what I currently have.</span> <span> - </span> <span class="display-name">botchniaque</span> <span> </span> <span class="date">9 Oct 2015 at 16:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have added examples to the question.</span> <span> - </span> <span class="display-name">botchniaque</span> <span> </span> <span class="date">9 Oct 2015 at 16:14</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>i did already unterstand this and <a href="https://github.com/FasterXML/jackson-core/blob/master/src/main/java/com/fasterxml/jackson/core/util/MinimalPrettyPrinter.java" rel="nofollow noreferrer">github.com/FasterXML/jackson-core/blob/master/src/main/java/‌​com/…</a> cares about separating root objects. But i would go further in that direction and see if you could tweek the MinimalPrettyPrinter to add a root separator also if there is no second root object.</span> <span> - </span> <span class="display-name">salyh</span> <span> </span> <span class="date">9 Oct 2015 at 16:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Oh, in that case I did not understand. I will give it a try on Monday. Will let you know.</span> <span> - </span> <span class="display-name">botchniaque</span> <span> </span> <span class="date">9 Oct 2015 at 16:19</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have tried using <code>MinimalPrettyPrinter("\n")</code>, but as you also thought, it did not work with single object. I find @arachnid's <code>NewlineAddingPrettyPrinter</code> hitting the point. Thanks anyways!</span> <span> - </span> <span class="display-name">botchniaque</span> <span> </span> <span class="date">12 Oct 2015 at 11:51</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

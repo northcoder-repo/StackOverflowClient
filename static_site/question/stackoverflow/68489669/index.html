@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>jQuery datatables suppress scientific notation</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>jQuery datatables suppress scientific notation</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>stefano manzi</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>22 Jul 2021 at 18:09</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68489669/jquery-datatables-suppress-scientific-notation">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am using datatables to render a table and show data from my api.</p>
+    <pre><code>&lt;script type="text/javascript"&gt;
+$.fn.dataTable.ext.errMode = 'throw';
+$(document).ready(function (){
+    var table = $('#example').DataTable({
+
+        'ajax': {
+            'url': '/api/books',
+            'dataSrc': '',
+
+        },
+      "language": {
+        "emptyTable": "Nothing to show",
+    },
+      "columns": [
+            { "data": "price", render: $.fn.dataTable.render.number(',', '.', 8, ''), "width":"40%"  },
+            { "data": "amount", render: $.fn.dataTable.render.number(',', '.', 8, '') },
+            { "data": "sum", render: $.fn.dataTable.render.number(',', '.', 8, '') },
+           
+        ],
+       "scrollY":        "300px",
+       "scrollCollapse": true,
+       "autoWidth": false,
+       "lengthChange": false,
+       "ordering": false,
+       "pageLengt"': 50,
+       "bFilter": false,
+       "bPaginate": false,
+       "bInfo": false,
+       "bSort": false,
+       "createdRow": function( row, data, dataIndex){
+        
+                [...more code here...]
+});
+
+&lt;/script&gt;
+</code></pre>
+    <p>This code is working fine, but any number &lt; 0.00000100 is showing using scientific notation. is there any way to suppress it? thank for the help</p>
+   </div>
+   <div class="tags">
+    <span class="tag">jquery</span><span class="tag">datatables</span><span class="tag">numbers</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>Does increasing the precision help? If not you're most likely best off rendering the value as a string</span> <span> - </span> <span class="display-name">Rory McCrossan</span> <span> </span> <span class="date">22 Jul 2021 at 18:12</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>I didn't try yet. I will and let you know!</span> <span> - </span> <span class="display-name">stefano manzi</span> <span> </span> <span class="date">22 Jul 2021 at 18:13</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>increasing precision did not help</span> <span> - </span> <span class="display-name">stefano manzi</span> <span> </span> <span class="date">22 Jul 2021 at 18:29</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jul 2021 at 19:32</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use the JavaScript <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat" rel="nofollow noreferrer"><code>Intl.NumberFormat</code></a> object in a DataTables column renderer:</p>
+     <pre><code>Intl.NumberFormat('en', { maximumSignificantDigits: 15 }).format(1234.00000000123);
+</code></pre>
+     <p>Here is a demo:</p>
+     <p></p>
+     <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+      <div class="snippet-code">
+       <pre class="snippet-code-js lang-js prettyprint-override"><code>var dataSet = [
+    {
+      "name": "Tiger Nixon",
+      "amount": 1234.00000000123
+    }
+  ];
+
+$(document).ready(function() {
+
+var table = $('#example').DataTable( {
+  data: dataSet,
+  columns: [
+    { 
+      title: "Name", 
+      data: "name" 
+    },
+    {
+      title: "Amount", 
+      data: "amount",
+      render: function ( data, type, row, meta ) {
+        if (type === 'display') {
+          return Intl.NumberFormat('en', { maximumSignificantDigits: 15 }).format(data);
+        } else {
+          return data;
+        }
+      }
+    }
+  ]
+
+} );
+
+} );</code></pre>
+       <pre class="snippet-code-html lang-html prettyprint-override"><code>&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Demo&lt;/title&gt;
+  &lt;script src="https://code.jquery.com/jquery-3.5.1.js"&gt;&lt;/script&gt;
+  &lt;script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.js"&gt;&lt;/script&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.22/css/jquery.dataTables.css"&gt;
+  &lt;link rel="stylesheet" type="text/css" href="https://datatables.net/media/css/site-examples.css"&gt;
+
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div style="margin: 20px;"&gt;
+
+    &lt;table id="example" class="display dataTable cell-border" style="width:100%"&gt;
+    &lt;/table&gt;
+
+&lt;/div&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </div>
+     </div>
+     <p></p>
+     <p>The plug-in used in the question uses the JavaScript <code>parseFloat()</code> function which, as you have seen, will convert values to scientific notation if the value is sufficiently small - like the example you give:</p>
+     <pre><code>parseFloat(0.00000099) -&gt; 9.9e-7
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>CORS who has to send what?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>CORS who has to send what?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Beginner</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>16 Feb 2020 at 14:15</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/60249369/cors-who-has-to-send-what">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am having problems to understand which component has to sent which headers in what cases:</p>
+    <p>I have the following components</p>
+    <ol>
+     <li>
+      <p>Browser: local, displays website</p></li>
+     <li>
+      <p>Webserver: remote, apache, serves http-website at port 80</p></li>
+     <li>
+      <p>REST-Server: remote, custom implementation in golang, serves resources at port 8080 and offers three types of ressources</p>
+      <p>/api/login (POST)<br>
+        /api/foo (GET)<br>
+        /api/bar/0/sub/1 (GET and POST)<br></p></li>
+    </ol>
+    <p>Everything worked fine as long as I had the whole CORS setup working with localhost only. But now that I try to execute on the remove server I get CORS violations.</p>
+    <p>Most of the online documentation discusses what browser and server should do, but which of the servers (website vs. rest) has to do what?</p>
+    <p><strong>Question</strong>: who has to set which Access-Control-Allow-Origin-Headers to post a login-request?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">cors</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>2</td>
+       <td><span>new specs, I don't have details while not being actively in web dev, but since last year proper headers should be provided by source server, legacy method shouldn't work (should be blocked by browser). That's why Chrome broke quite a number of content-forwarding websites last year ironically, that included some regional Google's servers)</span> <span> - </span> <span class="display-name">Swift - Friday Pie</span> <span> </span> <span class="date">16 Feb 2020 at 14:23</span></td>
+      </tr>
+      <tr>
+       <td>2</td>
+       <td><span>CORS is easier to understand when you recall that it's not intended to protect resources, but to help browsers protect users against malicious websites. So the resource you want to access (the REST API) must set CORS headers to allow access by the website. But if all parts are under your control I'd rather set up a reverse proxy to serve the website + API from the same origin.</span> <span> - </span> <span class="display-name">amon</span> <span> </span> <span class="date">16 Feb 2020 at 17:13</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>@amon ok, this helps. Could you please post this as an answer?</span> <span> - </span> <span class="display-name">Beginner</span> <span> </span> <span class="date">16 Feb 2020 at 17:41</span></td>
+      </tr>
+      <tr>
+       <td>1</td>
+       <td><span>@Beginner I've stopped writing answers<a href="https://meta.stackexchange.com/q/333965">,</a> but would of course welcome if anyone turns the comments into a full answer. I don't know how much traffic from answerers a secondary tag like <a href="https://stackoverflow.com/questions/tagged/cors">cors</a> sees though.</span> <span> - </span> <span class="display-name">amon</span> <span> </span> <span class="date">16 Feb 2020 at 21:01</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Read the error message you receive. It tells you precisely what is missing for the request to be successful.</span> <span> - </span> <span class="display-name">Kevin B</span> <span> </span> <span class="date">17 Feb 2020 at 19:27</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Feb 2020 at 18:56</span>
+     </div>
+    </div>
+    <div>
+     <p>The following notes gathered from various sources helped me as a CORS beginner (which I still most definitely am) - so, maybe they will also help others.</p>
+     <p>Also, I am sure the following notes are far from the full story. And like @amon said, reverse proxying is also a way to solve for (i.e. sidestep) CORS.</p>
+     <h2>1) That CORS Flowchart</h2>
+     <p>See <a href="https://stackoverflow.com/questions/16296145/set-cors-header-in-tomcat/18850438#18850438">this question</a> - the <a href="https://i.stack.imgur.com/oEiwo.png" rel="nofollow noreferrer">flowchart</a> shown there is a summary describing who sends what. However, as a beginner, I found the flowchart initially difficult to understand in isolation.</p>
+     <p>I looked at <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS" rel="nofollow noreferrer">this guide</a>, which provides a lot more technical details on who can send which headers. For example, the second of its three scenarios shows who sends what for a request which includes a preflight request:</p>
+     <p><a href="https://i.stack.imgur.com/rpuI4.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/rpuI4.png" alt="enter image description here"></a></p>
+     <p>Three examples where preflighting is required are:</p>
+     <ul>
+      <li>the request includes an authentication token</li>
+      <li>custom headers are included in the request</li>
+      <li>the request is an ajax call containing a JSON or XML payload.</li>
+     </ul>
+     <p>In contrast, requests containing plain <code>GET</code>s are not preflighted.</p>
+     <p>One key point here is it is the browser - not the client application - which manages these interactions from the browser to the server. The client application has no direct involvement in these interactions.</p>
+     <p>On the server, it is typically a CORS filter which controls the contents of the response from the server back to the browser (an example is provided below).</p>
+     <p>That might be all you need to get a reasonably complete answer to the "who sends what" question. But I was still confused.</p>
+     <p>I looked at an example, which helped me much more - see below.</p>
+     <hr>
+     <p><strong>I think the best insight I had, along the way, was that my client application did not need to do anything specific to address CORS restrictions. It was the browser in which my application was running which took care of client-side CORS handling. As @amon says, CORS is <em>not intended to protect resources, but to help browsers protect users against malicious websites</em>.</strong></p>
+     <hr>
+     <h2>2) An Example</h2>
+     <p>Looking at a specific example helped my understanding of who sends what.</p>
+     <p>Scenario: We have a client application running in a browser, at <code>https://domainA.com</code>. It makes an API request to an unrelated server (<code>http://anotherdomainX.net</code>).</p>
+     <p>The example server I show here is Tomcat - other servers may have significantly different ways of configuring a CORS filter (I don't know). But the Tomcat example lays out a lot of the details in a relatively clear way.</p>
+     <p>See <a href="https://serverfault.com/questions/884253/enable-cors-in-tomcat">this ServerFault question</a> for the example.</p>
+     <p>This is the XML from that example:</p>
+     <pre><code>&lt;filter&gt;
+    &lt;filter-name&gt;CorsFilter&lt;/filter-name&gt;
+    &lt;filter-class&gt;org.apache.catalina.filters.CorsFilter&lt;/filter-class&gt;
+    &lt;init-param&gt;
+        &lt;param-name&gt;cors.allowed.origins&lt;/param-name&gt;
+        &lt;param-value&gt;
+            http://domainA.com,
+            https://domainA.com,
+            http://localhost:4200
+        &lt;/param-value&gt;
+    &lt;/init-param&gt;
+    &lt;init-param&gt;
+        &lt;param-name&gt;cors.allowed.methods&lt;/param-name&gt;
+        &lt;param-value&gt;GET,POST,HEAD,OPTIONS,PUT&lt;/param-value&gt;
+    &lt;/init-param&gt;
+    &lt;init-param&gt;
+        &lt;param-name&gt;cors.allowed.headers&lt;/param-name&gt;
+        &lt;param-value&gt;
+            Content-Type,
+            X-Requested-With,
+            Accept,
+            Accept-Encoding,
+            Accept-Language,
+            Origin,
+            Access-Control-Request-Method,
+            Access-Control-Request-Headers,
+            Connection,
+            Host,
+            authorization
+        &lt;/param-value&gt;
+    &lt;/init-param&gt;
+    &lt;init-param&gt;
+        &lt;param-name&gt;cors.exposed.headers&lt;/param-name&gt;
+        &lt;param-value&gt;
+            Access-Control-Allow-Origin,
+            Access-Control-Allow-Credentials
+        &lt;/param-value&gt;
+    &lt;/init-param&gt;
+&lt;/filter&gt;
+&lt;filter-mapping&gt;
+    &lt;filter-name&gt;CorsFilter&lt;/filter-name&gt;
+    &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+&lt;/filter-mapping&gt;
+
+</code></pre>
+     <p>(For Tomcat, this is added to the <code>web.xml</code> config file in <code>CATALINA_HOME/conf</code>.)</p>
+     <p>The various sections in the above filter are documented <a href="https://tomcat.apache.org/tomcat-9.0-doc/config/filter.html#CORS_Filter" rel="nofollow noreferrer">here</a> (Tomcat 9).</p>
+     <p>But the key point is it is the above filter definition which controls what specific CORS-related are returned from the server.</p>
+     <p>The <code>cors.allowed.origins</code> section is where the whitelist is defined. By default, the list is empty, meaning no requests get through, except those from the same domain (origin) as the server - <code>http://anotherdomainX.net</code>.</p>
+     <h2>3) Origin Names</h2>
+     <p>This is basically what you see in the address bar of your client web-based application. It has to include the protocol, domain name and port number (if used). The root of the application context is <em>not</em> part of the origin name.</p>
+     <p>So, for a URL such as <code>https://domainA.com/myapp/getdata</code>, then <code>https://domainA.com</code> is the origin name.</p>
+     <h2>4) Postman</h2>
+     <p>This appears to crop up fairly frequently. <em>Why does my API call work in Postman, but not from my web client?</em></p>
+     <p>The basic answer is because <a href="https://stackoverflow.com/a/36486188/12567365">Postman is a dev tool, not a browser</a>.</p>
+     <p>My understanding is that it uses browser extensions, which have different rules regarding how <code>XMLHttpRequest</code>s are handled.</p>
+     <p>Tools such as cURL are also not relevant for CORS because again as @amon says, CORS is <em>not intended to protect resources, but to help browsers protect users against malicious websites</em>.</p>
+     <h2>5) null Origins</h2>
+     <p>An example of a null origin is when you create a simple web page in a text file, open it in a browser, and have a URL like this:</p>
+     <pre><code>file:///C:/temp/test.htm
+</code></pre>
+     <p>Here the protocol is <code>file:</code>. See <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin" rel="nofollow noreferrer">here</a> for notes and warnings about this.</p>
+     <h2>6) Public APIs</h2>
+     <p>It's probably bad form for an answer to contain a question, but...</p>
+     <p>How do publicly available services handle CORS? Do they just enable "everyone" in their <code>cors-allowed-origins</code>?</p>
+     <pre><code>&lt;init-param&gt;
+    &lt;param-name&gt;cors.allowed.origins&lt;/param-name&gt;
+    &lt;param-value&gt; * &lt;/param-value&gt;
+&lt;/init-param&gt;
+</code></pre>
+     <p>I guess the answer is <a href="https://www.moesif.com/blog/technical/cors/Authoritative-Guide-to-CORS-Cross-Origin-Resource-Sharing-for-REST-APIs/" rel="nofollow noreferrer">yes</a>. In its "<a href="https://www.moesif.com/blog/technical/cors/Authoritative-Guide-to-CORS-Cross-Origin-Resource-Sharing-for-REST-APIs/#common-pitfalls" rel="nofollow noreferrer">common pitfalls</a>" section, the linked article states:</p>
+     <p><em>CORS is a relaxation of same-origin policy while attempting to remain secure. Using * disables most security rules of CORS. There are use cases where wildcard is OK such as an open API that integrates into many 3rd party websites.</em></p>
+     <hr>
+     <p>I would be delighted to edit the above notes to correct any errors, if that is appropriate.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>i don't know why you got downvoted. your post is helpful to me.</span> <span> - </span> <span class="display-name">Beginner</span> <span> </span> <span class="date">17 Feb 2020 at 21:46</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

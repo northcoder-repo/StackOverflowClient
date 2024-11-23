@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Java GSON Json partial parsing</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Java GSON Json partial parsing</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>K.N. Bhargav</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>15 Jun 2020 at 06:12</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/62382352/java-gson-json-partial-parsing">source</a>
+    </div>
+   </div>
+   <div>
+    <p>Say I have a JSON object representing an entity (can be any entity) like so:</p>
+    <pre><code>{
+    "entity_id": "1",
+    "entity_name": "employee",
+    "entity_json": {
+        "employee_id": "e01",
+        "employee_name": "john",
+        "employee_phone_numbers": [
+            "1234567",
+            "8765433"
+        ]
+    }
+}
+</code></pre>
+    <p>Note that <code>entity_json</code> can represent different entities having different structures as long as it is a valid JSON. For example, the following is another entity's representation:</p>
+    <pre><code>{
+    "entity_id": "1",
+    "entity_name": "invoice",
+    "entity_json": {
+        "invoice_id": "1011",
+        "items": {
+            "item_id": "1",
+            "quantity": "3",
+            "price": "$100"
+        },
+        "date": "01-01-2020",
+        "customer": {
+            "id": "3",
+            "address": {
+                "street": "some_street",
+                "country": "CZ",
+                ...
+            }
+        }
+    }
+}
+</code></pre>
+    <p>I want to be able to partially parse this JSON into an Entity POJO using Gson in Java. That is, I'll have an entity POJO like the one shown below:</p>
+    <pre><code>public class Entity {
+    private String entity_id;
+    private String entity_name;
+    private String entity_json;  // &lt;-- entity_json is a String
+
+    // getters and setters
+}
+
+
+/*
+ * entity_json (for employee) = "{ \"employee_id\": \"1\", \"employee... }"
+ * entity_json (for invoice) = "{ \"invoice_id\": \"1011\", \"items... }"
+ */
+</code></pre>
+    <p>and I'm planning on performing any operation on <code>entity_json</code> using JsonPath.</p>
+    <p>Is there any way I can achieve this WITHOUT having to explicitly set <code>entity_json</code> in the JSON structure as a string with escapes?</p>
+    <p>Any help is appreciated here. Thanks!</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">json</span><span class="tag">gson</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>18 Jun 2020 at 21:47</span>
+     </div>
+    </div>
+    <div>
+     <p>You can avoid using a <code>String</code> for your <code>entity_json</code> by using Gson's <code>JsonObject</code>.</p>
+     <p>Here is my revised <code>Entity</code> class:</p>
+     <pre><code>import com.google.gson.JsonObject;
+
+public class MyEntity {
+
+    private String entity_id;
+    private String entity_name;
+    private JsonObject entity_json;
+
+    // getters and setters not shown
+
+}
+</code></pre>
+     <p>Then you can populate instances as follows:</p>
+     <pre><code>MyEntity myEntityOne = new Gson().fromJson(JSON_ONE, MyEntity.class);
+MyEntity myEntityTwo = new Gson().fromJson(JSON_TWO, MyEntity.class);
+
+System.out.println(myEntityOne.getEntity_json());
+System.out.println(myEntityTwo.getEntity_json());
+</code></pre>
+     <p>In the above code, <code>JSON_ONE</code> and <code>JSON_TWO</code> are just strings containing the two sample JSONs from your question.</p>
+     <p>The console prints out the following (snipped for brevity):</p>
+     <pre><code>{"employee_id":"e01","employee_name":"john","employee_phone_numbers":["1234567","8765433"]}
+{"invoice_id":"1011","items":{"item_id":"1","quantity":"3","price":"$100"},"date":"01-01-2020"...
+</code></pre>
+     <p>You can, of course, now use Gson to further manipulate each <code>entity_json</code> field as needed, since each one is itself a valid JSON object.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Using <code>JsonObject</code> did indeed turn out to be a much better way to handle this -- thanks @andrewjames!</span> <span> - </span> <span class="display-name">K.N. Bhargav</span> <span> </span> <span class="date">19 Jun 2020 at 08:10</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

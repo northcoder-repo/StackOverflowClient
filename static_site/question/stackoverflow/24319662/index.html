@@ -1,0 +1,2102 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>From inside of a Docker container, how do I connect to the localhost of the machine?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>From inside of a Docker container, how do I connect to the localhost of the machine?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>3109</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Phil</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>20 Jun 2014 at 03:54</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/24319662/from-inside-of-a-docker-container-how-do-i-connect-to-the-localhost-of-the-mach">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I have a Nginx running inside a docker container. I have a MySql running on the host system. I want to connect to the MySql from within my container. MySql is only binding to the localhost device.</p>
+    <p>Is there any way to connect to this MySql or any other program on localhost from within this docker container?</p>
+    <p>This question is different from "How to get the IP address of the docker host from inside a docker container" due to the fact that the IP address of the docker host could be the public IP or the private IP in the network which may or may not be reachable from within the docker container (I mean public IP if hosted at AWS or something). Even if you have the IP address of the docker host it does not mean you can connect to docker host from within the container given that IP address as your Docker network may be overlay, host, bridge, macvlan, none etc which restricts the reachability of that IP address.</p>
+   </div>
+   <div class="tags">
+    <span class="tag">docker</span><span class="tag">nginx</span><span class="tag">docker-container</span><span class="tag">docker-networking</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>7</td>
+       <td><span>Why not bind mysql to docker0 as well?</span> <span> - </span> <span class="display-name">ivant</span> <span> </span> <span class="date">20 Jun 2014 at 11:42</span></td>
+      </tr>
+      <tr>
+       <td>3</td>
+       <td><span>For Windows Machine :- $docker run -d --name MyWebServer -P httpd</span> <span> - </span> <span class="display-name">Lokesh S</span> <span> </span> <span class="date">17 Sep 2018 at 15:14</span></td>
+      </tr>
+      <tr>
+       <td>30</td>
+       <td><span>Without <code>network: host</code> you can't go back from a container to the host. Only host to container. This is the main ideology behind containers. They are isolated for both stability and security reasons.</span> <span> - </span> <span class="display-name">FreeSoftwareServers</span> <span> </span> <span class="date">17 May 2020 at 20:26</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4265</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Thomasleveil</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>20 Jun 2014 at 11:46</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Edit:</strong></p>
+     <p>If you are using <a href="https://docs.docker.com/docker-for-mac/networking/#there-is-no-docker0-bridge-on-macos#i-want-to-connect-from-a-container-to-a-service-on-the-host" rel="noreferrer">Docker-for-mac</a> or <a href="https://docs.docker.com/docker-for-windows/networking/#there-is-no-docker0-bridge-on-windows#i-want-to-connect-from-a-container-to-a-service-on-the-host" rel="noreferrer">Docker-for-Windows</a> 18.03+, connect to your mysql service using the host <code>host.docker.internal</code> (instead of the <code>127.0.0.1</code> in your connection string).</p>
+     <p>If you are using <strong>Docker-for-Linux</strong> 20.10.0+, you can also use the host <code>host.docker.internal</code> <strong>if</strong> you started your Docker container with the <code>--add-host host.docker.internal:host-gateway</code> option, or added the following snippet in your docker-compose.yml file :</p>
+     <pre class="lang-yaml prettyprint-override"><code>extra_hosts:
+    - "host.docker.internal:host-gateway"
+</code></pre>
+     <p>Otherwise, read below</p>
+     <hr>
+     <h2>TLDR</h2>
+     <p>Use <code>--network="host"</code> in your <code>docker run</code> command, then <code>127.0.0.1</code> in your docker container will point to your docker host.</p>
+     <p>Note: This mode only works on Docker for Linux, <a href="https://docs.docker.com/network/host/" rel="noreferrer">per the documentation</a>.</p>
+     <hr>
+     <h1>Note on docker container networking modes</h1>
+     <p>Docker offers <a href="https://docs.docker.com/engine/reference/run/#network-settings" rel="noreferrer">different networking modes</a> when running containers. Depending on the mode you choose you would connect to your MySQL database running on the docker host differently.</p>
+     <h2>docker run --network="bridge" (default)</h2>
+     <p>Docker creates a bridge named <code>docker0</code> by default. Both the docker host and the docker containers have an IP address on that bridge.</p>
+     <p>on the Docker host, type <code>sudo ip addr show docker0</code> you will have an output looking like:</p>
+     <pre><code>[vagrant@docker:~] $ sudo ip addr show docker0
+4: docker0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default
+    link/ether 56:84:7a:fe:97:99 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.42.1/16 scope global docker0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5484:7aff:fefe:9799/64 scope link
+       valid_lft forever preferred_lft forever
+</code></pre>
+     <p>So here my docker host has the IP address <code>172.17.42.1</code> on the <code>docker0</code> network interface.</p>
+     <p>Now start a new container and get a shell on it: <code>docker run --rm -it ubuntu:trusty bash</code> and within the container type <code>ip addr show eth0</code> to discover how its main network interface is set up:</p>
+     <pre><code>root@e77f6a1b3740:/# ip addr show eth0
+863: eth0: &lt;BROADCAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 66:32:13:f0:f1:e3 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.1.192/16 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::6432:13ff:fef0:f1e3/64 scope link
+       valid_lft forever preferred_lft forever
+</code></pre>
+     <p>Here my container has the IP address <code>172.17.1.192</code>. Now look at the routing table:</p>
+     <pre><code>root@e77f6a1b3740:/# route
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+default         172.17.42.1     0.0.0.0         UG    0      0        0 eth0
+172.17.0.0      *               255.255.0.0     U     0      0        0 eth0
+</code></pre>
+     <p>So the IP Address of the docker host <code>172.17.42.1</code> is set as the default route and is accessible from your container.</p>
+     <pre><code>root@e77f6a1b3740:/# ping 172.17.42.1
+PING 172.17.42.1 (172.17.42.1) 56(84) bytes of data.
+64 bytes from 172.17.42.1: icmp_seq=1 ttl=64 time=0.070 ms
+64 bytes from 172.17.42.1: icmp_seq=2 ttl=64 time=0.201 ms
+64 bytes from 172.17.42.1: icmp_seq=3 ttl=64 time=0.116 ms
+</code></pre>
+     <h2>docker run --network="host"</h2>
+     <p>Alternatively you can run a docker container with <a href="http://docs.docker.com/engine/reference/run/#network-host" rel="noreferrer">network settings set to <code>host</code></a>. Such a container will share the network stack with the docker host and from the container point of view, <code>localhost</code> (or <code>127.0.0.1</code>) will refer to the docker host.</p>
+     <p>Be aware that any port opened in your docker container would be opened on the docker host. And this without requiring the <a href="https://docs.docker.com/engine/reference/run/#expose-incoming-ports" rel="noreferrer"><code>-p</code> or <code>-P</code> <code>docker run</code> option</a>.</p>
+     <p>IP config on my docker host:</p>
+     <pre><code>[vagrant@docker:~] $ ip addr show eth0
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 08:00:27:98:dc:aa brd ff:ff:ff:ff:ff:ff
+    inet 10.0.2.15/24 brd 10.0.2.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a00:27ff:fe98:dcaa/64 scope link
+       valid_lft forever preferred_lft forever
+</code></pre>
+     <p>and from a docker container in <strong>host</strong> mode:</p>
+     <pre><code>[vagrant@docker:~] $ docker run --rm -it --network=host ubuntu:trusty ip addr show eth0
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 08:00:27:98:dc:aa brd ff:ff:ff:ff:ff:ff
+    inet 10.0.2.15/24 brd 10.0.2.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a00:27ff:fe98:dcaa/64 scope link
+       valid_lft forever preferred_lft forever
+</code></pre>
+     <p>As you can see both the docker host and docker container share the exact same network interface and as such have the same IP address.</p>
+     <hr>
+     <h1>Connecting to MySQL from containers</h1>
+     <h2>bridge mode</h2>
+     <p>To access MySQL running on the docker host from containers in <em>bridge mode</em>, you need to make sure the MySQL service is listening for connections on the <code>172.17.42.1</code> IP address.</p>
+     <p>To do so, make sure you have either <code>bind-address = 172.17.42.1</code> or <code>bind-address = 0.0.0.0</code> in your MySQL config file (my.cnf).</p>
+     <p>If you need to set an environment variable with the IP address of the gateway, you can run the following code in a container :</p>
+     <pre><code>export DOCKER_HOST_IP=$(route -n | awk '/UG[ \t]/{print $2}')
+</code></pre>
+     <p>then in your application, use the <code>DOCKER_HOST_IP</code> environment variable to open the connection to MySQL.</p>
+     <p><strong>Note:</strong> if you use <code>bind-address = 0.0.0.0</code> your MySQL server will listen for connections on all network interfaces. That means your MySQL server could be reached from the Internet ; make sure to set up firewall rules accordingly.</p>
+     <p><strong>Note 2:</strong> if you use <code>bind-address = 172.17.42.1</code> your MySQL server won't listen for connections made to <code>127.0.0.1</code>. Processes running on the docker host that would want to connect to MySQL would have to use the <code>172.17.42.1</code> IP address.</p>
+     <h2>host mode</h2>
+     <p>To access MySQL running on the docker host from containers in <em>host mode</em>, you can keep <code>bind-address = 127.0.0.1</code> in your MySQL configuration and connect to <code>127.0.0.1</code> from your containers:</p>
+     <pre><code>[vagrant@docker:~] $ docker run --rm -it --network=host mysql mysql -h 127.0.0.1 -uroot -p
+Enter password:
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 36
+Server version: 5.5.41-0ubuntu0.14.04.1 (Ubuntu)
+
+Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its affiliates. Other names may be trademarks of their respective owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql&gt;
+</code></pre>
+     <p><strong>note:</strong> Do use <code>mysql -h 127.0.0.1</code> and not <code>mysql -h localhost</code>; otherwise the MySQL client would try to connect using a unix socket.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>25</td>
+        <td><span>Thank you for such a detailed answer! From what I've gathered, using host mode is the only way to get this functionality through localhost. I haven't tried but I would assume you could create a separate network to connect containers over their own bridge offering them a common 'localhost'.</span> <span> - </span> <span class="display-name">Ben</span> <span> </span> <span class="date">12 May 2015 at 05:45</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>There is also a guide on Advanced Networking at <a href="https://docs.docker.com/articles/networking/" rel="nofollow noreferrer">docs.docker.com/articles/networking</a></span> <span> - </span> <span class="display-name">Thomasleveil</span> <span> </span> <span class="date">12 May 2015 at 08:26</span></td>
+       </tr>
+       <tr>
+        <td>34</td>
+        <td><span>Note for OSX users: log into your docker virtual machine first (boot2docker), using "docker-machine ssh default" , then run "sudo ip addr show docker0". Continue with Thomas' instructions from there.</span> <span> - </span> <span class="display-name">Charlie Dalsass</span> <span> </span> <span class="date">1 Oct 2015 at 22:19</span></td>
+       </tr>
+       <tr>
+        <td>38</td>
+        <td><span>I am running Docker for Mac, and there is no 172.17.42.1 anymore, no docker0 anymore. It was 172.17.0.1 as gateway, and can't even <code>telnet 172.17.0.1 3306</code></span> <span> - </span> <span class="display-name">zx1986</span> <span> </span> <span class="date">30 Jun 2016 at 03:35</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>There is a reason they didn't try to make this easy. It's better to have all the dependencies dockerized as well, which allows you to sidestep this whole problem.</span> <span> - </span> <span class="display-name">Jonah</span> <span> </span> <span class="date">10 Aug 2016 at 07:41</span></td>
+       </tr>
+       <tr>
+        <td>41</td>
+        <td><span>You can mount the mysql socket into the container instead of networking like <code>-v /var/run/mysqld/mysqld.sock:/tmp/mysql.sock</code> this.</span> <span> - </span> <span class="display-name">chx</span> <span> </span> <span class="date">2 Sep 2016 at 05:30</span></td>
+       </tr>
+       <tr>
+        <td>10</td>
+        <td><span>Can someone address the situation when your running Docker on Mac and not using boot2docker as such there is no docker0 interface?</span> <span> - </span> <span class="display-name">TheJKFever</span> <span> </span> <span class="date">9 Feb 2017 at 19:10</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>if you get access denied from inside docker container, you may need to allow root access outside localhost, with <code>GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'password' WITH GRANT OPTION;</code></span> <span> - </span> <span class="display-name">ospider</span> <span> </span> <span class="date">13 Jul 2017 at 09:16</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>For anyone trying to connect to a host service and running Docker for Mac. There is special Mac-only DNS name <code>docker.for.mac.host.internal</code>, which resolves to the internal IP address used by the host. <a href="https://docs.docker.com/docker-for-mac/networking/#known-limitations-use-cases-and-workarounds" rel="nofollow noreferrer">source</a></span> <span> - </span> <span class="display-name">MikeV</span> <span> </span> <span class="date">21 Mar 2018 at 23:50</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>The latest version of Docker supports <code>host.docker.internal</code> as a domain name from the container (as per the latest update in @Janne Annala 's <a href="https://stackoverflow.com/a/43541681/865883">answer</a> ). Going forward, that appears to be the more general solution when you still want some level of isolation between the container and host networks.</span> <span> - </span> <span class="display-name">funseiki</span> <span> </span> <span class="date">19 Apr 2018 at 20:33</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>@funseiki note that for docker 18.04.0-ce <code>host.docker.internal</code> does not work for Linux. It only works for docker-for-Windows and docker-for-mac. See <a href="https://github.com/docker/for-linux/issues/264" rel="nofollow noreferrer">github.com/docker/for-linux/issues/264</a></span> <span> - </span> <span class="display-name">Thomasleveil</span> <span> </span> <span class="date">20 Apr 2018 at 05:55</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span><code>--net=host</code> breaks published port translation so that if the container exposes port 80 (using <code>--publish XXX:80</code> or more simply <code>-p XXX:80</code> then if a service on the host is already bound to port 80 (a docker instance or a host native service) then the container will not be able to bind the port 80. So it's not good in any situation.</span> <span> - </span> <span class="display-name">Eric</span> <span> </span> <span class="date">2 May 2018 at 17:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>if you are using a mac, the host system will not show you on the host (mac) any ip address for the brdige netwrok. So when you want to contact from the mac the docker machine you need to use the port forward -p whateverPort1:whateverport2 and use localhost. On the other hand, from the docker machine the something like this would work: telnet host.docker.internal 445</span> <span> - </span> <span class="display-name">99Sono</span> <span> </span> <span class="date">17 Nov 2019 at 10:02</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>You can see the mac directions since Docker version 18.03 referencing <code>host.docker.internal</code> <a href="https://docs.docker.com/docker-for-mac/networking/#i-want-to-connect-from-a-container-to-a-service-on-the-host" rel="nofollow noreferrer">here</a></span> <span> - </span> <span class="display-name">Zephaniah Grunschlag</span> <span> </span> <span class="date">8 May 2020 at 15:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Just tried <code>--network="host"</code> in Docker Desktop for Windows (2.3.0.2) and it worked perfectly fine.</span> <span> - </span> <span class="display-name">Loek</span> <span> </span> <span class="date">21 May 2020 at 09:35</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This is by a fair margin one of the top 5 best answers I've come by on SO! Thomasleveil thx for your ATI ( attention, time, and interest) &lt;3 @iam.Carrot huge kudos for maintaining this answer :plusone: and :thumbsup:</span> <span> - </span> <span class="display-name">walt_die</span> <span> </span> <span class="date">12 Jun 2020 at 05:25</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This partly solved my problem - <code>host.docker.internal</code> worked perfectly. However, I'm trying to access an IIS site hosted locally, and I get an SSL error because, sure, I don't have an SSL cert for <code>host.docker.internal</code>. Is there a way to generate a local cert for that use?</span> <span> - </span> <span class="display-name">Peter Tirrell</span> <span> </span> <span class="date">2 Jul 2020 at 13:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@PeterTirrell I’m having the same issue you described. Were you able to find a solution?</span> <span> - </span> <span class="display-name">massaskillz</span> <span> </span> <span class="date">23 Jul 2020 at 19:52</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@massaskillz I didn't, really. In my case I was using an internal wrapper class around HttpClient to make the call, so I customized the HttpClientHandler.ServerCertificateCustomValidationCallback to basically intercept any SSL validation errors and ignore them if the RequestUri contains "host.docker.internal". It's hacky, but got me on my way for debugging.</span> <span> - </span> <span class="display-name">Peter Tirrell</span> <span> </span> <span class="date">27 Jul 2020 at 20:51</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Running docker like: <code>docker run --rm -d -p 5000:5000/tcp mytestimage:latest --network="host"</code> does not work. I get an error that it cannot connect to 127.0.0.1. The only thing that worked was in my C# code, using <code>host.docker.internal</code> instead of <code>localhost</code> or <code>127.0.0.1</code>. Any idea why this wouldn't work on Docker on Windows?</span> <span> - </span> <span class="display-name">Don Rhummy</span> <span> </span> <span class="date">21 Sep 2020 at 19:49</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Outstanding answer! I just wanted to add that to get this same to work in a <code>docker-compose.yml</code>, you must add an <code>extra-hosts</code> <a href="https://github.com/compose-spec/compose-spec/blob/master/spec.md#extra_hosts" rel="nofollow noreferrer">entry</a> with <code>host.docker.internal:host-gateway</code>, just like you would with the <code>docker run --add-host</code>. Perhaps @Thomasleveil could add that to the top edit too. Took me a bit to figure that one out.</span> <span> - </span> <span class="display-name">kzu</span> <span> </span> <span class="date">22 May 2021 at 18:48</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>does it works for windows containers - seems not.</span> <span> - </span> <span class="display-name">Dzmitry Lahoda</span> <span> </span> <span class="date">14 Jul 2021 at 10:06</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>--network="host"</code> in <code>docker run</code> solved my problem</span> <span> - </span> <span class="display-name">Syed Muhammad Asad</span> <span> </span> <span class="date">3 Sep 2021 at 09:17</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This works unfortunately only for <a href="https://docs.docker.com/desktop/mac/networking/#use-cases-and-workarounds" rel="nofollow noreferrer">Docker Desktop</a>. This is for development purpose and will not work in a production environment outside of Docker Desktop for Mac.</span> <span> - </span> <span class="display-name">Pavol Travnik</span> <span> </span> <span class="date">5 Oct 2021 at 14:58</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>So much for "write once ship everywhere".</span> <span> - </span> <span class="display-name">TheRealChx101</span> <span> </span> <span class="date">12 Feb 2022 at 11:49</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I can see http://&lt;servicename&gt;:5000/ is working in docker compose</span> <span> - </span> <span class="display-name">Manu Janardhanan</span> <span> </span> <span class="date">7 Jun 2022 at 03:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>What about images without the <code>route</code> command?</span> <span> - </span> <span class="display-name">SOFe</span> <span> </span> <span class="date">25 Aug 2022 at 08:56</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>using host.docker.internal:host-gateway works on windows, my issue was my spring application properties was referring to "localhost" and not "host.docker.internal" as mysql hostname hence mysql was not getting connected</span> <span> - </span> <span class="display-name">Abdeali Chandanwala</span> <span> </span> <span class="date">7 Feb 2023 at 10:48</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span> <span class="arrow"> <a href="#answer_3">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>703</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Janne Annala</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Apr 2017 at 11:33</span>
+     </div>
+    </div>
+    <div>
+     <h1>For all platforms</h1>
+     <p><strong>Docker v 20.10 and above (since December 14th 2020)</strong></p>
+     <p>Use your internal IP address or connect to the special DNS name <code>host.docker.internal</code> which will resolve to the internal IP address used by the host.</p>
+     <p>This is for development purpose and does not work in a production environment outside of Docker Desktop.</p>
+     <p><strong>Linux caveats</strong></p>
+     <p>To enable this in <strong>Docker</strong> on Linux, add <code>--add-host=host.docker.internal:host-gateway</code> to your <code>docker</code> command to enable the feature.</p>
+     <p>To enable this in <strong>Docker Compose</strong> on Linux, add the following lines to the container definition:</p>
+     <pre class="lang-yaml prettyprint-override"><code>extra_hosts:
+    - "host.docker.internal:host-gateway"
+</code></pre>
+     <p>According to some users the special DNS name only works within the Docker's default <code>bridge</code> network, not within custom networks.</p>
+     <h2>For older macOS and Windows versions of Docker</h2>
+     <p><strong>Docker v 18.03 and above (since March 21st 2018)</strong></p>
+     <p>Use your internal IP address or connect to the special DNS name <code>host.docker.internal</code> which will resolve to the internal IP address used by the host.</p>
+     <p>Linux support pending <a href="https://github.com/docker/for-linux/issues/264" rel="noreferrer">https://github.com/docker/for-linux/issues/264</a></p>
+     <h2>For older macOS versions of Docker</h2>
+     <p><strong>Docker for Mac v 17.12 to v 18.02</strong></p>
+     <p>Same as above but use <code>docker.for.mac.host.internal</code> instead.</p>
+     <p><strong>Docker for Mac v 17.06 to v 17.11</strong></p>
+     <p>Same as above but use <code>docker.for.mac.localhost</code> instead.</p>
+     <p><strong>Docker for Mac 17.05 and below</strong></p>
+     <p>To access host machine from the docker container you must attach an IP alias to your network interface. You can bind whichever IP you want, just make sure you're not using it to anything else.</p>
+     <p><code>sudo ifconfig lo0 alias 123.123.123.123/24</code></p>
+     <p>Then make sure that you server is listening to the IP mentioned above or <code>0.0.0.0</code>. If it's listening on localhost <code>127.0.0.1</code> it will not accept the connection.</p>
+     <p>Then just point your docker container to this IP and you can access the host machine!</p>
+     <p>To test you can run something like <code>curl -X GET 123.123.123.123:3000</code> inside the container.</p>
+     <p>The alias will reset on every reboot so create a start-up script if necessary.</p>
+     <p>Solution and more documentation here: <a href="https://docs.docker.com/desktop/networking/#use-cases-and-workarounds-for-all-platforms" rel="noreferrer">https://docs.docker.com/desktop/networking/#use-cases-and-workarounds-for-all-platforms</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>10</td>
+        <td><span>brilliant and thanks, this worked for me from within the container. <code>mysql -uroot -hdocker.for.mac.localhost</code></span> <span> - </span> <span class="display-name">Richard Frank</span> <span> </span> <span class="date">22 Jul 2017 at 05:46</span></td>
+       </tr>
+       <tr>
+        <td>3</td>
+        <td><span>docker.for.mac.localhost Is exactly what I was looking for. But this is dirty as hell at the same time. IN docker, one would expect that the hook docker.for.mac.localhost would be a generic docker internal name that would be valid for any operating system, not just for Mac. But for development purposes this is good enough.</span> <span> - </span> <span class="display-name">99Sono</span> <span> </span> <span class="date">3 Dec 2017 at 15:06</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>DNS name docker.for.mac.host.internal should be used instead of docker.for.mac.localhost (still valid) for host resolution from containers, since there is an RFC banning the use of subdomains of localhost. See <a href="https://tools.ietf.org/html/draft-west-let-localhost-be-localhost-06" rel="nofollow noreferrer">tools.ietf.org/html/draft-west-let-localhost-be-localhost-06</a>‌​.</span> <span> - </span> <span class="display-name">Jya</span> <span> </span> <span class="date">19 Feb 2018 at 13:46</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This doesn't work for me. When I <code>docker run -e HOSTNAME= docker.for.mac.host.internal </code>, the container is created but nothign happens. I have to then crtl+C. With <code>--net=host -e HOSTNAME=localhost</code> at least the container runs and complains that it can't find the service I need (MySQL db).</span> <span> - </span> <span class="display-name">Jorge Orpinel Pérez</span> <span> </span> <span class="date">11 Mar 2018 at 01:18</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>thanks a lot, field "docker.for.mac.host.internal" works for macOs</span> <span> - </span> <span class="display-name">quento</span> <span> </span> <span class="date">28 Oct 2020 at 15:48</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Looks like on Linux this works only if the container is on default docker <code>bridge</code> network <code>172.17.0.0</code> which is the one used by <code>docker0</code> interface. This won't work if you create a new network and add containers to it.</span> <span> - </span> <span class="display-name">hldev</span> <span> </span> <span class="date">24 Apr 2022 at 20:39</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>extra_hosts: - "host.docker.internal:host-gateway"</code> does not work on Linux.</span> <span> - </span> <span class="display-name">Jonny</span> <span> </span> <span class="date">12 Jul 2022 at 08:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>added <code>extra_hosts: - "host.docker.internal:host-gateway" </code> in docker-compsoe file and it worked like charm . thanks @Janne</span> <span> - </span> <span class="display-name">Saikat Roy</span> <span> </span> <span class="date">21 Jul 2022 at 10:07</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It never worked for Linux, so "for all platforms" is misleading, the answer is clearly incorrect.</span> <span> - </span> <span class="display-name">sortas</span> <span> </span> <span class="date">22 Jan 2023 at 13:24</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>It surely does, the instructions are just incorrect, so they should be removed, and there're multiple comments (including mine) to confirm it.</span> <span> - </span> <span class="display-name">sortas</span> <span> </span> <span class="date">14 Feb 2023 at 12:55</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This answer does not work for me on Debian 11. I have added <code>host.docker.internal:host-gateway</code> to <code>extra_hosts</code>, and in the container's <code>/etc/hosts/</code> I can see <code>172.17.0.1 host.docker.internal</code>, but from within the container I still get <code>can't connect to remote host (172.17.0.1): Connection refused</code>.</span> <span> - </span> <span class="display-name">aSemy</span> <span> </span> <span class="date">14 Mar 2023 at 13:21</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@aSemy Are you using a custom network instead of the default docker network? In that case it unfortunately doesn't work on Linux.</span> <span> - </span> <span class="display-name">Janne Annala</span> <span> </span> <span class="date">15 Mar 2023 at 13:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_3"><span>Answer 3</span> <span class="arrow"> <a href="#answer_2">↑</a> </span> <span class="arrow"> <a href="#answer_4">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>292</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>DeyaEldeen</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Jul 2020 at 09:52</span>
+     </div>
+    </div>
+    <div>
+     <p>Use</p>
+     <pre><code>host.docker.internal
+</code></pre>
+     <p>instead of</p>
+     <pre><code>localhost
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>20</td>
+        <td><span>Perhaps this answer could be expanded and clarified a bit? Does this mean you can still use Bridge mode?</span> <span> - </span> <span class="display-name">Jolta</span> <span> </span> <span class="date">8 Oct 2020 at 11:21</span></td>
+       </tr>
+       <tr>
+        <td>22</td>
+        <td><span>@ArnoldRoa this will only work on Mac/Windows not Linux</span> <span> - </span> <span class="display-name">Shane Cheek</span> <span> </span> <span class="date">23 Mar 2021 at 23:54</span></td>
+       </tr>
+       <tr>
+        <td>19</td>
+        <td><span>Doesn't work as of 4/26/2021. host.docker.internal resolves to nothing.</span> <span> - </span> <span class="display-name">Triynko</span> <span> </span> <span class="date">26 Apr 2021 at 04:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Can't replicate @Triynko's issue - this works just fine for me (engine: 20.10.6)</span> <span> - </span> <span class="display-name">Kieran E</span> <span> </span> <span class="date">12 May 2021 at 16:52</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>For setting host.docker.internal with docker-compose, see <a href="https://stackoverflow.com/a/67158212/243392">stackoverflow.com/a/67158212/243392</a></span> <span> - </span> <span class="display-name">Brian Burns</span> <span> </span> <span class="date">25 May 2021 at 04:43</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Thank you, It is working like a charm on Mac</span> <span> - </span> <span class="display-name">sjcoder</span> <span> </span> <span class="date">18 Aug 2021 at 09:03</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>Running WSL2 on Windows 10 (Docker Desktop with WSL backend enabled). This does not work.</span> <span> - </span> <span class="display-name">Inigo</span> <span> </span> <span class="date">11 Oct 2021 at 13:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Excellent. It is working.</span> <span> - </span> <span class="display-name">Rakesh Kumar Srivastava</span> <span> </span> <span class="date">28 Oct 2021 at 09:23</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>root@e8528aaeab39:/app# redis-cli -h "host.docker.internal" Could not connect to Redis at host.docker.internal:6379: Name or service not known not connected&gt;</span> <span> - </span> <span class="display-name">gdm</span> <span> </span> <span class="date">29 Nov 2021 at 09:30</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>... and how do you get this done? The <code>ServiceHost</code> entry in my LaunchSettings.json" file seems to be replaced by <code>localhost</code>, while I would like it to be replaced by <code>host.docker.internal</code>, but how can I do this?</span> <span> - </span> <span class="display-name">Dominique</span> <span> </span> <span class="date">19 Jan 2023 at 14:15</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I found this video very useful to understand Docker networking and not just copy/paste brute force until it works <a href="https://www.youtube.com/watch?v=bKFMS5C4CG0&amp;ab_channel=NetworkChuck" rel="nofollow noreferrer">youtube.com/watch?v=bKFMS5C4CG0&amp;ab_channel=NetworkChuck</a></span> <span> - </span> <span class="display-name">Paul Schwarz</span> <span> </span> <span class="date">17 Feb 2023 at 12:52</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_4"><span>Answer 4</span> <span class="arrow"> <a href="#answer_3">↑</a> </span> <span class="arrow"> <a href="#answer_5">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>122</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Mariano Ruiz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Aug 2016 at 21:30</span>
+     </div>
+    </div>
+    <div>
+     <p>I doing a hack similar to above posts of get the local IP to map to a alias name (DNS) in the container. The major problem is to get dynamically with a simple script that works both in <strong>Linux and OSX the host IP address</strong>. I did this script that works in both environments (even in Linux distribution with <code>"$LANG" != "en_*"</code> configured):</p>
+     <pre><code>ifconfig | grep -E "([0-9]{1,3}\.){3}[0-9]{1,3}" | grep -v 127.0.0.1 | awk '{ print $2 }' | cut -f2 -d: | head -n1
+</code></pre>
+     <p>So, using Docker Compose, the full configuration will be:</p>
+     <p><strong>Startup script (docker-run.sh)</strong>:</p>
+     <pre><code>export DOCKERHOST=$(ifconfig | grep -E "([0-9]{1,3}\.){3}[0-9]{1,3}" | grep -v 127.0.0.1 | awk '{ print $2 }' | cut -f2 -d: | head -n1)
+docker-compose -f docker-compose.yml up
+</code></pre>
+     <p><strong>docker-compose.yml</strong>:</p>
+     <pre><code>myapp:
+  build: .
+  ports:
+    - "80:80"
+  extra_hosts:
+    - "dockerhost:$DOCKERHOST"
+</code></pre>
+     <p>Then change <code>http://localhost</code> to <code>http://dockerhost</code> in your code.</p>
+     <p>For a more advance guide of how to customize the <code>DOCKERHOST</code> script, take a look at <a href="https://stackoverflow.com/questions/23934425/parse-ifconfig-to-get-only-my-ip-address-using-bash/37212665#37212665">this post</a> with a explanation of how it works.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Depending on your use case, you might even just get away with using the <code>DOCKERHOST</code> value here instead of "localhost" or 0.0.0.0 in whatever service your docker container needs to connect to locally.</span> <span> - </span> <span class="display-name">enderland</span> <span> </span> <span class="date">15 Mar 2017 at 15:51</span></td>
+       </tr>
+       <tr>
+        <td>4</td>
+        <td><span>I have slightly modified your solution to be compatible with custom networks: <code>export DOCKERHOST=$(docker network inspect --format='{{range .IPAM.Config}}{{.Gateway}}{{end}}' &lt;NETWORK-NAME&gt; | awk -F "/" 'NR==1{print $1}')</code> Where <i>&lt;NETWORK-NAME&gt;</i> could be <i>bridge</i> or the name of the network as defined by docker-compose (usually <i>path-name</i><b>-</b><i>network_name</i>).</span> <span> - </span> <span class="display-name">dieresys</span> <span> </span> <span class="date">26 Apr 2017 at 17:09</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>You need to add a comment: use <code>dockerhost</code> as the host for db connection (usualy replace for <code>localhost</code> in config file).</span> <span> - </span> <span class="display-name">Justin</span> <span> </span> <span class="date">30 Jun 2017 at 11:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>weird solution, but its the only that make xdebug work under docker with php cli</span> <span> - </span> <span class="display-name">Eddie</span> <span> </span> <span class="date">16 Dec 2019 at 11:08</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Acl stopped working after this solution in haproxy. Any idea why?</span> <span> - </span> <span class="display-name">HyukHyukBoi</span> <span> </span> <span class="date">28 Jan 2020 at 18:27</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_5"><span>Answer 5</span> <span class="arrow"> <a href="#answer_4">↑</a> </span> <span class="arrow"> <a href="#answer_6">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>59</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ray D</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Sep 2017 at 13:22</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Solution for Linux</strong> (kernel &gt;=3.6).</p>
+     <p>Ok, your <code>localhost</code> server has a default docker interface <code>docker0</code> with IP address <code>172.17.0.1</code>. Your container started with default network settings <code>--net="bridge"</code>.</p>
+     <ol>
+      <li>
+       <p>Enable <code>route_localnet</code> for <code>docker0</code> interface:</p>
+       <pre><code>$ sysctl -w net.ipv4.conf.docker0.route_localnet=1
+</code></pre></li>
+      <li>
+       <p>Add these rules to <code>iptables</code>:</p>
+       <pre><code>$ iptables -t nat -I PREROUTING -i docker0 -d 172.17.0.1 -p tcp --dport 3306 -j DNAT --to 127.0.0.1:3306
+$ iptables -t filter -I INPUT -i docker0 -d 127.0.0.1 -p tcp --dport 3306 -j ACCEPT
+</code></pre></li>
+      <li>
+       <p>Create MySQL user with access from <code>'%'</code> that means - from anyone, excluding <code>localhost</code>:</p>
+       <pre><code>CREATE USER 'user'@'%' IDENTIFIED BY 'password';
+</code></pre></li>
+      <li>
+       <p>Change in your script the mysql-server address to <code>172.17.0.1</code>.</p></li>
+     </ol>
+     <p>From the <a href="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt" rel="noreferrer">kernel documentation</a>:</p>
+     <blockquote>
+      <p><strong>route_localnet</strong> - BOOLEAN: Do not consider loopback addresses as martian source or destination while routing. This enables the use of 127/8 for local routing purposes (<strong>default FALSE</strong>).</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>What is the purpose of second iptable command? I can understand the first one is to rewrite all tcp destination that match 172.17.0.1:3306 to 127.0.0.1:3306 but why is the second iptable command necessary?</span> <span> - </span> <span class="display-name">Patrick</span> <span> </span> <span class="date">12 Sep 2019 at 14:34</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>This made my day! Thank you for sharing</span> <span> - </span> <span class="display-name">tuna</span> <span> </span> <span class="date">27 Apr 2021 at 20:58</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>finally. I struggled to find the right IP Address. I didnt know there was a default interface for docker.</span> <span> - </span> <span class="display-name">Pfinnn</span> <span> </span> <span class="date">4 Jul 2022 at 10:41</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Strangely this is not stable for me, at least on latest CentOS 7 running kernel 3.10 with Docker 19.03.15. It works initially, then after some time stops working.</span> <span> - </span> <span class="display-name">user2679436</span> <span> </span> <span class="date">15 Jul 2022 at 11:45</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Depending on your firewall/iptables configuration (-P DROP, ...), you might want to add a more generic entry that allows the whole docker range in. I ended up using this <code>iptables -I INPUT -s 172.16.0.0/12 -j ACCEPT</code> to allow connections to <code>host.docker.internal</code></span> <span> - </span> <span class="display-name">shtrom</span> <span> </span> <span class="date">7 Jan 2023 at 12:38</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_6"><span>Answer 6</span> <span class="arrow"> <a href="#answer_5">↑</a> </span> <span class="arrow"> <a href="#answer_7">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>54</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>user833482</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 May 2015 at 13:36</span>
+     </div>
+    </div>
+    <div>
+     <p>This worked for me on an NGINX/PHP-FPM stack without touching any code or networking where the app's just expecting to be able to connect to <code>localhost</code></p>
+     <p>Mount <code>mysqld.sock</code> from the host to inside the container.</p>
+     <p>Find the location of the mysql.sock file on the host running mysql:<br><code>netstat -ln | awk '/mysql(.*)?\.sock/ { print $9 }'</code></p>
+     <p>Mount that file to where it's expected in the docker:<br><code>docker run -v /hostpath/to/mysqld.sock:/containerpath/to/mysqld.sock</code></p>
+     <p>Possible locations of mysqld.sock:</p>
+     <pre><code>/tmp/mysqld.sock
+/var/run/mysqld/mysqld.sock 
+/var/lib/mysql/mysql.sock
+/Applications/MAMP/tmp/mysql/mysql.sock # if running via MAMP
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>This is a much cleaner solution, not exposing Mysql to the outside (if not using a firewall).</span> <span> - </span> <span class="display-name">user1226868</span> <span> </span> <span class="date">6 Jun 2015 at 14:45</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>Sockets do not scale as well as TCP because they block more often and can cause weird behavior. Use TCP whenever possible.</span> <span> - </span> <span class="display-name">Joel E Salas</span> <span> </span> <span class="date">19 Jan 2016 at 21:54</span></td>
+       </tr>
+       <tr>
+        <td>9</td>
+        <td><span>@JoelESalas Do you have a source for that claim?</span> <span> - </span> <span class="display-name">Private</span> <span> </span> <span class="date">13 Oct 2016 at 09:21</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I have found this to be the easiest solution. Thumbs up user833482! You should contribute more often to StackOverflow.</span> <span> - </span> <span class="display-name">Private</span> <span> </span> <span class="date">13 Oct 2016 at 10:32</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>@JoelESalas I think you're mistaken. The mysql client library even uses unix sockets by default when connecting to localhost rather than actually making a connection to localhost. A unix socket avoids the overhead of the TCP stack and routing, and should run faster.</span> <span> - </span> <span class="display-name">M Conrad</span> <span> </span> <span class="date">11 Jan 2017 at 01:28</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This solution ultimately worked for my use case of connecting logstash running in a container to MariaDB running on my host using JDBC. However, there is a catch that you have to include JNA dependency. Leaving this as a breadcrumb for others: <a href="https://stackoverflow.com/questions/25918416/jdbc-mysql-connection-using-unix-socket/40180379" title="jdbc mysql connection using unix socket">stackoverflow.com/questions/25918416/…</a></span> <span> - </span> <span class="display-name">Maksym</span> <span> </span> <span class="date">5 Dec 2020 at 17:30</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_7"><span>Answer 7</span> <span class="arrow"> <a href="#answer_6">↑</a> </span> <span class="arrow"> <a href="#answer_8">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>44</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>qoomon</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Oct 2018 at 15:08</span>
+     </div>
+    </div>
+    <div>
+     <p>Until <code>host.docker.internal</code> is working for every platform, you can use my container acting as a NAT gateway without any manual setup:</p>
+     <p><a href="https://github.com/qoomon/docker-host" rel="noreferrer">https://github.com/qoomon/docker-host</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>15</td>
+        <td><span>I can confirm this doesn't work in Docker for Windows 19.03.2 with Windows container.</span> <span> - </span> <span class="display-name">KMC</span> <span> </span> <span class="date">17 Sep 2019 at 12:57</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>any idea how to fix that? (I'm not a windows user)</span> <span> - </span> <span class="display-name">qoomon</span> <span> </span> <span class="date">18 Sep 2019 at 05:12</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If you environment doesn't block port mysql uses, you can refer to the server by the computer name it is hosted. So in you connection string, use your computer name as a server name.</span> <span> - </span> <span class="display-name">KMC</span> <span> </span> <span class="date">18 Sep 2019 at 12:26</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>I can confirm this does NOT WORK on Docker for Windows v. 20.10.5. It's infuriating. The IP of the host (from the container) changes randomly. How the hell am I supposed to deploy a connection string when the host IP changes at runtime and host.docker.internal resolves to nothing?</span> <span> - </span> <span class="display-name">Triynko</span> <span> </span> <span class="date">26 Apr 2021 at 04:32</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>@Triynko how do you determine the host ip currently?</span> <span> - </span> <span class="display-name">qoomon</span> <span> </span> <span class="date">27 Apr 2021 at 06:12</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Triynko may you can run following commands and tell me if any of these succeed? <code>docker run --rm alpine ping host.docker.internal</code> <code>docker run --rm alpine ping docker.for.win.localhost</code> <code>docker run --rm alpine ping gateway.docker.internal</code></span> <span> - </span> <span class="display-name">qoomon</span> <span> </span> <span class="date">27 Apr 2021 at 06:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_8"><span>Answer 8</span> <span class="arrow"> <a href="#answer_7">↑</a> </span> <span class="arrow"> <a href="#answer_9">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>30</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>dansalmo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 May 2017 at 18:15</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Simplest solution for Mac OSX</strong></p>
+     <p>Just use the IP address of your Mac. On the Mac run this to get the IP address and use it from within the container:</p>
+     <pre><code>ifconfig | grep 'inet 192'| awk '{ print $2}'
+</code></pre>
+     <p>As long as the server running locally on your Mac or in another docker container is listening to <code>0.0.0.0</code>, the docker container will be able to reach out at that address.</p>
+     <p>If you just want to access another docker container that is listening on <code>0.0.0.0</code> you can use <code>172.17.0.1</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>Docker for Mac exposes the <code>docker.for.mac.host.internal</code> hostname now.</span> <span> - </span> <span class="display-name">Matt</span> <span> </span> <span class="date">23 Mar 2018 at 03:02</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span><code>host.docker.internal</code> is available on mac. More info here: <a href="https://docs.docker.com/desktop/networking/#i-want-to-connect-from-a-container-to-a-service-on-the-host" rel="nofollow noreferrer">docs.docker.com/desktop/networking/…</a></span> <span> - </span> <span class="display-name">Mirodinho</span> <span> </span> <span class="date">18 Jul 2022 at 21:35</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_9"><span>Answer 9</span> <span class="arrow"> <a href="#answer_8">↑</a> </span> <span class="arrow"> <a href="#answer_10">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>26</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Felipe Toledo</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Mar 2019 at 02:40</span>
+     </div>
+    </div>
+    <div>
+     <p>Very simple and quick, check your host IP with <code>ifconfig</code> (linux) or <code>ipconfig</code> (windows) and then create a <strong>docker-compose.yml</strong>:</p>
+     <pre><code>version: '3' # specify docker-compose version
+services:
+  nginx:
+    build: ./ # specify the directory of the Dockerfile
+    ports:
+      - "8080:80" # specify port mapping
+    extra_hosts:
+      - "dockerhost:&lt;yourIP&gt;"
+</code></pre>
+     <p>This way, your container will be able to access your host. When accessing your DB, remember to use the name you specified before, in this case <code>dockerhost</code> and the <code>port</code> of your host in which the DB is running.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>In HaProxy, this solution has stopped working of the acl's for some reason, only the default setting is working.</span> <span> - </span> <span class="display-name">HyukHyukBoi</span> <span> </span> <span class="date">28 Jan 2020 at 17:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This worked for me! I'm using docker (not docker desktop) inside wsl 2 on Windows. I need to make request from inside container using HttpURLConnection (java) to localhost/test.php in host machine running by XAMPP. Get your local network IP of Windows PC and add to &lt;yourIP&gt; above, then use dockerhost as domain when making request.</span> <span> - </span> <span class="display-name">le hien</span> <span> </span> <span class="date">9 Feb 2023 at 09:40</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_10"><span>Answer 10</span> <span class="arrow"> <a href="#answer_9">↑</a> </span> <span class="arrow"> <a href="#answer_11">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>24</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>BMitch</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Jun 2019 at 15:28</span>
+     </div>
+    </div>
+    <div>
+     <p>Several solutions come to mind:</p>
+     <ol>
+      <li>Move your dependencies into containers first</li>
+      <li>Make your other services externally accessible and connect to them with that external IP</li>
+      <li>Run your containers without network isolation</li>
+      <li>Avoid connecting over the network, use a socket that is mounted as a volume instead</li>
+     </ol>
+     <p>The reason this doesn't work out of the box is that containers run with their own network namespace by default. That means localhost (or 127.0.0.1 pointing to the loopback interface) is unique per container. Connecting to this will connect to the container itself, and not services running outside of docker or inside of a different docker container.</p>
+     <p><strong>Option 1</strong>: If your dependency can be moved into a container, I would do this first. It makes your application stack portable as others try to run your container on their own environment. And you can still publish the port on your host where other services that have not been migrated can still reach it. You can even publish the port to the localhost interface on your docker host to avoid it being externally accessible with a syntax like: <code>-p 127.0.0.1:3306:3306</code> for the published port.</p>
+     <p><strong>Option 2</strong>: There are a variety of ways to detect the host IP address from inside of the container, but each have a limited number of scenarios where they work (e.g. requiring Docker for Mac). The most portable option is to inject your host IP into the container with something like an environment variable or configuration file, e.g.:</p>
+     <pre><code>docker run --rm -e "HOST_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')" ...
+</code></pre>
+     <p>This does require that your service is listening on that external interface, which could be a security concern. For other methods to get the host IP address from inside of the container, <a href="https://stackoverflow.com/a/56486428/596285">see this post</a>.</p>
+     <p>Slightly less portable is to use <code>host.docker.internal</code>. This works in current versions of Docker for Windows and Docker for Mac. And in 20.10, the capability has been added to Docker for Linux when you pass a special host entry with:</p>
+     <pre><code>docker run --add-host host.docker.internal:host-gateway ...
+</code></pre>
+     <p>The <code>host-gateway</code> is a special value added in Docker 20.10 that automatically expands to a host IP. For more details see <a href="https://github.com/moby/moby/pull/40007" rel="noreferrer">this PR</a>.</p>
+     <p><strong>Option 3</strong>: Running without network isolation, i.e. running with <code>--net host</code>, means your application is running on the host network namespace. This is less isolation for the container, and it means you cannot access other containers over a shared docker network with DNS (instead, you need to use published ports to access other containerized applications). But for applications that need to access other services on the host that are only listening on <code>127.0.0.1</code> on the host, this can be the easiest option.</p>
+     <p><strong>Option 4</strong>: Various services also allow access over a filesystem based socket. This socket can be mounted into the container as a bind mounted volume, allowing you to access the host service without going over the network. For access to the docker engine, you often see examples of mounting <code>/var/run/docker.sock</code> into the container (giving that container root access to the host). With mysql, you can try something like <code>-v /var/run/mysqld/mysqld.sock:/var/run/mysqld/mysql.sock</code> and then connect to <code>localhost</code> which mysql converts to using the socket.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>for option2 (the only thing that worked from all the answers) : the following command gets the the ip address of an interface other than local host on both osx and linux: <code>ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{ print $2 }' | head -1 | sed -n 's/[^0-9]*\([0-9\.]*\)/\1/p'</code></span> <span> - </span> <span class="display-name">MichaelMoser</span> <span> </span> <span class="date">23 Mar 2021 at 07:26</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>--add-host host.docker.internal:host-gateway</code> is golden</span> <span> - </span> <span class="display-name">sanmai</span> <span> </span> <span class="date">26 May 2021 at 03:11</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_11"><span>Answer 11</span> <span class="arrow"> <a href="#answer_10">↑</a> </span> <span class="arrow"> <a href="#answer_12">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>22</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ralph Willgoss</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Nov 2017 at 10:49</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Solution for Windows 10</strong></p>
+     <p><a href="https://docs.docker.com/docker-for-windows/release-notes/#docker-community-edition-17061-ce-rc1-win24-2017-08-24-stable" rel="noreferrer">Docker Community Edition 17.06.0-ce-win18 2017-06-28 (stable)</a><br></p>
+     <p>You can use DNS name of the host <code>docker.for.win.localhost</code>, to resolve to the internal IP. (Warning some sources mentioned <code>windows</code> but it should be <code>win</code>)</p>
+     <p><strong>Overview<br></strong> I needed to do something similar, that is connect from my Docker container to my localhost, which was running the <code>Azure Storage Emulator</code> and <code>CosmosDB Emulator</code>.<br></p>
+     <p>The <code>Azure Storage Emulator</code> by default listens on <em>127.0.0.1</em>, while you can change the IP its bound too, I was looking for a solution that would work with default settings.</p>
+     <p>This also works for connecting from my Docker container to <code>SQL Server</code> and <code>IIS</code>, both running locally on my host with default port settings.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Unfortunately, currently, windows (at least docker desktop) is not supporting --net=host, check <a href="https://docs.docker.com/network/network-tutorial-host/#prerequisites" rel="nofollow noreferrer">docs.docker.com/network/network-tutorial-host/#prerequisites</a></span> <span> - </span> <span class="display-name">Nigrimmist</span> <span> </span> <span class="date">31 Oct 2022 at 21:47</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_12"><span>Answer 12</span> <span class="arrow"> <a href="#answer_11">↑</a> </span> <span class="arrow"> <a href="#answer_13">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>21</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Praveenkumar Beedanal</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Feb 2020 at 15:51</span>
+     </div>
+    </div>
+    <div>
+     <p>For windows,</p>
+     <p>I have changed the database url in spring configuration: <code>spring.datasource.url=jdbc:postgresql://host.docker.internal:5432/apidb</code></p>
+     <p>Then build the image and run. It worked for me.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>for me doesnt work. I have mac and trying from a php container to connect to localhost mysql. Any idea ?</span> <span> - </span> <span class="display-name">A. Zalonis</span> <span> </span> <span class="date">19 Apr 2020 at 19:53</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_13"><span>Answer 13</span> <span class="arrow"> <a href="#answer_12">↑</a> </span> <span class="arrow"> <a href="#answer_14">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>16</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Elad</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>9 Nov 2018 at 22:23</span>
+     </div>
+    </div>
+    <div>
+     <p>None of the answers worked for me when using Docker Toolbox on Windows 10 Home, but <code>10.0.2.2</code> did, since it uses VirtualBox which exposes the host to the VM on this address.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>It works. Even no need to specify --network=host. looks like 10.0.2.2 is set as a default IP for the host. Thanks.</span> <span> - </span> <span class="display-name">TheManish</span> <span> </span> <span class="date">27 Mar 2019 at 14:25</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>But, Can I use this static IP for all the versions of Windows and Mac?, how can I handle it for multiple platforms via script?</span> <span> - </span> <span class="display-name">151291</span> <span> </span> <span class="date">31 Mar 2020 at 05:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>This worked for me. Just run ipconfig on your host (windows) and get the IP address under <code>Ethernet adapter vEthernet (DockerNAT)</code></span> <span> - </span> <span class="display-name">Kihats</span> <span> </span> <span class="date">2 May 2020 at 12:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_14"><span>Answer 14</span> <span class="arrow"> <a href="#answer_13">↑</a> </span> <span class="arrow"> <a href="#answer_15">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Shirish Hirekodi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>13 Jul 2019 at 13:12</span>
+     </div>
+    </div>
+    <div>
+     <p>This is not an answer to the actual question. This is how I solved a similar problem. The solution comes totally from: <a href="https://www.youtube.com/watch?v=RCG-5N41FpQ" rel="noreferrer">Define Docker Container Networking so Containers can Communicate</a>. Thanks to Nic Raboy</p>
+     <p>Leaving this here for others who might want to do REST calls between one container and another. Answers the question: what to use in place of localhost in a docker environment?</p>
+     <p>Get how your network looks like <code>docker network ls</code></p>
+     <p>Create a new network <code>docker network create -d my-net</code></p>
+     <p>Start the first container <code>docker run -d -p 5000:5000 --network="my-net" --name "first_container" &lt;MyImage1:v0.1&gt;</code></p>
+     <p>Check out network settings for first container <code>docker inspect first_container</code>. "Networks": should have 'my-net'</p>
+     <p>Start the second container <code>docker run -d -p 6000:6000 --network="my-net" --name "second_container" &lt;MyImage2:v0.1&gt;</code></p>
+     <p>Check out network settings for second container <code>docker inspect second_container</code>. "Networks": should have 'my-net'</p>
+     <p>ssh into your second container <code>docker exec -it second_container sh</code> or <code>docker exec -it second_container bash</code>.</p>
+     <p>Inside of the second container, you can ping the first container by <code>ping first_container</code>. Also, your code calls such as <code>http://localhost:5000</code> can be replaced by <code>http://first_container:5000</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Exactly what i was looking for. Thanks :D</span> <span> - </span> <span class="display-name">Simar Singh</span> <span> </span> <span class="date">20 Sep 2019 at 18:04</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>If you know it is not the answer to the question (which it is not, because the question specifically asks about localhost), why are you posting it?</span> <span> - </span> <span class="display-name">Sly Gryphon</span> <span> </span> <span class="date">9 Feb 2021 at 01:01</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_15"><span>Answer 15</span> <span class="arrow"> <a href="#answer_14">↑</a> </span> <span class="arrow"> <a href="#answer_16">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>15</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>JShorthouse</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Sep 2019 at 12:12</span>
+     </div>
+    </div>
+    <div>
+     <h1>For Linux, where you cannot change the interface the localhost service binds to</h1>
+     <p>There are two problems we need to solve</p>
+     <ol>
+      <li>Getting the IP of the host</li>
+      <li>Making our localhost service available to Docker</li>
+     </ol>
+     <p>The first problem can be solved using qoomon's <a href="https://github.com/qoomon/docker-host" rel="noreferrer">docker-host image</a>, as given by other answers.</p>
+     <p>You will need to add this container to the same bridge network as your other container so that you can access it. Open a terminal inside your container and ensure that you can ping <code>dockerhost</code>.</p>
+     <pre><code>bash-5.0# ping dockerhost
+PING dockerhost (172.20.0.2): 56 data bytes
+64 bytes from 172.20.0.2: seq=0 ttl=64 time=0.523 ms
+</code></pre>
+     <p>Now, the harder problem, making the service accessible to docker.</p>
+     <p>We can use telnet to check if we can access a port on the host (you may need to install this).</p>
+     <p>The problem is that our container will only be able to access services that bind to all interfaces, such as SSH:</p>
+     <pre><code>bash-5.0# telnet dockerhost 22
+SSH-2.0-OpenSSH_7.6p1 Ubuntu-4ubuntu0.3
+</code></pre>
+     <p>But services bound only to localhost will be inaccessible:</p>
+     <pre><code>bash-5.0# telnet dockerhost 1025
+telnet: can't connect to remote host (172.20.0.2): Connection refused
+</code></pre>
+     <p>The proper solution here would be to bind the service to dockers bridge network. However, this answer assumes that it is not possible for you to change this. So we will instead use <code>iptables</code>.</p>
+     <p>First, we need to find the name of the bridge network that docker is using with <code>ifconfig</code>. If you are using an unnamed bridge, this will just be <code>docker0</code>. However, if you are using a named network you will have a bridge starting with <code>br-</code> that docker will be using instead. Mine is <code>br-5cd80298d6f4</code>.</p>
+     <p>Once we have the name of this bridge, we need to allow routing from this bridge to localhost. This is disabled by default for security reasons:</p>
+     <pre><code>sysctl -w net.ipv4.conf.&lt;bridge_name&gt;.route_localnet=1
+</code></pre>
+     <p>Now to set up our <code>iptables</code> rule. Since our container can only access ports on the docker bridge network, we are going to pretend that our service is actually bound to a port on this network.</p>
+     <p>To do this, we will forward all requests to <code>&lt;docker_bridge&gt;:port</code> to <code>localhost:port</code></p>
+     <pre><code>iptables -t nat -A PREROUTING -p tcp -i &lt;docker_bridge_name&gt; --dport &lt;service_port&gt; -j DNAT --to-destination 127.0.0.1:&lt;service_port&gt;
+</code></pre>
+     <p>For example, for my service on port 1025</p>
+     <pre><code>iptables -t nat -A PREROUTING -p tcp -i br-5cd80298d6f4 --dport 1025 -j DNAT --to-destination 127.0.0.1:1025
+</code></pre>
+     <p>You should now be able to access your service from the container:</p>
+     <pre><code>bash-5.0# telnet dockerhost 1025
+220 127.0.0.1 ESMTP Service Ready
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>2</td>
+        <td><span>This is the same as what @ray-d has mentioned above, but is nicely explained. Thank you! Additionally, when using docker-compose, I had to also add a DNAT rule in the PREROUTING chain for all packets arriving on the docker0 interface too: because, docker-compose seem to be using docker0 during builds (not during runs, surprisingly): <code>sysctl -w net.ipv4.conf.docker0.route_localnet=1</code> and <code>iptables -t nat -A PREROUTING -p tcp -i docker0 --dport 1025 -j DNAT --to-destination 127.0.0.1:1025</code></span> <span> - </span> <span class="display-name">arvindd</span> <span> </span> <span class="date">26 Mar 2020 at 12:06</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_16"><span>Answer 16</span> <span class="arrow"> <a href="#answer_15">↑</a> </span> <span class="arrow"> <a href="#answer_17">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Casey</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>10 Dec 2016 at 15:53</span>
+     </div>
+    </div>
+    <div>
+     <p>For those on Windows, assuming you're using the bridge network driver, you'll want to specifically bind MySQL to the IP address of the hyper-v network interface.</p>
+     <p>This is done via the configuration file under the normally hidden <code>C:\ProgramData\MySQL</code> folder.</p>
+     <p>Binding to <code>0.0.0.0</code> will not work. The address needed is shown in the docker configuration as well, and in my case was <code>10.0.75.1</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>5</td>
+        <td><span>You deserve a medal! I've been working on this for two full days. Thank you for helping out!</span> <span> - </span> <span class="display-name">Michael</span> <span> </span> <span class="date">3 Aug 2017 at 23:08</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>I was also working on this for two full days. This is the only place on the web I've found it mentioned. Microsoft is completely silent on this when it talks about connecting to MSSQL from within a Docker container. It makes you wonder if they ever got it working themselves!</span> <span> - </span> <span class="display-name">Contango</span> <span> </span> <span class="date">2 Nov 2017 at 15:44</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_17"><span>Answer 17</span> <span class="arrow"> <a href="#answer_16">↑</a> </span> <span class="arrow"> <a href="#answer_18">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>14</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Prince</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>4 Feb 2022 at 12:03</span>
+     </div>
+    </div>
+    <div>
+     <p>If you're running with --net=host, localhost should work fine. If you're using default networking, use the static IP 172.17.0.1.</p>
+     <p>See this - <a href="https://stackoverflow.com/a/48547074/14120621">https://stackoverflow.com/a/48547074/14120621</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>I confirm that --net=host solve the issue</span> <span> - </span> <span class="display-name">freelancer</span> <span> </span> <span class="date">17 Aug 2022 at 13:05</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span><code>172.17.0.1</code> worked on Ubuntu 18.04. Bookmarked this answer because I have to look it up every year or so ;)</span> <span> - </span> <span class="display-name">Jonathan R</span> <span> </span> <span class="date">6 Jan 2023 at 20:12</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_18"><span>Answer 18</span> <span class="arrow"> <a href="#answer_17">↑</a> </span> <span class="arrow"> <a href="#answer_19">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>12</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Ehsan88</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 Nov 2020 at 13:45</span>
+     </div>
+    </div>
+    <div>
+     <p>First see <a href="https://stackoverflow.com/a/56826049/2571422">this</a> answer for the options that you have to fix this problem. But if you use <code>docker-compose</code> you can add <code>network_mode: host</code> to your service and then use <code>127.0.0.1</code> to connect to the local host. This is just one of the options described in the answer above. Below you can find how I modified <code>docker-compose.yml</code> from <code>https://github.com/geerlingguy/php-apache-container.git</code>:</p>
+     <pre><code> ---
+ version: "3"
+ services:
+   php-apache:
++    network_mode: host
+     image: geerlingguy/php-apache:latest
+     container_name: php-apache
+...
+</code></pre>
+     <p><code>+</code> indicates the line I added.</p>
+     <hr>
+     <p>[Additional info] This has also worked in version <code>2.2</code>. and "host" or just 'host' are both worked in <code>docker-compose</code>.</p>
+     <pre><code> ---
+ version: "2.2"
+
+ services:
+   php-apache:
++    network_mode: "host"
+        or
++    network_mode: host
+...
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Yup. Its works with: network_mode: host Now can access local /etc/hosts domain names who points to another project docker containers.</span> <span> - </span> <span class="display-name">Ernestyno</span> <span> </span> <span class="date">18 Dec 2020 at 13:19</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_19"><span>Answer 19</span> <span class="arrow"> <a href="#answer_18">↑</a> </span> <span class="arrow"> <a href="#answer_20">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>11</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sivabudh</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>7 Feb 2017 at 07:15</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Edit: I ended up prototyping out the concept on GitHub. Check out:</strong> <a href="https://github.com/sivabudh/system-in-a-box" rel="noreferrer">https://github.com/sivabudh/system-in-a-box</a></p>
+     <hr>
+     <p>First, my answer is geared towards 2 groups of people: those who use a Mac, and those who use Linux.</p>
+     <p>The <strong>host</strong> network mode doesn't work on a Mac. You have to use an IP alias, see: <a href="https://stackoverflow.com/a/43541681/2713729">https://stackoverflow.com/a/43541681/2713729</a></p>
+     <p>What is a host network mode? See: <a href="https://docs.docker.com/engine/reference/run/#/network-settings" rel="noreferrer">https://docs.docker.com/engine/reference/run/#/network-settings</a></p>
+     <p>Secondly, for those of you who are using Linux (my direct experience was with Ubuntu 14.04 LTS and I'm upgrading to 16.04 LTS in production soon), <strong>yes</strong>, you can make the service running inside a Docker container connect to <code>localhost</code> services running on the Docker host (eg. your laptop).</p>
+     <p>How?</p>
+     <p>The key is when you run the Docker container, you have to run it with the <strong>host</strong> mode. The command looks like this:</p>
+     <p><code>docker run --network="host" -id &lt;Docker image ID&gt;</code></p>
+     <p>When you do an <code>ifconfig</code> (you will need to <code>apt-get install net-tools</code> your container for <code>ifconfig</code> to be callable) inside your container, you will see that the network interfaces are the same as the one on Docker host (eg. your laptop).</p>
+     <p>It's important to note that I'm a Mac user, but I run Ubuntu under Parallels, so using a Mac is not a disadvantage. ;-)</p>
+     <p>And this is how you connect NGINX container to the MySQL running on a <code>localhost</code>.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>It's important to note that the <b>host</b> mode offers better performance since it uses the OS network stack.</span> <span> - </span> <span class="display-name">sivabudh</span> <span> </span> <span class="date">7 Feb 2017 at 08:21</span></td>
+       </tr>
+       <tr>
+        <td>2</td>
+        <td><span>Very good point there. Although it IS possible to connect from a container to a host service with unused IP attach <a href="https://docs.docker.com/docker-for-mac/networking/" rel="nofollow noreferrer">docs.docker.com/docker-for-mac/networking</a> . Not a pleasant solution... but works.</span> <span> - </span> <span class="display-name">Xavier Huppé</span> <span> </span> <span class="date">24 Feb 2017 at 17:13</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Good stuff here. Once inside the container with <code>--network="host"</code>, how does one connect to the host mysql for example?</span> <span> - </span> <span class="display-name">Michael Millar</span> <span> </span> <span class="date">22 May 2017 at 10:39</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>@Buccleuch Just use <code>localhost</code>. Check out my GitHub source code: <a href="https://github.com/sivabudh/system-in-a-box/blob/master/dj_host_docker/settings.py" rel="nofollow noreferrer">github.com/sivabudh/system-in-a-box/blob/master/dj_host_dock‌​er/…</a>. Search for <code>'HOST'</code>, you will see 127.0.0.1 to connect to Postgresql.</span> <span> - </span> <span class="display-name">sivabudh</span> <span> </span> <span class="date">22 May 2017 at 11:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>I was able to get access to the host mysql databases by mounting the volume as per @user833482, and after installing mysql-client and server on the docker container of course.</span> <span> - </span> <span class="display-name">Michael Millar</span> <span> </span> <span class="date">22 May 2017 at 11:07</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_20"><span>Answer 20</span> <span class="arrow"> <a href="#answer_19">↑</a> </span> <span class="arrow"> <a href="#answer_21">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>9</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>orzel</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>12 Mar 2015 at 23:31</span>
+     </div>
+    </div>
+    <div>
+     <p>I disagree with the answer from Thomasleveil.</p>
+     <p>Making mysql bind to 172.17.42.1 will prevent other programs using the database on the host to reach it. This will only work if all your database users are dockerized.</p>
+     <p>Making mysql bind to 0.0.0.0 will open the db to outside world, which is not only a very bad thing to do, but also contrary to what the original question author wants to do. He explicitly says "The MySql is running on localhost and not exposing a port to the outside world, so its bound on localhost"</p>
+     <p>To answer the comment from ivant</p>
+     <blockquote>
+      <p>"Why not bind mysql to docker0 as well?"</p>
+     </blockquote>
+     <p>This is not possible. The mysql/mariadb documentation explicitly says it is not possible to bind to several interfaces. You can only bind to 0, 1, or all interfaces.</p>
+     <p>As a conclusion, I have NOT found any way to reach the (localhost only) database on the host from a docker container. That definitely seems like a very very common pattern, but I don't know how to do it.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>4</td>
+        <td><span>from the docker host you could still connect to the MySQL server using the <code>172.17.42.1</code> address. But your note is right otherwise. Aso, I edited my answer with the <code>host</code> networking mode that allows to keep the MySQL server bound to <code>127.0.0.1</code> while allowing containers to connect to it</span> <span> - </span> <span class="display-name">Thomasleveil</span> <span> </span> <span class="date">13 Mar 2015 at 23:31</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>no, as I said, you can't connect to 172.17.42.1 if mysql is bound to localhost.</span> <span> - </span> <span class="display-name">orzel</span> <span> </span> <span class="date">14 Mar 2015 at 04:19</span></td>
+       </tr>
+       <tr>
+        <td>5</td>
+        <td><span>"Making mysql bind to 172.17.42.1 will prevent other programs using the database on the host to reach it." - that is not true. Other programs can use mysql, they just have to connect to 172.17.42.1 instead of localhost/127.0.0.1.</span> <span> - </span> <span class="display-name">0x89</span> <span> </span> <span class="date">9 Mar 2016 at 16:00</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>The solution to the problem in this answer generally is to get the MySQL server to bind to <code>0.0.0.0</code> and then set up a firewall so that the db is not accessible from the internet.</span> <span> - </span> <span class="display-name">halfer</span> <span> </span> <span class="date">16 Jun 2017 at 15:05</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_21"><span>Answer 21</span> <span class="arrow"> <a href="#answer_20">↑</a> </span> <span class="arrow"> <a href="#answer_22">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Binh Ho</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Apr 2020 at 05:26</span>
+     </div>
+    </div>
+    <div>
+     <p>Try this:</p>
+     <pre><code>version: '3.5'
+services:
+  yourservice-here:
+    container_name: container_name
+    ports:
+      - "4000:4000"
+    extra_hosts: # &lt;---- here
+      - localhost:192.168.1.202
+      - or-vitualhost.local:192.168.1.202
+</code></pre>
+     <p>To get <code>192.168.1.202</code>, uses <code>ifconfig</code></p>
+     <p>This worked for me. Hope this help!</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is a neat little trick. I haven't tried it but that's a pretty handy quick solution</span> <span> - </span> <span class="display-name">Ray</span> <span> </span> <span class="date">29 Nov 2021 at 21:21</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_22"><span>Answer 22</span> <span class="arrow"> <a href="#answer_21">↑</a> </span> <span class="arrow"> <a href="#answer_23">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Yılmaz Durmaz</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>26 Jan 2022 at 21:15</span>
+     </div>
+    </div>
+    <div>
+     <p>In 7 years the question was asked, it is either docker has changed, or no one tried this way. So I will include my own answer.</p>
+     <p>I have found all answers use complex methods. Today, I have needed this, and found 2 very simple ways:</p>
+     <ul>
+      <li>
+       <p>use <code>ipconfig</code> or <code>ifconfig</code> on your host and make note of all IP addresses. At least two of them can be used by the container.</p>
+       <ul>
+        <li>I have a fixed local network address on WiFi LAN Adapter: <code>192.168.1.101</code>. This could be <code>10.0.1.101</code>. the result will change depending on your router</li>
+        <li>I use WSL on windows, and it has its own <code>vEthernet</code> address: <code>172.19.192.1</code></li>
+       </ul></li>
+      <li>
+       <p>use <code>host.docker.internal</code>. Most answers have this or another form of it depending on OS. The name suggests it is now globally used by docker.</p></li>
+     </ul>
+     <p>A third option is to use WAN address of the machine, or in other words IP given by the service provider. However, this may not work if IP is not static, and requires routing and firewall settings.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This is huge for wsl users. <code>host.docker.internal</code> is usually the answer....but if you're using wsl, there will be multiple ip addresses that docker will have to disambiguate from. This can lead to SUPER annoying issues where you have a multiple servers running locally on different ports, but you can only hit a couple with <code>host.docker.internal</code>.</span> <span> - </span> <span class="display-name">A. Chang</span> <span> </span> <span class="date">15 Apr 2022 at 19:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_23"><span>Answer 23</span> <span class="arrow"> <a href="#answer_22">↑</a> </span> <span class="arrow"> <a href="#answer_24">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>6</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>storenth</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jan 2020 at 12:45</span>
+     </div>
+    </div>
+    <div>
+     <p>You need to know the <a href="https://forums.docker.com/t/accessing-host-machine-from-within-docker-container/14248" rel="noreferrer">gateway</a>! My solution with local server was to expose it under <code>0.0.0.0:8000</code>, then run docker with <em>subnet</em> and <em>run container</em> like:</p>
+     <pre class="lang-sh prettyprint-override"><code>docker network create --subnet=172.35.0.0/16 --gateway 172.35.0.1 SUBNET35
+docker run -d -p 4444:4444 --net SUBNET35 &lt;container-you-want-run-place-here&gt;
+</code></pre>
+     <p>So, now you can access your loopback through <code>http://172.35.0.1:8000</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_24"><span>Answer 24</span> <span class="arrow"> <a href="#answer_23">↑</a> </span> <span class="arrow"> <a href="#answer_25">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>5</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>balki</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Jan 2021 at 21:39</span>
+     </div>
+    </div>
+    <div>
+     <p>Connect to the gateway address.</p>
+     <pre><code>❯ docker network inspect bridge | grep Gateway
+                    "Gateway": "172.17.0.1"
+</code></pre>
+     <p>Make sure the process on the host is listening on this interface or on all interfaces and is started after docker. If using systemd, you can add the below to make sure it is started after docker.</p>
+     <pre><code>[Unit]
+After=docker.service
+</code></pre>
+     <hr>
+     <h3>Example</h3>
+     <pre><code>❯ python -m http.server &amp;&gt; /dev/null &amp;
+[1] 149976
+
+❯ docker run --rm python python -c  "from urllib.request import urlopen;print(b'Directory listing for' in urlopen('http://172.17.0.1:8000').read())" 
+True
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_25"><span>Answer 25</span> <span class="arrow"> <a href="#answer_24">↑</a> </span> <span class="arrow"> <a href="#answer_26">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>4</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>sopheamak</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Jul 2017 at 07:47</span>
+     </div>
+    </div>
+    <div>
+     <p>Here is my solution : it works for my case</p>
+     <ul>
+      <li>
+       <p>set local mysql server to public access by comment <code> #bind-address = 127.0.0.1 </code> in /etc/mysql/mysql.conf.d</p></li>
+      <li>
+       <p>restart mysql server <code>sudo /etc/init.d/mysql restart</code></p></li>
+      <li>
+       <p>run the following command to open user root access any host <code>mysql -uroot -proot GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'root' WITH GRANT OPTION; FLUSH PRIVILEGES; </code></p></li>
+      <li>
+       <p>create sh script : run_docker.sh</p></li>
+     </ul>
+     <pre>    #!bin/bash
+
+    HOSTIP=`ip -4 addr show scope global dev eth0 | grep inet | awk '{print \$2}' | cut -d / -f 1`
+
+
+      docker run -it -d --name web-app \
+                  --add-host=local:${HOSTIP} \
+                  -p 8080:8080 \
+                  -e DATABASE_HOST=${HOSTIP} \
+                  -e DATABASE_PORT=3306 \
+                  -e DATABASE_NAME=demo \
+                  -e DATABASE_USER=root \
+                  -e DATABASE_PASSWORD=root \
+                  sopheamak/springboot_docker_mysql
+
+  </pre>
+     <ul>
+      <li>
+       <p>run with docker-composer</p>
+       <p></p>
+       <pre>version: '2.1'<p></p>
+
+<p>services:<br>
+  tomcatwar:
+     extra_hosts:
+        - "local:10.1.2.232"
+     image: sopheamak/springboot_docker_mysql<br>
+     ports:
+         - 8080:8080
+     environment:
+            - DATABASE_HOST=local
+            - DATABASE_USER=root
+            - DATABASE_PASSWORD=root
+            - DATABASE_NAME=demo
+            - DATABASE_PORT=3306</p></pre></li>
+     </ul>
+     <p></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_26"><span>Answer 26</span> <span class="arrow"> <a href="#answer_25">↑</a> </span> <span class="arrow"> <a href="#answer_27">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>3</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>hasnat</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>11 Jun 2018 at 08:47</span>
+     </div>
+    </div>
+    <div>
+     <p>You can get the host ip using alpine image</p>
+     <pre><code>docker run --rm alpine ip route | awk 'NR==1 {print $3}'
+</code></pre>
+     <p>This would be more consistent as you're always using alpine to run the command.</p>
+     <p>Similar to Mariano's answer you can use same command to set an environment variable</p>
+     <pre><code>DOCKER_HOST=$(docker run --rm alpine ip route | awk 'NR==1 {print $3}') docker-compose up
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_27"><span>Answer 27</span> <span class="arrow"> <a href="#answer_26">↑</a> </span> <span class="arrow"> <a href="#answer_28">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>mohan08p</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Sep 2017 at 12:05</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>The CGroups and Namespaces are playing major role in the Container Ecosystem.</strong></p>
+     <p>Namespace provide a layer of isolation. Each container runs in a separate namespace and its access is limited to that namespace. The Cgroups controls the resource utilization of each container, whereas Namespace controls what a process can see and access the respective resource.</p>
+     <p>Here is the basic understanding of the solution approach you could follow,</p>
+     <p><strong>Use Network Namespace</strong></p>
+     <p>When a container spawns out of image, a network interface is defined and create. This gives the container unique IP address and interface.</p>
+     <pre><code>$ docker run -it alpine ifconfig
+</code></pre>
+     <p>By changing the namespace to host, cotainers networks does not remain isolated to its interface, the process will have access to host machines network interface.</p>
+     <pre><code>$ docker run -it --net=host alpine ifconfig
+</code></pre>
+     <p>If the process listens on ports, they'll be listened on the host interface and mapped to the container.</p>
+     <p><strong>Use PID Namespace</strong> By changing the Pid namespace allows a container to interact with other process beyond its normal scope.</p>
+     <p>This container will run in its own namespace.</p>
+     <pre><code>$ docker run -it alpine ps aux
+</code></pre>
+     <p>By changing the namespace to the host, the container can also see all the other processes running on the system.</p>
+     <pre><code>$ docker run -it --pid=host alpine ps aux
+</code></pre>
+     <p><strong>Sharing Namespace</strong></p>
+     <p>This is a bad practice to do this in production because you are breaking out of the container security model which might open up for vulnerabilities, and easy access to eavesdropper. This is only for debugging tools and understating the loopholes in container security.</p>
+     <p>The first container is nginx server. This will create a new network and process namespace. This container will bind itself to port 80 of newly created network interface.</p>
+     <pre><code>$ docker run -d --name http nginx:alpine
+</code></pre>
+     <p>Another container can now reuse this namespace,</p>
+     <pre><code>$ docker run --net=container:http mohan08p/curl curl -s localhost
+</code></pre>
+     <p>Also, this container can see the interface with the processes in a shared container.</p>
+     <pre><code>$ docker run --pid=container:http alpine ps aux
+</code></pre>
+     <p>This will allow you give more privileges to containers without changing or restarting the application. In the similar way you can connect to mysql on host, run and debug your application. But, its not recommend to go by this way. Hope it helps.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_28"><span>Answer 28</span> <span class="arrow"> <a href="#answer_27">↑</a> </span> <span class="arrow"> <a href="#answer_29">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>patryk.beza</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Mar 2019 at 14:10</span>
+     </div>
+    </div>
+    <div>
+     <p>Until <a href="https://github.com/docker/libnetwork/pull/2348" rel="nofollow noreferrer">fix</a> is not merged into <code>master</code> branch, to get host IP just run from inside of the container:</p>
+     <pre><code>ip -4 route list match 0/0 | cut -d' ' -f3
+</code></pre>
+     <p>(as suggested by <a href="https://github.com/Mahoney" rel="nofollow noreferrer">@Mahoney</a> <a href="https://github.com/docker/for-linux/issues/264#issue-310225334" rel="nofollow noreferrer">here</a>).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_29"><span>Answer 29</span> <span class="arrow"> <a href="#answer_28">↑</a> </span> <span class="arrow"> <a href="#answer_30">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Leandro</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>27 Sep 2019 at 02:32</span>
+     </div>
+    </div>
+    <div>
+     <p>I solved it by creating a user in MySQL for the container's ip:</p>
+     <pre><code>$ sudo mysql&lt;br&gt;
+mysql&gt; create user 'username'@'172.17.0.2' identified by 'password';&lt;br&gt;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql&gt; grant all privileges on database_name.* to 'username'@'172.17.0.2' with grant option;&lt;br&gt;
+Query OK, 0 rows affected (0.00 sec)
+
+$ sudo vim /etc/mysql/mysql.conf.d/mysqld.cnf
+&lt;br&gt;bind-address        = 172.17.0.1
+
+$ sudo systemctl restart mysql.service
+</code></pre>
+     <p>Then on container: <code>jdbc:mysql://&lt;b&gt;172.17.0.1&lt;/b&gt;:3306/database_name</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>This the simplest solution. It has worked for me and I have referred many</span> <span> - </span> <span class="display-name">Ole S</span> <span> </span> <span class="date">22 Apr 2020 at 21:17</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_30"><span>Answer 30</span> <span class="arrow"> <a href="#answer_29">↑</a> </span> <span class="arrow"> <a href="#answer_31">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>wiseCoder</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jul 2020 at 05:55</span>
+     </div>
+    </div>
+    <div>
+     <p>To make everything work, you need to create a config for your server (caddy, nginx) where the main domain will be "docker.for.mac.localhost". For this replace in baseURL "http://localhost/api" on "http://docker.for.mac.localhost/api"</p>
+     <p>docker-compose.yml</p>
+     <pre><code>backend:
+  restart: always
+  image: backend
+  build:
+    dockerfile: backend.Dockerfile
+    context: .
+  environment:
+    # add django setting.py os.getenv("var") to bd config and ALLOWED_HOSTS CORS_ORIGIN_WHITELIST
+    DJANGO_ALLOWED_PROTOCOL: http
+    DJANGO_ALLOWED_HOSTS: docker.for.mac.localhost
+    POSTGRES_PASSWORD: 123456
+    POSTGRES_USER: user
+    POSTGRES_DB: bd_name
+    WAITDB: "1"
+  volumes:
+    - backend_static:/app/static
+    - backend_media:/app/media
+  depends_on:
+    - db
+
+frontend:
+  restart: always
+  build:
+    dockerfile: frontend.Dockerfile
+    context: .
+  image: frontend
+  environment:
+    #  replace baseURL for axios
+    API_URL: http://docker.for.mac.localhost/b/api
+    API_URL_BROWSER: http://docker.for.mac.localhost/b/api
+    NUXT_HOST: 0.0.0.0
+  depends_on:
+    - backend
+
+caddy:
+  image: abiosoft/caddy
+  restart: always
+  volumes:
+    - $HOME/.caddy:/root/.caddy
+    - ./Caddyfile.local:/etc/Caddyfile
+    - backend_static:/static
+    - backend_media:/media
+  ports:
+  - 80:80
+  depends_on:
+    - frontend
+    - backend
+    - db
+</code></pre>
+     <p>Caddyfile.local</p>
+     <pre><code>http://docker.for.mac.localhost {
+
+  proxy /b backend:5000 {
+    header_upstream Host {host}
+    header_upstream X-Real-IP {remote}
+    header_upstream X-Forwarded-For {remote}
+    header_upstream X-Forwarded-Port {server_port}
+    header_upstream X-Forwarded-Proto {scheme}
+  }
+
+  proxy / frontend:3000 {
+    header_upstream Host {host}
+    header_upstream X-Real-IP {remote}
+    header_upstream X-Forwarded-For {remote}
+    header_upstream X-Forwarded-Port {server_port}
+    header_upstream X-Forwarded-Proto {scheme}
+  }
+
+  root /
+
+  log stdout
+  errors stdout
+  gzip
+}
+
+http://docker.for.mac.localhost/static {
+  root /static
+}
+
+http://docker.for.mac.localhost/media {
+  root /media
+}
+</code></pre>
+     <p>django settings.py</p>
+     <pre><code>ALLOWED_HOSTS = [os.getenv("DJANGO_ALLOWED_HOSTS")]
+    
+CORS_ORIGIN_WHITELIST = [f'{os.getenv("DJANGO_ALLOWED_PROTOCOL")}://{os.getenv("DJANGO_ALLOWED_HOSTS")}']
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "NAME": os.getenv("POSTGRES_DB"),
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": "db",
+        "PORT": "5432",
+    }
+}
+</code></pre>
+     <p>nuxt.config.js (the baseURL variable will override API_URL of environment)</p>
+     <pre><code>axios: {
+  baseURL: 'http://127.0.0.1:8000/b/api'
+},
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_31"><span>Answer 31</span> <span class="arrow"> <a href="#answer_30">↑</a> </span> <span class="arrow"> <a href="#answer_32">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Duc Trung Mai</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Nov 2020 at 06:27</span>
+     </div>
+    </div>
+    <div>
+     <p>You can simply do <code>ifconfig</code> on host machine to check your host IP, then connect to the ip from within your container, works perfectly for me.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Worked for me. I used the <code>ifconfig</code> command and took thefirst <code>inet</code> ip and it seems right</span> <span> - </span> <span class="display-name">Amin Shojaei</span> <span> </span> <span class="date">25 Apr 2021 at 16:33</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_32"><span>Answer 32</span> <span class="arrow"> <a href="#answer_31">↑</a> </span> <span class="arrow"> <a href="#answer_33">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Adán Escobar</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>2 Jul 2022 at 03:50</span>
+     </div>
+    </div>
+    <div>
+     <p>you can use net alias for your machine</p>
+     <p>OSX</p>
+     <pre><code>sudo ifconfig lo0 alias 123.123.123.123/24 up
+</code></pre>
+     <p>LINUX</p>
+     <pre><code>sudo ifconfig lo:0  123.123.123.123 up
+</code></pre>
+     <p>then from the container you can see the machine by <code>123.123.123.123</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_33"><span>Answer 33</span> <span class="arrow"> <a href="#answer_32">↑</a> </span> <span class="arrow"> <a href="#answer_34">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Nigrimmist</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>31 Oct 2022 at 21:49</span>
+     </div>
+    </div>
+    <div>
+     <p>Unfortunately, currently, <strong>Windows</strong> (at least docker desktop) is not supporting --net=host</p>
+     <p>Quoted from: <a href="https://docs.docker.com/network/network-tutorial-host/#prerequisites" rel="nofollow noreferrer">https://docs.docker.com/network/network-tutorial-host/#prerequisites</a></p>
+     <blockquote>
+      <p>The host networking driver only works on Linux hosts, and is not supported on Docker for Mac, Docker for Windows, or Docker EE for Windows Server.</p>
+     </blockquote>
+     <p>You can try to use <a href="https://docs.docker.com/toolbox/" rel="nofollow noreferrer">https://docs.docker.com/toolbox/</a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_34"><span>Answer 34</span> <span class="arrow"> <a href="#answer_33">↑</a> </span> <span class="arrow"> <a href="#answer_35">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>L.T</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Jul 2020 at 01:25</span>
+     </div>
+    </div>
+    <div>
+     <p>if you use docker-compose, maybe it can work:</p>
+     <pre><code>iptables -I INPUT ! -i eth0 -p tcp --dport 8001 -j ACCEPT
+</code></pre>
+     <p>the <code>eth0</code> is your network interface that connect internet, and <code>8081</code> the host server port</p>
+     <p>the best way for iptables rule is <code>iptables TRACE</code></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_35"><span>Answer 35</span> <span class="arrow"> <a href="#answer_34">↑</a> </span> <span class="arrow"> <a href="#answer_36">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>MichaelMoser</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Mar 2021 at 10:19</span>
+     </div>
+    </div>
+    <div>
+     <p>the server on the host is listening on port 5000; it will send a string <code>response from host</code> back as a response</p>
+     <p><code>echo "response from host" | nc -l -p 5000</code></p>
+     <p>the docker is running in bridge mode by default (that is more secure than running in host network mode); the process in the docker gets the ipv4 address for the first network interface on the host that is not 127.0.0.1; this ipv4 address is passed to the docker via environment variable HOSTIP ; inside the docker there is a nc command that connects to the server on the host ip and port 5000; the command also reads the response of the server.</p>
+     <p><code>HOST=$(ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{ print $2 }' | head -1 | sed -n 's/[^0-9]*\([0-9\.]*\)/\1/p'); docker run -e HOSTIP="${HOST}" --rm -it alpine /bin/sh -c 'echo "greetings from container" | nc $HOSTIP 5000 -v'</code></p>
+     <p>The expression that computes the ipv4 address of the first listed interface does work on osx and linux:</p>
+     <p><code>HOST=$(ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{ print $2 }' | head -1 | sed -n 's/[^0-9]*\([0-9\.]*\)/\1/p')</code></p>
+     <p>to make it even more general: you can run the server inside another docker container, that would look as follows:</p>
+     <p><code>docker run --expose 5000 -p :5000:5000 --rm -it alpine /bin/sh -c 'echo "response from host" | nc -l -p 5000'</code></p>
+     <p>--expose 5000 the docker container can accept connection on port 5000</p>
+     <p>-p :5000:5000 the docker engine on the host side is listening on port 5000 on any interface and is forwarding connections to port 5000 on the container network (where nc is running).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_36"><span>Answer 36</span> <span class="arrow"> <a href="#answer_35">↑</a> </span> <span class="arrow"> <a href="#answer_37">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tires</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 May 2021 at 19:00</span>
+     </div>
+    </div>
+    <div>
+     <p>Despite lot of long, confusing answers a short one. If your docker bridge network is 172.17.0.0/16, do the following things:</p>
+     <ol>
+      <li>Bind your container to 172.17.0.1 eg. -p 172.17.0.1:8080:8080 (whatever is the gateway in your Docker bridge network)</li>
+      <li>Just access 172.17.0.1 port 8080 eg. curl <a href="http://172.17.0.1:8080/" rel="nofollow noreferrer">http://172.17.0.1:8080/</a> from other container</li>
+     </ol>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_37"><span>Answer 37</span> <span class="arrow"> <a href="#answer_36">↑</a> </span> <span class="arrow"> <a href="#answer_38">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>midi</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>14 Jun 2022 at 08:41</span>
+     </div>
+    </div>
+    <div>
+     <p>For me enetring this command on the host to get the ip did the trick:</p>
+     <pre><code>docker run busybox ping -c 1 host.docker.internal | awk 'FNR==2 {print $4}' | sed s'/.$//'
+</code></pre>
+     <p>or on mac</p>
+     <pre><code>docker run busybox ping -c 1 docker.for.mac.localhost | awk 'FNR==2 {print $4}' | sed s'/.$//'
+</code></pre>
+     <p>docker-compose.yml</p>
+     <pre><code>version: '3.8'
+
+services:
+  spring-app-container:
+    image: spring-app:1
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    ports:
+      - "50800:50800"
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_38"><span>Answer 38</span> <span class="arrow"> <a href="#answer_37">↑</a> </span> <span class="arrow"> <a href="#answer_39">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Maksym Kosenko</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>15 Nov 2022 at 19:43</span>
+     </div>
+    </div>
+    <div>
+     <p>An additional point might be useful, especially for NGINX server configuration within a docker container. So, if your host service is supposed to read a client's url for different purposes, there is a possibility to define it, just slightly modifying the approach mentioned before in the answers:</p>
+     <pre><code>--add-host brand-A-client.local:host-gateway
+</code></pre>
+     <p>or in a docker-compose.yml</p>
+     <pre><code>extra_hosts:
+- brand-B-client.local:host-gateway
+</code></pre>
+     <p>And refer to them respectively within containers. Applicable for Docker Windows/Macos/Linux.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_39"><span>Answer 39</span> <span class="arrow"> <a href="#answer_38">↑</a> </span> <span class="arrow"> <a href="#answer_40">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Lokesh S</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Sep 2018 at 15:18</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>For Windows Machine :-</strong></p>
+     <p>Run the below command to Expose docker port randomly during build time</p>
+     <pre><code>$docker run -d --name MyWebServer -P mediawiki
+</code></pre>
+     <p><a href="https://i.stack.imgur.com/sUYvU.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/sUYvU.png" alt="enter image description here"></a></p>
+     <p><a href="https://i.stack.imgur.com/iaAaa.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/iaAaa.png" alt="enter image description here"></a></p>
+     <p>In the above container list you can see the port assigned as 32768. Try accessing</p>
+     <pre><code>localhost:32768 
+</code></pre>
+     <p>You can see the mediawiki page</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>10</td>
+        <td><span>Though this answer may provide useful information to some users, it is <i>the wrong way around</i>! It is about accessing a service <i>running in the container</i> from the host machine. The question, however, was about accessing a service <i>running on the host</i> from the container.</span> <span> - </span> <span class="display-name">einjohn</span> <span> </span> <span class="date">9 May 2019 at 13:24</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_40"><span>Answer 40</span> <span class="arrow"> <a href="#answer_39">↑</a> </span> <span class="arrow"> <a href="#answer_41">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>F. Kam</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>6 Feb 2020 at 04:00</span>
+     </div>
+    </div>
+    <div>
+     <p>The way I do it is pass the host IP as environment variable to container. Container then access the host by that variable.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td></td>
+        <td><span>Can you illustrate how you do this? I had attempted this approach but didn't find much success</span> <span> - </span> <span class="display-name">kmjb</span> <span> </span> <span class="date">17 Feb 2020 at 14:11</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>` docker run -i -t -e HOST=10.145.2.123 ubuntu root@ce2a843da3ee:/tmp# ./telnet $HOST 22 Trying 10.145.2.123... Connected to 10.145.2.123. Escape character is '^]'. SSH-2.0-OpenSSH_7.4`</span> <span> - </span> <span class="display-name">F. Kam</span> <span> </span> <span class="date">20 Feb 2020 at 08:29</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_41"><span>Answer 41</span> <span class="arrow"> <a href="#answer_40">↑</a> </span> <span class="arrow"> <a href="#answer_42">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Danon</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>22 Feb 2023 at 14:51</span>
+     </div>
+    </div>
+    <div>
+     <p>On Windows machines, it is common that ports are unreachable because of internal cache problems with network addresses translator. Restarting it might help:</p>
+     <pre><code>net stop winnat
+net start winnat
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_42"><span>Answer 42</span> <span class="arrow"> <a href="#answer_41">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Tony Jara</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>25 Mar 2023 at 18:04</span>
+     </div>
+    </div>
+    <div>
+     <p>If it's useful to anyone, when using NEXTJS on mac I had to use <a href="http://docker.for.mac.localhost:8000" rel="nofollow noreferrer">http://docker.for.mac.localhost:8000</a> on the CLIENT and plain old http://localhost:8000 on the server.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

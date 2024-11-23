@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf restrictions on onmouseover handler</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf restrictions on onmouseover handler</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Chris Wood</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>17 Apr 2020 at 03:09</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/61263518/thymeleaf-restrictions-on-onmouseover-handler">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I'm translating an ancient Struts/JSP application to use Spring 5 and Thymeleaf. The original application had a logic:iterate tag over the variable tt for rows in a table, and the cell was displaying a timestamp formatted on the back-end into the user's time zone, with a hover-over for UTC, like this:</p>
+    <pre><code>&lt;td style="cursor: pointer; cursor: hand"
+    onmouseover="return escape('&lt;bean:write name="tt"  property="ts_UTC" /&gt;' + ' UTC')"&gt;
+    &lt;bean:write name="tt" property="ts_User" /&gt;&lt;/td&gt;
+</code></pre>
+    <p>It generates output that looks like this:</p>
+    <pre><code>&lt;td style="cursor: pointer; cursor: hand"
+    onmouseover="return escape('04/06/2020 11:14:50 AM' + ' UTC')"&gt;
+    04/06/2020 07:14:50 AM&lt;/td&gt;
+</code></pre>
+    <p>After a few attempts and reading <a href="https://github.com/thymeleaf/thymeleaf/issues/705" rel="nofollow noreferrer">https://github.com/thymeleaf/thymeleaf/issues/705</a> and <a href="https://github.com/thymeleaf/thymeleaf/issues/707" rel="nofollow noreferrer">https://github.com/thymeleaf/thymeleaf/issues/707</a>, I translated it to thymeleaf as follows:</p>
+    <pre><code>&lt;td style="cursor: pointer; cursor: hand"
+    th:onmouseover="return escape( '[[${tt.ts_UTC}]] UTC');"
+    th:text="${tt.ts_user}"&gt;&lt;/td&gt;
+</code></pre>
+    <p>The problem is the generated output looks like this:</p>
+    <pre><code>&lt;td style="cursor: pointer; cursor: hand"
+    onmouseover="return escape( &amp;#39;&amp;quot;05\/04\/2015 08:05:24 PM&amp;quot; UTC&amp;#39;);"
+    &gt;05/04/2015 04:05:24 PM&lt;/td&gt;
+</code></pre>
+    <p>I have no idea where the &amp;quot; is coming from, and I really want the &amp;#39's to turn back into apostrophes. I'm stumped. How do I do this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>0</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>17 Apr 2020 at 14:30</span>
+     </div>
+    </div>
+    <div>
+     <p>I don't know if this is a full solution - because I don't know how the text ends up being displayed by the mouseover event. But...</p>
+     <p>I suggest moving the event handler to a separate JavaScript function, to keep things a bit cleaner &amp; more flexible.</p>
+     <p>Start with this:</p>
+     <pre><code>&lt;div style="cursor: pointer; cursor: hand"
+     th:onmouseover="showMouseoverText( /*[[${tt.ts_UTC}]]*/ );"
+     th:text="${tt.ts_user}"&gt;
+&lt;/div&gt;
+</code></pre>
+     <p>What is that <code>/*[[${tt.ts_UTC}]]*/</code> doing? It uses the <em>escaped</em> form of <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#javascript-inlining" rel="nofollow noreferrer">JavaScript inlining</a> - the double-bracket notation. But it also wraps it in a comment, which makes use of Thymeleaf's <a href="https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf#javascript-natural-templates" rel="nofollow noreferrer">JavaScript ntural templating</a>. This ensures there are no syntax errors when processing the template.</p>
+     <p>Then somewhere in your <code>&lt;head&gt;...&lt;/head&gt;</code> section, add this:</p>
+     <pre><code>&lt;script th:inline="javascript"&gt;
+    function showMouseoverText( ts ) {
+        console.log(ts + ' UTC');
+        return escape(ts + ' UTC');
+    }
+&lt;/script&gt;
+</code></pre>
+     <p>The console line is just there to test. For me, I get my static test data printed as follows:</p>
+     <pre><code>04/06/2020 11:14:50 AM UTC
+</code></pre>
+     <p>I don't know if that final line <code>return escape(ts + ' UTC')</code> will work the way you need. I'm not sure what it does.</p>
+     <p>What you get in your HTML page will be the following:</p>
+     <p>The div:</p>
+     <pre><code>&lt;div style="cursor: pointer; cursor: hand"
+     onmouseover="showMouseoverText( &amp;quot;04\/06\/2020 11:14:50 AM&amp;quot;);"&gt;John Doe
+&lt;/div&gt;
+</code></pre>
+     <p>You will see the escaped <code>/</code> characters - and single quotes represented as <code>&amp;quot;</code>. But the JavaScript function should handle these (as shown in the console output above). If not, then at least you can manipulate the data in your function, as needed.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

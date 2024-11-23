@@ -1,5 +1,6 @@
 package org.northcoder.soclient;
 
+import org.northcoder.soclient.staticsite.StaticSiteController;
 import io.javalin.Javalin;
 import static io.javalin.apibuilder.ApiBuilder.*;
 import io.javalin.config.JavalinConfig;
@@ -11,6 +12,9 @@ import java.sql.SQLException;
 import org.northcoder.soclient.loader.LoaderController;
 import org.northcoder.soclient.retriever.RetrieverController;
 
+//
+// http://localhost:8091/questions
+//
 public class App {
 
     private final String uri = "mongodb://localhost:27017";
@@ -45,6 +49,10 @@ public class App {
             get("/load_data", loaderCtl::loadDataList);
             // JSON:
             get("/questions_list", retrieverCtl::fetchQuestionsJson);
+            //
+            // build static site:
+            //
+            get("/build_static_site", new StaticSiteController()::build);
         });
         // data loader websocket:
         javalin.ws("/websocket/do_load", (ws) -> {

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>Thymeleaf Link url expression with anchor</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>Thymeleaf Link url expression with anchor</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Marcos Côrtes</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 Sep 2021 at 22:01</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/69276002/thymeleaf-link-url-expression-with-anchor">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I need create a url in thymeleaf with anchor. Like:</p>
+    <pre><code>/import#34546
+</code></pre>
+    <p>But the link url expression does not work.</p>
+    <pre><code>&lt;a th:href="@{import#{id}(id=${object.id}}"&gt;link&lt;/a&gt;
+</code></pre>
+    <p>someone get this url using thymeleaf?</p>
+    <p>I use thymeleaf with spring-boot 2.5.4.</p>
+    <p>Thanks!</p>
+   </div>
+   <div class="tags">
+    <span class="tag">spring-boot</span><span class="tag">spring-mvc</span><span class="tag">url</span><span class="tag">thymeleaf</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td></td>
+       <td><span>I think you are using too many brackets.</span> <span> - </span> <span class="display-name">Elmar Brauch</span> <span> </span> <span class="date">21 Sep 2021 at 22:05</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>By the way, your expression in the question is missing the closing <code>)</code> in <code>...(id=${object.id})}</code> - but that still does not evaluate to what you need.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">21 Sep 2021 at 23:43</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Sep 2021 at 22:48</span>
+     </div>
+    </div>
+    <div>
+     <p><strong>Summary</strong></p>
+     <p>Thymeleaf does not support the use of expressions for evaluating URL fragments. It assumes the fragment will be hard-coded.</p>
+     <p>Therefore I suggest you use a combination of the <code>@{...}</code> syntax for everything apart from the fragment, and then use string concatenation to build the fragment with a Thymeleaf <code>${...}</code> expression.</p>
+     <p>One example (there are other ways to do concatenation, also):</p>
+     <pre><code>&lt;a th:href="@{import} + ${'#' + object_id}"&gt;link&lt;/a&gt;
+</code></pre>
+     <p>This allows you to still take advantage of the features of <code>@{...}</code>, such as handling for absolute and relative URLs.</p>
+     <p><strong>Details</strong></p>
+     <p>Looking at the Thymeleaf source code for the <a href="https://github.com/thymeleaf/thymeleaf/blob/3.0-master/src/main/java/org/thymeleaf/linkbuilder/StandardLinkBuilder.java" rel="nofollow noreferrer"><code>StandardLinkBuilder</code></a> class, we can see how <a href="https://en.wikipedia.org/wiki/URL" rel="nofollow noreferrer">URL fragments</a> (the <code>#</code> and its following fragment identifier) are handled.</p>
+     <p>Points to note are:</p>
+     <p>The fragment portion of the URL is extracted <a href="https://github.com/thymeleaf/thymeleaf/blob/309b9f298e03cd069a6eea526bec298cfbec4a4a/src/main/java/org/thymeleaf/linkbuilder/StandardLinkBuilder.java#L160" rel="nofollow noreferrer">here</a>:</p>
+     <pre><code>urlFragment = linkBase.substring(hashPosition);
+</code></pre>
+     <p>The hash position is the location of a <code>#</code> in the URL string.</p>
+     <p>This substring is then removed from the URL string:</p>
+     <pre><code>linkBase.delete(hashPosition, linkBase.length());
+</code></pre>
+     <p>Later on (see <a href="https://github.com/thymeleaf/thymeleaf/blob/309b9f298e03cd069a6eea526bec298cfbec4a4a/src/main/java/org/thymeleaf/linkbuilder/StandardLinkBuilder.java#L199" rel="nofollow noreferrer">here</a>), after all other parameters have been processed, the urlFragment is added back to the URL, unchanged:</p>
+     <pre><code>linkBase.append(urlFragment);
+</code></pre>
+     <p>So, there is no processing of Thymeleaf expression variables for the URL fragment - it is just treated as a "hard-coded" string.</p>
+     <p>This means you can do something like this, where <code>#foo</code> is hardcoded:</p>
+     <pre><code>&lt;a th:href="@{import/{id}#foo(id=${object_id})}"&gt;link&lt;/a&gt;
+</code></pre>
+     <p>But you cannot do this (and get the desired result):</p>
+     <pre><code>&lt;a th:href="@{import/{id_a}#{id_b}(id_a=${object_id},id_b=${object_id})}"&gt;link&lt;/a&gt;
+</code></pre>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

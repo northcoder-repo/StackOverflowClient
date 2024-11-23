@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to access elements of a BasicDynaBean type of object in Java?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to access elements of a BasicDynaBean type of object in Java?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>0</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>rudeTool</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>29 Aug 2021 at 14:49</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/68974064/how-to-access-elements-of-a-basicdynabean-type-of-object-in-java">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I am working on a Spring Boot app where I am using JdbcTemplate to return a <code>List&lt;BasicDynaBean&gt;</code> from a SQL query like this:</p>
+    <pre><code>List&lt;BasicDynaBean&gt; students= SELECT * from students; //where each students row has following data fields: `name`,`marks`.
+
+for(BasicDynaBean student:students)
+     //increment marks
+</code></pre>
+    <p>Now, I want to iterate through the students list and do some modifications on marks. How can I do this?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span><span class="tag">postgresql</span><span class="tag">list</span><span class="tag">jdbc</span><span class="tag">apache-commons-beanutils</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+     <tbody>
+      <tr>
+       <td>1</td>
+       <td><span>Are you saying that <code>student.get("name")</code> and <code>student.get("marks")</code> - and the related <code>set()</code> methods are not working as expected? <a href="https://commons.apache.org/proper/commons-beanutils/apidocs/org/apache/commons/beanutils/DynaBean.html" rel="nofollow noreferrer">JavaDoc reference</a></span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">29 Aug 2021 at 21:08</span></td>
+      </tr>
+      <tr>
+       <td></td>
+       <td><span>Also, I would expect to see <code>List&lt;DynaBean&gt;</code> rather than <code>List&lt;BasicDynaBean&gt;</code>.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">29 Aug 2021 at 21:24</span></td>
+      </tr>
+     </tbody>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>30 Aug 2021 at 13:11</span>
+     </div>
+    </div>
+    <div>
+     <p>The following code populates a list of <code>DynaBeans</code> using a <code>JdbcTemplate</code>. It then accesses the resulting list and makes changes to the beans' data:</p>
+     <pre class="lang-java prettyprint-override"><code>// create the fields we need for our students bean:
+DynaProperty[] beanProperties = new DynaProperty[]{
+    new DynaProperty("name", String.class),
+    new DynaProperty("marks", Integer.class)
+};
+
+// create a class containing these fields:
+BasicDynaClass studentClass = new BasicDynaClass("student",
+        BasicDynaBean.class, beanProperties);
+
+String query = "SELECT * FROM students";
+
+// handle the result set using a jdbcTemplate:
+List&lt;DynaBean&gt; students = jdbcTemplate.query(query, null, null, (ResultSet rs) -&gt; {
+    // define a list which will hold the DB results in a list of DynaBeans:
+    List&lt;DynaBean&gt; dynaBeanList = new ArrayList&lt;&gt;();
+    while (rs.next()) {
+        // the DynaBean which will hold the current table record:
+        DynaBean student = null;
+        try {
+            student = studentClass.newInstance();
+        } catch (IllegalAccessException | InstantiationException ex) {
+            log.error("DynaBean creation failed.", ex);
+        }
+        // load the current table record into the DynaBean:
+        if (student != null) {
+            student.set("name", rs.getString("name"));
+            student.set("marks", rs.getInt("marks"));
+            dynaBeanList.add(student);
+        }
+    }
+    return dynaBeanList;
+});
+
+// demonstrate that we can process our list of DynaBeans:
+if (students != null) {
+    students.forEach(student -&gt; {
+        // Add 1 to each student's marks:
+        student.set("marks", (Integer) student.get("marks") + 1);
+        // print the student's name and the new marks:
+        System.out.println(student.get("name") + ": " + student.get("marks"));
+    });
+}
+</code></pre>
+     <p>The table was loaded in advance with the following data:</p>
+     <pre class="lang-java prettyprint-override"><code>jdbcTemplate.update("INSERT INTO students(name, marks) VALUES (?,?)", "John Jones", 78);
+jdbcTemplate.update("INSERT INTO students(name, marks) VALUES (?,?)", "Mary Smith", 89);
+</code></pre>
+     <p>The following output was generated, showing we can access the resulting dynabeans and update their data:</p>
+     <pre><code>John Jones: 79
+Mary Smith: 90
+</code></pre>
+     <hr>
+     <p>In my example, I used the following <code>JdbcTemplate</code> method using a result set extractor to wrap the JDBC result set (<a href="https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/jdbc/core/JdbcTemplate.html#query-java.lang.String-java.lang.Object:A-int:A-org.springframework.jdbc.core.ResultSetExtractor-" rel="nofollow noreferrer">see here</a>):</p>
+     <pre><code>jdbcTemplate.query(query, null, null, (ResultSet rs) -&gt; { ... });
+</code></pre>
+     <p>I would typically use a prepared statement instead of a hard-coded SQL statement in a string - and therefore I would use a different method, accordingly.</p>
+     <hr>
+     <p>The above sample used Spring Boot v2.5.4 with Commons Beanutils v1.9.4. It also used Java 15, but should work the same way with Java 8.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

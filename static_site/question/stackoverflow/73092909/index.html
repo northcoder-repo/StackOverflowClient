@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>RabbitMQ message rates for the past hour</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>RabbitMQ message rates for the past hour</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>1</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Eugene Gorbov</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>23 Jul 2022 at 17:32</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/73092909/rabbitmq-message-rates-for-the-past-hour">source</a>
+    </div>
+   </div>
+   <div>
+    <p>How can I get information about message rates for the past hour?</p>
+    <p>Like this Management Plugin:</p>
+    <p><a href="https://i.stack.imgur.com/r8oU1.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/r8oU1.png" alt="enter image description here"></a></p>
+    <p>I tried:</p>
+    <pre><code>http://server:XXXXX/api/overview?msg_rates_age=3600&amp;msg_rates_incr=60
+</code></pre>
+    <p><a href="https://i.stack.imgur.com/NNNx3.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/NNNx3.png" alt="enter image description here"></a></p>
+    <p>I don't understand what those "samples" numbers mean? How to get correct 100...120 like "rate"?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">rabbitmq</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>1</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>23 Jul 2022 at 18:49</span>
+     </div>
+    </div>
+    <div>
+     <p>The <code>sample</code> statistic is defined as:</p>
+     <blockquote>
+      <p>Snapshots showing how <strong>the value</strong> has changed over the requested time period.</p>
+     </blockquote>
+     <p>Here, <em>the value</em> is the item you are measuring to get your rate.</p>
+     <p>So, for example, in your case, there are 474673496 messages in the "publish" category - and that total number has been changing over time, as given by each of the <code>sample</code> and <code>timestamp</code> pair of values. The sample number (messages total) decreases as you go further back in time, with each previous timestamp.</p>
+     <p>(The timestamps are given as milliseconds since <a href="https://en.wikipedia.org/wiki/Unix_time" rel="nofollow noreferrer">the Unix epoch</a>. So <code>1658595600000</code> is <code>Saturday, July 23, 2022 5:00:00 PM GMT</code>.)</p>
+     <p>You can use this data to see how the rate has changed over sampling periods.</p>
+     <hr>
+     <p>Some documentation for this can be found here:</p>
+     <p><a href="https://raw.githack.com/rabbitmq/rabbitmq-management/rabbitmq_v3_6_9/priv/www/doc/stats.html" rel="nofollow noreferrer">RabbitMQ Management HTTP Stats</a></p>
+     <p>This documentation is for an older version of Rabbit (v3.6.9) - so there may be an updated documentation page (if so I was not able to find it).</p>
+     <hr>
+     <p><strong>Update</strong></p>
+     <p>The most recent documentation:</p>
+     <p><a href="http://raw.githack.com/rabbitmq/rabbitmq-server/v3.10.6/deps/rabbitmq_management/priv/www/api/index.html" rel="nofollow noreferrer">http://raw.githack.com/rabbitmq/rabbitmq-server/v3.10.6/deps/rabbitmq_management/priv/www/api/index.html</a></p>
+     <p>It is now a single consolidated page, instead of 2 separate pages.</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+      <tbody>
+       <tr>
+        <td>1</td>
+        <td><span>Thx! This was the misunderstanding: too large numbers. 120 requests * 60 seconds = 7200 - this is approximately requests per minute.</span> <span> - </span> <span class="display-name">Eugene Gorbov</span> <span> </span> <span class="date">1 Aug 2022 at 15:32</span></td>
+       </tr>
+       <tr>
+        <td>1</td>
+        <td><span>OK, yes - these numbers are not intuitive (to me, anyway). If you wanted (just as an example) to get the rate per hour over the last 5 hours, I think you would have to use <code>msg_rates_age=18000&amp;msg_rates_incr=3600</code> - and then parse the JSON response to subtract each previous "sample" value from the one above it.</span> <span> - </span> <span class="display-name">andrewJames</span> <span> </span> <span class="date">1 Aug 2022 at 15:38</span></td>
+       </tr>
+       <tr>
+        <td></td>
+        <td><span>Yeap! Thx! That's all I needed</span> <span> - </span> <span class="display-name">Eugene Gorbov</span> <span> </span> <span class="date">2 Aug 2022 at 19:55</span></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

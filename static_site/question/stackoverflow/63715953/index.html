@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How would a "supplementary private method" help avoid raw types?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How would a "supplementary private method" help avoid raw types?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>10</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>Oliver</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>3 Sep 2020 at 02:30</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/63715953/how-would-a-supplementary-private-method-help-avoid-raw-types">source</a>
+    </div>
+   </div>
+   <div>
+    <p>In the source code of <code>java.util.Collection</code> there is function called <code>shuffle</code>:</p>
+    <pre><code>@SuppressWarnings({"rawtypes", "unchecked"})
+public static void shuffle(List&lt;?&gt; list, Random rnd) {
+    int size = list.size();
+    if (size &lt; SHUFFLE_THRESHOLD || list instanceof RandomAccess) {
+        for (int i=size; i&gt;1; i--)
+            swap(list, i-1, rnd.nextInt(i));
+    } else {
+        Object arr[] = list.toArray();
+
+        // Shuffle array
+        for (int i=size; i&gt;1; i--)
+            swap(arr, i-1, rnd.nextInt(i));
+
+        // Dump array back into list
+        // instead of using a raw type here, it's possible to capture
+        // the wildcard but it will require a call to a supplementary
+        // private method
+        ListIterator it = list.listIterator();
+        for (int i=0; i&lt;arr.length; i++) {
+            it.next();
+            it.set(arr[i]);
+        }
+    }
+}
+</code></pre>
+    <p>The comment in the code says, "instead of using a raw type here, it's possible to capture the wildcard but it will require a call to a supplementary private method."</p>
+    <p>What does that mean? How could this be written without raw types?</p>
+   </div>
+   <div class="tags">
+    <span class="tag">java</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span> <span class="arrow"> <a href="#answer_2">↓</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>8</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>Sweeper</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Sep 2020 at 02:57</span>
+     </div>
+    </div>
+    <div>
+     <p>There is a <a href="https://docs.oracle.com/javase/tutorial/java/generics/capture.html" rel="noreferrer">page</a> in the Oracle Docs that explains what "captures a wildcard" means.</p>
+     <p>In the case of <code>shuffle</code>, you extract the "dump array" operation into a generic helper method:</p>
+     <pre><code>private static &lt;T&gt; void dumpArray(Object[] arr, List&lt;T&gt; list) {
+    ListIterator&lt;T&gt; it = list.listIterator();
+    for (int i=0; i&lt;arr.length; i++) {
+        it.next();
+        it.set((T)arr[i]);
+    }
+}
+
+//...
+dumpArray(arr, list);
+</code></pre>
+     <p>This works because as the docs said:</p>
+     <blockquote>
+      <p>Thanks to the helper method, the compiler uses inference to determine that T is CAP#1, the capture variable, in the invocation.</p>
+     </blockquote>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <div>
+    <h2 id="answer_2"><span>Answer 2</span> <span class="arrow"> <a href="#answer_1">↑</a> </span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>stinepike</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>3 Sep 2020 at 13:26</span>
+     </div>
+    </div>
+    <div>
+     <p>While Sweeper perfectly answered the question, I am adding a bit more context on the <code>raw context</code> warning, and what could have been the developer's intention there (disclaimer, I am not the one wrote that code, I am just speculating)</p>
+     <p>According to the <a href="https://docs.oracle.com/javase/tutorial/java/generics/rawTypes.html" rel="nofollow noreferrer">doc</a>,</p>
+     <blockquote>
+      <p>A raw type is the name of a generic class or interface without any type arguments</p>
+     </blockquote>
+     <p>So in the above code, <code>ListIterator it</code> is a raw type. And you are assigning <code>ListIterator</code> of <code>list</code> which is a wildcard type <code>List&lt;?&gt;</code>.</p>
+     <p>Now what might be the issue in the above code using raw types? When you use a raw type to directly invoke a generic method defined in the corresponding generic types, the compiler will throw a warning. It will show warning for <code>unchecked invocation</code> as you are bypassing the generic type check, and that can cause a runtime error for type-mismatch. In this case, the following is doing that:</p>
+     <pre><code>it.set((T)arr[i]);
+</code></pre>
+     <p>Here <code>arr[i]</code> is the wildcard type created from <code>List&lt;?&gt;</code> but <code>it</code> is a raw <code>ListIterator</code>. So by design, compiler will show a warning. To get rid of that warning the developer suppressed that using:</p>
+     <pre><code>@SuppressWarnings({"rawtypes", "unchecked"})
+</code></pre>
+     <p>Now, a better workaround would be to have a private generic method to create a generic <code>ListIterator</code> and dump the array there. But the developer didn't seem to like that idea (although I think that would be cleaner).</p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>

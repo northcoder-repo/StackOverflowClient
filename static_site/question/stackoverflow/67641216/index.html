@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>How to remove header in PDF export result from DataTable and change color table fill to white?</title>
+  <link rel="stylesheet" type="text/css" href="/css/base.css">
+  <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+            tex2jax: { inlineMath: [ ["$", "$"], ["\\\\(","\\\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+            TeX: {
+            extensions: ["begingroup.js"],
+            noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } },
+            Macros: { href: "{}" }
+            },
+            messageStyle: "none",
+            styles: { ".MathJax_Display, .MathJax_Preview, .MathJax_Preview > *": { "background": "inherit" } },
+            SEEditor: "mathjaxEditing"
+            });
+        </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS_HTML-full"></script>
+ </head>
+ <body>
+  <div class="question">
+   <a href="/questions">All Questions</a>
+   <h2>How to remove header in PDF export result from DataTable and change color table fill to white?</h2>
+   <div class="container-metadata">
+    <div>
+     <span>Score: </span> <span>2</span>
+    </div>
+    <div>
+     <span>Asker: </span> <span>salman</span>
+    </div>
+    <div>
+     <span>Asked: </span> <span>21 May 2021 at 17:10</span>
+    </div>
+    <div>
+     <a href="https://stackoverflow.com/questions/67641216/how-to-remove-header-in-pdf-export-result-from-datatable-and-change-color-table">source</a>
+    </div>
+   </div>
+   <div>
+    <p>I tried removing the header in the exported PDF from the DataTable but it didn't work. Also, how to change the color table to full white and border black?</p>
+    <pre><code>var table = $('#ReportTable').DataTable( {
+    lengthChange: false,
+    buttons: [
+                {"extend": 'pdf', 
+                "className": 'btn btn-sm btn-primary rounded-pill px-3 mb-3 mb-sm-0',
+                    customize: function(doc) {
+                        doc.header = false;
+                        doc.pageMargins = [ 150, 20, 150, 20 ];
+                    },
+                },
+                {
+                    "extend": 'print',
+                    "className": 'btn btn-sm btn-primary rounded-pill px-3 mb-3 mb-sm-0'
+                },
+            ]
+} );
+
+table.buttons().container()
+    .appendTo( '#ReportTable_wrapper .col-md-6:eq(0)' );
+</code></pre>
+    <p><a href="https://i.stack.imgur.com/1aTEC.jpg" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/1aTEC.jpg" alt="enter image description here"></a></p>
+   </div>
+   <div class="tags">
+    <span class="tag">laravel</span><span class="tag">datatables</span>
+   </div>
+   <hr>
+   <div class="comment">
+    <table>
+    </table>
+   </div>
+   <br>
+   <div>
+    <h2 id="answer_1"><span>Answer 1</span></h2>
+    <div class="container-metadata">
+     <div>
+      <span>Score: </span> <span>2</span>
+     </div>
+     <div>
+      <span>Answerer: </span> <span>andrewJames</span>
+     </div>
+     <div>
+      <span> Answered: </span> <span>21 May 2021 at 18:12</span>
+     </div>
+    </div>
+    <div>
+     <p>You can use <code>title</code> to control the title ("SiPanda") and you can use <code>customize</code> to control the different colors (striped lines) used for alternate rows in the PDF.</p>
+     <p>I don't want to interfere with your existing use of <code>customize</code>, so here is my test example which you can use as a model:</p>
+     <pre class="lang-js prettyprint-override"><code>var table = $('#example').DataTable( {
+dom: 'Brftip',
+buttons: [
+  { 
+    extend: 'pdfHtml5', 
+    text: 'To PDF',
+    title: '',
+    customize: function ( pdf, btn, tbl ) {
+      delete pdf.styles.tableBodyOdd.fillColor;
+    }
+  }  
+]
+} );
+</code></pre>
+     <p>The <code>title: ''</code> is straightforward (assuming your PDF is actually getting its title from the web page's title).</p>
+     <p>The <code>delete pdf.styles.tableBodyOdd.fillColor;</code> assumes that your DataTable is using the "standard" zebra-stripes" style.</p>
+     <p>This command works because the DataTable passes the following properties to PDFMake:</p>
+     <pre class="lang-js prettyprint-override"><code>tableBodyEven: Object {  }
+tableBodyOdd: Object { fillColor: "#f3f3f3" }
+</code></pre>
+     <p>So, we remove the <code>fillColor: "#f3f3f3"</code> property from the <code>tableBodyOdd</code> object.</p>
+     <p>If you have used a different DataTables styling, you may see something different from what I see - in which case you can use <code>console.log( pdf );</code> to take a closer look.</p>
+     <hr>
+     <p><strong>UPDATE</strong></p>
+     <p>I missed the part about "<em>and border black</em>" - so here is an approach for that, also:</p>
+     <pre class="lang-js prettyprint-override"><code>buttons: [
+  { 
+    extend: 'pdfHtml5', 
+    text: 'To PDF',
+    title: '',
+    customize: function ( pdf, btn, tbl ) {
+      delete pdf.styles.tableBodyOdd.fillColor;
+
+      pdfMake.tableLayouts = {
+        exampleLayout: {
+          hLineWidth: function (i) {
+            return 0.2;
+          },
+          vLineWidth: function (i) {
+            return 0.2;
+          },
+          hLineColor: function (i) {
+            return 'black';
+          },
+          vLineColor: function (i) {
+            return 'black';
+          }
+          //paddingLeft: function (i) {
+          //  return i === 0 ? 0 : 8;
+          //},
+          //paddingRight: function (i, node) {
+          //  return (i === node.table.widths.length - 1) ? 0 : 8;
+          //}
+        }
+      };
+
+      pdf.content[0].layout = "exampleLayout";
+    }
+  }  
+]
+</code></pre>
+     <p>In the above snippet, I define an object called <code>pdfMake.tableLayouts</code> which contains a custom object called <code>exampleLayout</code>.</p>
+     <p>My <code>exampleLayout</code> defines thin black lines around every cell in the table.</p>
+     <p>I then use this custom layout by using:</p>
+     <pre><code>pdf.content[0].layout = "exampleLayout";
+</code></pre>
+     <p>You can choose your own line widths and colors.</p>
+     <hr>
+     <p>The end result:</p>
+     <p><a href="https://i.stack.imgur.com/BboFj.png" rel="nofollow noreferrer"><img src="https://i.stack.imgur.com/BboFj.png" alt="enter image description here"></a></p>
+    </div>
+    <hr>
+    <div class="comment">
+     <table>
+     </table>
+    </div>
+   </div>
+   <br>
+   <div>
+    <span>License: </span> <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> <span>by </span> <a href="https://stackoverflow.com/legal/terms-of-service#licensing">Stack Overflow Inc.</a>
+   </div>
+  </div>
+ </body>
+</html>
